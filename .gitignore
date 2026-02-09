@@ -1,13 +1,25 @@
+# Node
 node_modules/
-.env
-.history/
-media/
+npm-debug.log
 
-# uploads & runtime data
+# Env / Secrets
+.env
+
+# Runtime / Uploads / Generated
 public/uploads/
 public/assets/pdf/
-src/tmp/
 media/
-*.pdf
-*.mp4
+src/tmp/
 src/routes/admin/public/uploads/
+
+# OS / Editor
+.history/
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Videos / PDFs allgemein
+*.mp4
+*.pdf
