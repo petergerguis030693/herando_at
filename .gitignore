@@ -2,3 +2,12 @@ node_modules/
 .env
 .history/
 media/
+
+# uploads & runtime data
+public/uploads/
+public/assets/pdf/
+src/tmp/
+media/
+*.pdf
+*.mp4
+src/routes/admin/public/uploads/
