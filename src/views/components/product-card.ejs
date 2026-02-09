@@ -1,0 +1,225 @@
+<section class="productWrapper container contain mb-5">
+  <div class="productContainer">
+    <div class="productGrid d-flex flex-wrap" style="margin-top: 30px;">
+      <% items.forEach(item => { %>
+        <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>">
+          <div class="cardPeter mb-4 me-4">
+            <div class="imageBild">
+              <div class="bild">
+                <img src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= item.mainPic %>"
+                     alt="<%= item.title %>" loading="lazy" />
+              </div>
+            </div>
+
+            <div class="informationSection pt-2">
+              <div class="productInfo">
+                <h5 class="mb-1" style="margin-bottom: 10px; font-size: 14pt;">
+                  <%= item.title.length > 30 ? item.title.substring(0, 30) + "..." : item.title %>
+                </h5>
+
+                <%
+                  // Autos
+                  const cartypeLabels = {
+                    1: t('cars.gear.manual', 'Schaltgetriebe'),
+                    2: t('cars.gear.automatic', 'Automatik'),
+                    6: t('cars.gear.automatic', 'Automatik'),
+                    255: t('cars.gear.manual', 'Schaltgetriebe')
+                  };
+                  const cartypeName = cartypeLabels[item.cartype] || item.cartype;
+
+                  const fuelLabels = {
+                    1: t('cars.fuel.petrol', 'Benzin'),
+                    2: t('cars.fuel.diesel', 'Diesel'),
+                    3: t('cars.fuel.electric', 'Elektro'),
+                    4: t('cars.fuel.hybrid', 'Hybrid')
+                  };
+                  const fuelName = fuelLabels[item.fuel] || item.fuel;
+
+                  // Erstzulassung
+                  let firstReg = null;
+                  if (item.firstregistration) {
+                    const month = item.firstregistration_month ? String(item.firstregistration_month).padStart(2, '0') : '01';
+                    firstReg = month + '/' + item.firstregistration;
+                  }
+                %>
+
+                <% if (currentEntity && currentEntity.route === 'cars') { %>
+                  
+                  <div class="cartype-box">
+                    <p class="cartype-box" style="font-size: 12pt; margin-top: 12px;">
+                      <% if (cartypeName) { %>
+                        <span class="info-item"><i class="bi bi-gear-fill"></i> <%= cartypeName %></span>
+                      <% } %>
+
+                      <% if (item.mileage) { %>
+                        <span class="info-item"><i class="bi bi-speedometer2"></i> 
+                          <%= new Intl.NumberFormat('de-DE').format(item.mileage) %> km
+                        </span>
+                      <% } %>
+
+                      <% if (fuelName) { %>
+                        <span class="info-item"><i class="bi bi-fuel-pump"></i> <%= fuelName %></span>
+                      <% } %>
+
+                      <% if (firstReg) { %>
+                        <span class="info-item"><i class="bi bi-calendar-event"></i> 
+                          <%= t('cars.first_registration', 'Erstzulassung') %> <%= firstReg %>
+                        </span>
+                      <% } %>
+                    </p>
+                  </div>
+                <% } %>
+
+                <% if (currentEntity.route === 'watches') { 
+                    const watchTypeLabels = {
+                      1: t('watches.type.armband', 'Armbanduhr'),
+                      2: t('watches.type.taschen', 'Taschenuhr'),
+                      3: t('watches.type.smart', 'Smartwatch')
+                    };
+                    const genderLabels = {
+                      1: t('watches.gender.men', 'Herren'),
+                      2: t('watches.gender.women', 'Damen'),
+                      3: t('watches.gender.unisex', 'Unisex')
+                    };
+                    const movementLabels = {
+                      1: t('watches.movement.auto', 'Automatik'),
+                      2: t('watches.movement.hand', 'Handaufzug'),
+                      3: t('watches.movement.quartz', 'Quarz')
+                    };
+                    const caseMaterialLabels = {
+                      1: t('watches.case.steel', 'Edelstahl'),
+                      2: t('watches.case.gold', 'Gold'),
+                      3: t('watches.case.titan', 'Titan'),
+                      4: t('watches.case.keramik', 'Keramik')
+                    };
+
+                    const watchTypeName = watchTypeLabels[item.watchtype] || null;
+                    const genderName = genderLabels[item.gender] || null;
+                    const movementName = movementLabels[item.movement] || null;
+                    const caseMaterialName = caseMaterialLabels[item.case_material] || null;
+                %>
+                  <div class="cartype-box">
+                    <p class="cartype-box" style="font-size: 12pt; margin-top: 12px;">
+                      <% if (watchTypeName) { %>
+                        <span class="info-item"><i class="bi bi-watch"></i> <%= watchTypeName %></span>
+                      <% } %>
+                      <% if (genderName) { %>
+                        <span class="info-item"><i class="bi bi-gender-ambiguous"></i> <%= genderName %></span>
+                      <% } %>
+                      <% if (movementName) { %>
+                        <span class="info-item"><i class="bi bi-cpu"></i> <%= movementName %></span>
+                      <% } %>
+                      <% if (caseMaterialName) { %>
+                        <span class="info-item"><i class="bi bi-box"></i> <%= caseMaterialName %></span>
+                      <% } %>
+                    </p>
+                  </div>
+                <% } %>
+
+                <% if (currentEntity.route === 'properties') { 
+                    const propertyTypeLabels = {
+                      10: t('properties.type.finca', 'Finca'),
+                      5:  t('properties.type.penthouse', 'Penthouse'),
+                      11: t('properties.type.private_island', 'Privatinsel'),
+                      6:  t('properties.type.villa', 'Villa/Haus'),
+                      8:  t('properties.type.maisonette', 'Maisonette'),
+                      4:  t('properties.type.apartment', 'Wohnung'),
+                      12: t('properties.type.castle', 'Schloss/Herrenhaus'),
+                      255: t('properties.type.other', 'Sonstige')
+                    };
+
+                    const investmentTypeLabels = {
+                      1: t('properties.invest.living', 'Wohnen'),
+                      2: t('properties.invest.commercial', 'Gewerbe'),
+                      3: t('properties.invest.hotel', 'Hotel'),
+                      4: t('properties.invest.care', 'Pflegeimmobilie'),
+                      5: t('properties.invest.gastro', 'Gastronomie'),
+                      6: t('properties.invest.other', 'Sonstiges'),
+                      9: t('properties.invest.land', 'Grundstück')
+                    };
+
+                    const ptKey = Number(item.propertytype);
+                    const itKey = Number(item.investmenttype);
+                    const propertyTypeName = propertyTypeLabels[ptKey] || null;
+                    const investmentTypeName = investmentTypeLabels[itKey] || null;
+                %>
+                  <div class="cartype-box">
+                    <p class="cartype-box" style="font-size:12pt; margin-top:12px;">
+                      <% if (propertyTypeName) { %>
+                        <span class="info-item"><i class="bi bi-building"></i> <%= propertyTypeName %></span>
+                      <% } else if (investmentTypeName) { %>
+                        <span class="info-item"><i class="bi bi-cash-coin"></i> <%= investmentTypeName %></span>
+                      <% } %>
+
+                      <% if (item.bedrooms) { %>
+                        <span class="info-item"><i class="bi bi-door-closed"></i>
+                          <%= item.bedrooms %> <%= t('properties.rooms', 'Zimmer') %>
+                        </span>
+                      <% } %>
+
+                      <% if (item.bathrooms) { %>
+                        <span class="info-item"><i class="bi bi-droplet"></i>
+                          <%= item.bathrooms %> <%= t('properties.bathrooms', 'Bäder') %>
+                        </span>
+                      <% } %>
+
+                      <% if (item.livingarea) { %>
+                        <span class="info-item"><i class="bi bi-aspect-ratio"></i>
+                          <%= new Intl.NumberFormat('de-DE').format(item.livingarea) %> m²
+                        </span>
+                      <% } %>
+                    </p>
+                  </div>
+                <% } %>
+
+                <% if (currentEntity.route === 'yachts') { 
+                    const yachtTypeLabels = {
+                      1: t('yachts.type.motor', 'Motoryacht'),
+                      2: t('yachts.type.sail', 'Segelyacht'),
+                      3: t('yachts.type.catamaran', 'Katamaran')
+                    };
+                    const yachtTypeName = yachtTypeLabels[item.yachttype] || null;
+                %>
+                  <div class="cartype-box">
+                    <p class="cartype-box" style="font-size: 12pt; margin-top: 12px;">
+                      <% if (yachtTypeName) { %>
+                        <span class="info-item"><i class="bi bi-water"></i> <%= yachtTypeName %></span>
+                      <% } %>
+                      <% if (item.length) { %>
+                        <span class="info-item"><i class="bi bi-rulers"></i> <%= item.length %> m</span>
+                      <% } %>
+                      <% if (item.beam) { %>
+                        <span class="info-item"><i class="bi bi-arrows"></i>
+                          <%= item.beam %> m <%= t('yachts.width', 'Breite') %>
+                        </span>
+                      <% } %>
+                      <% if (item.draft) { %>
+                        <span class="info-item"><i class="bi bi-arrow-down"></i>
+                          <%= item.draft %> m <%= t('yachts.draft', 'Tiefgang') %>
+                        </span>
+                      <% } %>
+                      <% if (item.berths) { %>
+                        <span class="info-item"><i class="bi bi-person"></i>
+                          <%= item.berths %> <%= t('yachts.berths', 'Kojen') %>
+                        </span>
+                      <% } %>
+                      <% if (item.year) { %>
+                        <span class="info-item"><i class="bi bi-calendar-event"></i>
+                          <%= t('yachts.year', 'Baujahr') %> <%= item.year %>
+                        </span>
+                      <% } %>
+                    </p>
+                  </div>
+                <% } %>
+
+                <p class="productPrice mb-2" style="margin-top: 12px;">
+                  <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
+                </p>
+              </div>
+            </div>
+          </div>
+        </a>
+      <% }) %>
+    </div>
+  </div>
+</section>

@@ -1,0 +1,46 @@
+/* ================================
+   LIFESTYLE – Premium Look
+   ================================ */
+
+/* Leichter Glow + sanfter Schatten */
+.lux-card.lifestyle {
+  border: 1px solid #e6ded4;
+  box-shadow: 0 6px 18px rgba(160, 140, 120, 0.15);
+}
+
+/* Hover Effekt */
+.lux-card.lifestyle:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 12px 28px rgba(160, 140, 120, 0.25);
+}
+
+/* IMAGE - etwas höher für Lifestyle */
+.lux-card.lifestyle .lux-card-img {
+  height: 400px;   /* Lifestyle = größerer Mood-Shot */
+}
+
+/* TITLE */
+.lux-card.lifestyle .lux-card-title {
+  font-size: 1.3rem;
+  color: #3a2f2a;
+  letter-spacing: 0.4px;
+}
+
+/* SPECS */
+.lux-card.lifestyle .lux-card-specs span {
+  background: #f8f5f1;
+  padding: 4px 10px;
+  border-radius: 8px;
+}
+
+/* ICONS */
+.lux-card.lifestyle .lux-card-specs span i {
+  color: #c1a27b;
+}
+
+/* PRICE */
+.lux-card.lifestyle .lux-card-price {
+  font-size: 1.45rem;
+  font-weight: 900;
+  color: #a6855a;  /* wärmer als Autos */
+}

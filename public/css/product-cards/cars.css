@@ -1,0 +1,80 @@
+
+.lux-card {
+  display: block;
+  overflow: hidden;
+  text-decoration: none;
+  color: #0d1b2a;
+  transition: 0.25s ease;
+}
+
+/* IMAGE – höher & edler */
+.lux-card-img {
+  height: 350px; /* vorher 280px */
+  overflow: hidden;
+}
+
+.lux-card-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: 0.30s ease;
+}
+
+
+.lux-card-img img.is-placeholder{
+  object-fit:contain;
+  padding:15px;
+  background:#fff;
+}
+
+/* BODY */
+.lux-card-body {
+  padding: 18px 5px;
+}
+
+/* TITLE */
+.lux-card-title {
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 16px;
+}
+
+/* SPECS */
+.lux-card-specs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 22px;
+}
+
+.lux-card-specs span i {
+  margin-right: 6px;
+  font-size: 16px;
+}
+
+/* PRICE */
+.lux-card-price {
+  margin-top: 12px;
+  font-weight: 650;
+  font-size: 16pt;
+}
+
+/* GRID – Cards min 400px, max container 1800px */
+.category-grid {
+  width: 100%;
+  max-width: 1800px; /* WICHTIG: dein Limit */
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); /* vorher 360px */
+  gap: 32px;
+  padding: 30px 20px;
+}
+
+.lux-card-country {
+  font-size: 16px;
+  color: #777;
+  margin-top: 12px;
+}
+.lux-card-country i {
+  margin-right: 4px;
+}

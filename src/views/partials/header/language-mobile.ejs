@@ -1,0 +1,23 @@
+<div class="dropdown position-relative lang-switcher">
+  
+  <button type="button" 
+          class="btn p-0 d-inline-flex" 
+          id="settingsButtonMobile" 
+          aria-label="Sprache und Währungseinstellungen öffnen">
+    <i class="bi bi-globe-americas fs-5 text-dark"></i>
+  </button>
+
+  </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("settingsModal");
+  const openBtnMobile = document.getElementById("settingsButtonMobile");
+
+  if (modal && openBtnMobile) {
+    openBtnMobile.addEventListener("click", () => {
+      modal.classList.remove("d-none"); 
+    });
+  }
+});
+</script>

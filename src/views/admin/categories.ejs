@@ -1,0 +1,39 @@
+<%- include('../partials/header-admin') %>
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active }) %>
+  </aside>
+<main class="main-content">
+  <div class="content">
+    <h3>Kategorien</h3>
+    <a href="/admin/categories/new" class="btn btn-primary mb-3">Neue Kategorie</a>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>SEO-Name</th>
+          <th class="text-end">Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% rows.forEach(cat => { %>
+          <tr>
+            <td><%= cat.name %></td>
+            <td><%= cat.seoname %></td>
+            <td class="text-end">
+              <a href="/admin/categories/<%= cat.id %>/edit" class="btn btn-sm btn-outline-secondary">Bearbeiten</a>
+              <form action="/admin/categories/<%= cat.id %>/delete" method="POST" class="d-inline">
+                <button class="btn btn-sm btn-outline-danger" 
+                        onclick="return confirm('Wirklich löschen?');">
+                  Löschen
+                </button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </div>
+</main>
+</body>
+</html>

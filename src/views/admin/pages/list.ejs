@@ -1,0 +1,64 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role  }) %>
+  </aside>
+
+  <main class="main-content flex-fill">
+    <header class="bg-herando text-white p-3 mb-4">
+      <h1 class="h4 mb-0">Seiten-Verwaltung</h1>
+    </header>
+
+    <div class="content container">
+      <% if (flash.success) { %>
+        <div class="alert alert-success"><%= flash.success %></div>
+      <% } %>
+
+      <a href="/admin/pages/new" class="btn btn-primary mb-3">
+        Neue Seite erstellen
+      </a>
+
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Slug</th>
+            <th>Titel</th>
+            <th>Erstellt</th>
+            <th>Geändert</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% pages.forEach(page => { %>
+            <tr>
+              <td><code><%= page.slug %></code></td>
+              <td><%= page.title %></td>
+              <td><%= new Date(page.created).toLocaleString('de-DE') %></td>
+              <td><%= new Date(page.modified).toLocaleString('de-DE') %></td>
+              <td>
+                <a
+                  href="/admin/pages/<%= page.slug %>/edit"
+                  class="btn btn-sm btn-outline-secondary me-1"
+                >
+                  Bearbeiten
+                </a>
+                <form
+                  method="POST"
+                  action="/admin/pages/<%= page.slug %>/delete"
+                  class="d-inline"
+                  onsubmit="return confirm('Seite wirklich löschen?');"
+                >
+                  <button
+                    type="submit"
+                    class="btn btn-sm btn-outline-danger"
+                  >
+                    Löschen
+                  </button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>

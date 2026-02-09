@@ -1,0 +1,13 @@
+.lux-watch-card .lux-card-img {
+  height: 410px; /* etwas höher für Uhren */
+}
+
+.lux-watch-card .lux-card-title {
+  font-size: 1.22rem;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+}
+
+.lux-watch-card .lux-card-specs {
+  font-size: 0.95rem;
+}

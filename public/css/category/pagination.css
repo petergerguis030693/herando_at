@@ -1,0 +1,31 @@
+/* /public/css/category/pagination.css */
+
+.pagination {
+  display: flex;
+  gap: 8px;
+}
+
+.page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: #f4f4f4;
+  border: 1px solid #1d2a44;
+  color: #1d2a44;
+  font-size: 14pt;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.page-btn.active {
+  background: #1d2a44;
+  color: #fff;
+}
+
+.page-btn.disabled {
+  opacity: 0.5;
+  pointer-events: none;
+}

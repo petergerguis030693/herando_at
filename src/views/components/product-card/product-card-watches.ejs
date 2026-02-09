@@ -1,0 +1,104 @@
+<%
+  const watchTypeLabels = {
+    1: t('watches.type.armband', 'Armbanduhr'),
+    2: t('watches.type.taschen', 'Taschenuhr'),
+    3: t('watches.type.smart', 'Smartwatch')
+  };
+
+  const genderLabels = {
+    1: t('watches.gender.men', 'Herren'),
+    2: t('watches.gender.women', 'Damen'),
+    3: t('watches.gender.unisex', 'Unisex')
+  };
+
+  const movementLabels = {
+    1: t('watches.movement.auto', 'Automatik'),
+    2: t('watches.movement.hand', 'Handaufzug'),
+    3: t('watches.movement.quartz', 'Quarz')
+  };
+
+  const caseMaterialLabels = {
+    1: t('watches.case.steel', 'Edelstahl'),
+    2: t('watches.case.gold', 'Gold'),
+    3: t('watches.case.titan', 'Titan'),
+    4: t('watches.case.keramik', 'Keramik')
+  };
+
+  const watchTypeName = watchTypeLabels[item.watchtype] || null;
+  const genderName = genderLabels[item.gender] || null;
+  const movementName = movementLabels[item.movement] || null;
+  const caseMaterialName = caseMaterialLabels[item.case_material] || null;
+%>
+
+<a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>"
+   class="lux-card lux-watch-card">
+
+  <!-- IMAGE -->
+  <div class="lux-card-img">
+    <img 
+      src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= item.mainPic %>" 
+      alt="<%= item.title %>"
+      loading="lazy"
+    >
+  </div>
+
+  <!-- BODY -->
+  <div class="lux-card-body">
+
+    <h3 class="lux-card-title">
+      <%= item.title.length > 38 ? item.title.substring(0, 38) + "…" : item.title %>
+    </h3>
+
+<p class="cartype-box" style="font-size:12pt; margin-top:8px;">
+
+  <% if (watchTypeName) { %>
+    <span class="info-item">
+      <i class="bi bi-watch"></i>
+      <%= watchTypeName %>
+    </span>
+  <% } %>
+
+  <% if (genderName) { %>
+    <span class="info-item">
+      <i class="bi bi-person"></i>
+      <%= genderName %>
+    </span>
+  <% } %>
+
+  <% if (movementName) { %>
+    <span class="info-item">
+      <i class="bi bi-cpu"></i>
+      <%= movementName %>
+    </span>
+  <% } %>
+
+  <% if (caseMaterialName) { %>
+    <span class="info-item">
+      <i class="bi bi-gem"></i>
+      <%= caseMaterialName %>
+    </span>
+  <% } %>
+
+  <% if (item.diameter) { %>
+    <span class="info-item">
+      <i class="bi bi-circle"></i>
+      <%= item.diameter %> mm
+    </span>
+  <% } %>
+
+</p>
+
+
+    <div class="lux-card-price">
+      <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
+    </div>
+
+          <% if (item.countryCode) { %>
+        <div class="lux-card-country">
+          <i class="bi bi-geo-alt"></i>
+          <%= item.countryCode %>
+        </div>
+      <% } %>
+
+  </div>
+</a>

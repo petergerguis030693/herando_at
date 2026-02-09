@@ -1,0 +1,1239 @@
+<%# views/admin/listings/new-wizard.ejs %>
+<%
+  // Aktuelle Entität ermitteln
+  const entity       = entieties.find(e => e.id === data.entId);
+  const isCars       = entity && entity.route === 'cars';
+  const isWatches    = entity && entity.route === 'watches';
+  const isYachts     = entity && entity.route === 'yachts';
+  const isProperties = entity && entity.route === 'properties';
+  const isLifestyles = entity && entity.route === 'lifestyles';
+  const thisYear     = new Date().getFullYear();
+%>
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width:250px">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+  <main class="flex-fill p-4">
+
+    <style>
+      .form-select--brown {
+        border: 1px solid #a67c52;
+        color: #5c3a21;
+      }
+      .form-select--brown:focus {
+        box-shadow: 0 0 0 .2rem rgba(140,90,50,.25);
+      }
+      .btn-langzeit {
+        background-color: #f8d7da;
+        border-color: #f5c6cb;
+        color: #721c24;
+      }
+    </style>
+
+    <!-- Wizard Steps -->
+    <ul class="wizard list-unstyled d-flex justify-content-between mb-4">
+      <li class="text-center flex-fill">
+        <div class="badge <%= step===1?'bg-primary':'bg-success' %> text-white rounded-circle mb-1"
+             style="width:32px;height:32px;line-height:32px">1</div>
+        <div>Eingaben</div>
+      </li>
+      <li class="text-center flex-fill">
+        <div class="badge <%= step===2?'bg-primary':'bg-secondary' %> text-white rounded-circle mb-1"
+             style="width:32px;height:32px;line-height:32px">2</div>
+        <div>Vorschau</div>
+      </li>
+    </ul>
+
+    <% if (step === 1) { %>
+      <!-- STEP 1: GET‑Formular -->
+      <form method="get" action="/admin/listings/new" class="mb-4">
+        <input type="hidden" name="step" value="1">
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label for="entId" class="form-label">Kategorie</label>
+<select id="entId" name="entId" class="form-select" required onchange="this.form.submit()">
+  <% entieties.forEach(ent => { %>
+    <option value="<%= ent.id %>" <%= Number(data.entId) === Number(ent.id) ? 'selected' : '' %>>
+      <%= ent.name %>
+    </option>
+  <% }) %>
+</select>
+
+
+
+          </div>
+          <% if (isCars) { %>
+            <div class="col-md-4">
+              <label for="brand_id" class="form-label">Marke</label>
+              <select id="brand_id" name="brand_id" class="form-select" onchange="this.form.submit()">
+                <option value="">– Marke wählen –</option>
+                <% brands.forEach(b=>{ %>
+                  <option value="<%=b.id%>" <%=data.brand_id===b.id?'selected':''%>><%=b.name%></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-4">
+              <label for="model_id" class="form-label">Modell</label>
+              <select id="model_id" name="model_id" class="form-select" onchange="this.form.submit()">
+                <option value="">– Modell wählen –</option>
+                <% models.forEach(m=>{ %>
+                  <option value="<%=m.id%>" <%=data.model_id===m.id?'selected':''%>><%=m.name%></option>
+                <% }) %>
+              </select>
+            </div>
+          <% } %>
+        </div>
+      </form>
+
+      <!-- STEP 1: POST‑Formular -->
+      <form method="post" action="/admin/listings/new" enctype="multipart/form-data">
+        <input type="hidden" name="step"     value="1">
+        <input type="hidden" name="entId"    value="<%=data.entId||''%>">
+        <input type="hidden" name="brand_id" value="<%=data.brand_id||''%>">
+        <input type="hidden" name="model_id" value="<%=data.model_id||''%>">
+        <input type="hidden" name="visible"  value="0">
+        <input type="hidden" name="status"   value="1">
+
+<% if (isCars) { %>
+  <% 
+    // Helfer und Konstante
+    const findAttr = col => attrs.find(a => a.column_name === col);
+    const thisYear = new Date().getFullYear();
+
+    // Gruppen‑Definition für Cars (Allgemeine Angaben außen vor)
+    const groups = [
+      { legend: 'Technische Daten',   fields: ['engine','mileage','capacity','power'] },
+      { legend: 'Verbrauch',           fields: ['fuel','emission_co2','consumption_city','consumption_country','consumption_combined','pollution_class','environmental_badge','emission_class'] },
+      { legend: 'Sicherheit',          fields: ['airbags','isofix','abs','esp','asr','hill_climb','fatigue','dimming_mirror','nightvision','emergency_call','traffic_signs'] },
+      { legend: 'Komfort',             fields: ['climatisation','aux_heating','electric_heated_seats','ventilated_seats','electric_windows','electric_adjusted_seats','electric_mirrors','electric_tailgate','central_locking','keyless_central_locking','assisted_steering','cruise_control','adaptive_cruise_control','collision_avoidance','blind_spot_monitor','lane_departure_warning','head_up_display','light_sensor','rain_sensor','startstop_system','heated_windshield','heated_steering_wheel','arm_rest','lumbar_support','massage_seats','fold_flat_passenger_seat','ambient_lighting','leather_steering_wheel'] },
+      { legend: 'Infotainment',        fields: ['tuner_radio','radio_dab','cdplayer','mp3interface','navigation','tv','soundsystem','touchscreen','voice_control','usb','apple_car_play','android_auto','wifi_hotspot','music_streaming','inductive_charging','digital_cockpit','onboard_computer','multifunction_steeringwheel','bluetooth','handsfree_kit'] },
+      { legend: 'Extras',              fields: ['alloy_wheels','sports_package','sports_suspension','sports_seats','trailer_coupling','roof_rack','skibag','sunroof','panoramic_roof','taxi','disabled_accessible','summer_tires','winter_tires','all_season_tires','tire_pressure_monitoring','winter_package','smokers_package','air_suspension'] },
+      { legend: 'Beschreibung',        fields: ['description','video'] },
+      { legend: 'Standort',            fields: ['country_id','state_id','city'] }
+    ];
+  %>
+
+  <!-- ── Allgemeine Angaben ───────────────────────────────────────────────────── -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Allgemeine Angaben</legend>
+
+    <!-- Marke & Modell -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-6">
+        <label for="brand_id" class="form-label">* Marke</label>
+        <select id="brand_id" name="brand_id" class="form-select" required>
+          <option value="">– wählen –</option>
+          <% brands.forEach(b => { %>
+            <option value="<%=b.id%>" <%=data.brand_id==b.id?'selected':''%>><%=b.name%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="model_id" class="form-label">* Modell</label>
+        <select id="model_id" name="model_id" class="form-select" required>
+          <option value="">– wählen –</option>
+          <% models.forEach(m => { %>
+            <option value="<%=m.id%>" <%=data.model_id==m.id?'selected':''%>><%=m.name%></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Titel -->
+    <div class="mb-4">
+      <label for="name" class="form-label">* Überschrift Ihrer Anzeige</label>
+      <input type="text" id="name" name="name" class="form-control" required
+             value="<%=data.name||''%>">
+    </div>
+
+    <!-- Preis / Währung / MwSt -->
+    <div class="row g-3 mb-4 align-items-end">
+      <div class="col-md-3">
+        <label for="price" class="form-label">Preis</label>
+        <input type="number" id="price" name="price" class="form-control" step="any"
+               value="<%=data.price||''%>">
+      </div>
+      <div class="col-md-3">
+        <label for="currency" class="form-label">Währung</label>
+        <select id="currency" name="currency" class="form-select form-select--brown">
+          <option value="">– wählen –</option>
+          <% ['EUR','USD','CHF'].forEach(c => { %>
+            <option value="<%=c%>" <%=data.currency===c?'selected':''%>><%=c%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-1">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="vat" name="vat" value="1"
+                 <%=data.vat?'checked':''%>>
+          <label class="form-check-label" for="vat">MwSt</label>
+        </div>
+      </div>
+      <div class="col-md-2" id="vat_rate_container" style="display:none;">
+        <label for="taxrate" class="form-label">Steuersatz (%)</label>
+        <input type="number" id="taxrate" name="taxrate" class="form-control" step="any"
+               value="<%=data.taxrate||''%>">
+      </div>
+    </div>
+
+    <!-- Erstzulassung / Nächste HU / Baujahr -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-4">
+        <label class="form-label">Erstzulassung</label>
+        <div class="d-flex">
+          <select name="firstregistration_month" class="form-select me-1">
+            <option value="">– Mon –</option>
+            <% for(let m=1; m<=12; m++){ %>
+              <option value="<%=m%>" <%=data.firstregistration_month==m?'selected':''%>>
+                <%=m.toString().padStart(2,'0')%>
+              </option>
+            <% } %>
+          </select>
+          <select name="firstregistration" class="form-select">
+            <option value="">– Jahr –</option>
+            <% for(let y=thisYear; y>=1900; y--){ %>
+              <option value="<%=y%>" <%=data.firstregistration==y?'selected':''%>><%=y%></option>
+            <% } %>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <label class="form-label">Nächste HU</label>
+        <div class="d-flex">
+          <select name="maininspection_month" class="form-select me-1">
+            <option value="">– Mon –</option>
+            <% for(let m=1; m<=12; m++){ %>
+              <option value="<%=m%>" <%=data.maininspection_month==m?'selected':''%>>
+                <%=m.toString().padStart(2,'0')%>
+              </option>
+            <% } %>
+          </select>
+          <select name="maininspection" class="form-select">
+            <option value="">– Jahr –</option>
+            <% for(let y=thisYear; y>=1900; y--){ %>
+              <option value="<%=y%>" <%=data.maininspection==y?'selected':''%>><%=y%></option>
+            <% } %>
+          </select>
+        </div>
+      </div>
+      <div class="col-md-2">
+        <label for="year" class="form-label">Baujahr</label>
+        <select id="year" name="year" class="form-select">
+          <option value="">– Jahr –</option>
+          <% for(let y=thisYear; y>=1900; y--){ %>
+            <option value="<%=y%>" <%=data.year==y?'selected':''%>><%=y%></option>
+          <% } %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Shape / Farbe / Metallic -->
+    <div class="row g-3 mb-4 align-items-center">
+      <div class="col-md-4">
+        <label for="shape" class="form-label"><%=findAttr('shape').label%></label>
+        <select id="shape" name="shape" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('shape').options.forEach(o=>{ %>
+            <option value="<%=o.id%>" <%=data.shape==o.id?'selected':''%>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="color" class="form-label"><%=findAttr('color').label%></label>
+        <select id="color" name="color" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('color').options.forEach(o=>{ %>
+            <option value="<%=o.id%>" <%=data.color==o.id?'selected':''%>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-1">
+        <div class="form-check mt-4">
+          <input class="form-check-input" type="checkbox" id="metallic" name="metallic" value="1"
+                 <%=data.metallic?'checked':''%>>
+          <label class="form-check-label" for="metallic">Metallic</label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interior / Innenfarbe / Langzeitmiete -->
+    <div class="row g-3 mb-4 align-items-center">
+      <div class="col-md-4">
+        <label for="interior" class="form-label"><%=findAttr('interior').label%></label>
+        <select id="interior" name="interior" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('interior').options.forEach(o=>{ %>
+            <option value="<%=o.id%>" <%=data.interior==o.id?'selected':''%>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="interior_color" class="form-label"><%=findAttr('interior_color').label%></label>
+        <select id="interior_color" name="interior_color" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('interior_color').options.forEach(o=>{ %>
+            <option value="<%=o.id%>" <%=data.interior_color==o.id?'selected':''%>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="button" class="btn btn-langzeit mt-2">Langzeitmiete</button>
+      </div>
+    </div>
+
+    <!-- Checkbook / Unfallfrei / Nichtraucher -->
+    <div class="row g-3 mb-4">
+      <% ['checkbook','accident_free','non_smoking'].forEach(fn => {
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col-auto">
+          <div class="form-check">
+            <input class="form-check-input" type="checkbox" id="<%=fn%>" name="<%=fn%>" value="1"
+                   <%=data[fn]?'checked':''%>>
+            <label class="form-check-label" for="<%=fn%>"><%=attr.label%></label>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <!-- ── Restliche Car‑Gruppen über Loop ────────────────────────────────────── -->
+  <% groups.forEach(group => { %>
+    <fieldset class="border p-3 mb-4">
+      <legend class="px-2"><%=group.legend%></legend>
+      <% 
+        // für die vier Grid‑Legenden nutze Grid‑Layout
+        const isGrid = ['Sicherheit','Komfort','Infotainment','Extras'].includes(group.legend);
+      %>
+      <% if (isGrid) { %>
+        <div class="row row-cols-2 row-cols-md-5 g-3 mb-3">
+          <% group.fields.forEach(fn => {
+               const attr = findAttr(fn);
+               if (!attr) return;
+          %>
+            <div class="col">
+              <div class="form-check">
+                <input type="hidden" name="<%=fn%>" value="0">
+                <input class="form-check-input" type="checkbox" id="<%=fn%>" name="<%=fn%>" value="1"
+                       <%=data[fn]?'checked':''%>>
+                <label class="form-check-label" for="<%=fn%>"><%=attr.label%></label>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      <% } else { %>
+        <% group.fields.forEach(fn => {
+             const attr = findAttr(fn);
+             if (!attr) return;
+        %>
+          <div class="mb-3">
+            <label for="<%=fn%>" class="form-label"><%=attr.label%></label>
+            <% if (attr.field_type==='select') { %>
+              <select id="<%=fn%>" name="<%=fn%>" class="form-select">
+                <option value="">– wählen –</option>
+                <% attr.options.forEach(o=>{ %>
+                  <option value="<%=o.id%>" <%=data[fn]==o.id?'selected':''%>><%=o.label%></option>
+                <% }) %>
+              </select>
+            <% } else if (attr.field_type==='number') { %>
+              <input type="number" id="<%=fn%>" name="<%=fn%>" class="form-control" step="any"
+                     value="<%=data[fn]||''%>">
+            <% } else if (attr.field_type==='textarea') { %>
+              <textarea id="<%=fn%>" name="<%=fn%>" class="form-control" rows="4"><%=data[fn]||''%></textarea>
+            <% } else if (attr.field_type==='boolean') { %>
+              <div class="form-check">
+                <input type="hidden" name="<%=fn%>" value="0">
+                <input class="form-check-input" type="checkbox" id="<%=fn%>" name="<%=fn%>" value="1"
+                       <%=data[fn]?'checked':''%>>
+                <label class="form-check-label" for="<%=fn%>"><%=attr.label%></label>
+              </div>
+            <% } else { %>
+              <input type="text" id="<%=fn%>" name="<%=fn%>" class="form-control"
+                     value="<%=data[fn]||''%>">
+            <% } %>
+          </div>
+        <% }) %>
+      <% } %>
+    </fieldset>
+  <% }) %>
+
+
+        <% } else if (isWatches) { %>
+<% if (isWatches) { %>
+  <% 
+    const findAttr = col => attrs.find(a => a.column_name === col);
+    const thisYear = new Date().getFullYear();
+  %>
+
+  <!-- Allgemeine Angaben -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Allgemeine Angaben</legend>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label for="brand_id" class="form-label"><%= findAttr('brand_id').label %></label>
+        <select id="brand_id" name="brand_id" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('brand_id').options.forEach(o => { %>
+            <option value="<%= o.id %>" <%= data.brand_id==o.id?'selected':'' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="model_id" class="form-label"><%= findAttr('model_id').label %></label>
+        <select id="model_id" name="model_id" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('model_id').options.forEach(o => { %>
+            <option value="<%= o.id %>" <%= data.model_id==o.id?'selected':'' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="reference" class="form-label"><%= findAttr('reference').label %></label>
+        <input type="text" id="reference" name="reference" class="form-control" value="<%= data.reference||'' %>">
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label for="adnumber" class="form-label"><%= findAttr('adnumber').label %></label>
+        <input type="text" id="adnumber" name="adnumber" class="form-control" value="<%= data.adnumber||'' %>">
+      </div>
+      <div class="col-md-4">
+        <label for="name" class="form-label"><%= findAttr('name').label %></label>
+        <input type="text" id="name" name="name" class="form-control" value="<%= data.name||'' %>">
+      </div>
+      <div class="col-md-4"></div>
+    </div>
+
+    <div class="row g-3 mb-3 align-items-end">
+      <div class="col-md-3">
+        <label for="price" class="form-label"><%= findAttr('price').label %></label>
+        <input type="number" id="price" name="price" class="form-control" step="any" value="<%= data.price||'' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="currency" class="form-label"><%= findAttr('currency').label %></label>
+        <select id="currency" name="currency" class="form-select form-select--brown">
+          <option value="">– wählen –</option>
+          <% ['EUR','USD','CHF'].forEach(c => { %>
+            <option value="<%=c%>" <%= data.currency===c?'selected':'' %>><%=c%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-auto">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="vat" name="vat" value="1" <%= data.vat?'checked':'' %>>
+          <label class="form-check-label" for="vat"><%= findAttr('vat').label %></label>
+        </div>
+      </div>
+      <div class="col-md-2" id="vat_rate_container" style="display:none;">
+        <label for="taxrate" class="form-label"><%= findAttr('taxrate')?.label || 'Steuersatz (%)' %></label>
+        <input type="number" id="taxrate" name="taxrate" class="form-control" step="any" value="<%= data.taxrate||'' %>">
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <label for="year" class="form-label"><%= findAttr('year').label %></label>
+        <select id="year" name="year" class="form-select">
+          <option value="">– Jahr –</option>
+          <% for(let y=thisYear; y>=1900; y--){ %>
+            <option value="<%=y%>" <%= data.year==y?'selected':'' %>><%=y%></option>
+          <% } %>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="shape" class="form-label"><%= findAttr('shape').label %></label>
+        <select id="shape" name="shape" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('shape').options.forEach(o=>{ %>
+            <option value="<%=o.id%>" <%= data.shape==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <div class="form-check mt-4">
+          <input class="form-check-input" type="checkbox" id="used" name="used" value="1" <%= data.used?'checked':'' %>>
+          <label class="form-check-label" for="used"><%= findAttr('used').label %></label>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- Technische Daten -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Technische Daten</legend>
+    <div class="row g-3 mb-3">
+      <% [
+           'watchtype','gender','case_material','strap_material','strap_color',
+           'dial_color','dial_shape','dial_numbers','movement','movement_caliber',
+           'caliber','power_reserve','jewels_number','frequency','crystal',
+           'diameter','height','clasp_type','clasp_material','bezel_material',
+           'waterproof'
+         ].forEach(fn => {
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col-md-3">
+          <label for="<%=fn%>" class="form-label"><%=attr.label%></label>
+          <% if (attr.field_type==='select') { %>
+            <select id="<%=fn%>" name="<%=fn%>" class="form-select">
+              <option value="">– wählen –</option>
+              <% attr.options.forEach(o=>{ %>
+                <option value="<%=o.id%>" <%= data[fn]==o.id?'selected':'' %>><%=o.label%></option>
+              <% }) %>
+            </select>
+          <% } else if (attr.field_type==='number') { %>
+            <input type="number" id="<%=fn%>" name="<%=fn%>" class="form-control" step="any" value="<%=data[fn]||''%>">
+          <% } else { %>
+            <input type="text" id="<%=fn%>" name="<%=fn%>" class="form-control" value="<%=data[fn]||''%>">
+          <% } %>
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <!-- Echtheit -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Echtheit</legend>
+    <div class="row row-cols-2 row-cols-md-3 g-3">
+      <% ['authenticity_papers','authenticity_box','authenticity_warranty'].forEach(fn=>{
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col">
+          <div class="form-check">
+            <input type="hidden" name="<%=fn%>" value="0">
+            <input class="form-check-input" type="checkbox" id="<%=fn%>" name="<%=fn%>" value="1" <%=data[fn]?'checked':''%>>
+            <label class="form-check-label" for="<%=fn%>"><%=attr.label%></label>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <!-- Funktionen -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Funktionen</legend>
+    <div class="row row-cols-2 row-cols-md-5 g-3">
+      <% [
+           'function_alarm','function_chronograph','function_date','function_day','function_month',
+           'function_year','function_4year','function_perpetual_calendar','function_gmt','function_timeequation',
+           'function_minuterepeater','function_repetition','function_jumping_hour','function_double_chronograph',
+           'function_panorama','function_calendar','function_moonphase','function_smallseconds',
+           'function_tachymeter','function_centralseconds','function_flyback','function_striking_mechanism'
+         ].forEach(fn=>{
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col">
+          <div class="form-check">
+            <input type="hidden" name="<%=fn%>" value="0">
+            <input class="form-check-input" type="checkbox" id="<%=fn%>" name="<%=fn%>" value="1" <%=data[fn]?'checked':''%>>
+            <label class="form-check-label" for="<%=fn%>"><%=attr.label%></label>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <!-- Features -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Features</legend>
+    <div class="row row-cols-2 row-cols-md-5 g-3">
+      <% [
+           'feature_heliumvalve','feature_tourbillon','feature_diamondsbezel','feature_chronometer',
+           'feature_master_chronometer','feature_rotatingbezel','feature_powerreserve','feature_luminescenthands',
+           'feature_pocketwatch','feature_luminescentnumerals','feature_luminous_indexes','feature_waterresistant',
+           'feature_screwedcrone','feature_screwed_pushers','feature_crown_left','feature_skeletonized',
+           'feature_guilloched','feature_hand_guilloched','feature_gemsetting','feature_geneva_seal',
+           'feature_limited_edition','feature_quickset_mechanism','feature_original','feature_pvd',
+           'feature_solar','feature_display_back','feature_bluedsteel_hands','feature_worldtime_clock',
+           'feature_smartwatch','feature_onehand_watch'
+         ].forEach(fn=>{
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col">
+          <div class="form-check">
+            <input type="hidden" name="<%=fn%>" value="0">
+            <input class="form-check-input" type="checkbox" id="<%=fn%>" name="<%=fn%>" value="1" <%=data[fn]?'checked':''%>>
+            <label class="form-check-label" for="<%=fn%>"><%=attr.label%></label>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <!-- Beschreibung -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Beschreibung</legend>
+    <div class="mb-3">
+      <label for="description" class="form-label"><%= findAttr('description').label %></label>
+      <textarea id="description" name="description" class="form-control" rows="6"><%= data.description||'' %></textarea>
+    </div>
+    <div class="mb-3">
+      <label for="video" class="form-label"><%= findAttr('video').label %></label>
+      <input type="text" id="video" name="video" class="form-control" value="<%= data.video||'' %>">
+    </div>
+  </fieldset>
+
+  <!-- Standort -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Standort</legend>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label for="country_id" class="form-label"><%= findAttr('country_id').label %></label>
+        <select id="country_id" name="country_id" class="form-select">
+          <option value="">– Land –</option>
+          <% countries.forEach(c=>{ %>
+            <option value="<%=c.id%>" <%= data.country_id==c.id?'selected':'' %>><%=c.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="state_id" class="form-label">Bundesland</label>
+        <select id="state_id" name="state_id" class="form-select">
+          <option value="">– wählen –</option>
+          <% /* optional: extraOptions.stateTypes */ %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="city" class="form-label"><%= findAttr('city').label %></label>
+        <input type="text" id="city" name="city" class="form-control" value="<%= data.city||'' %>">
+      </div>
+    </div>
+  </fieldset>
+<% } %>
+
+
+<% } else if (isYachts) { %>
+  <% 
+    const findAttr = col => attrs.find(a => a.column_name === col);
+    const thisYear = new Date().getFullYear();
+  %>
+
+  <!-- Allgemeine Angaben -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Allgemeine Angaben</legend>
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <label for="brand_id" class="form-label"><%= findAttr('brand_id').label %></label>
+        <select id="brand_id" name="brand_id" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('brand_id').options.forEach(o => { %>
+            <option value="<%= o.id %>" <%= data.brand_id==o.id?'selected':'' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="model" class="form-label"><%= findAttr('model').label %></label>
+        <input type="text" id="model" name="model" class="form-control" value="<%= data.model||'' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="name" class="form-label"><%= findAttr('name').label %></label>
+        <input type="text" id="name" name="name" class="form-control" value="<%= data.name||'' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="category" class="form-label"><%= findAttr('category').label %></label>
+        <select id="category" name="category" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('category').options.forEach(o => { %>
+            <option value="<%= o.id %>" <%= data.category==o.id?'selected':'' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <label for="yachttype" class="form-label"><%= findAttr('yachttype').label %></label>
+        <select id="yachttype" name="yachttype" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('yachttype').options.forEach(o => { %>
+            <option value="<%= o.id %>" <%= data.yachttype==o.id?'selected':'' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label for="hull" class="form-label"><%= findAttr('hull').label %></label>
+        <select id="hull" name="hull" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('hull').options.forEach(o => { %>
+            <option value="<%= o.id %>" <%= data.hull==o.id?'selected':'' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="year" class="form-label"><%= findAttr('year').label %></label>
+        <select id="year" name="year" class="form-select">
+          <option value="">– Jahr –</option>
+          <% for(let y=thisYear; y>=1900; y--){ %>
+            <option value="<%=y%>" <%= data.year==y?'selected':'' %>><%=y%></option>
+          <% } %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label for="shape" class="form-label"><%= findAttr('shape').label %></label>
+        <select id="shape" name="shape" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('shape').options.forEach(o => { %>
+            <option value="<%= o.id %>" <%= data.shape==o.id?'selected':'' %>><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-2">
+        <div class="form-check mt-4">
+          <input class="form-check-input" type="checkbox" id="used" name="used" value="1" <%= data.used?'checked':'' %>>
+          <label class="form-check-label" for="used"><%= findAttr('used').label %></label>
+        </div>
+      </div>
+    </div>
+    <div class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label for="price" class="form-label"><%= findAttr('price').label %></label>
+        <input type="number" id="price" name="price" class="form-control" step="any" value="<%= data.price||'' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="currency" class="form-label"><%= findAttr('currency').label %></label>
+        <select id="currency" name="currency" class="form-select form-select--brown">
+          <option value="">– wählen –</option>
+          <% ['EUR','USD','CHF'].forEach(c => { %>
+            <option value="<%=c%>" <%= data.currency===c?'selected':'' %>><%=c%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-auto">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="vat" name="vat" value="1" <%= data.vat?'checked':'' %>>
+          <label class="form-check-label" for="vat"><%= findAttr('vat').label %></label>
+        </div>
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- Abmessungen -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Abmessungen</legend>
+    <div class="row g-3">
+      <% ['length','beam','displacement','draft','crew'].forEach(fn => {
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col-md-2">
+          <label for="<%=fn%>" class="form-label"><%=attr.label%></label>
+          <input type="number" id="<%=fn%>" name="<%=fn%>" class="form-control" step="any" value="<%=data[fn]||''%>">
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <!-- Motor & Antrieb -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Motor &amp; Antrieb</legend>
+    <div class="row g-3 mb-3">
+      <% [
+           'engine','engines','power','horsepower','engine_hours','fuel'
+         ].forEach(fn => {
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col-md-2">
+          <label for="<%=fn%>" class="form-label"><%=attr.label%></label>
+          <% if (attr.field_type==='select') { %>
+            <select id="<%=fn%>" name="<%=fn%>" class="form-select">
+              <option value="">– wählen –</option>
+              <% attr.options.forEach(o=>{ %>
+                <option value="<%=o.id%>" <%= data[fn]==o.id?'selected':'' %>><%=o.label%></option>
+              <% }) %>
+            </select>
+          <% } else { %>
+            <input type="number" id="<%=fn%>" name="<%=fn%>" class="form-control" step="any" value="<%=data[fn]||''%>">
+          <% } %>
+        </div>
+      <% }) %>
+    </div>
+    <div class="row g-3">
+      <% [
+           'cruising_speed','cruising_speed_kn','max_speed','max_speed_kn',
+           'fuel_tankage','water_tankage'
+         ].forEach(fn => {
+           const attr = findAttr(fn);
+           if (!attr) return;
+      %>
+        <div class="col-md-2">
+          <label for="<%=fn%>" class="form-label"><%=attr.label%></label>
+          <input type="number" id="<%=fn%>" name="<%=fn%>" class="form-control" step="any" value="<%=data[fn]||''%>">
+        </div>
+      <% }) %>
+    </div>
+  </fieldset>
+
+  <!-- Designer -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Designer</legend>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label for="naval_architect" class="form-label"><%= findAttr('naval_architect').label %></label>
+        <input type="text" id="naval_architect" name="naval_architect" class="form-control" value="<%=data.naval_architect||''%>">
+      </div>
+      <div class="col-md-6">
+        <label for="interior_designer" class="form-label"><%= findAttr('interior_designer').label %></label>
+        <input type="text" id="interior_designer" name="interior_designer" class="form-control" value="<%=data.interior_designer||''%>">
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- Beschreibung -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Beschreibung</legend>
+    <div class="mb-3">
+      <label for="description" class="form-label"><%= findAttr('description').label %></label>
+      <textarea id="description" name="description" class="form-control" rows="5"><%= data.description||'' %></textarea>
+    </div>
+    <div class="mb-3">
+      <label for="video" class="form-label"><%= findAttr('video').label %></label>
+      <input type="text" id="video" name="video" class="form-control" value="<%= data.video||'' %>">
+    </div>
+  </fieldset>
+
+  <!-- Standort -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Standort</legend>
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label for="country_id" class="form-label"><%= findAttr('country_id').label %></label>
+        <select id="country_id" name="country_id" class="form-select">
+          <option value="">– Land –</option>
+          <% countries.forEach(c=>{ %>
+            <option value="<%=c.id%>" <%= data.country_id==c.id?'selected':'' %>><%=c.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="city" class="form-label"><%= findAttr('city').label %></label>
+        <input type="text" id="city" name="city" class="form-control" value="<%= data.city||'' %>">
+      </div>
+    </div>
+  </fieldset>
+%>
+
+<% } else if (isProperties) { %>
+  <% 
+    const findAttr = col => attrs.find(a => a.column_name === col);
+  %>
+
+  <!-- ── Properties: Allgemeine Angaben ─────────────────────────────────────── -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Allgemeine Angaben</legend>
+
+    <!-- Überschrift -->
+    <div class="mb-3">
+      <label for="name" class="form-label"><%= findAttr('name').label %></label>
+      <input type="text" id="name" name="name" class="form-control"
+             value="<%= data.name||'' %>">
+    </div>
+
+    <!-- Preis / Währung / MwSt -->
+    <div class="row g-3 mb-3 align-items-end">
+      <div class="col-md-3">
+        <label for="price" class="form-label"><%= findAttr('price').label %></label>
+        <input type="number" id="price" name="price" class="form-control" step="any"
+               value="<%= data.price||'' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="currency" class="form-label"><%= findAttr('currency').label %></label>
+        <select id="currency" name="currency" class="form-select form-select--brown">
+          <option value="">– wählen –</option>
+          <% ['EUR','USD','CHF'].forEach(c => { %>
+            <option value="<%=c%>" <%= data.currency===c?'selected':'' %>><%=c%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-auto">
+        <div class="form-check">
+          <input class="form-check-input" type="checkbox" id="vat" name="vat" value="1"
+                 <%= data.vat?'checked':'' %>>
+          <label class="form-check-label" for="vat"><%= findAttr('vat').label %></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Baujahr / Bauphase / Objekttyp -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <label for="year" class="form-label"><%= findAttr('year').label %></label>
+        <select id="year" name="year" class="form-select">
+          <option value="">– Jahr –</option>
+          <% for (let y = thisYear; y >= 1900; y--) { %>
+            <option value="<%=y%>" <%= data.year==y?'selected':'' %>><%=y%></option>
+          <% } %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="stage" class="form-label"><%= findAttr('stage').label %></label>
+        <select id="stage" name="stage" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('stage').options.forEach(o => { %>
+            <option value="<%=o.id%>" <%= data.stage==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="propertytype" class="form-label"><%= findAttr('propertytype').label %></label>
+        <select id="propertytype" name="propertytype" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('propertytype').options.forEach(o => { %>
+            <option value="<%=o.id%>" <%= data.propertytype==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Immobilienart / Rendite / Denkmalschutz -->
+    <div class="row g-3 mb-3 align-items-center">
+      <div class="col-md-4">
+        <label for="investmenttype" class="form-label"><%= findAttr('investmenttype').label %></label>
+        <select id="investmenttype" name="investmenttype" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('investmenttype').options.forEach(o => { %>
+            <option value="<%=o.id%>" <%= data.investmenttype==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-auto">
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" id="monument_protection" name="monument_protection" value="1"
+                 <%= data.monument_protection?'checked':'' %>>
+          <label class="form-check-label" for="monument_protection"><%= findAttr('monument_protection').label %></label>
+        </div>
+      </div>
+    </div>
+
+    <!-- Heizung / Energieträger -->
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label for="heating" class="form-label"><%= findAttr('heating').label %></label>
+        <select id="heating" name="heating" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('heating').options.forEach(o => { %>
+            <option value="<%=o.id%>" <%= data.heating==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="energysource" class="form-label"><%= findAttr('energysource').label %></label>
+        <select id="energysource" name="energysource" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('energysource').options.forEach(o => { %>
+            <option value="<%=o.id%>" <%= data.energysource==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Energiepass / Typ / Kennwert -->
+    <div class="row g-3 mb-0 align-items-end">
+      <div class="col-md-4">
+        <label for="energypass" class="form-label"><%= findAttr('energypass').label %></label>
+        <select id="energypass" name="energypass" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('energypass').options.forEach(o => { %>
+            <option value="<%=o.id%>" <%= data.energypass==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="energypass_type" class="form-label"><%= findAttr('energypass_type').label %></label>
+        <select id="energypass_type" name="energypass_type" class="form-select">
+          <option value="">– wählen –</option>
+          <% findAttr('energypass_type').options.forEach(o => { %>
+            <option value="<%=o.id%>" <%= data.energypass_type==o.id?'selected':'' %>><%=o.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-4">
+        <label for="energypass_value" class="form-label"><%= findAttr('energypass_value').label %></label>
+        <input type="number" id="energypass_value" name="energypass_value" class="form-control" step="any"
+               value="<%= data.energypass_value||'' %>">
+      </div>
+    </div>
+  </fieldset>
+
+  <!-- ── Details (Flächen, Zimmer etc.) ───────────────────────────────────────── -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Details</legend>
+    <div class="row g-3 mb-3">
+      <div class="col-md-3">
+        <label for="landarea" class="form-label"><%= findAttr('landarea').label %></label>
+        <input type="number" id="landarea" name="landarea" class="form-control" step="any"
+               value="<%= data.landarea||'' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="livingarea" class="form-label"><%= findAttr('livingarea').label %></label>
+        <input type="number" id="livingarea" name="livingarea" class="form-control" step="any"
+               value="<%= data.livingarea||'' %>">
+      </div>
+      <div class="col-md-2">
+        <label for="floors" class="form-label"><%= findAttr('floors').label %></label>
+        <input type="number" id="floors" name="floors" class="form-control" value="<%= data.floors||'' %>">
+      </div>
+      <div class="col-md-2">
+        <label for="bedrooms" class="form-label"><%= findAttr('bedrooms').label %></label>
+        <input type="number" id="bedrooms" name="bedrooms" class="form-control" value="<%= data.bedrooms||'' %>">
+      </div>
+      <div class="col-md-2">
+        <label for="bathrooms" class="form-label"><%= findAttr('bathrooms').label %></label>
+        <input type="number" id="bathrooms" name="bathrooms" class="form-control" value="<%= data.bathrooms||'' %>">
+      </div>
+    </div>
+    <div class="mb-3">
+      <label for="quality" class="form-label"><%= findAttr('quality').label %></label>
+      <select id="quality" name="quality" class="form-select">
+        <option value="">– wählen –</option>
+        <% findAttr('quality').options.forEach(o => { %>
+          <option value="<%=o.id%>" <%= data.quality==o.id?'selected':'' %>><%=o.label%></option>
+        <% }) %>
+      </select>
+    </div>
+  </fieldset>
+
+  <!-- ── Beschreibung ───────────────────────────────────────────────────────────── -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Beschreibung</legend>
+    <div class="mb-3">
+      <label for="description" class="form-label"><%= findAttr('description').label %></label>
+      <textarea id="description" name="description" class="form-control" rows="5"><%= data.description||'' %></textarea>
+    </div>
+    <div class="mb-3">
+      <label for="video" class="form-label"><%= findAttr('video').label %></label>
+      <input type="text" id="video" name="video" class="form-control" value="<%= data.video||'' %>">
+    </div>
+  </fieldset>
+
+  <!-- ── Standort ─────────────────────────────────────────────────────────────────── -->
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Standort</legend>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <label for="country_id" class="form-label"><%= findAttr('country_id').label %></label>
+        <select id="country_id" name="country_id" class="form-select">
+          <option value="">– Land –</option>
+          <% countries.forEach(c => { %>
+            <option value="<%=c.id%>" <%= data.country_id==c.id?'selected':'' %>><%=c.label%></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-md-6">
+        <label for="city" class="form-label"><%= findAttr('city').label %></label>
+        <input type="text" id="city" name="city" class="form-control" value="<%= data.city||'' %>">
+      </div>
+    </div>
+  </fieldset>
+ %>
+
+<% } else if (isLifestyles) { %>
+  <fieldset class="border p-3 mb-4">
+    <legend class="px-2">Allgemeine Angaben</legend>
+
+    <div class="row g-3 mb-4">
+      <!-- Kategorie -->
+      <div class="col-md-4">
+        <label for="brand_id" class="form-label">* Kategorie</label>
+        <select id="brand_id" name="brand_id" class="form-select" required>
+          <option value="">– wählen –</option>
+          <option value="4105" <%= data.brand_id==='4105'?'selected':'' %>>Accessoires</option>
+          <option value="4111" <%= data.brand_id==='4111'?'selected':'' %>>Events</option>
+          <option value="4113" <%= data.brand_id==='4113'?'selected':'' %>>Feinkost / Weine / Spirituosen</option>
+          <option value="4107" <%= data.brand_id==='4107'?'selected':'' %>>Gesundheit</option>
+          <option value="4110" <%= data.brand_id==='4110'?'selected':'' %>>Hotels &amp; Resorts</option>
+          <option value="4115" <%= data.brand_id==='4115'?'selected':'' %>>Inneneinrichtungen</option>
+          <option value="4114" <%= data.brand_id==='4114'?'selected':'' %>>Wohnmobile und Freizeitfahrzeuge</option>
+          <option value="4109" <%= data.brand_id==='4109'?'selected':'' %>>Vermietung</option>
+          <option value="4106" <%= data.brand_id==='4106'?'selected':'' %>>Dienstleistungen</option>
+          <option value="4112" <%= data.brand_id==='4112'?'selected':'' %>>Reisen</option>
+          <option value="4108" <%= data.brand_id==='4108'?'selected':'' %>>Wellness &amp; Spa</option>
+        </select>
+      </div>
+
+      <!-- Unterkategorie -->
+      <div class="col-md-4">
+        <label for="model_id" class="form-label">Unterkategorie</label>
+        <select id="model_id" name="model_id" class="form-select">
+          <option value="">– wählen –</option>
+          <!-- wird per JS befüllt -->
+        </select>
+      </div>
+    </div>
+
+    <!-- Überschrift Ihrer Anzeige -->
+    <div class="mb-4">
+      <label for="name" class="form-label">* Überschrift Ihrer Anzeige</label>
+      <input type="text" id="name" name="name" class="form-control" value="<%= data.name||'' %>">
+    </div>
+
+    <!-- Preis / Währung -->
+    <div class="row g-3 mb-4">
+      <div class="col-md-3">
+        <label for="price" class="form-label">Preis</label>
+        <input type="number" id="price" name="price" class="form-control" step="any" value="<%= data.price||'' %>">
+      </div>
+      <div class="col-md-3">
+        <label for="currency" class="form-label">Währung</label>
+        <select id="currency" name="currency" class="form-select form-select--brown">
+          <option value="">– wählen –</option>
+          <% ['EUR','USD','CHF'].forEach(c => { %>
+            <option value="<%=c%>" <%= data.currency===c?'selected':'' %>><%=c%></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Beschreibung -->
+    <div class="mb-4">
+      <label for="description" class="form-label">* Beschreibung</label>
+      <textarea id="description" name="description" class="form-control" rows="6"><%= data.description||'' %></textarea>
+    </div>
+    <div class="mb-3">
+      <label for="video" class="form-label">Link zum Video</label>
+      <input type="text" id="video" name="video" class="form-control" value="<%= data.video||'' %>">
+    </div>
+
+    <!-- Standort -->
+    <fieldset class="border p-3 mb-4">
+      <legend class="px-2">Standort</legend>
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label for="country_id" class="form-label">* Land</label>
+          <select id="country_id" name="country_id" class="form-select" required>
+            <option value="">– wählen –</option>
+            <% countries.forEach(c => { %>
+              <option value="<%=c.id%>" <%= data.country_id==c.id?'selected':'' %>><%=c.label%></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="state_id" class="form-label">Bundesland</label>
+          <select id="state_id" name="state_id" class="form-select">
+            <option value="">– wählen –</option>
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label for="city" class="form-label">* Stadt</label>
+          <input type="text" id="city" name="city" class="form-control" required value="<%= data.city||'' %>">
+        </div>
+      </div>
+    </fieldset>
+  </fieldset>
+
+  <!-- JavaScript zum dynamischen Nachladen der Unterkategorien -->
+  <script>
+    const subcats = {
+      '4105': [ // Accessoires
+        { id: '6419', label: 'Bekleidung und Schuhe' },
+        { id: '6420', label: 'Brillen' },
+        { id: '6424', label: 'Dekoration' },
+        { id: '6421', label: 'Elektronik - Elektro Geräte' },
+        { id: '6422', label: 'Fun- und Sportgeräte' },
+        { id: '6423', label: 'Handtaschen' },
+        { id: '6425', label: 'Kosmetik und Parfüm' },
+        { id: '6426', label: 'Kunst' },
+        { id: '6427', label: 'Schmuck und Juwelen' },
+        { id: '6428', label: 'Sonstige' }
+      ],
+      '4107': [ // Gesundheit
+        { id: '6433', label: 'Detox Clinics' },
+        { id: '6434', label: 'Gesundheitszentren' },
+        { id: '6435', label: 'Health Tech' },
+        { id: '6437', label: 'Hotels' },
+        { id: '6436', label: 'Longevity Clinics' },
+        { id: '6438', label: 'Zahnmedizin' }
+      ],
+      '4109': [ // Vermietung
+        { id: '6431', label: 'Autos' },
+        { id: '6429', label: 'Boote / Yachten' },
+        { id: '6430', label: 'Flugzeuge' },
+        { id: '6432', label: 'Wohnmobile und Freizeitfahrzeuge' }
+      ],
+      '4112': [ // Reisen
+        { id: '6418', label: 'Aktivsport' }
+      ]
+      // … ggf. noch weitere …
+    };
+
+    document.getElementById('brand_id').addEventListener('change', function() {
+      const sel = document.getElementById('model_id');
+      sel.innerHTML = '<option value="">– wählen –</option>';
+      (subcats[this.value]||[]).forEach(o => {
+        const opt = document.createElement('option');
+        opt.value = o.id;
+        opt.textContent = o.label;
+        sel.appendChild(opt);
+      });
+    });
+
+    // Bei Reload vorhandene Werte wiederherstellen:
+    window.addEventListener('DOMContentLoaded', () => {
+      const b = '<%= data.brand_id||'' %>';
+      const m = '<%= data.model_id||'' %>';
+      if (b) {
+        const br = document.getElementById('brand_id');
+        br.value = b;
+        br.dispatchEvent(new Event('change'));
+        if (m) document.getElementById('model_id').value = m;
+      }
+    });
+  </script>
+<% } %>
+
+        <!-- Bilder Upload & Submit -->
+        <div class="mb-3">
+          <label class="form-label">Hauptbild</label>
+          <input type="file" name="mainpicture" class="form-control" accept="image/*">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Galeriebilder</label>
+          <input type="file" name="pictures" class="form-control" accept="image/*" multiple>
+        </div>
+        <div class="d-flex justify-content-between">
+          <button type="submit" class="btn btn-primary">Weiter zur Vorschau &rarr;</button>
+        </div>
+      </form>
+
+    <% } else if (step === 2) { %>
+      <!-- STEP 2: Vorschau & Bestätigung -->
+      <h3 class="mb-4">2. Vorschau & Bestätigung</h3>
+      <dl class="row mb-4">
+        <dt class="col-sm-3">Kategorie</dt>
+        <dd class="col-sm-9"><%=entity.name%></dd>
+        <% if (isCars) { %>
+          <dt class="col-sm-3">Marke</dt>
+          <dd class="col-sm-9"><%=brands.find(b=>b.id===data.brand_id)?.name%></dd>
+          <dt class="col-sm-3">Modell</dt>
+          <dd class="col-sm-9"><%=models.find(m=>m.id===data.model_id)?.name%></dd>
+        <% } %>
+      </dl>
+      <form method="post" action="/admin/listings/new">
+        <input type="hidden" name="step" value="2">
+        <div class="d-flex justify-content-between">
+          <a href="?step=1&entId=<%=data.entId%><% if(isCars){ %>&brand_id=<%=data.brand_id%>&model_id=<%=data.model_id%><% } %>"
+             class="btn btn-outline-secondary">&larr; Bearbeiten</a>
+          <button type="submit" class="btn btn-success">Inserat erstellen</button>
+        </div>
+      </form>
+    <% } %>
+
+  </main>
+</div>
+
+<script>
+  // JS für MwSt‑Anzeige
+  document.addEventListener('DOMContentLoaded', () => {
+    const chk     = document.getElementById('vat');
+    const wrapper = document.getElementById('vat_rate_container');
+    function toggle() {
+      wrapper.style.display = chk.checked ? 'block' : 'none';
+    }
+    chk.addEventListener('change', toggle);
+    toggle();
+  });
+</script>

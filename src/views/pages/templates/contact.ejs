@@ -1,0 +1,93 @@
+<%- include('../../partials/header', { entieties }) %>
+<link rel="stylesheet" href="/css/contact.css">
+
+<section class="contact-page container py-5">
+  <div class="row">
+    <!-- Linke Spalte -->
+    <div class="info">
+      <%- t('contact.info_block') %>
+    </div>
+
+
+    <!-- Rechte Spalte -->
+    <div class="form-wrapper">
+      <h2><%= t('contact.form.headline') %></h2>
+      <p class="hint"><%= t('contact.form.hint') %></p>
+
+      <form method="post" action="/contact" novalidate>
+        <!-- Honeypot -->
+        <div class="honeypot">
+          <label for="website"><%= t('contact.form.honeypot') %></label>
+          <input type="text" id="website" name="website" tabindex="-1" autocomplete="off">
+        </div>
+
+        <input type="hidden" name="formRendered" value="<%= timestamp %>">
+
+        <label for="titel"><%= t('contact.form.title') %></label>
+        <select name="titel" id="titel">
+          <option value=""><%= t('common.none') %></option>
+          <% TITLES.forEach(title => { %>
+            <option value="<%= title.value %>" <%= formData.titel === title.value ? 'selected' : '' %>>
+              <%= t(title.key) %>
+            </option>
+          <% }) %>
+        </select>
+
+        <label for="first_name"><span style="color:red">*</span> <%= t('contact.form.first_name') %></label>
+        <input type="text" id="first_name" name="first_name" value="<%= formData.first_name || '' %>" required>
+
+        <label for="last_name"><span style="color:red">*</span> <%= t('contact.form.last_name') %></label>
+        <input type="text" id="last_name" name="last_name" value="<%= formData.last_name || '' %>" required>
+
+        <label for="ichbin"><%= t('contact.form.role') %></label>
+        <select name="ichbin" id="ichbin">
+          <option value=""><%= t('common.please_choose') %></option>
+          <option value="Privat" <%= formData.ichbin === 'Privat' ? 'selected' : '' %>><%= t('contact.form.private') %></option>
+          <option value="Firma" <%= formData.ichbin === 'Firma' ? 'selected' : '' %>><%= t('contact.form.company_role') %></option>
+        </select>
+
+        <label for="firma"><%= t('contact.form.company') %></label>
+        <input type="text" id="firma" name="firma" value="<%= formData.firma || '' %>">
+
+        <label for="kundennummer"><%= t('contact.form.customer_number') %></label>
+        <input type="text" id="kundennummer" name="kundennummer" value="<%= formData.kundennummer || '' %>">
+
+        <label for="email"><span style="color:red">*</span> <%= t('contact.form.email') %></label>
+        <input type="email" id="email" name="email" value="<%= formData.email || '' %>" required>
+
+        <label for="telefon"><span style="color:red">*</span> <%= t('contact.form.phone') %></label>
+        <input type="text" id="telefon" name="telefon" value="<%= formData.telefon || '' %>" required>
+
+        <label for="nachricht"><%= t('contact.form.message') %></label>
+        <textarea id="nachricht" name="nachricht"><%= formData.nachricht || '' %></textarea>
+
+        <div class="checkbox-group">
+          <label>
+            <input type="checkbox" id="datenschutz" name="datenschutz" <%= formData.datenschutz ? 'checked' : '' %> required>
+            <%- t('contact.form.privacy') %>
+          </label>
+        </div>
+
+        <div class="captcha-group"> 
+          <label for="captcha_answer">
+            <%= t('contact.form.captcha') %>: <strong><%= captcha.question %></strong> =
+          </label>
+          <input type="number" id="captcha_answer" name="captcha_answer" required>
+          <input type="hidden" name="captcha_expected" value="<%= captcha.expected %>">
+        </div>
+
+        <button type="submit" class="btn-submit"><%= t('contact.form.submit') %></button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<%- include('../../partials/footer', { footerColumns }) %>
+
+<script>
+  <% if (success) { %>
+    alert("<%= success %>");
+  <% } else if (error) { %>
+    alert("<%= t('contact.form.error') %>:\n<%= error %>");
+  <% } %>
+</script>

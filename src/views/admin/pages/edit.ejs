@@ -1,0 +1,92 @@
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role  }) %>
+  </aside>
+
+  <main class="main-content flex-fill">
+    <header class="bg-herando text-white p-3 mb-4">
+      <h1 class="h4 mb-0">
+        <%= action === 'new'
+            ? 'Neue Seite erstellen'
+            : `Seite bearbeiten: ${page.slug}` %>
+      </h1>
+    </header>
+
+    <div class="content container">
+      <!-- Flash-Message -->
+      <% if (flash.error) { %>
+        <div class="alert alert-danger"><%= flash.error %></div>
+      <% } %>
+
+      <form
+        method="POST"
+        action="<%= action === 'new'
+                   ? '/admin/pages/new'
+                   : `/admin/pages/${page.slug}/edit` %>"
+      >
+        <div class="mb-3">
+          <label for="slug" class="form-label">Slug</label>
+          <input
+            type="text"
+            id="slug"
+            name="slug"
+            class="form-control"
+            required
+            value="<%= page.slug || '' %>"
+          />
+          <small class="form-text text-muted">
+            z. B. <code>agb</code>, <code>datenschutz</code> (wird Teil der URL)
+          </small>
+        </div>
+
+        <div class="mb-3">
+          <label for="title" class="form-label">Titel</label>
+          <input
+            type="text"
+            id="title"
+            name="title"
+            class="form-control"
+            required
+            value="<%= page.title || '' %>"
+          />
+        </div>
+
+        <div class="mb-3">
+        <label for="content" class="form-label">Inhalt (HTML)</label>
+        <textarea
+            id="content"
+            name="content"
+            rows="10"
+            class="form-control"
+        ><%= page.content || '' %></textarea>
+        </div>
+
+        <button type="submit" class="btn btn-primary">
+          <%= action === 'new' ? 'Anlegen' : 'Speichern' %>
+        </button>
+        <a href="/admin/pages" class="btn btn-secondary ms-2">Abbrechen</a>
+      </form>
+    </div>
+  </main>
+</div>
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-ENjdO4Dr2bkBIFxQpeoYz1D3ZdZ7q2g9CFR+8a3vyzU6q4U+ht0GL0+c0pwzFvgP"
+    crossorigin="anonymous"
+  ></script>
+
+<script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+<script>
+  ClassicEditor
+    .create( document.querySelector( '#content' ), {
+      toolbar: [
+        'heading','|',
+        'bold','italic','underline','|',
+        'link','bulletedList','numberedList','|',
+        'blockQuote','insertTable','undo','redo'
+      ]
+    })
+    .catch( error => console.error( error ) );
+</script>
+

@@ -1,0 +1,49 @@
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../../sidebar', { active: active, role: role  }) %>
+  </aside>
+
+  <main class="flex-fill p-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h1>User Packages</h1>
+      <a href="/admin/packages/userpackages/new" class="btn btn-primary">Neues Package</a>
+    </div>
+
+    <% if (packages.length === 0) { %>
+      <p class="text-muted">Keine User Packages vorhanden.</p>
+    <% } else { %>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th>Category</th>
+            <th>Dauer (Wochen)</th>
+            <th>Preis (Cent)</th>
+            <th>Placement Table</th>
+            <th>Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% packages.forEach(pkg => { %>
+            <tr>
+              <td><%= pkg.id %></td>
+              <td><%= pkg.name %></td>
+              <td><%= pkg.category %></td>
+              <td><%= pkg.duration_weeks %></td>
+              <td><%= pkg.price_cents %></td>
+              <td><%= pkg.placement_table || '—' %></td>
+              <td>
+                <a href="/admin/packages/userpackages/<%= pkg.id %>/edit" class="btn btn-sm btn-warning me-1">Bearbeiten</a>
+                <form action="/admin/packages/userpackages/<%= pkg.id %>/delete" method="POST" style="display:inline">
+                  <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Wirklich löschen?')">Löschen</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } %>
+  </main>
+</div>

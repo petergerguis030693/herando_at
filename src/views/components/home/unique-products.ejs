@@ -1,0 +1,30 @@
+<!--Agenbote Schalten Section-->
+<section class="herando-section">
+  <div class="container">
+    <h2 class="herando-title"><%= t('herando_section_title','Exklusivität · Professionalität · Diskretion') %></h2>
+    <p class="herando-subtitle"><%= t('herando_section_subtitle','Ihre Top-Angebote bei Herando - Schnell, Sicher & Seriös') %></p>
+
+    <div class="herando-grid">
+      <!-- Linke Box (Dunkelblau) -->
+      <div class="herando-box herando-dark">
+        <div class="herando-icon" style="margin-top: 20px">
+          <img src="/assets/plus.png" alt="<%= t('post_offer_alt','Angebote schalten') %>" />
+        </div>
+        <h3><%= t('post_offer_title','Angebote schalten') %></h3>
+        <p><%= t('post_offer_text','Buchen Sie Ihr Marketing-Paket und profitieren Sie von unseren exklusiven Marketingmaßnahmen und Top-Preisen!') %></p>
+          <a href="/angebote" class="btn btn-outline-light fw-semibold">
+            <%= t('index.top_offer.sell_now','Jetzt verkaufen') %>
+          </a>
+        </div>
+
+      <!-- Rechte Box (Weiß) -->
+      <div class="herando-box herando-light" >
+        <div class="herando-icon" style="margin-top: 50px; ">
+          <img src="/assets/tag.png" alt="<%= t('offers_alt','Angebote') %>" />
+        </div>
+        <h3><%= t('offers_title','Angebote') %></h3>
+        <p><%- t('offers_text','Exklusive <strong>Immobilien, Boote, Autos</strong> und <strong>Uhren</strong> aus aller Welt. Klicken Sie sich durch unsere Angebote.') %></p>
+      </div>
+    </div>
+  </div>
+</section> 

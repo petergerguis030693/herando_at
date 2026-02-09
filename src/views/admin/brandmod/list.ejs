@@ -1,0 +1,346 @@
+<!-- Quill CSS -->
+ <%
+  const ENTITY_MAP = {
+    1: { name: 'Autos',      route: 'cars' },
+    2: { name: 'Uhren',      route: 'watches' },
+    3: { name: 'Autos',      route: 'cars' },
+    4: { name: 'Yachts',     route: 'yachts' },
+    5: { name: 'Lifestyle',  route: 'lifestyles' }
+  };
+
+  function resolveEntity(type) {
+    return ENTITY_MAP[type] || { name: 'Unbekannt', route: '#' };
+  }
+%>
+
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <!-- Main -->
+  <div class="flex-fill container mt-4">
+    <h1>Marken, Modelle & SEO</h1>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs" role="tablist">
+      <li class="nav-item">
+        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#brands">Marken</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#models">Modelle</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#brandSeo">Brand SEO</button>
+      </li>
+      <li class="nav-item">
+        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#modelSeo">Model SEO</button>
+      </li>
+    </ul>
+
+    <div class="tab-content mt-3">
+
+      <!-- ===================== MARKEN ===================== -->
+      <div class="tab-pane fade show active" id="brands">
+        <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#modalBrand">
+          Neue Marke
+        </button>
+
+        <input id="searchBrands" class="form-control mb-3" placeholder="Marken suchen...">
+
+
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Kategorie</th>
+            </tr>
+          </thead>
+          <tbody>
+          <% brands.forEach(b => { %>
+            <tr data-id="<%= b.id %>" data-name="<%= b.name %>" data-entitieid="<%= b.type %>">
+              <td><%= b.name %></td>
+              <td>
+                <span class="badge bg-primary">
+                  <%= resolveEntity(b.type).name %>
+                </span>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal fade" id="modalBrand" tabindex="-1">
+  <div class="modal-dialog">
+    <form id="brandCreateForm" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Neue Marke</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <input name="name" class="form-control mb-2" placeholder="Markenname" required>
+
+        <select name="entitieId" class="form-select" required>
+          <% ententies.forEach(e => { %>
+            <option value="<%= e.id %>"><%= e.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+      <!-- ===================== MODELLE ===================== -->
+      <div class="tab-pane fade" id="models">
+      <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#modalModel">
+        Neues Modell
+      </button>
+
+      <input id="searchModels" class="form-control mb-3" placeholder="Modelle suchen...">
+
+
+        <table class="table table-bordered">
+          <thead>
+            <tr>
+              <th>Marke</th>
+              <th>Modell</th>
+              <th>Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+          <% models.forEach(m => { %>
+            <tr data-id="<%= m.id %>" data-brandid="<%= m.brand_id %>">
+              <td><%= m.brand_name %></td>
+              <td><%= m.name %></td>
+              <td>
+                <button class="btn btn-sm btn-secondary btnEditModel">Bearbeiten</button>
+                <button class="btn btn-sm btn-danger btnDeleteModel">Löschen</button>
+              </td>
+            </tr>
+          <% }) %>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="modal fade" id="modalModel" tabindex="-1">
+  <div class="modal-dialog">
+    <form id="modelCreateForm" class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Neues Modell</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+        <select name="brandId" class="form-select mb-2" required>
+          <% brands.forEach(b => { %>
+            <option value="<%= b.id %>"><%= b.name %></option>
+          <% }) %>
+        </select>
+
+        <input name="name" class="form-control" placeholder="Modellname" required>
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-success">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+      <!-- ===================== BRAND SEO ===================== -->
+      <div class="tab-pane fade" id="brandSeo">
+        <form id="brandSeoForm">
+          <div class="row g-2 mb-2">
+            <div class="col">
+              <select id="seoBrand" class="form-select" required>
+                <% brands.forEach(b => { %>
+                  <option value="<%= b.id %>"><%= b.name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col">
+              <select id="seoBrandEntitie" class="form-select" required>
+                <% ententies.forEach(e => { %>
+                  <option value="<%= e.id %>"><%= e.name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col">
+              <select id="seoBrandLang" class="form-select">
+                <option value="de">DE</option>
+                <option value="en">EN</option>
+              </select>
+            </div>
+          </div>
+
+          <input id="seoBrandTitle" class="form-control mb-2" placeholder="SEO Title">
+          <textarea id="seoBrandDesc" class="form-control mb-2" placeholder="SEO Description"></textarea>
+          <div id="editorBrandSeo" style="height:200px;"></div>
+
+          <button class="btn btn-success mt-2">Speichern</button>
+        </form>
+      </div>
+
+      <!-- ===================== MODEL SEO ===================== -->
+      <div class="tab-pane fade" id="modelSeo">
+        <form id="modelSeoForm">
+          <div class="row g-2 mb-2">
+            <div class="col">
+              <select id="seoModel" class="form-select">
+                <% models.forEach(m => { %>
+                  <option value="<%= m.id %>" data-brandid="<%= m.brand_id %>">
+                    <%= m.brand_name %> – <%= m.name %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col">
+              <select id="seoModelEntitie" class="form-select">
+                <% ententies.forEach(e => { %>
+                  <option value="<%= e.id %>"><%= e.name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col">
+              <select id="seoModelLang" class="form-select">
+                <option value="de">DE</option>
+                <option value="en">EN</option>
+              </select>
+            </div>
+          </div>
+
+          <input id="seoModelTitle" class="form-control mb-2" placeholder="SEO Title">
+          <textarea id="seoModelDesc" class="form-control mb-2" placeholder="SEO Description"></textarea>
+          <div id="editorModelSeo" style="height:200px;"></div>
+
+          <button class="btn btn-success mt-2">Speichern</button>
+        </form>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- JS -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  const ENTITY_MAP = {
+    1: { name: 'Autos',       route: 'cars' },
+    2: { name: 'Uhren',       route: 'watches' },
+    3: { name: 'Autos',       route: 'cars' },
+    4: { name: 'Immobilien',  route: 'properties' },
+    5: { name: 'Lifestyle',   route: 'lifestyles' }
+  };
+
+  function resolveEntity(type) {
+    return ENTITY_MAP[type] || { name: 'Unbekannt', route: '#' };
+  }
+</script>
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  const qBrandSeo = new Quill('#editorBrandSeo', { theme:'snow' });
+  const qModelSeo = new Quill('#editorModelSeo', { theme:'snow' });
+
+  document.getElementById('brandSeoForm').onsubmit = e => {
+    e.preventDefault();
+    fetch('/admin/modbrand/brands/seo/save', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        brand_id: document.getElementById('seoBrand').value,
+        entitie_id: document.getElementById('seoBrandEntitie').value,
+        language: document.getElementById('seoBrandLang').value,
+        seo_title: document.getElementById('seoBrandTitle').value,
+        seo_description: document.getElementById('seoBrandDesc').value,
+        seo_text: qBrandSeo.root.innerHTML
+      })
+    }).then(() => alert('Brand SEO gespeichert'));
+  };
+
+  document.getElementById('modelSeoForm').onsubmit = e => {
+    e.preventDefault();
+    const model = document.getElementById('seoModel');
+    fetch('/admin/modbrand/models/seo/save', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json' },
+      body: JSON.stringify({
+        model_id: model.value,
+        brand_id: model.selectedOptions[0].dataset.brandid,
+        entitie_id: document.getElementById('seoModelEntitie').value,
+        language: document.getElementById('seoModelLang').value,
+        seo_title: document.getElementById('seoModelTitle').value,
+        seo_description: document.getElementById('seoModelDesc').value,
+        seo_text: qModelSeo.root.innerHTML
+      })
+    }).then(() => alert('Model SEO gespeichert'));
+  };
+
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  async function postForm(form, url) {
+    const res = await fetch(url, {
+      method: 'POST',
+      body: new FormData(form)
+    });
+
+    if (!res.ok) {
+      alert('Fehler beim Speichern');
+      return;
+    }
+
+    location.reload(); // später ersetzbar durch DOM-Update
+  }
+
+  document.getElementById('brandCreateForm')
+    .addEventListener('submit', e => {
+      e.preventDefault();
+      postForm(e.target, '/admin/modbrand/brands/new');
+    });
+
+  document.getElementById('modelCreateForm')
+    .addEventListener('submit', e => {
+      e.preventDefault();
+      postForm(e.target, '/admin/modbrand/models/new');
+    });
+
+});
+</script>
+
+<script>
+function liveTableSearch(inputId, tableSelector) {
+  const input = document.getElementById(inputId);
+  const rows  = document.querySelectorAll(tableSelector + ' tbody tr');
+
+  input.addEventListener('input', function () {
+    const term = this.value.toLowerCase();
+
+    rows.forEach(row => {
+      const text = row.innerText.toLowerCase();
+      row.style.display = text.includes(term) ? '' : 'none';
+    });
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  liveTableSearch('searchBrands', '#brands table');
+  liveTableSearch('searchModels', '#models table');
+});
+</script>

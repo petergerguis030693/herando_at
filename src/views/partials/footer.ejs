@@ -1,0 +1,458 @@
+<footer class="herando-footer">
+  <div class="container">
+
+    <div class="hf-row top">
+
+      <div>
+        <h6 class="gold"><%= t('footer.newsletter.title') %></h6>
+        <button class="btn btn-border" id="openNewsletterModal"><%= t('footer.newsletter.cta') %></button>
+      </div>
+
+      <div id="newsletterModal" class="hf-modal" aria-hidden="true" role="dialog" aria-labelledby="nl_title">
+        <div class="hf-modal-backdrop"></div>
+        <div class="hf-modal-dialog" role="document">
+          <button class="hf-modal-close" id="closeNewsletterModal" aria-label="Close">×</button>
+
+          <h3 id="nl_title"><%= t('footer.newsletter.modal.title') %></h3>
+
+          <form id="newsletterForm">
+
+            <!-- 👤 NAME (OPTIONAL) -->
+            <label for="nl_name">
+              <%= t('footer.newsletter.name.label', { fallback: 'Name (optional)' }) %>
+            </label>
+            <input
+              type="text"
+              class="w-100"
+              id="nl_name"
+              name="name"
+              placeholder="<%= t('footer.newsletter.name.placeholder', { fallback: 'Ihr Name' }) %>"
+            />
+
+            <!-- 📧 EMAIL -->
+            <label for="nl_email">
+              <%= t('footer.newsletter.email.label') %>
+            </label>
+            <input
+              type="email"
+              class="w-100"
+              id="nl_email"
+              name="email"
+              required
+              placeholder="<%= t('footer.newsletter.email.placeholder') %>"
+            />
+
+            <!-- 🗂️ KATEGORIEN -->
+            <label>
+              <%= t('footer.newsletter.category.label') %>
+            </label>
+            <div id="nl_ententies" class="nl-checkbox-list">
+              <p class="loading">
+                <%= t('footer.newsletter.category.loading') %>
+              </p>
+            </div>
+
+            <!-- ✅ CONSENT -->
+            <label class="consent">
+              <input type="checkbox" id="nl_accepted" name="accepted" value="1" required />
+              <%= t('footer.newsletter.consent') %>
+            </label>
+
+            <div class="hf-modal-actions">
+              <button type="submit" class="btn hf-btn primary">
+                <%= t('footer.newsletter.submit') %>
+              </button>
+              <p id="nl_feedback" class="nl-feedback" aria-live="polite"></p>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <script>
+      (function(){
+        const modal    = document.getElementById('newsletterModal');
+        const openBtn  = document.getElementById('openNewsletterModal');
+        const closeBtn = document.getElementById('closeNewsletterModal');
+        const form     = document.getElementById('newsletterForm');
+        const select   = document.getElementById('nl_ententies');
+        const email    = document.getElementById('nl_email');
+        const feedback = document.getElementById('nl_feedback');
+
+        function open(){
+          modal.classList.add('open');
+          document.body.classList.add('modal-open');
+          modal.setAttribute('aria-hidden','false');
+          setTimeout(() => email?.focus(), 50);
+        }
+
+        function close(){
+          modal.classList.remove('open');
+          document.body.classList.remove('modal-open');
+          modal.setAttribute('aria-hidden','true');
+          feedback.textContent = '';
+          form.reset();
+
+          if (select) {
+            select.innerHTML = '<p class="loading"><%= t('footer.newsletter.category.loading') %></p>';
+          }
+        }
+
+        openBtn?.addEventListener('click', open);
+        closeBtn?.addEventListener('click', close);
+
+        modal?.addEventListener('click', e => {
+          if (e.target.classList.contains('hf-modal-backdrop')) close();
+        });
+
+        window.addEventListener('keydown', e => {
+          if (e.key === 'Escape' && modal.classList.contains('open')) close();
+        });
+
+        // ─────────────────────────────
+        // Kategorien laden
+        // ─────────────────────────────
+        async function loadEntenties(){
+          try {
+            const res = await fetch('/newsletter/entities');
+            const data = await res.json();
+
+            select.innerHTML = '';
+
+            data.entities.forEach(e => {
+              select.insertAdjacentHTML('beforeend', `
+                <label class="nl-checkbox">
+                  <input type="checkbox" name="ententies_ids[]" value="${e.id}">
+                  <span>${e.name}</span>
+                </label>
+              `);
+            });
+          } catch {
+            select.innerHTML = '<p class="error"><%= t('footer.newsletter.error') %></p>';
+          }
+        }
+
+        openBtn?.addEventListener('click', loadEntenties);
+
+        // ─────────────────────────────
+        // Submit
+        // ─────────────────────────────
+        form?.addEventListener('submit', async (e) => {
+          e.preventDefault();
+
+          feedback.textContent = '<%= t('footer.newsletter.sending') %>';
+
+          const ententies_ids = Array.from(
+            document.querySelectorAll('input[name="ententies_ids[]"]:checked')
+          ).map(cb => cb.value);
+
+          const payload = {
+            name: form.name?.value?.trim() || null,
+            email: form.email.value.trim(),
+            ententies_ids,
+            accepted: form.accepted.checked ? 1 : 0
+          };
+
+          try {
+            const res = await fetch('/newsletter/subscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data?.message || '<%= t('footer.newsletter.error') %>');
+
+            feedback.textContent = '<%= t('footer.newsletter.success') %>';
+            setTimeout(close, 1200);
+
+          } catch (err) {
+            feedback.textContent = err.message || '<%= t('footer.newsletter.error') %>';
+          }
+        });
+      })();
+      </script>
+
+    </div>
+
+    <div class="hf-row links">
+      <div>
+          <ul class="hf-list">
+            <li><a href="/mediadaten"><%= t('footer.col.info.media') %></a></li>
+            <li><a href="/messen"><%= t('footer.col.info.fairs') %></a></li>
+            <li><a href="/magazin"><%= t('footer.col.info.magazine') %></a></li>
+            <li><a href="/faq">FAQ</a></li>
+            <li><a href="/ueber-uns"><%= t('footer.col.about.aboutus') %></a></li>
+          </ul>
+
+      </div>
+      <div>
+        <ul class="hf-list">
+          <li><a href="/hersteller-marken"><%= t('footer.col.sell.brands') %></a></li>
+          <li><a href="/sicherverkaufen"><%= t('footer.col.sell.safe_trading') %></a></li>
+          <li><a href="/lizenzpartner"><%= t('footer.col.sell.license_partner') %></a></li>
+          <li><a href="https://partner.herando.com/"><%= t('footer.col.sell.partner_login') %></a></li>
+        </ul>
+      </div>
+      <div>
+        <ul class="hf-list">
+          <li><a href="#"><%= t('footer.col.legal.jobs') %></a></li>
+          <li><a href="/agb"><%= t('footer.col.legal.terms') %></a></li>
+          <li><a class="a" id="open-cookie-settings"><%= t('footer.col.legal.cookies') %></a></li>
+          <li><a href="/datenschutzerklaerung"><%= t('footer.col.legal.privacy') %></a></li>
+          <li><a href="/impressum"><%= t('footer.col.legal.imprint') %></a></li>
+        </ul>
+
+      </div>
+      <div>
+        <ul class="hf-list">
+          <h6><%= t('footer.col.support.title') %></h6>
+            <li><a href="tel:+420 228 884 177" style="font-size: 24px;"><i class="bi bi-telephone"></i>+420 228 884 177</a></li>
+            <li><a href="/faq"><i class="bi bi-question-circle"></i> <%= t('footer.col.support.faq') %></a></li>
+            <li><a href="/contact"><i class="bi bi-chat-dots"></i> <%= t('footer.col.support.contact') %></a></li>
+        </ul>
+      </div>
+    </div>
+
+<div class="hf-payments-social">
+
+  <div class="hf-social">
+    <h6>Social Media</h6>
+    <div class="herando-social-icons">
+      <a href="https://www.instagram.com/herando_luxury/" target="_blank"><i class="bi bi-instagram"></i></a>
+      <a href="https://www.facebook.com/herandoluxury/" target="_blank"><i class="bi bi-facebook"></i></a>
+      <a href="https://x.com/herando_luxury" target="_blank"><i class="bi bi-twitter-x"></i></a>
+      <a href="https://www.youtube.com/channel/UCK7dURHttvCfyJ6ciXY_6YA" target="_blank"><i class="bi bi-youtube"></i></a>
+    </div>
+  </div>
+
+  <div class="hf-payments">
+    <h6><%= t('footer.payments.title') %></h6>
+    <div class="hf-payments-logos">
+      <img src="https://herando.com/images/herando-zahlungsarten-visa.png" alt="Visa">
+      <img src="https://herando.com/images/herando-zahlungsarten-mastercard.png" alt="Mastercard">
+      <img src="https://herando.com/images/herando-zahlungsarten-amex.png" alt="Amex">
+      <img src="https://herando.com/images/herando-zahlungsarten-sepa.png" alt="SEPA">
+    </div>
+  </div>
+
+</div>
+
+
+
+<% 
+  const currentLang = (typeof lang !== 'undefined' && lang) ? lang : 'de';
+
+  const LANGS = [
+    { code:'de', label:'Deutschland',   flag:'de' },
+    { code:'en', label:'USA',           flag:'us' },
+    { code:'en', label:'United Kingdom',flag:'gb' },
+    { code:'es', label:'España',        flag:'es' },
+    { code:'cs', label:'Česká republika',flag:'cz' },
+    { code:'nl', label:'Nederland',     flag:'nl' },
+    { code:'en', label:'Singapore',     flag:'sg' },
+    { code:'en', label:'India',         flag:'in' },
+    { code:'de', label:'Österreich',    flag:'at' },
+    { code:'de', label:'Schweiz',       flag:'ch' },
+    { code:'en', label:'Canada',        flag:'ca' },
+    { code:'tr', label:'Türkiye',       flag:'tr' },
+    { code:'de', label:'Luxembourg',    flag:'lu' },
+    { code:'en', label:'Malaysia',      flag:'my' },
+    { code:'en', label:'Finland',       flag:'fi' },
+    { code:'en', label:'Philippines',   flag:'ph' },
+    { code:'ja', label:'日本',          flag:'jp' },
+    { code:'en', label:'Thailand',      flag:'th' },
+    { code:'ru', label:'Россия',        flag:'ru' },
+    { code:'en', label:'Australia',     flag:'au' },
+    { code:'pl', label:'Polska',        flag:'pl' },
+    { code:'fr', label:'France',        flag:'fr' },
+    { code:'en', label:'UAE',           flag:'ae' },
+    { code:'ja', label:'中国',           flag:'cn' },
+    { code:'es', label:'Costa Rica',    flag:'cr' },
+    { code:'es', label:'Panama',        flag:'pa' },
+    { code:'es', label:'Cuba',          flag:'cu' },
+    { code:'es', label:'Argentina',     flag:'ar' },
+    { code:'it', label:'Italia',        flag:'it' },
+    { code:'es', label:'Dominicana',    flag:'do' }
+  ];
+
+  const chunkArray = (arr, size) => {
+    const result = [];
+    for (let i = 0; i < arr.length; i += size) {
+      result.push(arr.slice(i, i + size));
+    }
+    return result;
+  };
+
+  const LANGS_CHUNKS = chunkArray(LANGS, 5);
+%>
+
+<div class="hf-countries">
+  <div class="row" id="flags">
+    <% LANGS_CHUNKS.forEach(chunk => { %>
+      <div class="col-md-2 col-sm-4 col-6">
+        <ul class="flags list-unstyled">
+          <% chunk.forEach(l => { %>
+            <li>
+              <a href="/lang/<%= l.code %>" hreflang="<%= l.code %>" class="d-flex align-items-center gap-2">
+                <span class="flag-icon flag-icon-<%= l.flag %>" alt="<%= l.flag %>"></span>
+                <span><%= l.label %></span>
+              </a>
+            </li>
+          <% }) %>
+        </ul>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+
+
+<div class="hf-bottom">
+  <div class="hf-legal hf-legal-center">
+    <span>© 2016–<%= new Date().getFullYear() %> Aktiengesellschaft Herando (a.s.)</span>
+  </div>
+</div>
+
+
+  </div>
+</footer>
+
+<script> 
+document.addEventListener('DOMContentLoaded', () => {
+  const ccToEmoji = cc => String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt()));
+
+  document.querySelectorAll('#flags .flag-icon').forEach(el => {
+    const fromClass = (el.className.match(/flag-icon-([a-z]{2})/i) || [,''])[1];
+    const fromAlt   = (el.getAttribute('alt') || '').trim();
+    const cc = (fromAlt || fromClass || '').toLowerCase();
+    if (!cc) return;
+
+    const img = new Image();
+    img.className = 'flag';
+    img.alt = cc.toUpperCase();
+    img.src    = `https://flagcdn.com/24x18/${cc}.png`;
+    img.srcset = `https://flagcdn.com/24x18/${cc}.png 1x, https://flagcdn.com/48x36/${cc}.png 2x`;
+
+    img.onerror = () => {
+      const span = document.createElement('span');
+      span.textContent = ccToEmoji(cc);
+      span.style.marginRight = '6px';
+      span.style.fontSize = '1rem';
+      el.replaceWith(span);
+    };
+
+    el.replaceWith(img);
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+
+  const overlay = document.getElementById('cookie-overlay');
+  const modal   = overlay.querySelector('.cookie-modal');
+  const body    = document.body;
+
+  function openModalInstant() {
+    overlay.classList.add('open');
+    body.classList.add('cookie-open');
+  }
+
+  function openModalAnimated() {
+    // sichtbar machen
+    overlay.classList.add('open');
+    body.classList.add('cookie-open');
+
+    // Startzustand (JS!)
+    overlay.style.opacity = '0';
+    modal.style.opacity = '0';
+    modal.style.transform = 'translateY(30px) scale(0.96)';
+
+    // Overlay fade
+    overlay.animate(
+      [{ opacity: 0 }, { opacity: 1 }],
+      { duration: 200, easing: 'ease-out', fill: 'forwards' }
+    );
+
+    // Modal move + scale
+    modal.animate(
+      [
+        { opacity: 0, transform: 'translateY(30px) scale(0.96)' },
+        { opacity: 1, transform: 'translateY(0) scale(1)' }
+      ],
+      { duration: 320, easing: 'cubic-bezier(.2,.8,.2,1)', fill: 'forwards' }
+    );
+  }
+
+  function closeModal() {
+    overlay.classList.remove('open');
+    body.classList.remove('cookie-open');
+
+    // cleanup inline styles
+    overlay.style.opacity = '';
+    modal.style.opacity = '';
+    modal.style.transform = '';
+  }
+
+  /* =============================
+     AUTO OPEN (OHNE ANIMATION)
+  ============================= */
+  try {
+    const consent = JSON.parse(localStorage.getItem('cookie.consent'));
+    if (!consent || !consent.expiresAt || Date.now() > consent.expiresAt) {
+      openModalInstant();
+    }
+  } catch {
+    openModalInstant();
+  }
+
+  /* =============================
+     LINK OPEN (MIT ANIMATION)
+  ============================= */
+  document.querySelectorAll('.open-cookie-settings, #open-cookie-settings')
+    .forEach(link => {
+      link.addEventListener('click', e => {
+        e.preventDefault();
+        openModalAnimated();
+      });
+    });
+
+  /* =============================
+     CLOSE BUTTON (X)
+  ============================= */
+  const closeBtn = document.getElementById('cookie-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', () => {
+      // 2h Wiederöffnung
+      localStorage.setItem('cookie.consent', JSON.stringify({
+        required: true,
+        stats: false,
+        expiresAt: Date.now() + 2 * 60 * 60 * 1000
+      }));
+      closeModal();
+    });
+  }
+
+  /* =============================
+     ACTION BUTTONS
+  ============================= */
+  document.getElementById('cookie-required')?.addEventListener('click', () => {
+    localStorage.setItem('cookie.consent', JSON.stringify({
+      required: true,
+      stats: false,
+      expiresAt: Date.now() + 6 * 30 * 24 * 60 * 60 * 1000
+    }));
+    closeModal();
+  });
+
+  document.getElementById('cookie-accept')?.addEventListener('click', () => {
+    localStorage.setItem('cookie.consent', JSON.stringify({
+      required: true,
+      stats: true,
+      expiresAt: Date.now() + 6 * 30 * 24 * 60 * 60 * 1000
+    }));
+    closeModal();
+  });
+
+});
+</script>

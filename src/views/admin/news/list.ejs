@@ -1,0 +1,192 @@
+<!-- views/admin/ads/slider-list.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+  <link
+  href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css"
+  rel="stylesheet"
+  integrity="..."
+  crossorigin="anonymous"
+>
+
+<main class="flex-fill p-4">
+  <h1 class="mb-4">News-Magazine</h1>
+
+   <a href="/admin/news/new" class="btn btn-primary">
+     <i class="bi bi-plus me-1"></i>
+     Neuer Artikel
+   </a>
+
+<table class="table table-striped">
+    <thead>
+      <tr>
+        <th>ID</th>
+        <th>Sprache</th>
+        <th>Titel</th>
+        <th>Teaser</th>
+        <th>Published</th>
+        <th>Status</th>
+        <th class="text-end">Aktionen</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% news.forEach(item => { %>
+        <tr>
+          <td><%= item.id %></td>
+          <td><%= item.language %></td>
+          <td><%= item.title %></td>
+          <td><%= item.teaser.length>50 ? item.teaser.slice(0,47)+'…' : item.teaser %></td>
+          <td>
+            <% if (item.published) { %>
+              <%= new Date(item.published).toLocaleString('de-DE', {
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit'
+              }) %>
+            <% } else { %>
+              –
+            <% } %>
+          </td>
+          <td>
+            <% switch(item.status) {
+                case 1: %>Entwurf<% break;
+                case 2: %>Review<% break;
+                case 3: %>Veröffentlicht<% break;
+              }
+            %>
+          </td>
+          <td class="text-end">
+            <a href="/admin/news/<%=item.id%>/edit" class="btn btn-sm btn-outline-secondary me-1">
+              ✏️
+            </a>
+            <form
+              action="/admin/news/<%=item.id%>/delete"
+              method="POST"
+              style="display:inline;"
+              onsubmit="return confirm('Artikel wirklich löschen?')"
+            >
+              <button type="submit" class="btn btn-sm btn-outline-danger">
+                🗑️
+              </button>
+            </form>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+</main>
+
+<!-- NEW-MODAL -->
+<div class="modal fade" id="modal-new" tabindex="-1">
+  <div class="modal-dialog modal-xl"><div class="modal-content">
+    <form action="/admin/news/new" method="POST" enctype="multipart/form-data">
+      <div class="modal-header">
+        <h5 class="modal-title">Neuer Artikel</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Titel</label>
+          <input type="text" name="title" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Teaser</label>
+          <textarea name="teaser" class="form-control" rows="2" required></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Inhalt (HTML)</label>
+          <textarea id="new-description" name="description" class="form-control" rows="10"></textarea>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Beitragsbild</label>
+          <input type="file" name="image" class="form-control">
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            <option value="1">Entwurf</option>
+            <option value="2">Veröffentlichen</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="submit" class="btn btn-success">Speichern</button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<!-- EDIT-MODALS -->
+<% news.forEach(item => { %>
+  <div class="modal fade" id="modal-edit-<%=item.id%>" tabindex="-1">
+    <div class="modal-dialog modal-xl"><div class="modal-content">
+      <form action="/admin/news/<%=item.id%>/edit" method="POST" enctype="multipart/form-data">
+        <div class="modal-header">
+          <h5 class="modal-title">Artikel bearbeiten</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Titel</label>
+            <input type="text" name="title" class="form-control" value="<%=item.title%>" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Teaser</label>
+            <textarea name="teaser" class="form-control" rows="2" required><%=item.teaser%></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Inhalt (HTML)</label>
+            <textarea id="edit-description-<%=item.id%>" name="description" class="form-control" rows="10"><%=item.description%></textarea>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Beitragsbild</label>
+            <% if (item.image) { %>
+              <div class="mb-2">
+                <img src="/admin/news/image/<%=item.id%>" class="img-fluid" style="max-height:200px;">
+              </div>
+            <% } %>
+            <input type="file" name="image" class="form-control">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Status</label>
+            <select name="status" class="form-select">
+              <option value="1" <%= item.status===1?'selected':'' %>>Entwurf</option>
+              <option value="2" <%= item.status===2?'selected':'' %>>Veröffentlichen</option>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Aktualisieren</button>
+        </div>
+      </form>
+    </div></div>
+  </div>
+<% }) %>
+
+  <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/6/tinymce.min.js" referrerpolicy="origin"></script>
+  <script>
+    tinymce.init({
+      selector: '#new-description, textarea[name="description"]', 
+      height: 400,
+      menubar: false,
+      plugins: [
+        'advlist autolink lists link image charmap preview anchor',
+        'searchreplace visualblocks code',
+        'insertdatetime media table paste code help wordcount'
+      ],
+      toolbar: 'undo redo | formatselect | ' +
+               'bold italic backcolor | alignleft aligncenter ' +
+               'alignright alignjustify | bullist numlist outdent indent | ' +
+               'removeformat | help',
+      content_css: '//www.tiny.cloud/css/codepen.min.css'
+    });
+  </script>
+  <script
+  src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"
+  integrity="..."
+  crossorigin="anonymous"
+></script>
+

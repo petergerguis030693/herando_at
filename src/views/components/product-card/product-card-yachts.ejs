@@ -1,0 +1,99 @@
+<%
+  const yachtTypeLabels = {
+    1: t('yachts.type.motor', 'Motoryacht'),
+    2: t('yachts.type.sail', 'Segelyacht'),
+    3: t('yachts.type.catamaran', 'Katamaran')
+  };
+
+  const yachtType = yachtTypeLabels[item.yachttype] || null;
+%>
+
+<a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>"
+   class="lux-card lux-yacht-card">
+
+  <!-- IMAGE -->
+  <div class="lux-card-img">
+    <img
+      src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= item.mainPic %>"
+      alt="<%= item.title %>"
+      loading="lazy"
+    >
+  </div>
+
+  <!-- BODY -->
+  <div class="lux-card-body">
+
+    <!-- TITLE -->
+    <h3 class="lux-card-title">
+      <%= item.title.length > 40 ? item.title.substring(0, 40) + "…" : item.title %>
+    </h3>
+
+    <!-- SPECS -->
+    <p class="cartype-box" style="font-size:12pt; margin-top:8px;">
+
+      <% if (yachtType) { %>
+        <span class="info-item">
+          <i class="bi bi-water"></i>
+          <%= yachtType %>
+        </span>
+      <% } %>
+
+      <% if (item.length) { %>
+        <span class="info-item">
+          <i class="bi bi-rulers"></i>
+          <%= item.length %> m
+        </span>
+      <% } %>
+
+      <% if (item.beam) { %>
+        <span class="info-item">
+          <i class="bi bi-arrows"></i>
+          <%= item.beam %> m Breite
+        </span>
+      <% } %>
+
+      <% if (item.draft) { %>
+        <span class="info-item">
+          <i class="bi bi-arrow-down"></i>
+          <%= item.draft %> m Tiefgang
+        </span>
+      <% } %>
+
+      <% if (item.berths) { %>
+        <span class="info-item">
+          <i class="bi bi-person"></i>
+          <%= item.berths %> Kojen
+        </span>
+      <% } %>
+
+      <% if (item.year) { %>
+        <span class="info-item">
+          <i class="bi bi-calendar-event"></i>
+          Baujahr <%= item.year %>
+        </span>
+      <% } %>
+
+      <% if (item.location) { %>
+        <span class="info-item">
+          <i class="bi bi-geo-alt"></i>
+          <%= item.location %>
+        </span>
+      <% } %>
+
+    </p>
+
+
+    <!-- PRICE -->
+    <div class="lux-card-price">
+      <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
+    </div>
+
+          <% if (item.countryCode) { %>
+        <div class="lux-card-country">
+          <i class="bi bi-geo-alt"></i>
+          <%= item.countryCode %>
+        </div>
+      <% } %>
+
+  </div>
+</a>

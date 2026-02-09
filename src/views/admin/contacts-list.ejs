@@ -1,0 +1,53 @@
+ <%- include('../partials/header-admin') %>
+
+<!-- views/admin/contacts-list.ejs -->
+
+
+
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active }) %>
+  </aside>
+
+  <main class="admin-container flex-grow-1 p-4 bg-white">
+    <h1 class="mb-4 border-bottom pb-2">Kontakt‑Anfragen</h1>
+
+    <% if (contacts.length === 0) { %>
+      <div class="alert alert-info">Keine Anfragen gefunden.</div>
+    <% } else { %>
+      <div class="card shadow-sm">
+        <div class="card-body p-0">
+          <div class="table-responsive">
+            <table class="table table-striped table-hover mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>E‑Mail</th>
+                  <th>Datum</th>
+                  <th class="text-end">Aktion</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% contacts.forEach(c => { %>
+                  <tr>
+                    <td><%= c.id %></td>
+                    <td><%= c.first_name %> <%= c.last_name %></td>
+                    <td><a href="mailto:<%= c.email %>"><%= c.email %></a></td>
+                    <td><%= new Date(c.created_at).toLocaleString('de-DE') %></td>
+                    <td class="text-end">
+                      <a href="/admin/contacts/<%= c.id %>" class="btn btn-sm btn-primary">
+                        <i class="bi bi-eye"></i> Details
+                      </a>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    <% } %>
+  </main>
+</div>

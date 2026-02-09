@@ -1,0 +1,249 @@
+<%- include('../../partials/header') %>
+
+<style>
+.sitemap-page{max-width:1200px;margin:0 auto}
+.sitemap-title{font-size:40px;font-weight:500;margin:10px 0 18px}
+.divider{border-top:1px solid #e5e5e5;margin:34px 0}
+
+.section-title{font-size:26px;font-weight:500;margin:0 0 18px}
+.entity-title{font-size:26px;font-weight:500;margin:0 0 18px}
+.entity-title a{color:#000;text-decoration:none}
+.entity-title a:hover{text-decoration:underline;color:#b68a3a}
+
+.az-letter{
+  font-size:16px;
+  font-weight:600;
+  margin:22px 0 10px;
+}
+
+.az-columns{
+  display:grid;
+  grid-template-columns:repeat(4, 1fr);
+  gap:40px;
+  align-items:start;
+}
+
+@media (max-width: 992px){
+  .az-columns{grid-template-columns:repeat(2, 1fr)}
+}
+@media (max-width: 576px){
+  .az-columns{grid-template-columns:1fr}
+}
+
+.az-list{list-style:none;padding:0;margin:0}
+.az-list li{margin:0 0 8px}
+.az-list a{color:#000;font-size:18px;line-height:1.35}
+.az-list a:hover{color:#b68a3a}
+
+.simple-list{list-style:none;padding:0;margin:0}
+.simple-list li{margin:0 0 10px}
+.simple-list a{color:#000;text-decoration:underline}
+.simple-list a:hover{color:#b68a3a}
+</style>
+
+<%
+/* =========================
+   Helpers (EJS)
+========================= */
+
+// A–Z gruppieren (nach Label)
+function groupAZ(arr, getLabelFn){
+  const g = {};
+  (arr || []).forEach(x => {
+    const label = (getLabelFn ? getLabelFn(x) : (x && (x.name || x.option_label))) || '';
+    const trimmed = String(label).trim();
+    if (!trimmed) return;
+    const letter = trimmed[0].toUpperCase();
+    if (!g[letter]) g[letter] = [];
+    g[letter].push(x);
+  });
+
+  // innerhalb jedes Buchstabens alphabetisch sortieren
+  Object.keys(g).forEach(k => {
+    g[k].sort((a,b) => {
+      const la = String((getLabelFn ? getLabelFn(a) : (a.name || a.option_label)) || '').toLowerCase();
+      const lb = String((getLabelFn ? getLabelFn(b) : (b.name || b.option_label)) || '').toLowerCase();
+      return la.localeCompare(lb);
+    });
+  });
+
+  const letters = Object.keys(g).sort((a,b)=>a.localeCompare(b));
+  return { groups: g, letters };
+}
+
+// in N Spalten aufteilen (gleichmäßig)
+function chunkIntoCols(items, cols){
+  const list = items || [];
+  const n = Math.max(1, cols || 4);
+  const perCol = Math.ceil(list.length / n);
+  const out = [];
+  for (let i=0;i<n;i++){
+    out.push(list.slice(i*perCol, (i+1)*perCol));
+  }
+  return out;
+}
+%>
+<%
+function slugify(str){
+  return String(str || '')
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/(^-|-$)/g,'');
+}
+%>
+<%
+function cleanTitle(str){
+  return String(str || '')
+    .replace(/<\/?[^>]+>/gi, '')   // alle HTML-Tags raus
+    .replace(/\s+/g, ' ')          // Mehrfach-Leerzeichen
+    .trim();
+}
+
+function slugify(str){
+  return cleanTitle(str)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/(^-|-$)/g,'');
+}
+%>
+
+
+
+<section class="container py-5 sitemap-page">
+
+  <h1 class="sitemap-title">Sitemap</h1>
+  <div class="divider"></div>
+
+  <!-- ========================= -->
+  <!-- SEITEN -->
+  <!-- ========================= -->
+<div class="section-title">Seiten</div>
+
+<div class="az-columns">
+  <% staticLinks.forEach(group => { %>
+    <ul class="az-list">
+      <li style="font-weight:600;margin-bottom:8px;">
+        <%= group.title %>
+      </li>
+
+      <% group.links.forEach(l => { %>
+        <li>
+          <a href="<%= l.url %>"><%= l.title %></a>
+        </li>
+      <% }) %>
+    </ul>
+  <% }) %>
+</div>
+
+
+  <div class="divider"></div>
+
+  <!-- ========================= -->
+  <!-- ENTITIES -->
+  <!-- ========================= -->
+  <% (sitemapEntities || []).forEach(entity => { %>
+
+    <div class="entity-title">
+      <a href="/<%= entity.route %>"><%= entity.name %></a>
+    </div>
+
+    <!-- ========================= -->
+    <!-- KATEGORIEN (A–Z) -->
+    <!-- ========================= -->
+    <% if (entity.categories && entity.categories.length) { 
+      const azCat = groupAZ(entity.categories, x => x.option_label);
+    %>
+      <div class="section-title" style="font-size:18px;margin-top:8px;">Kategorie</div>
+
+      <% azCat.letters.forEach(letter => { 
+        const cols = chunkIntoCols(azCat.groups[letter], 4);
+      %>
+        <div class="az-letter"><%= letter %></div>
+        <div class="az-columns">
+          <% cols.forEach(col => { %>
+            <ul class="az-list">
+              <% col.forEach(c => { %>
+                <li>
+                  <a href="/<%= entity.route %>?<%= c.column_name %>=<%= c.option_value %>">
+                    <%= c.option_label %>
+                  </a>
+                </li>
+              <% }) %>
+            </ul>
+          <% }) %>
+        </div>
+      <% }) %>
+
+      <div class="divider"></div>
+    <% } %>
+
+    <!-- ========================= -->
+    <!-- HERSTELLER (A–Z) -->
+    <!-- ========================= -->
+    <% if (entity.brands && entity.brands.length) { 
+      const azBrand = groupAZ(entity.brands, x => x.name);
+    %>
+      <div class="section-title" style="font-size:18px;margin-top:8px;">Hersteller</div>
+
+      <% azBrand.letters.forEach(letter => { 
+        const cols = chunkIntoCols(azBrand.groups[letter], 4);
+      %>
+        <div class="az-letter"><%= letter %></div>
+        <div class="az-columns">
+          <% cols.forEach(col => { %>
+            <ul class="az-list">
+              <% col.forEach(b => { %>
+                <li>
+                  <a href="/<%= entity.route %>?brand=<%= b.id %>">
+                    <%= b.name %>
+                  </a>
+                </li>
+              <% }) %>
+            </ul>
+          <% }) %>
+        </div>
+      <% }) %>
+
+      <div class="divider"></div>
+    <% } %>
+
+    <!-- ========================= -->
+    <!-- INSERATE (optional A–Z, sonst zu groß)
+         -> hier limitieren wir z.B. auf 200 pro Entity,
+            damit die Seite nicht explodiert
+    ========================= -->
+    <% if (entity.items && entity.items.length) { 
+      const limitedItems = entity.items.slice(0, 200);
+      const azItems = groupAZ(limitedItems, x => x.name);
+    %>
+      <div class="section-title" style="font-size:18px;margin-top:8px;">Inserate</div>
+
+      <% azItems.letters.forEach(letter => { 
+        const cols = chunkIntoCols(azItems.groups[letter], 4);
+      %>
+        <div class="az-letter"><%= letter %></div>
+        <div class="az-columns">
+          <% cols.forEach(col => { %>
+            <ul class="az-list">
+              <% col.forEach(i => { %>
+                <li>
+                  <a href="/<%= entity.route %>/<%= i.id %>/<%= slugify(i.name) %>">
+                    <%= cleanTitle(i.name) %>
+                  </a>
+                </li>
+              <% }) %>
+            </ul>
+          <% }) %>
+        </div>
+      <% }) %>
+
+      <div class="divider"></div>
+    <% } %>
+
+  <% }) %>
+
+</section>
+
+<%- include('../../partials/footer') %>

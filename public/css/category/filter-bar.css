@@ -1,0 +1,46 @@
+/* /public/css/category/filter-bar.css */
+
+.filter-bar {
+  background: #fff;
+  border-bottom: 1px solid #ddd;
+  margin-bottom: 20px;
+}
+
+.filter-grid {
+  display: grid;
+  gap: 20px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.fi-label {
+  font-weight: 600;
+  margin-bottom: 6px;
+}
+
+.fi-select select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.fi-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.fi-input input {
+  width: 100%;
+  padding: 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+}
+
+.btn-search {
+  background: #1d2a44;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 6px;
+  font-weight: 600;
+}

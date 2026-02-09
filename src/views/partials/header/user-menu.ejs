@@ -1,0 +1,63 @@
+<style>
+  .btn-user-gerguis:hover{
+    background-color: transparent;
+    color: #c8a24e;
+  }
+</style>
+
+<div class="dropdown dropdown-modern">
+  <button type="button"
+          class="btn-user-gerguis d-flex align-items-center gap-2 dropdown-toggle border-0 bg-transparent p-0"
+          id="userMenuDesktop"
+          data-bs-toggle="dropdown"
+          aria-expanded="false">
+    <i class="bi bi-person-circle fs-4"></i>
+  </button>
+
+  <div class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuDesktop" style="margin-top:10px;">
+
+    <a class="dropdown-item d-flex align-items-center" href="/buyer">
+      <i class="bi bi-grid me-2"></i> <%= t('user.menu.dashboard','Übersicht') %>
+    </a>
+
+    <a class="dropdown-item d-flex align-items-center" href="/buyer/messages">
+      <i class="bi bi-chat-square-text me-2"></i> <%= t('user.menu.messages','Nachrichten') %>
+      <% if (typeof unreadMessages !== 'undefined' && unreadMessages > 0) { %>
+        <span class="badge bg-danger ms-auto"><%= unreadMessages %></span>
+      <% } %>
+    </a>
+
+    <a class="dropdown-item d-flex align-items-center" href="/buyer/sold">
+      <i class="bi bi-cash-stack me-2"></i> <%= t('user.menu.sell','Verkaufen') %>
+    </a>
+
+<% if (userHasPackage) { %>
+  <a class="dropdown-item d-flex align-items-center" href="/buyer/historie">
+    <i class="bi bi-clock-history me-2"></i>
+    <%= t('user.menu.history','Inserat - Historie') %>
+  </a>
+<% } %>
+
+
+    <a class="dropdown-item d-flex align-items-center" href="/buyer/wishlist">
+      <i class="bi bi-heart me-2"></i> <%= t('user.menu.wishlist','Merkliste') %>
+    </a>
+
+    <div class="dropdown-divider"></div>
+
+    <a class="dropdown-item d-flex align-items-center" href="/buyer/profil">
+      <i class="bi bi-person-gear me-2"></i> <%= t('user.menu.profile_settings','Profil-Einstellungen') %>
+    </a>
+
+    <a class="dropdown-item d-flex align-items-center" href="/buyer/newsletters">
+      <i class="bi bi-envelope-paper-heart me-2"></i> <%= t('user.menu.newsletter','Newsletter') %>
+    </a>
+
+    <div class="dropdown-divider"></div>
+
+    <a class="dropdown-item d-flex align-items-center text-danger" href="/auth/logout">
+      <i class="bi bi-box-arrow-right me-2"></i> <%= t('user.menu.logout','Logout') %>
+    </a>
+
+  </div>
+</div>

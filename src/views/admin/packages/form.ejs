@@ -1,0 +1,178 @@
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role  }) %>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-fill p-4">
+    <h1><%= pkg.id ? 'Paket bearbeiten' : 'Neues Paket' %></h1>
+
+    <% if (errors.length) { %>
+      <div class="alert alert-danger">
+        <ul class="mb-0">
+          <% errors.forEach(e => { %>
+            <li><%= e.msg %></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+
+    <form method="post">
+      <!-- ID / Slug -->
+      <div class="mb-3">
+        <label for="id" class="form-label">ID (Slug)</label>
+        <input
+          id="id"
+          name="id"
+          class="form-control"
+          value="<%= pkg.id||'' %>"
+          <%= pkg.id ? 'readonly' : '' %>
+          placeholder="Aus Name generiert, wenn leer"
+        >
+      </div>
+
+      <!-- Name -->
+      <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input
+          id="name"
+          name="name"
+          class="form-control"
+          value="<%= pkg.name||'' %>"
+          required
+        >
+      </div>
+
+      <!-- Beschreibung -->
+      <div class="mb-3">
+        <label for="description" class="form-label">Beschreibung</label>
+        <textarea
+          id="description"
+          name="description"
+          class="form-control"
+          rows="3"
+          placeholder="Kurze Beschreibung des Pakets"
+        ><%= pkg.description || '' %></textarea>
+      </div>
+
+      <!-- Laufzeit & Empfohlen? -->
+      <div class="row g-3 mb-3">
+        <div class="col-md-4">
+          <label for="duration_amt" class="form-label">Laufzeit (Anzahl)</label>
+          <input
+            id="duration_amt"
+            name="duration_amt"
+            type="number"
+            class="form-control"
+            value="<%= pkg.duration_amt||1 %>"
+            min="1"
+            required
+          >
+        </div>
+        <div class="col-md-4">
+          <label for="duration_unit" class="form-label">Einheit</label>
+          <select
+            id="duration_unit"
+            name="duration_unit"
+            class="form-select"
+            required
+          >
+            <% 
+              const units = [
+                { val:'days',   label:'Tage'   },
+                { val:'months', label:'Monate' },
+                { val:'years',  label:'Jahre'  }
+              ];
+              units.forEach(u => { 
+            %>
+              <option
+                value="<%= u.val %>"
+                <%= pkg.duration_unit===u.val ? 'selected' : '' %>
+              ><%= u.label %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="col-md-4 align-self-end">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="featured"
+              name="featured"
+              <%= pkg.featured ? 'checked' : '' %>
+            >
+            <label class="form-check-label" for="featured">Empfohlen?</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Preis, Anzahl Inserate & Sortierung -->
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label for="price" class="form-label">Preis (€)</label>
+          <input
+            id="price"
+            name="price"
+            type="number"
+            step="0.01"
+            class="form-control"
+            value="<%= pkg.price!=null ? pkg.price : '0.00' %>"
+            min="0"
+            required
+          >
+        </div>
+        <div class="col-md-4">
+          <label for="inseratenanzahl" class="form-label">Anzahl Inserate</label>
+          <input
+            id="inseratenanzahl"
+            name="inseratenanzahl"
+            type="number"
+            class="form-control"
+            value="<%= pkg.inseratenanzahl!=null ? pkg.inseratenanzahl : '0' %>"
+            min="0"
+            required
+          >
+        </div>
+        <div class="col-md-4">
+          <label for="sort_order" class="form-label">Sortierreihenfolge</label>
+          <input
+            id="sort_order"
+            name="sort_order"
+            type="number"
+            class="form-control"
+            value="<%= pkg.sort_order||0 %>"
+            min="0"
+          >
+        </div>
+      </div>
+
+      <!-- Buttons -->
+      <button class="btn btn-primary">
+        <%= pkg.id ? 'Speichern' : 'Anlegen' %>
+      </button>
+      <a href="/admin/packages" class="btn btn-secondary ms-2">Abbrechen</a>
+    </form>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.6.0/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/summernote@0.8.20/dist/summernote.min.js"></script>
+<script>
+  $(document).ready(function() {
+    $('#description').summernote({
+      height: 200,                 // Höhe des Editors
+      toolbar: [
+        ['style', ['bold', 'italic', 'underline', 'clear']],
+        ['para',  ['ul', 'ol', 'paragraph']],
+        ['insert',['link','picture','video']],
+        ['view',  ['fullscreen','codeview']]
+      ],
+      callbacks: {
+        onInit: function() {
+          console.log('Summernote gestartet');
+        }
+      }
+    });
+  });
+</script>

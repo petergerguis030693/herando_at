@@ -1,0 +1,28 @@
+<!--Top Angebote-->
+<div class="topOffersWrapper topOffersWrapper-desktop" style="margin-top: 100px; margin-bottom: 20px;">
+  <div>
+    <h2 class="sectionTitle" style="text-align: center;"><%= t('homepage.top_offers') %></h2>
+  </div>
+
+<% entieties.forEach(ent => { %>
+  <% if (ent.route !== 'lifestyles') { %>
+    <section class="my-prod-section" id="carousel-<%= ent.id %>" style="margin-bottom: 90px;">
+      <div class="container">
+        <h4 class="sectionSubTitle" style="margin-bottom:20px;">
+          <% if (ent.route === 'properties') { %>
+            <%= t('homepage.premium_properties') %>
+          <% } else { %>
+            <%= t('label.premium') %>  <%= t('category.' + ent.name.toLowerCase(), ent.name) %>
+          <% } %>
+        </h4>
+        <div class="my-carousel">
+          <div class="my-carousel-slides"></div>
+          <div class="my-carousel-nav-dots"></div>
+          <button class="my-carousel-prev">‹</button>
+          <button class="my-carousel-next">›</button>
+        </div>
+      </div>
+    </section>
+  <% } %>
+<% }) %>
+</div>

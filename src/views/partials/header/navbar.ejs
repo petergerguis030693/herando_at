@@ -1,0 +1,457 @@
+<%
+/* Normalizer für Dropdown & Menu Mapping */
+const normalize = (r) => {
+  const x = String(r || "").trim().toLowerCase();
+  if (["auto","car","cars","fahrzeug","fahrzeuge"].includes(x)) return "autos";
+  if (["uhr","watch","watches","uhren"].includes(x)) return "watches";
+  if (["immobilie","realestate","real-estate","property","properties"].includes(x)) return "properties";
+  if (["yacht","yachts","boot","boote","boats"].includes(x)) return "yachts";
+  if (["lifestyle","lifestyles"].includes(x)) return "lifestyles";
+  return x;
+};
+%>
+
+<style>
+.dropdown-modern {
+    z-index: 1060; 
+}
+
+.dropdown-modern .dropdown-menu {
+    z-index: 1065 !important; 
+}
+
+.search-leiste {
+    z-index: 1000; 
+}
+</style>
+
+<div class="info-bar">
+  <p>
+    <img src="/assets/herando-nur-schrift.png" alt="Herando" style="width:auto; height: 25px;">
+    <span><%= t('header.info_bar.tagline') %></span>
+  </p>
+</div>
+
+<nav class="navbar navbar-expand-xl bg-white py-3 flexen" style="position:relative;">
+  <div class="container d-flex justify-content-between align-items-center">
+
+    <a class="navbar-brand" href="/">
+      <img src="/assets/herando-weblogo.svg" alt="Herando">
+    </a>
+
+    <div class="search-leiste d-none d-xl-block position-relative" style="flex:1;max-width:760px;margin:0 16px;">
+      <%- include('search') %>
+    </div>
+
+    <div class="d-none d-xl-flex align-items-center gap-3">
+      <% if (user) { %>
+
+            <button id="settingsButton" class="btn btn-light d-flex align-items-center gap-2 d-none d-xl-flex">
+      <i class="bi bi-globe2"></i><%= t('header.languages', 'Sprachen') %>
+    </button>
+
+      <a href="/angebote" class="btn btn-primary btn-outline-light fw-semibold">
+        <i class="bi bi-plus-circle"></i>
+        <%= t('header.cta.sell_now') %>
+      </a>
+
+      <%- include('user-menu', { user, unreadMessages }) %>
+
+      <% } else { %>
+
+    <button id="settingsButton" class="btn btn-light d-flex align-items-center gap-2 d-none d-xl-flex">
+      <i class="bi bi-globe2"></i><%= t('header.languages', 'Sprachen') %>
+    </button>
+
+      <a class="btn-user d-flex align-items-center gap-2 text-decoration-none" href="/auth/login">
+        <i class="bi bi-person-circle fs-4"></i>
+        <span><%= t('header.auth.login_or_register') %></span>
+      </a>
+
+      <a href="/angebote" class="btn btn-primary d-flex align-items-center gap-2">
+        <i class="bi bi-plus-circle"></i>
+        <%= t('header.cta.sell_now') %>
+      </a>
+
+      <% } %>
+    </div>
+
+    <div class="d-xl-none ms-auto d-flex align-items-center gap-2">
+
+      <button class="btn p-2 d-inline-flex" type="button"
+              data-bs-toggle="collapse"
+              data-bs-target="#mobileSearch"
+              aria-expanded="false"
+              aria-controls="mobileSearch">
+        <i class="bi bi-search fs-5"></i>
+      </button>
+
+      <%- include('language-mobile') %>
+      <%- include('user-menu-mobile', { user }) %>
+
+      <div class="wrapper-menu" id="hamburger" aria-controls="navbarNav" aria-expanded="false">
+        <div class="line-menu half start"></div>
+        <div class="line-menu"></div>
+        <div class="line-menu half end"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="collapse d-xl-none" id="mobileSearch">
+    <div class="container py-2">
+      <form action="/search" method="get" class="d-flex w-100 mx-auto">
+        <div class="input-group">
+          <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-secondary"></i></span>
+          <input type="text" name="q" class="form-control border-start-0"
+                 placeholder="<%= t('header.search.placeholder') %>"
+                 aria-label="<%= t('header.search.aria_label') %>">
+          <button class="btn btn-primary" type="submit">
+            <i class="bi bi-arrow-right-circle"></i>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+<div class="navbar-collapse" id="navbarNav">
+<ul class="navbar-nav" id="navbarList" 
+    style="width:1460px;justify-content:space-between;max-width:1480px;">
+
+  <% sortedEntities.forEach(cat => { %>
+
+    <li class="nav-item dropdown position-static meNU">
+
+      <div class="d-flex align-items-center">
+
+        <a class="nav-link text-uppercase" href="/<%= cat.route %>">
+          <%= t('category.' + cat.route, cat.name).toUpperCase() %>
+        </a>
+
+        <% const menu = getMegaMenu(cat.route); %>
+        <% if (menu) { %>
+
+        <a class="nav-link dropdown-toggle-split fontSize"
+           href="#"
+           id="dropdown-<%= cat.route %>"
+           role="button">
+            <i class="bi bi-chevron-down"></i>
+        </a>
+
+        <% } %>
+
+      </div>
+
+      <% if (menu) { %>
+        <%- include('mega-menu', { cat, menu, t, currentLang }) %>
+      <% } %>
+
+    </li>
+
+  <% }) %>
+
+</ul>
+</div>
+
+</nav>
+
+<div class="mobile-backdrop" id="mobileBackdrop"></div>
+
+
+<div class="mobile-menu" id="mobileMenu">
+  
+  <div class="mobile-menu-header">
+    
+    <a class="navbar-brand mobile-logo-link" href="/">
+      <img src="/assets/herando-weblogo.svg" alt="Herando Logo">
+    </a>
+
+    <button id="closeMobileMenuBtn" class="close-menu-btn">
+      <i class="bi bi-x-lg"></i>
+    </button>
+  </div>
+
+<div class="mobile-menu-inner">
+  <ul class="mobile-nav">
+    <% sortedEntities.forEach(cat => { 
+        // Mega Menu Daten holen
+        const menu = getMegaMenu(cat.route); %>
+
+      <li class="mobile-item">
+        <div class="d-flex justify-content-between align-items-center mobile-link-header">
+          
+          <a href="/<%= cat.route %>" class="w-100">
+            <%= t('category.' + cat.route, cat.name) %>
+          </a>
+
+          <% if (menu) { %>
+            <button class="btn btn-sm p-0 border-0 mobile-toggle-btn" 
+                    data-bs-toggle="collapse" 
+                    data-bs-target="#mobile-<%= cat.route %>" 
+                    aria-expanded="false">
+                <i class="bi bi-chevron-down"></i>
+            </button>
+          <% } %>
+        </div>
+
+        <% if (menu) { %>
+          <div class="collapse mobile-mega-content" id="mobile-<%= cat.route %>">
+            <div class="p-3">
+              
+              <div class="mobile-mega-col mb-4">
+                <h6 class="fw-bold mb-3"><%= t('mobile.brands','Marken') %></h6>
+                <ul class="list-unstyled text-start">
+                  
+                  <% if (cat.route === 'autos') { %>
+                    <% [ { slug: "lamborghini", name: "Lamborghini" }, { slug: "mercedes-benz", name: "Mercedes-Benz" }, { slug: "ferrari", name: "Ferrari" }, { slug: "porsche", name: "Porsche" } ].forEach(b => { %>
+                      <li><a class="dropdown-item" href="/autos/<%= b.slug %>"><%= b.name %></a></li>
+                    <% }) %>
+                    <li>
+                      <a class="dropdown-item fw-bold" href="/autos">
+                        <%= t('mobile.show_all_brands','Alle Marken anzeigen') %>
+                      </a>
+                    </li>              
+                  <% } else if (cat.route === 'watches') { %>
+                    <% [ { slug: "patek-philippe", name: "Patek Philippe" }, { slug: "rolex", name: "Rolex" }, { slug: "breitling", name: "Breitling" }, { slug: "iwc", name: "IWC" } ].forEach(b => { %>
+                      <li><a class="dropdown-item" href="/watches/<%= b.slug %>"><%= b.name %></a></li>
+                    <% }) %>
+                    <li><a class="dropdown-item fw-bold" href="/watches">Alle Marken anzeigen</a></li>
+                    
+                  <% } else if (cat.route === 'yachts') { %>
+                    <% [ { slug: "sunseeker", name: "Sunseeker" }, { slug: "princess", name: "Princess" }, { slug: "azimut-yachts", name: "Azimut Yachts" }, { slug: "benetti", name: "Benetti" } ].forEach(b => { %>
+                      <li><a class="dropdown-item" href="/yachts/<%= b.slug %>"><%= b.name %></a></li>
+                    <% }) %>
+                    <li><a class="dropdown-item fw-bold" href="/yachts">Alle Marken anzeigen</a></li>
+
+                    <% } else if (cat.route === 'properties') { %>
+
+                      <% [
+                        { slug: "10", key: "category.properties.finca", fallback: "Finca" },
+                        { slug: "8", key: "category.properties.maissonete", fallback: "Maissonete" },
+                        { slug: "6", key: "category.properties.villa", fallback: "Villa/Haus" },
+                        { slug: "4", key: "category.properties.apartment", fallback: "Wohnung" }
+                      ].forEach(i => { %>
+
+                        <li>
+                          <a class="dropdown-item" href="/properties?propertytype=<%= i.slug %>">
+                            <%= t(i.key, i.fallback) %>
+                          </a>
+                        </li>
+
+                      <% }) %>
+
+                      <li>
+                        <a class="dropdown-item fw-bold" href="/properties">
+                          <%= t('mobile.show_all_investmenttypes','Alle Investmenttypen anzeigen') %>
+                        </a>
+                      </li>
+
+                  
+                  <% } else { %>
+                    <% menu.brands.forEach(b => { %>
+                      <li><a class="dropdown-item" href="/<%= cat.route %>/<%= b.toLowerCase().replace(/\s+/g,'-') %>"><%= b %></a></li>
+                    <% }) %>
+                    <li><a class="dropdown-item fw-bold" href="/<%= cat.route %>">Alle Marken anzeigen</a></li>
+                  <% } %>
+                </ul>
+              </div>
+              
+<div class="mobile-mega-col border-top pt-4">
+  <h6 class="fw-bold mb-3"><%= t('mobile.categories','Kategorien') %></h6>
+  <ul class="list-unstyled">
+
+    <% if (cat.route === 'autos') { %>
+
+      <li><a class="dropdown-item" href="/autos?cartype=1&hp=1">
+        <%= t('category.autos.coupe','Coupé') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/autos?cartype=2&hp=1">
+        <%= t('category.autos.convertible','Cabrio') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/autos?cartype=3&hp=1">
+        <%= t('category.autos.sedan','Limousine') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/autos?cartype=6&hp=1">
+        <%= t('category.autos.pickup','Pickup') %>
+      </a></li>
+
+
+    <% } else if (cat.route === 'watches') { %>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=1&hp=1">
+        <%= t('category.watches.wristwatch','Armbanduhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=2&hp=1">
+        <%= t('category.watches.pocketwatch','Taschenuhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=3&hp=1">
+        <%= t('category.watches.tableclock','Tischuhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=4&hp=1">
+        <%= t('category.watches.antique','Antike Uhr') %>
+      </a></li>
+
+
+    <% } else if (cat.route === 'yachts') { %>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=1&hp=1">
+        <%= t('category.yachts.motor','Motor Yachts') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=10&hp=1">
+        <%= t('category.yachts.flybridge','Flybridge') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=14&hp=1">
+        <%= t('category.yachts.cabin','Kajütboot') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=15&hp=1">
+        <%= t('category.yachts.catamaran','Katamaran') %>
+      </a></li>
+
+
+    <% } else if (cat.route === 'properties') { %>
+      <li><a class="dropdown-item" href="/properties?investmenttype=1">
+        <%= t('category.properties.residential','Wohnimmobilie') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=2">
+        <%= t('category.properties.hotel','Hotels & Gastronomie') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=3">
+        <%= t('category.properties.commercial','Gewerbe') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=4">
+        <%= t('category.properties.land','Grundstück') %>
+      </a></li>
+
+
+    <% } else { %>
+
+      <% menu.categories.forEach(c => { %>
+        <li><a class="dropdown-item" href="#"><%= c %></a></li>
+      <% }) %>
+
+    <% } %>
+
+
+    <!-- Show all categories -->
+    <li>
+      <a class="dropdown-item fw-bold" href="/<%= cat.route %>/filters?hp=1">
+        <%= t('mobile.show_all_categories','Alle Kategorien anzeigen') %>
+      </a>
+    </li>
+
+  </ul>
+</div>
+
+
+            </div>
+          </div>
+        <% } %>
+      </li>
+    <% }) %>
+  </ul>
+  
+  <div class="mobile-menu-footer p-4 border-top">
+    
+    <div class="d-flex flex-column mb-4">
+      <a href="/datenschutzerklaerung" class="mobile-footer-link mb-2">
+        <%= t('mobile.privacy','Datenschutzerklärung') %>
+      </a>
+
+      <a href="/impressum" class="mobile-footer-link">
+        <%= t('mobile.imprint','Impressum') %>
+      </a>
+
+    </div>
+
+    <div class="mobile-socials d-flex gap-3">
+      
+      <a href="https://twitter.com/herando" target="_blank" class="mobile-social-icon" aria-label="Herando auf Twitter">
+        <i class="bi bi-twitter-x"></i>
+      </a>
+
+      <a href="https://www.youtube.com/herando" target="_blank" class="mobile-social-icon" aria-label="Herando auf YouTube">
+        <i class="bi bi-youtube"></i>
+      </a>
+      
+      <a href="https://www.facebook.com/herando" target="_blank" class="mobile-social-icon" aria-label="Herando auf Facebook">
+        <i class="bi bi-facebook"></i>
+      </a>
+
+    </div>
+    
+  </div>
+</div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  document.querySelectorAll(".dropdown-toggle-split").forEach(btn => {
+    btn.addEventListener("click", e => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const li = btn.closest(".nav-item");
+      const menu = li.querySelector(".dropdown-menu");
+
+      document.querySelectorAll(".nav-item").forEach(x => {
+        if (x !== li) {
+          x.classList.remove("open");
+          const m = x.querySelector(".dropdown-menu");
+          if (m) m.classList.remove("show");
+        }
+      });
+
+      li.classList.toggle("open");
+      menu.classList.toggle("show");
+    });
+  });
+
+  document.addEventListener("click", () => {
+    document.querySelectorAll(".nav-item").forEach(li => {
+      li.classList.remove("open");
+      const menu = li.querySelector(".dropdown-menu");
+      if (menu) menu.classList.remove("show");
+    });
+  });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const hamburger = document.getElementById("hamburger");
+  const mobileMenu = document.getElementById("mobileMenu");
+  const backdrop = document.getElementById("mobileBackdrop");
+  
+  // 🔥 NEU: Den X-Button holen
+  const closeBtn = document.getElementById("closeMobileMenuBtn");
+
+  function closeMobile() {
+    mobileMenu.classList.remove("show");
+    backdrop.classList.remove("show");
+    hamburger.classList.remove("open");
+  }
+
+  hamburger.addEventListener("click", () => {
+    hamburger.classList.toggle("open");
+    mobileMenu.classList.toggle("show");
+    backdrop.classList.toggle("show");
+  });
+
+  backdrop.addEventListener("click", closeMobile);
+    if (closeBtn) {
+    closeBtn.addEventListener("click", closeMobile);
+  }
+});
+</script>

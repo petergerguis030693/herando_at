@@ -1,0 +1,125 @@
+<%- include('../../partials/header') %>
+  <link rel="stylesheet" href="/css/buyer.css">
+  <style>
+    .pkg-row {
+      display: flex;
+      flex-wrap: nowrap;
+      gap: 24px;
+      align-items: center;
+    }
+
+    .pkg-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      white-space: nowrap;
+    }
+  </style>
+
+  <body>
+
+
+    <!-- Flash-Messages -->
+    <% if (typeof errorMessage !=='undefined' && errorMessage) { %>
+      <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+        role="alert" style="z-index:1050;min-width:300px;">
+        <%= errorMessage %>
+          <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Schließen"></button>
+      </div>
+      <% } %>
+        <% if (typeof successMessage !=='undefined' && successMessage) { %>
+          <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+            role="alert" style="z-index:1050;min-width:300px;">
+            <%= successMessage %>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Schließen"></button>
+          </div>
+          <% } %>
+
+            <!-- Shell mit Sidebar -->
+            <div class="account-shell d-flex gap-3">
+              <%- include('../../partials/asside') %>
+
+                <body>
+                  <% if (errorMessage) { %>
+                    <div
+                      class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+                      role="alert" style="z-index:1050; min-width:300px;">
+                      <%= errorMessage %>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Schließen"></button>
+                    </div>
+                    <% } %>
+                      <% if (successMessage) { %>
+                        <div
+                          class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+                          role="alert" style="z-index:1050; min-width:300px;">
+                          <%= successMessage %>
+                            <button type="button" class="btn-close" data-bs-dismiss="alert"
+                              aria-label="Schließen"></button>
+                        </div>
+                        <% } %>
+
+                          <!-- Upgrade-Form -->
+                          <div class="container">
+                            <h1 class="mb-3">Steigern Sie Reichweite und Erfolgschancen</h1>
+                            <p class="text-muted mb-4">
+                              Ihr Inserat hat noch nicht genug Aufmerksamkeit? Wählen Sie hier Ihr Upgrade-Paket:
+                            </p>
+                            
+                            <%
+                            const catConfig = {
+                              slideshow:   { title: 'Slideshow auf der Startseite', desc: 'Hebe dein Inserat prominent in der Startseiten-Slideshow hervor.' },
+                              top_listing: { title: 'Top-Listing in Kategorie', desc: 'Platziere dein Inserat oben in der jeweiligen Rubrik.' },
+                              catalog:     { title: 'Katalog-Hervorhebung', desc: 'Mehr Sichtbarkeit im Katalog.' },
+                              inserat:     { title: 'Inserat-Push', desc: 'Direkte Hervorhebung deines Inserats.' },
+                              slider:      { title: 'Slider-Platzierung', desc: 'Präsentation im Slider.' },
+                              katalog_slider:{ title: 'Katalog-Slider', desc: 'Sichtbarkeit im Katalog-Slider.' },
+                              sonstiges:   { title: 'Sonstiges', desc: 'Weitere Promotion-Optionen.' }
+                            };
+
+                            const displayCats = [...new Set(packages.map(p => p.category))];
+                            %>
+
+
+                              <% displayCats.forEach(cat=> {
+                                const pkgs = packages.filter(p=>p.category===cat);
+                                if (!pkgs.length) return;
+                                const cfg = catConfig[cat];
+                                %>
+                                <div class="card mb-4 shadow-sm">
+                                  <div class="card-body">
+                                    <h3 class="card-title">
+                                      <%= cfg.title %>
+                                    </h3>
+                                    <p class="card-text text-muted">
+                                      <%= cfg.desc %>
+                                    </p>
+
+                                    <form action="/buyer/upgrade/<%= itemId %>" method="post">
+                                      <input type="hidden" name="category" value="<%= cat %>">
+
+                                      <div class="pkg-row mb-3">
+                                        <% pkgs.forEach((pkg, idx)=> { %>
+                                          <div class="pkg-item">
+                                            <input class="form-check-input" type="radio" name="selectedPackageId"
+                                              id="pkg-<%= pkg.id %>" value="<%= pkg.id %>" <%=idx===0?'checked':'' %>
+                                            >
+                                            <label class="form-check-label" for="pkg-<%= pkg.id %>">
+                                              <%= pkg.duration_weeks %> Woche<%= pkg.duration_weeks>1?'n':'' %>
+                                                  – <%= (pkg.price_cents/100).toFixed(2).replace('.',',') %> €
+                                            </label>
+                                          </div>
+                                          <% }) %>
+                                      </div>
+
+                                      <button type="submit" class="btn btn-primary">Paket buchen</button>
+                                    </form>
+
+                                  </div>
+                                </div>
+                                <% }) %>
+
+                                  <a href="/buyer/online" class="btn btn-outline-secondary">Zurück</a>
+                          </div>
+            </div>
+
+            <%- include('../../partials/footer', { footerColumns }) %>

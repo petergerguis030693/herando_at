@@ -1,0 +1,211 @@
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: 'seo' }) %>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-grow-1 p-4">
+    <% const isEdit = !!item; %>
+    <div class="card card-soft p-3">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="m-0"><%= isEdit ? 'Eintrag bearbeiten' : 'Neuen Eintrag anlegen' %></h2>
+        <div class="d-flex gap-2">
+          <a href="/admin/seo" class="btn btn-outline-light"><i class="bi bi-arrow-left"></i> Zur Liste</a>
+          <% if (isEdit) { %>
+          <form method="post" action="/admin/seo/delete" onsubmit="return confirm('Diesen Eintrag löschen?')">
+            <input type="hidden" name="id" value="<%= item.id %>">
+            <button class="btn btn-outline-danger"><i class="bi bi-trash"></i></button>
+          </form>
+          <% } %>
+        </div>
+      </div>
+
+      <form method="post" action="/admin/seo/save" class="needs-validation" novalidate>
+        <% if (isEdit) { %><input type="hidden" name="id" value="<%= item.id %>"><% } %>
+
+        <ul class="nav nav-tabs" role="tablist">
+          <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-basic" type="button">Basic</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-og" type="button">Open Graph</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-adv" type="button">Advanced</button></li>
+          <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-preview" type="button">Preview</button></li>
+        </ul>
+
+        <div class="tab-content p-3">
+          <!-- BASIC -->
+          <div class="tab-pane fade show active" id="tab-basic">
+            <div class="row g-3">
+              <div class="col-md-8">
+                <label class="form-label">URL oder Pfad</label>
+                <input name="url_or_path" class="form-control" placeholder="/cars oder https://herando.at/cars"
+                       value="<%= isEdit ? item.path_pattern : '' %>" required>
+                <div class="form-hint">Domain (.com/.at) wird ignoriert – gespeichert wird nur der Pfad/Pattern.</div>
+                <div class="form-hint">Unterstützt: <code>/blog/:slug</code>, <code>/search*</code></div>
+                <div class="invalid-feedback">Bitte Pfad angeben.</div>
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Priorität</label>
+                <input name="priority" type="number" class="form-control" value="<%= isEdit ? item.priority : 100 %>">
+                <div class="form-hint">Kleiner = wichtiger (spezifischer).</div>
+              </div>
+
+              <div class="col-12">
+                <label class="form-label">Title <small id="titleCount" class="text-white-50">0/70</small></label>
+                <input name="title" class="form-control" maxlength="70" required value="<%= isEdit ? item.title : '' %>">
+              </div>
+              <div class="col-12">
+                <label class="form-label">Description <small id="descCount" class="text-white-50">0/180</small></label>
+                <textarea name="description" class="form-control" rows="2" maxlength="180" required><%= isEdit ? item.description : '' %></textarea>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Robots</label>
+                <input name="robots" class="form-control" value="<%= isEdit ? item.robots : 'index,follow' %>">
+              </div>
+            </div>
+          </div>
+
+          <!-- OG -->
+          <div class="tab-pane fade" id="tab-og">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">OG Title</label>
+                <input name="og_title" class="form-control" value="<%= isEdit ? (item.og_title || '') : '' %>">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Twitter Card</label>
+                <input name="twitter_card" class="form-control" value="<%= isEdit ? (item.twitter_card || 'summary_large_image') : 'summary_large_image' %>">
+              </div>
+              <div class="col-12">
+                <label class="form-label">OG Description</label>
+                <textarea name="og_description" class="form-control" rows="2"><%= isEdit ? (item.og_description || '') : '' %></textarea>
+              </div>
+              <div class="col-12">
+                <label class="form-label">OG Image URL</label>
+                <input name="og_image" class="form-control" value="<%= isEdit ? (item.og_image || '') : '' %>">
+              </div>
+            </div>
+          </div>
+
+          <!-- ADVANCED -->
+          <div class="tab-pane fade" id="tab-adv">
+            <div class="row g-3">
+              <div class="col-12">
+                <label class="form-label">JSON-LD (optional)</label>
+                <textarea id="jsonld" name="jsonld" class="form-control" rows="8"
+                  placeholder='{"@context":"https://schema.org","@type":"Organization","name":"Herando"}'><%= isEdit ? (item.jsonld || '') : '' %></textarea>
+                <div class="form-hint">Wird unverändert in &lt;script type="application/ld+json"&gt; ausgegeben.</div>
+                <div id="jsonldStatus" class="form-hint"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PREVIEW -->
+          <div class="tab-pane fade" id="tab-preview">
+            <div class="row g-3">
+              <div class="col-lg-6">
+                <div class="p-3 border rounded">
+                  <div class="text-muted">Google Vorschau</div>
+                  <h3 id="pv-title" class="h5 text-success mt-2">Titel</h3>
+                  <div id="pv-url" class="text-info">https://herando.com/pfad</div>
+                  <p id="pv-desc" class="mt-2 mb-0">Beschreibung…</p>
+                </div>
+              </div>
+              <div class="col-lg-6">
+                <div class="p-3 border rounded">
+                  <div class="text-muted">Social Card</div>
+                  <strong id="pv-og-title">OG Titel</strong>
+                  <p id="pv-og-desc" class="mb-2">OG Beschreibung…</p>
+                  <div id="pv-og-img" class="ratio ratio-16x9 bg-dark d-flex align-items-center justify-content-center">
+                    <span class="text-white-50">Kein Bild</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="mt-3 d-flex gap-2">
+          <button class="btn btn-success"><i class="bi bi-check2-circle"></i> Speichern</button>
+          <a href="/admin/seo" class="btn btn-outline-secondary">Abbrechen</a>
+        </div>
+      </form>
+    </div>
+
+    <script>
+      // Live-Counter
+      const titleEl = document.querySelector('input[name="title"]');
+      const descEl = document.querySelector('textarea[name="description"]');
+      const titleCount = document.getElementById('titleCount');
+      const descCount = document.getElementById('descCount');
+      function updCnt(){
+        if (titleEl) titleCount.textContent = (titleEl.value.length||0) + "/70";
+        if (descEl) descCount.textContent = (descEl.value.length||0) + "/180";
+      }
+      titleEl && titleEl.addEventListener('input', updCnt);
+      descEl && descEl.addEventListener('input', updCnt);
+      updCnt();
+
+      // JSON-LD Validate
+      const jsonTa = document.getElementById('jsonld');
+      const jsonStat = document.getElementById('jsonldStatus');
+      function validateJSON(){
+        const v = jsonTa.value.trim();
+        if (!v) { jsonStat.textContent = 'Optional'; return; }
+        try { JSON.parse(v); jsonStat.textContent = '✅ JSON gültig'; }
+        catch(e){ jsonStat.textContent = '❌ Ungültiges JSON: ' + e.message; }
+      }
+      jsonTa && (jsonTa.addEventListener('input', validateJSON), validateJSON());
+
+      // Preview
+      const pvTitle = document.getElementById('pv-title');
+      const pvUrl = document.getElementById('pv-url');
+      const pvDesc = document.getElementById('pv-desc');
+      const pvOgTitle = document.getElementById('pv-og-title');
+      const pvOgDesc = document.getElementById('pv-og-desc');
+      const pvOgImg = document.getElementById('pv-og-img');
+
+      const urlEl = document.querySelector('input[name="url_or_path"]');
+      const ogTitleEl = document.querySelector('input[name="og_title"]');
+      const ogDescEl = document.querySelector('textarea[name="og_description"]');
+      const ogImgEl = document.querySelector('input[name="og_image"]');
+
+      function normPath(input) {
+        let s = (input||'').trim().replace(/^[a-z]+:\/\/[^/]+/i,'').replace(/(\?.*)|(#.*)$/g,'');
+        if (!s.startsWith('/')) s = '/' + s;
+        return s === '//' ? '/' : s;
+      }
+      function updPreview() {
+        pvTitle.textContent = titleEl.value || 'Titel';
+        pvDesc.textContent = descEl.value || 'Beschreibung…';
+        pvUrl.textContent = 'https://herando.com' + (urlEl.value ? normPath(urlEl.value) : '/pfad');
+
+        pvOgTitle.textContent = ogTitleEl.value || titleEl.value || 'OG Titel';
+        pvOgDesc.textContent = ogDescEl.value || descEl.value || 'OG Beschreibung…';
+        const img = (ogImgEl.value||'').trim();
+        if (img) {
+          pvOgImg.innerHTML = '<img src="'+img+'" alt="og" class="w-100 h-100 object-fit-cover">';
+        } else {
+          pvOgImg.innerHTML = '<span class="text-white-50">Kein Bild</span>';
+        }
+      }
+      [titleEl, descEl, urlEl, ogTitleEl, ogDescEl, ogImgEl].forEach(el => el && el.addEventListener('input', updPreview));
+      urlEl && urlEl.addEventListener('blur', () => { urlEl.value = normPath(urlEl.value); updPreview(); });
+      updPreview();
+
+      // Bootstrap validation
+      (function () {
+        const forms = document.querySelectorAll('.needs-validation');
+        Array.from(forms).forEach(form => {
+          form.addEventListener('submit', event => {
+            if (!form.checkValidity()) { event.preventDefault(); event.stopPropagation(); }
+            form.classList.add('was-validated');
+          }, false);
+        });
+      })();
+    </script>
+  </main>
+</div>
+
+<!-- Bootstrap JS (Tabs, Collapse, Dropdowns, etc.) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>

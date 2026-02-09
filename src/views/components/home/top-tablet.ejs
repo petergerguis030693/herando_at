@@ -1,0 +1,21 @@
+<section class="topOffersWrapper-tablet" id="tablet-carousel-<%= ent.id %>">
+  <div class="container" style="margin-bottom:60px;">
+    <h4 class="sectionSubTitle" style="margin-bottom:20px;">
+      <% if (ent.route === "properties") { %>
+        Premiumimmobilien
+      <% } else { %>
+        Premium <%= ent.name %>
+      <% } %>
+    </h4>
+
+    <div class="tablet-carousel">
+      <button class="tablet-carousel-prev my-carousel-prev">‹</button>
+
+      <div class="tablet-carousel-track">
+        <div class="tablet-carousel-slides"></div>
+      </div>
+
+      <button class="tablet-carousel-next my-carousel-next">›</button>
+    </div>
+  </div>
+</section>

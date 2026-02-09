@@ -1,0 +1,148 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role  }) %>
+  </aside>
+
+<main class="main-content flex-fill">
+  <header class="bg-herando text-white p-3 mb-4">
+    <h1 class="h4 mb-0">
+      Landing-Page <%= action==='new' ? 'anlegen' : 'bearbeiten' %>
+    </h1>
+  </header>
+
+  <!-- Flash-Messages -->
+  <% if (messages.success) { %>
+    <div class="alert alert-success"><%= messages.success %></div>
+  <% } %>
+  <% if (messages.error) { %>
+    <div class="alert alert-danger"><%= messages.error %></div>
+  <% } %>
+
+  <form method="POST"
+        action="<%= action==='new' 
+                    ? '/admin/landing/new' 
+                    : '/admin/landing/'+page.slug+'/edit' %>"
+        enctype="multipart/form-data"
+  >
+    <!-- Slug -->
+    <div class="mb-3">
+      <label for="slug" class="form-label">Slug (URL)</label>
+      <input type="text"
+             id="slug"
+             name="slug"
+             class="form-control"
+             value="<%= page.slug||'' %>"
+             required>
+    </div>
+
+    <!-- Titel -->
+    <div class="mb-3">
+      <label for="title" class="form-label">Titel</label>
+      <input type="text"
+             id="title"
+             name="title"
+             class="form-control"
+             value="<%= page.title||'' %>"
+             required>
+    </div>
+
+    <!-- Untertitel -->
+    <div class="mb-3">
+      <label for="subtitle" class="form-label">Untertitel</label>
+      <input type="text"
+             id="subtitle"
+             name="subtitle"
+             class="form-control"
+             value="<%= page.subtitle||'' %>">
+    </div>
+
+    <!-- Features (je Zeile ein Feature) -->
+    <div class="mb-3">
+      <label for="features" class="form-label">
+        Features (je Feature in neue Zeile)
+      </label>
+        <textarea id="features"
+                name="features"
+                rows="5"
+                class="form-control"><%= page.features || '' %></textarea>
+    </div>
+
+    <!-- Hero-Image -->
+    <div class="mb-3">
+      <label class="form-label">Hero-Image Vorschau</label>
+      <% if (page.hero_image) { %>
+        <div class="mb-2">
+          <img src="/uploads/landing/<%= page.slug %>/<%= page.hero_image %>"
+               class="img-fluid"
+               style="max-width:200px">
+        </div>
+      <% } %>
+      <input type="file"
+             name="hero_image_file"
+             accept="image/*"
+             class="form-control">
+    </div>
+
+    <!-- Galerie -->
+    <div class="mb-3">
+      <label class="form-label">Galerie (mehrfach)</label>
+      <% if (page.gallery && page.gallery.length) { %>
+        <div class="d-flex flex-wrap mb-2">
+          <% page.gallery.forEach(img => { %>
+            <div class="me-2 mb-2">
+              <img src="/uploads/landing/<%= page.slug %>/<%= img %>"
+                   class="img-thumbnail"
+                   style="max-width:100px">
+            </div>
+          <% }) %>
+        </div>
+      <% } %>
+      <input type="file"
+             name="gallery_files"
+             multiple
+             accept="image/*"
+             class="form-control">
+      <!-- Alte Galerie im Formular versteckt mitschicken -->
+      <input type="hidden"
+             name="_old_gallery"
+             value='<%= JSON.stringify(page.gallery||[]) %>'>
+    </div>
+
+    <!-- Call-to-Action Text -->
+    <div class="mb-3">
+      <label for="cta_text" class="form-label">Call-to-Action Text</label>
+      <input type="text"
+             id="cta_text"
+             name="cta_text"
+             class="form-control"
+             value="<%= page.cta_text||'' %>">
+    </div>
+
+    <!-- Preis-Info -->
+    <div class="mb-3">
+      <label for="price_info" class="form-label">Preis-Info</label>
+      <input type="text"
+             id="price_info"
+             name="price_info"
+             class="form-control"
+             value="<%= page.price_info||'' %>">
+    </div>
+
+    <!-- Submit & Delete -->
+    <button type="submit" class="btn btn-primary">
+      <%= action==='new' ? 'Anlegen' : 'Speichern' %>
+    </button>
+    <% if (action==='edit') { %>
+      <button formaction="/admin/landing/<%= page.slug %>/delete"
+              formmethod="POST"
+              class="btn btn-danger ms-2"
+              onclick="return confirm('Wirklich löschen?')">
+        Löschen
+      </button>
+    <% } %>
+  </form>
+</main>
+<script src="https://cdn.ckeditor.com/4.22.1/standard/ckeditor.js"></script>
+<script>
+  CKEDITOR.replace('features');
+</script>

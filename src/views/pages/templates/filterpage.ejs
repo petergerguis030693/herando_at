@@ -1,0 +1,2994 @@
+<%- include('../../partials/header') %>
+<%
+// t-Helper: nimmt deine i18n-Middleware aus res.locals.t
+const t = (key, fb) => (typeof locals.t === 'function'
+  ? locals.t(key, { lng: (locals.activeLang || 'de'), defaultValue: fb })
+  : (fb ?? key)
+);
+
+// Bequemlichkeits-Konstanten
+const ANY   = t('labels.common.any', 'Beliebig');
+const BACK  = t('labels.common.back_to_list', 'Zurück zur Liste');
+const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
+%>
+
+<link rel="stylesheet" href="/css/filterpage.css">
+<style>
+.disabled-filter {
+  opacity: 0.65;
+  background-color: #e6e6e6 !important;
+  cursor: not-allowed;
+}
+
+.disabled-filter select,
+.disabled-filter option {
+  background-color: #e6e6e6 !important;
+}
+
+.md-input input,
+.md-range input,
+.md-input select,
+.md-range select {
+    width: 100%;
+    border: 1px solid #cfd7e3;
+    height: 48px; 
+    background: #f7f9fc;
+    border-radius: 12px;
+    padding: 10px 12px;
+    font-size: .96rem;
+    color: #0f172a;
+    outline: 0;
+}
+
+/* Einheitliche Placeholder-Farbe überall */
+::placeholder,
+.md-input input::placeholder,
+.md-range input::placeholder,
+.md-select select:invalid {
+    color: #0f172a !important;
+    opacity: 1 !important;
+}
+
+.btn-ghost:hover{
+  color: white; 
+}
+
+.btn-dark:hover{
+  transform: none !important;
+}
+
+/* Farbpunkt */
+.chip-x .sw {
+  box-sizing: border-box;
+}
+
+/* Weiße / sehr helle Farben → schwarze Umrandung */
+.chip-x:not(.active) .sw[style*="#fff"],
+.chip-x:not(.active) .sw[style*="rgb(255"] {
+  border: 1.5px solid #111;
+}
+
+/* Wenn ausgewählt → keine extra Umrandung, Active-Style greift */
+.chip-x.active .sw {
+  border: none;
+}
+
+/* Grundsetup */
+.chip-x .sw {
+  box-sizing: border-box;
+}
+
+/* WEISS (nicht aktiv) → schwarze Umrandung */
+.chip-x:not(.active) .sw[style*="#fff"],
+.chip-x:not(.active) .sw[style*="rgb(255"] {
+  border: 1.5px solid #111;
+}
+
+/* SCHWARZ + MATT (immer) → weiße Umrandung */
+.chip-x .sw[style*="#111"],
+.chip-x .sw[style*="rgb(17"],
+.chip-x .sw[style*="#444"],
+.chip-x .sw[style*="#222"],
+.chip-x .sw[style*="linear-gradient"] {
+  border: 1.5px solid #fff;
+}
+
+/* Optional: aktiv etwas stärker */
+.chip-x.active .sw[style*="#111"],
+.chip-x.active .sw[style*="#444"],
+.chip-x.active .sw[style*="#222"],
+.chip-x.active .sw[style*="linear-gradient"] {
+  border-width: 2px;
+}
+
+/* ================================
+   INNENAUSSTATTUNG – FARBCHIPS
+   ================================ */
+
+/* Grund */
+.chip--color .chip-swatch{
+  box-sizing: border-box;
+}
+
+/* WEISS (nicht aktiv) → schwarze Umrandung */
+.chip--color:not(.active) .chip-swatch[style*="#fff"],
+.chip--color:not(.active) .chip-swatch[style*="rgb(255"] {
+  border: 1.5px solid #111;
+}
+
+/* SCHWARZ + MATT → weiße Umrandung (immer) */
+.chip--color .chip-swatch[style*="#111"],
+.chip--color .chip-swatch[style*="#444"],
+.chip--color .chip-swatch[style*="#222"],
+.chip--color .chip-swatch[style*="linear-gradient"] {
+  border: 1.5px solid #fff;
+}
+
+/* Optional: aktiv stärker */
+.chip--color.active .chip-swatch[style*="#111"],
+.chip--color.active .chip-swatch[style*="#444"],
+.chip--color.active .chip-swatch[style*="#222"],
+.chip--color.active .chip-swatch[style*="linear-gradient"] {
+  border-width: 2px;
+}
+
+</style>
+
+<div class="fp-wrap" id="filterpage" data-entity="<%= currentEntity.route %>">
+  <div class="fp-head">
+  <div class="fp-title"><%= t('filters.title', 'Erweiterte Suche') %> – <%= currentEntity.name %></div>
+    <div class="fp-actions">
+      <a href="/<%= currentEntity.route %>"><%= BACK %></a>
+    </div>
+  </div>
+
+  <form id="fp-form" method="get" action="/<%= currentEntity.route %>">
+
+    <!-- =========================================================
+         CARS: Basis + Technik + Innen + Extras
+    ========================================================== -->
+    <% if (currentEntity.route === 'cars') { %>
+    <!-- ====== BASISDATEN (Cars) ====== -->
+    <section class="md-card">
+      <h3 class="md-title"><%= t('filters.cars.section_basic', 'Basisdaten') %></h3>
+      <div class="md-grid">
+
+        <!-- Marke -->
+        <div class="md-col-4">
+          <label class="md-label"><%= t('labels.common.brand', 'Marke') %></label>
+          <div class="md-select">
+            <select name="brand" id="fBrand">
+              <option value=""><%= t('labels.common.any','Beliebig') %></option>
+              <% (filters.brands||[]).forEach(b => { %>
+                <option value="<%= b.id %>" <%= (selectedFilters.brand||[]).map(String).includes(String(b.id)) ? 'selected' : '' %>><%= b.name %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+        <!-- Modell -->
+        <div class="md-col-4">
+          <label class="md-label"><%= t('labels.common.model','Modell') %></label>
+          <div class="md-select">
+            <select name="model" id="fModel">
+              <option value=""><%= t('labels.common.any','Beliebig') %></option>
+              <% (filters.models||[]).forEach(m => { %>
+                <option value="<%= m.id %>" <%= (selectedFilters.model||[]).map(String).includes(String(m.id)) ? 'selected' : '' %>><%= m.name %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+        <!-- Karosserie -->
+<div class="md-col-12">
+  <label class="md-label"><%= t('filters.cars.cartype','Karosserieform') %></label>
+  <div class="bodytype-grid">
+    <% (filters.cartypes || []).forEach(ct => {
+        const checked = (selectedFilters.cartype||[]).map(String).includes(String(ct.id));
+        // Dateiname = name der Karosserieform in Kleinbuchstaben ohne Sonderzeichen
+        const fileName = ct.name.toLowerCase()
+          .replace(/\s+/g, '_')     // Leerzeichen zu Unterstrich
+          .replace(/ä/g, 'ae')
+          .replace(/ö/g, 'oe')
+          .replace(/ü/g, 'ue')
+          .replace(/ß/g, 'ss')
+          .replace(/[^a-z0-9_]/g, ''); // Nur sichere Zeichen
+    %>
+      <label class="bodytype-card">
+        <input type="checkbox" name="cartype" value="<%= ct.id %>" <%= checked ? 'checked' : '' %> />
+        <img 
+          src="/assets/<%= fileName %>.png" 
+          alt="<%= ct.name %>" 
+          style="width:auto; height:auto; margin-bottom:6px;">
+        <span style="width: 150px;" class="span"><%= ct.name %></span>
+      </label>
+    <% }) %>
+  </div>
+</div>
+
+
+        <!-- Erstzulassung -->
+<%
+  const currentYear = new Date().getFullYear();
+  const startYear = 1900; // oder 1800, wie du willst
+%>
+
+<div class="md-col-3">
+  <label class="md-label">
+    <%= t('filters.cars.registration_year_from','Erstzulassung') %>
+  </label>
+
+  <div class="md-range">
+
+    <!-- Von -->
+    <select name="registrationYearMin" id="fRegistrationYearMin">
+      <option value=""><%= t('labels.common.from','von') %></option>
+      <% for (let y = currentYear; y >= startYear; y--) { %>
+        <option value="<%= y %>"
+          <%= (selectedFilters.registrationYearMin || []).map(String).includes(String(y)) ? 'selected' : '' %>>
+          <%= y %>
+        </option>
+      <% } %>
+    </select>
+
+    <span class="sep">–</span>
+
+    <!-- Bis -->
+    <select name="registrationYearMax" id="fRegistrationYearMax">
+      <option value=""><%= t('labels.common.to','bis') %></option>
+      <% for (let y = currentYear; y >= startYear; y--) { %>
+        <option value="<%= y %>"
+          <%= (selectedFilters.registrationYearMax || []).map(String).includes(String(y)) ? 'selected' : '' %>>
+          <%= y %>
+        </option>
+      <% } %>
+    </select>
+
+  </div>
+</div>
+
+
+
+
+
+        <!-- HU -->
+        <div class="md-col-3">
+          <label class="md-label"><%= t('filters.cars.hu_to','HU/AU bis') %></label>
+          <div class="md-select">
+            <select name="nextHuYear" id="fNextHu">
+              <option value=""><%= t('labels.common.any','Beliebig') %></option>
+
+              <% (filters.nextHuYears || [])
+                  .filter(y => Number(y) > 0)
+                  .forEach(y => { %>
+                <option value="<%= y %>"
+                  <%= (selectedFilters.nextHuYear || []).map(String).includes(String(y)) ? 'selected' : '' %>>
+                  <%= y %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+        <!-- Preis -->
+        <div class="md-col-6">
+          <label class="md-label"><%= t('labels.common.price','Preis (€)') %></label>
+          <div class="md-range">
+            <input type="number" name="priceMin" min="0" step="500" value="<%= (selectedFilters.priceMin||[])[0] || '' %>" placeholder="<%= t('labels.common.from','von') %>">
+            <span class="sep">-</span>
+            <input type="number" name="priceMax" min="0" step="500" value="<%= (selectedFilters.priceMax||[])[0] || '' %>" placeholder="<%= t('labels.common.to','bis') %>">
+          </div>
+        </div>
+
+        <!-- Kilometer -->
+<div class="md-col-6">
+  <label class="md-label"><%= t('filters.cars.mileage','Kilometerstand') %></label>
+
+  <div class="md-range">
+    <!-- VON -->
+    <input
+      type="number"
+      name="mileageMin"
+      min="0"
+      step="1000"
+      value="<%= (selectedFilters.mileageMin || [])[0] || '' %>"
+      placeholder="<%= t('labels.common.from','von') %>"
+    >
+
+    <span class="sep">-</span>
+
+    <!-- BIS -->
+    <input
+      type="number"
+      name="mileageMax"
+      min="0"
+      step="1000"
+      value="<%= (selectedFilters.mileageMax || [])[0] || '' %>"
+      placeholder="<%= t('labels.common.to','bis') %>"    
+    >
+  </div>
+</div>
+
+
+        <!-- Ort/PLZ -->
+        <div class="md-col-3">
+          <label class="md-label"><%= t('labels.property.location','Ort') %></label>
+          <div class="md-input">
+            <input type="text" name="location" value="<%= (selectedFilters.location||[])[0] || '' %>" placeholder="<%= t('labels.common.any','Beliebig') %>">
+          </div>
+        </div>
+
+        <!-- Land -->
+        <div class="md-col-3">
+          <label class="md-label"><%= t('labels.common.country','Land') %></label>
+          <div class="md-select">
+            <select name="country" id="fCountry">
+              <option value=""><%= t('labels.common.any','Beliebig') %></option>
+              <% (filters.countries||[]).forEach(c => { %>
+                <option value="<%= c.id %>" <%= (selectedFilters.country||[]).map(String).includes(String(c.id)) ? 'selected' : '' %>><%= c.name %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+
+    <!-- ====== TECHNISCHE DATEN (Cars) ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.cars.section_tech', 'Technische Daten') %></h3>
+
+  <!-- Kraftstoffart -->
+  <div class="td-row">
+    <div class="td-12">
+      <label class="td-label"><%= t('filters.cars.fuel_type', 'Kraftstoffart') %></label>
+      <div class="chips">
+        <% (filters.fuels||[]).forEach(f => { 
+             const on = (selectedFilters.fuel||[]).map(String).includes(String(f.id)); %>
+          <label class="chip-x <%= on?'active':'' %>">
+            <input type="checkbox" name="fuel" value="<%= f.id %>" <%= on?'checked':'' %> />
+            <span><%= f.name %></span>
+          </label>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+<div class="td-row">
+
+  <!-- ====== Leistung (PS) ====== -->
+  <div class="td-6">
+    <label class="td-label"><%= t('filters.cars.power_ps', 'Leistung (PS)') %></label>
+    <div class="range">
+      <div class="td-input">
+        <input 
+          type="number" 
+          name="horsepower_min" 
+          min="0" 
+          step="1" 
+          placeholder="<%= t('labels.common.from','von') %>" 
+          value="<%= (selectedFilters.horsepower_min||[])[0]||'' %>"
+          style="background-color:#f7f9fc; color:black;"
+        >
+      </div>
+      <span class="sep">-</span>
+      <div class="td-input">
+        <input 
+          type="number" 
+          name="horsepower_max" 
+          min="0" 
+          step="1" 
+          placeholder="<%= t('labels.common.to','bis') %>" 
+          value="<%= (selectedFilters.horsepower_max||[])[0]||'' %>"
+          style="background-color:#f7f9fc; color:black;"
+        >
+      </div>
+      <div class="unit"><span>PS</span></div>
+    </div>
+  </div>
+
+  <!-- ====== Leistung (kW) ====== -->
+  <div class="td-6">
+    <label class="td-label"><%= t('filters.cars.power_kw', 'Leistung (kW)') %></label>
+    <div class="range">
+      <div class="td-input">
+        <input 
+          type="number" 
+          name="power_min" 
+          min="0" 
+          step="1" 
+          placeholder="<%= t('labels.common.from','von') %>" 
+          value="<%= (selectedFilters.power_min||[])[0]||'' %>"
+          style="background-color:#f7f9fc; color:black;"
+        >
+      </div>
+      <span class="sep">-</span>
+      <div class="td-input">
+        <input 
+          type="number" 
+          name="power_max" 
+          min="0" 
+          step="1" 
+          placeholder="<%= t('labels.common.to','bis') %>" 
+          value="<%= (selectedFilters.power_max||[])[0]||'' %>"
+          style="background-color:#f7f9fc; color:black;"
+        >
+      </div>
+      <div class="unit"><span>kW</span></div>
+    </div>
+  </div>
+
+</div>
+
+<!-- ====== Hubraum (cm³) ====== -->
+<div class="td-row">
+  <div class="td-6">
+    <label class="td-label"><%= t('filters.cars.displacement', 'Hubraum (cm³)') %></label>
+    <div class="range">
+      <div class="td-input">
+        <input 
+          type="number" 
+          name="capacity_min" 
+          min="0" 
+          step="50" 
+          placeholder="<%= t('labels.common.from','von') %>" 
+          value="<%= (selectedFilters.capacity_min||[])[0]||'' %>"
+          style="background-color:#f7f9fc; color:black;"
+        >
+      </div>
+      <span class="sep">-</span>
+      <div class="td-input">
+        <input 
+          type="number" 
+          name="capacity_max" 
+          min="0" 
+          step="50" 
+          placeholder="<%= t('labels.common.to','bis') %>" 
+          value="<%= (selectedFilters.capacity_max||[])[0]||'' %>"
+          style="background-color:#f7f9fc; color:black;"
+        >
+      </div>
+      <div class="unit"><span>cm³</span></div>
+    </div>
+  </div>
+</div>
+
+
+
+
+  <!-- Antrieb -->
+  <div class="td-row">
+    <div class="td-12">
+      <label class="td-label"><%= t('filters.cars.drivetrain', 'Antriebsart') %></label>
+      <div class="radios">
+        <% const chosenDrive = (selectedFilters.drivetrain||[])[0] || ''; %>
+        <label><input type="radio" name="drivetrain" value="" <%= !chosenDrive ? 'checked':'' %> > <%= t('labels.common.any','Beliebig') %></label>
+        <% (filters.drivetrains||[]).forEach(d => { %>
+          <label><input type="radio" name="drivetrain" value="<%= d.id %>" <%= String(chosenDrive)===String(d.id)?'checked':'' %> ><%= d.name %></label>
+        <% }) %>
+      </div>
+    </div>
+  </div>
+
+  <!-- Getriebe -->
+<div class="td-row">
+  <div class="td-12">
+    <label class="td-label">
+      <%= t('labels.car.transmission', 'Getriebe') %>
+    </label>
+
+    <div class="chips">
+      <%
+        // Sauber: alles läuft über "gearbox"
+        const transRaw = filters.gearboxes || [];
+        const selectedTrans = new Set(
+          (selectedFilters.gearbox || []).map(String)
+        );
+      %>
+
+      <% if (!transRaw.length) { %>
+        <span class="muted">
+          <%= t('labels.common.none','Keine Optionen vorhanden') %>
+        </span>
+      <% } else { %>
+        <% transRaw.forEach(tr => { 
+             const on = selectedTrans.has(String(tr.id)); 
+        %>
+          <label class="chip-x <%= on ? 'active' : '' %>">
+            <input
+              type="checkbox"
+              name="gearbox"
+              value="<%= tr.id %>"
+              <%= on ? 'checked' : '' %>
+            />
+            <span><%= tr.name %></span>
+          </label>
+        <% }) %>
+      <% } %>
+    </div>
+  </div>
+</div>
+
+
+  <!-- Verbrauch / Emission -->
+  <div class="td-row">
+<div class="td-4">
+  <label class="td-label"><%= t('filters.cars.consumption_combined', 'Verbrauch (komb.)') %></label>
+  <div class="range">
+    <!-- Verbrauch von -->
+    <div class="td-input">
+      <input 
+        type="number" 
+        name="consumptionMin" 
+        min="0" 
+        step="0.1" 
+        placeholder="<%= t('labels.common.from','von') %>" 
+        value="<%= (selectedFilters.consumptionMin||[])[0]||'' %>"
+        style="background-color:#f7f9fc; color:black;"
+      >
+    </div>
+
+    <span class="sep">-</span>
+
+    <!-- Verbrauch bis -->
+    <div class="td-input">
+      <input 
+        type="number" 
+        name="consumptionMax" 
+        min="0" 
+        step="0.1" 
+        placeholder="<%= t('labels.common.to','bis') %>" 
+        value="<%= (selectedFilters.consumptionMax||[])[0]||'' %>"
+        style="background-color:#f7f9fc; color:black;"
+      >
+    </div>
+
+    <div class="unit"><span>l/100km</span></div>
+  </div>
+</div>
+
+
+    <div class="td-4">
+      <label class="td-label">Schadstoffklasse</label>
+      <div class="td-select">
+        <select name="pollution_class">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.pollutionClasses||[]).forEach(o => { %>
+            <option value="<%= o.id %>" <%= (selectedFilters.pollution_class||[]).map(String).includes(String(o.id))?'selected':'' %>><%= o.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+    <div class="td-4">
+      <label class="td-label">Energieeffizienz</label>
+      <div class="td-select">
+        <select name="emission_class">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.emissionClasses||[]).forEach(o => { %>
+            <option value="<%= o.id %>" <%= (selectedFilters.emission_class||[]).map(String).includes(String(o.id))?'selected':'' %>><%= o.name %></option>
+          <% }) %>
+        </select>
+      </div>
+      <!--<div class="radios" style="margin-top:8px">
+        <% const pf = (selectedFilters.particulate_filter||[])[0]==='1'; %>
+        <label><input type="checkbox" name="particulate_filter" value="1" <%= pf?'checked':'' %> > <%= t('filters.cars.particulate_filter','Partikelfilter') %></label>
+      </div>-->
+    </div>
+  </div>
+
+  <!-- Badge optional -->
+  <div class="td-row">
+    <div class="td-4">
+            <label class="td-label"><%= t('filters.cars.environmental_badge', 'Umweltplakette') %></label>
+      <div class="td-select">
+        <select name="environmental_badge">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.badges||[]).forEach(o => { %>
+            <option value="<%= o.id %>" <%= (selectedFilters.environmental_badge||[]).map(String).includes(String(o.id))?'selected':'' %>><%= o.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+    <!-- ====== INNEN + KLIMA (Cars) ====== -->
+<section class="fp-card fp-card--tight">
+  <h3 class="fp-card__title"><%= t('filters.cars.section_interior', 'Innenausstattung & Klima') %></h3>
+
+  <% const selIntCol = (selectedFilters.interior_color||[]).map(String); %>
+  <% const COLOR_CHIPS = [
+    {id:9,  name: t('filters.cars.interior_color.9',  'Beige'),   swatch:'#d8b985'},
+    {id:5,  name: t('filters.cars.interior_color.5',  'Blau'),    swatch:'#3b6ed9'},
+    {id:10, name: t('filters.cars.interior_color.10', 'Braun'),   swatch:'#8b5e34'},
+    {id:4,  name: t('filters.cars.interior_color.4',  'Grau'),    swatch:'#c6c6c6'},
+    {id:3,  name: t('filters.cars.interior_color.3',  'Rot'),     swatch:'#e53935'},
+    {id:1,  name: t('filters.cars.interior_color.1',  'Schwarz'), swatch:'#111'},
+    {id:255,name: t('filters.cars.interior_color.255','Andere'),  swatch:'linear-gradient(45deg,#f33,#fd0,#0bf)'}
+  ]; %>
+
+  <div class="fp-grid fp-grid--gap-lg">
+    <!-- Innenfarbe -->
+    <div class="fi-12">
+      <div class="fp-subtitle"><%= t('filters.cars.interior_color.title','Farbe der Innenausstattung') %></div>
+      <div class="chip-row">
+        <% COLOR_CHIPS.forEach(c => { %>
+          <label
+            class="chip-x <%= selIntCol.includes(String(c.id)) ? 'active' : '' %>"
+            title="<%= c.name %>">
+
+            <input
+              class="chip__control"
+              type="checkbox"
+              name="interior_color"
+              value="<%= c.id %>"
+              <%= selIntCol.includes(String(c.id)) ? 'checked' : '' %>
+            >
+
+            <span class="chip-visual" style="--swatch:<%= c.swatch %>">
+              <span
+                class="chip-swatch"
+                aria-hidden="true"
+                style="
+                  display:inline-block;
+                  width:14px;
+                  height:14px;
+                  border-radius:50%;
+                  background:<%= c.swatch %>;
+                  margin-right:6px;
+                  vertical-align:-2px;
+                ">
+              </span>
+
+              <span class="chip-label"><%= c.name %></span>
+            </span>
+
+          </label>
+
+
+        <% }) %>
+      </div>
+    </div>
+
+    <!-- Material -->
+<div class="fi-12">
+  <div class="fp-subtitle">
+    <%= t('filters.cars.interior_material.title','Material') %>
+  </div>
+
+  <% const selMat = (selectedFilters.interior || []).map(String); %>
+
+  <div class="chip-row">
+    <% (filters.interiors || [])
+        .map(o => ({ ...o, key: String(o.id) }))
+        .sort((a,b) => a.name.localeCompare(b.name, 'de'))
+        .forEach(o => { %>
+
+      <label class="chip-x <%= selMat.includes(o.key) ? 'active' : '' %>">
+        <input
+          class="chip__control"
+          type="checkbox"
+          name="interior"
+          value="<%= o.id %>"
+          <%= selMat.includes(o.key) ? 'checked' : '' %>
+        >
+        <span class="chip-visual">
+          <span class="chip-label"><%= o.name %></span>
+        </span>
+      </label>
+
+    <% }) %>
+  </div>
+</div>
+
+
+    <!-- Airbags -->
+<div class="fi-12">
+  <div class="fp-subtitle"><%= t('filters.cars.airbags.title','Airbags') %></div>
+
+  <% const selAir = (selectedFilters.airbags || []).map(String); 
+     const airAny = selAir.length === 0; %>
+
+  <div class="chip-row" id="airbags-group" role="radiogroup" aria-label="Airbags">
+
+    <!-- Beliebig -->
+    <label class="chip-x chip-x--ghost <%= airAny ? 'active' : '' %>">
+      <input
+        class="chip__control"
+        type="radio"
+        name="airbags"
+        value=""
+        <%= airAny ? 'checked' : '' %>
+        data-any="airbags"
+      >
+      <span class="chip-visual">
+        <span class="chip-label"><%= t('labels.common.any','Beliebig') %></span>
+      </span>
+    </label>
+
+    <% (filters.airbags || [])
+        .map(o => ({ ...o, key: String(o.id) }))
+        .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+        .forEach(o => { %>
+
+      <label class="chip-x <%= selAir.includes(o.key) ? 'active' : '' %>">
+        <input
+          class="chip__control"
+          type="radio"
+          name="airbags"
+          value="<%= o.id %>"
+          <%= selAir.includes(o.key) ? 'checked' : '' %>
+        >
+        <span class="chip-visual">
+          <span class="chip-label"><%= o.name %></span>
+        </span>
+      </label>
+
+    <% }) %>
+  </div>
+</div>
+
+<script>
+document.addEventListener('change', () => {
+  document.querySelectorAll('#airbags-group .chip-x').forEach(l =>
+    l.classList.remove('active')
+  );
+
+  const checked = document.querySelector('#airbags-group input[type="radio"]:checked');
+  if (checked) {
+    checked.closest('.chip-x').classList.add('active');
+  }
+});
+</script>
+
+    <!-- Klimatisierung -->
+<div class="fi-12">
+  <div class="fp-subtitle"><%= t('filters.cars.climatisation.title','Klimatisierung') %></div>
+
+  <% const selCl = (selectedFilters.climatisation || []).map(String);
+     const clAny = selCl.length === 0; %>
+
+  <div class="chip-row" id="clima-group" role="radiogroup" aria-label="Klimatisierung">
+
+    <!-- Beliebig -->
+    <label class="chip-x chip-x--ghost <%= clAny ? 'active' : '' %>">
+      <input
+        class="chip__control"
+        type="radio"
+        name="climatisation"
+        value=""
+        <%= clAny ? 'checked' : '' %>
+        data-any="climatisation"
+      >
+      <span class="chip-visual">
+        <span class="chip-label"><%= t('labels.common.any','Beliebig') %></span>
+      </span>
+    </label>
+
+    <% (filters.climatisations || [])
+        .map(o => ({ ...o, key: String(o.id) }))
+        .sort((a,b)=>a.name.localeCompare(b.name,'de'))
+        .forEach(o => { %>
+
+      <label class="chip-x <%= selCl.includes(o.key) ? 'active' : '' %>">
+        <input
+          class="chip__control"
+          type="radio"
+          name="climatisation"
+          value="<%= o.id %>"
+          <%= selCl.includes(o.key) ? 'checked' : '' %>
+        >
+        <span class="chip-visual">
+          <span class="chip-label"><%= o.name %></span>
+        </span>
+      </label>
+
+    <% }) %>
+  </div>
+</div>
+
+<script>
+document.addEventListener('change', e => {
+  const input = e.target;
+  if (!input.matches('.chip__control[type="radio"]')) return;
+
+  const group = input.closest('.chip-row');
+  if (!group) return;
+
+  group.querySelectorAll('.chip-x').forEach(l =>
+    l.classList.remove('active')
+  );
+
+  const checked = group.querySelector('input[type="radio"]:checked');
+  if (checked) {
+    checked.closest('.chip-x').classList.add('active');
+  }
+});
+</script>
+
+    
+</section>
+
+
+
+
+    <!-- ====== EXTRAS (Cars) ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.cars.section_extras', 'Weitere Ausstattung & Extras') %></h3>
+  <%
+  const EXTRA_GROUPS = [
+    { title: t('filters.cars.extras.safety','Sicherheit & Assistenz'), items: {
+        abs: t('filters.cars.extras.abs','ABS'),
+        esp: t('filters.cars.extras.esp','ESP'),
+        asr: t('filters.cars.extras.asr','ASR'),
+        airbags: t('filters.cars.extras.airbags','Airbags'),
+        isofix: t('filters.cars.extras.isofix','Isofix'),
+        blind_spot_monitor: t('filters.cars.extras.blind_spot_monitor','Toter-Winkel-Assistent'),
+        lane_departure_warning: t('filters.cars.extras.lane_departure_warning','Spurhalteassistent'),
+        collision_avoidance: t('filters.cars.extras.collision_avoidance','Notbremsassistent'),
+        fatigue: t('filters.cars.extras.fatigue','Müdigkeitswarner'),
+        emergency_call: t('filters.cars.extras.emergency_call','Notruf'),
+        traffic_signs: t('filters.cars.extras.traffic_signs','Verkehrszeichenerkennung'),
+        speed_limiter: t('filters.cars.extras.speed_limiter','Geschwindigkeitsbegrenzer'),
+        distance_warning: t('filters.cars.extras.distance_warning','Abstandswarner'),
+        hill_climb: t('filters.cars.extras.hill_climb','Berganfahrhilfe')
+    }},
+    { title: t('filters.cars.extras.light','Licht'), items: {
+        xenon: t('filters.cars.extras.xenon','Xenon'),
+        bixenon: t('filters.cars.extras.bixenon','Bi-Xenon'),
+        led: t('filters.cars.extras.led','LED'),
+        laser: t('filters.cars.extras.laser','Laser'),
+        foglamp: t('filters.cars.extras.foglamp','Nebelscheinwerfer'),
+        daytime_lights: t('filters.cars.extras.daytime_lights','Tagfahrlicht'),
+        adaptive_lights: t('filters.cars.extras.adaptive_lights','Adaptives Licht'),
+        glare_free: t('filters.cars.extras.glare_free','Blendfreies Fernlicht'),
+        highbeam_assistant: t('filters.cars.extras.highbeam_assistant','Fernlichtassistent'),
+        headlight_washer: t('filters.cars.extras.headlight_washer','Scheinwerferreinigung')
+    }},
+    { title: t('filters.cars.extras.comfort','Komfort'), items: {
+        electric_windows: t('filters.cars.extras.electric_windows','el. Fensterheber'),
+        electric_adjusted_seats: t('filters.cars.extras.electric_adjusted_seats','el. Sitze'),
+        electric_heated_seats: t('filters.cars.extras.electric_heated_seats','Sitzheizung'),
+        ventilated_seats: t('filters.cars.extras.ventilated_seats','Sitzbelüftung'),
+        electric_mirrors: t('filters.cars.extras.electric_mirrors','el. Spiegel'),
+        electric_tailgate: t('filters.cars.extras.electric_tailgate','el. Heckklappe'),
+        assisted_steering: t('filters.cars.extras.assisted_steering','Servolenkung'),
+        light_sensor: t('filters.cars.extras.light_sensor','Lichtsensor'),
+        rain_sensor: t('filters.cars.extras.rain_sensor','Regensensor'),
+        head_up_display: t('filters.cars.extras.head_up_display','Head-Up-Display'),
+        aux_heating: t('filters.cars.extras.aux_heating','Standheizung'),
+        startstop_system: t('filters.cars.extras.startstop_system','Start/Stop'),
+        air_suspension: t('filters.cars.extras.air_suspension','Luftfederung'),
+        heated_windshield: t('filters.cars.extras.heated_windshield','Frontscheibenheizung'),
+        heated_steering_wheel: t('filters.cars.extras.heated_steering_wheel','Lenkradheizung'),
+        arm_rest: t('filters.cars.extras.arm_rest','Armlehne'),
+        lumbar_support: t('filters.cars.extras.lumbar_support','Lordosenstütze'),
+        massage_seats: t('filters.cars.extras.massage_seats','Massagesitze'),
+        fold_flat_passenger_seat: t('filters.cars.extras.fold_flat_passenger_seat','Umklappbarer Beifahrersitz'),
+        ambient_lighting: t('filters.cars.extras.ambient_lighting','Ambientebeleuchtung'),
+        leather_steering_wheel: t('filters.cars.extras.leather_steering_wheel','Lederlenkrad'),
+        central_locking: t('filters.cars.extras.central_locking','Zentralverriegelung'),
+        keyless_central_locking: t('filters.cars.extras.keyless_central_locking','Keyless'),
+        immobilizer: t('filters.cars.extras.immobilizer','Wegfahrsperre')
+    }},
+    { title: t('filters.cars.extras.parking','Parken'), items: {
+        parking_front: t('filters.cars.parking.front','PDC vorn'),
+        parking_rear: t('filters.cars.parking.rear','PDC hinten'),
+        parking_camera: t('filters.cars.extras.parking_camera','Rückfahrkamera'),
+        parking_self: t('filters.cars.parking.assistant','Parkassistent')
+    }},
+    { title: t('filters.cars.extras.infotainment','Infotainment'), items: {
+        navigation: t('filters.cars.extras.navigation','Navigation'),
+        tuner_radio: t('filters.cars.extras.tuner_radio','Radio'),
+        radio_dab: t('filters.cars.extras.radio_dab','DAB'),
+        mp3interface: t('filters.cars.extras.mp3interface','MP3'),
+        cdplayer: t('filters.cars.extras.cdplayer','CD'),
+        usb: t('filters.cars.extras.usb','USB'),
+        bluetooth: t('filters.cars.extras.bluetooth','Bluetooth'),
+        handsfree_kit: t('filters.cars.extras.handsfree_kit','Freisprecheinrichtung'),
+        voice_control: t('filters.cars.extras.voice_control','Sprachsteuerung'),
+        touchscreen: t('filters.cars.extras.touchscreen','Touchscreen'),
+        digital_cockpit: t('filters.cars.extras.digital_cockpit','Digitales Cockpit'),
+        soundsystem: t('filters.cars.extras.soundsystem','Soundsystem'),
+        apple_car_play: t('filters.cars.extras.apple_car_play','Apple CarPlay'),
+        android_auto: t('filters.cars.extras.android_auto','Android Auto'),
+        wifi_hotspot: t('filters.cars.extras.wifi_hotspot','WLAN-Hotspot'),
+        music_streaming: t('filters.cars.extras.music_streaming','Musik-Streaming'),
+        onboard_computer: t('filters.cars.extras.onboard_computer','Bordcomputer'),
+        inductive_charging: t('filters.cars.extras.inductive_charging','Induktives Laden'),
+        tv: t('filters.cars.extras.tv','TV')
+    }},
+    { title: t('filters.cars.extras.exterior','Exterieur & Nutzwert'), items: {
+        alloy_wheels: t('filters.cars.extras.alloy_wheels','Alufelgen'),
+        sports_suspension: t('filters.cars.extras.sports_suspension','Sportfahrwerk'),
+        sports_package: t('filters.cars.extras.sports_package','Sportpaket'),
+        sports_seats: t('filters.cars.extras.sports_seats','Sportsitze'),
+        trailer_coupling: t('filters.cars.extras.trailer_coupling','Anhängerkupplung'),
+        sunroof: t('filters.cars.extras.sunroof','Schiebedach'),
+        panoramic_roof: t('filters.cars.extras.panoramic_roof','Panoramadach'),
+        roof_rack: t('filters.cars.extras.roof_rack','Dachreling'),
+        skibag: t('filters.cars.extras.skibag','Skisack'),
+        tire_pressure_monitoring: t('filters.cars.extras.tire_pressure_monitoring','Reifendruckkontrolle'),
+        winter_package: t('filters.cars.extras.winter_package','Winterpaket'),
+        smokers_package: t('filters.cars.extras.smokers_package','Raucherpaket'),
+        disabled_accessible: t('filters.cars.extras.disabled_accessible','Behindertengerecht'),
+        taxi: t('filters.cars.extras.taxi','Taxi'),
+        summer_tires: t('filters.cars.extras.summer_tires','Sommerreifen'),
+        winter_tires: t('filters.cars.extras.winter_tires','Winterreifen'),
+        all_season_tires: t('filters.cars.extras.all_season_tires','Allwetterreifen')
+    }},
+    { title: t('filters.cars.extras.condition','Zustand & Historie'), items: {
+        checkbook: t('filters.cars.extras.checkbook','Scheckheftgepflegt'),
+        accident_free: t('filters.cars.extras.accident_free','Unfallfrei'),
+        non_smoking: t('filters.cars.extras.non_smoking','Nichtraucher'),
+        rental: t('filters.cars.extras.rental','Mietfahrzeug')
+    }}
+  ];
+  const pre = (selectedFilters.extras||[]);
+  %>
+  <div class="extras-grid">
+    <% EXTRA_GROUPS.forEach(group => { %>
+      <div class="ex-group">
+        <div class="ex-title"><%= group.title %></div>
+        <div class="chips">
+          <% Object.entries(group.items).forEach(([field, label]) => {
+               const on = pre.includes(field); %>
+            <label class="chip-x <%= on ? 'active' : '' %>">
+              <input type="checkbox" name="extras" value="<%= field %>" <%= on ? 'checked' : '' %> />
+              <span><%= label %></span>
+            </label>
+          <% }) %>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</section>
+
+
+    <!-- ====== Erweiterte Fahrzeug-Extras ====== -->
+<section class="fp-card">
+  <h3>Erweiterte Extras</h3>
+  <div class="extras-grid">
+
+    <!-- Karosseriefarbe -->
+<div class="ex-group">
+  <div class="ex-title">Karosseriefarbe</div>
+  <% const selBody = (selectedFilters.body_color || []).map(String); %>
+  <% const BODY_COLOR_CHIPS = [
+    {id:1,  name: t('attribute.cars.color.1','Schwarz'),  sw:'#111'},
+    {id:2,  name: t('attribute.cars.color.2','Weiß'),     sw:'#fff'},
+    {id:3,  name: t('attribute.cars.color.3','Rot'),      sw:'#e53935'},
+    {id:4,  name: t('attribute.cars.color.4','Grau'),     sw:'#c6c6c6'},
+    {id:5,  name: t('attribute.cars.color.5','Blau'),     sw:'#3b6ed9'},
+    {id:6,  name: t('attribute.cars.color.6','Silber'),   sw:'#d8d8d8'},
+    {id:7,  name: t('attribute.cars.color.7','Orange'),   sw:'#ff8a00'},
+    {id:8,  name: t('attribute.cars.color.8','Grün'),     sw:'#2e7d32'},
+    {id:9,  name: t('attribute.cars.color.9','Beige'),    sw:'#d8b985'},
+    {id:10, name: t('attribute.cars.color.10','Braun'),   sw:'#8b5e34'},
+    {id:11, name: t('attribute.cars.color.11','Gelb'),    sw:'#ffd400'},
+    {id:12, name: t('attribute.cars.color.12','Gold'),    sw:'#c9a227'},
+    {id:13, name: t('attribute.cars.color.13','Violett'), sw:'#7b1fa2'},
+    {id:14, name: t('attribute.cars.color.14','Bronze'),  sw:'#b08d57'},
+    {id:15, name: t('attribute.cars.color.15','Perlweiß'),sw:'#f8f8f2'}
+  ]; %>
+
+  <div class="chips">
+    <% BODY_COLOR_CHIPS.forEach(c => { %>
+      <label class="chip-x <%= selBody.includes(String(c.id)) ? 'active' : '' %>">
+        <input type="checkbox" name="body_color" value="<%= c.id %>" <%= selBody.includes(String(c.id)) ? 'checked' : '' %> />
+        <span>
+          <span class="sw" style="display:inline-block;width:.9rem;height:.9rem;border-radius:50%;vertical-align:-2px;margin-right:.5rem;background:<%= c.sw %>"></span>
+          <%= c.name %>
+        </span>
+      </label>
+    <% }) %>
+  </div>
+</div>
+
+
+<!-- Anhängerkupplung -->
+<div class="ex-group">
+  <div class="ex-title"><%= t('filters.cars.trailer_coupling_type.title','Anhängerkupplung') %></div>
+  <% const selTow = (selectedFilters.trailer_coupling_type || []).map(String); %>
+  <div class="chips">
+    <label class="chip-x <%= selTow.includes('1') ? 'active' : '' %>">
+      <input type="checkbox" name="trailer_coupling_type" value="1" <%= selTow.includes('1') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.trailer_coupling_type.1','Fest') %></span>
+    </label>
+    <label class="chip-x <%= selTow.includes('2') ? 'active' : '' %>">
+      <input type="checkbox" name="trailer_coupling_type" value="2" <%= selTow.includes('2') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.trailer_coupling_type.2','Abnehmbar') %></span>
+    </label>
+    <label class="chip-x <%= selTow.includes('3') ? 'active' : '' %>">
+      <input type="checkbox" name="trailer_coupling_type" value="3" <%= selTow.includes('3') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.trailer_coupling_type.3','Schwenkbar') %></span>
+    </label>
+    <label class="chip-x <%= selTow.includes('4') ? 'active' : '' %>">
+      <input type="checkbox" name="trailer_coupling_type" value="4" <%= selTow.includes('4') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.trailer_coupling_type.4','Anhängerassistent') %></span>
+    </label>
+  </div>
+</div>
+
+<!-- Anhängerlast & Stützlast -->
+
+
+<!-- Einparkhilfe -->
+<div class="ex-group">
+  <div class="ex-title"><%= t('filters.cars.parking_aid.title','Einparkhilfe') %></div>
+  <% const selPark = (selectedFilters.parking_aid||[]).map(String); %>
+  <div class="chips">
+    <label class="chip-x <%= selPark.includes('1') ? 'active' : '' %>">
+      <input type="checkbox" name="parking_aid" value="1" <%= selPark.includes('1') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.parking_aid.1','Hinten') %></span>
+    </label>
+    <label class="chip-x <%= selPark.includes('2') ? 'active' : '' %>">
+      <input type="checkbox" name="parking_aid" value="2" <%= selPark.includes('2') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.parking_aid.2','Vorn') %></span>
+    </label>
+    <label class="chip-x <%= selPark.includes('3') ? 'active' : '' %>">
+      <input type="checkbox" name="parking_aid" value="3" <%= selPark.includes('3') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.parking_aid.3','Kamera') %></span>
+    </label>
+    <label class="chip-x <%= selPark.includes('4') ? 'active' : '' %>">
+      <input type="checkbox" name="parking_aid" value="4" <%= selPark.includes('4') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.parking_aid.4','360°-Kamera') %></span>
+    </label>
+    <label class="chip-x <%= selPark.includes('5') ? 'active' : '' %>">
+      <input type="checkbox" name="parking_aid" value="5" <%= selPark.includes('5') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.parking_aid.5','Parkassistent') %></span>
+    </label>
+  </div>
+</div>
+
+<!-- Tempomat -->
+<div class="ex-group">
+  <div class="ex-title"><%= t('filters.cars.cruise_control.title','Tempomat') %></div>
+  <% const selCruise = (selectedFilters.cruise_control||[]).map(String); %>
+  <div class="chips">
+    <label class="chip-x <%= selCruise.includes('1') ? 'active' : '' %>">
+      <input type="radio" name="cruise_control" value="1" <%= selCruise.includes('1') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.cruise_control.1','Tempomat') %></span>
+    </label>
+    <label class="chip-x <%= selCruise.includes('2') ? 'active' : '' %>">
+      <input type="radio" name="cruise_control" value="2" <%= selCruise.includes('2') ? 'checked' : '' %> />
+      <span><%= t('filters.cars.cruise_control.2','Abstandstempomat') %></span>
+    </label>
+  </div>
+</div>
+
+
+  </div>
+</section>
+
+
+    <% } %> <!-- /cars -->
+
+    <!-- =========================================================
+         WATCHES: sauber gegliedert mit statischen Fallbacks
+    ========================================================== -->
+    <% if (currentEntity.route === 'watches') { 
+       const isSel = (arr, v) => (Array.isArray(arr) ? arr.map(String).includes(String(v)) : String(arr||'') === String(v));
+       const pick = (arr, fb) => (Array.isArray(arr) && arr.length ? arr : fb);
+       function countryName(c){ return (c && (c.name || c.de || c.label || c.iso2)) || ''; }
+
+    const FB = {
+      watchTypes: [
+        { id: 'dress',  name: t('filters.watches.watchTypes.dress', 'Dresswatch') },
+        { id: 'diver',  name: t('filters.watches.watchTypes.diver', 'Taucheruhr') },
+        { id: 'pilot',  name: t('filters.watches.watchTypes.pilot', 'Fliegeruhr') },
+        { id: 'chrono', name: t('filters.watches.watchTypes.chrono', 'Chronograph') },
+      ],
+      genders: [
+        { id: 'men',    name: t('filters.watches.genders.men', 'Herren') },
+        { id: 'women',  name: t('filters.watches.genders.women', 'Damen') },
+        { id: 'unisex', name: t('filters.watches.genders.unisex', 'Unisex') }
+      ],
+      caseMaterials: [
+        { id:'steel',    name: t('filters.watches.caseMaterials.steel','Edelstahl') },
+        { id:'gold',     name: t('filters.watches.caseMaterials.gold','Gold') },
+        { id:'titanium', name: t('filters.watches.caseMaterials.titanium','Titan') },
+        { id:'ceramic',  name: t('filters.watches.caseMaterials.ceramic','Keramik') }
+      ],
+      strapMaterials: [
+        { id:'steel',   name: t('filters.watches.strapMaterials.steel','Metall') },
+        { id:'leather', name: t('filters.watches.strapMaterials.leather','Leder') },
+        { id:'rubber',  name: t('filters.watches.strapMaterials.rubber','Kautschuk') },
+        { id:'textile', name: t('filters.watches.strapMaterials.textile','Textil') }
+      ],
+      strapColors: [
+        { id:'1',  name: t('filters.watches.strap_color.1','Schwarz') },
+        { id:'10', name: t('filters.watches.strap_color.10','Braun') },
+        { id:'5',  name: t('filters.watches.strap_color.5','Blau') },
+        { id:'6',  name: t('filters.watches.strap_color.6','Silber') },
+        { id:'2',  name: t('filters.watches.strap_color.2','Weiß') },
+        { id:'4',  name: t('filters.watches.strap_color.4','Grau') },
+        { id:'8',  name: t('filters.watches.strap_color.8','Grün') },
+        { id:'7',  name: t('filters.watches.strap_color.7','Orange') },
+        { id:'9',  name: t('filters.watches.strap_color.9','Beige') },
+        { id:'12', name: t('filters.watches.strap_color.12','Gold') },
+        { id:'255',name: t('filters.watches.strap_color.255','Sonstige') }
+      ],
+      bezelMaterials: [
+        { id:'steel',   name: t('filters.watches.bezelMaterials.steel','Edelstahl') },
+        { id:'gold',    name: t('filters.watches.bezelMaterials.gold','Gold') },
+        { id:'ceramic', name: t('filters.watches.bezelMaterials.ceramic','Keramik') }
+      ],
+      dialShapes: [
+        { id:'round',   name: t('filters.watches.dialShapes.round','Rund') },
+        { id:'square',  name: t('filters.watches.dialShapes.square','Quadratisch') },
+        { id:'rect',    name: t('filters.watches.dialShapes.rect','Rechteckig') },
+        { id:'tonneau', name: t('filters.watches.dialShapes.tonneau','Tonneau') }
+      ],
+      dialNumbers: [
+        { id:'index',  name: t('filters.watches.dialNumbers.index','Indizes') },
+        { id:'arabic', name: t('filters.watches.dialNumbers.arabic','Arabisch') },
+        { id:'roman',  name: t('filters.watches.dialNumbers.roman','Römisch') },
+        { id:'mixed',  name: t('filters.watches.dialNumbers.mixed','Gemischt') }
+      ],
+      waterproofs: [
+        { id:'30',  name: t('filters.watches.waterproofs.30','ab 30 m') },
+        { id:'50',  name: t('filters.watches.waterproofs.50','ab 50 m') },
+        { id:'100', name: t('filters.watches.waterproofs.100','ab 100 m') },
+        { id:'200', name: t('filters.watches.waterproofs.200','ab 200 m') }
+      ],
+      movements: [
+        { id:'quartz', name: t('filters.watches.movements.quartz','Quarz') },
+        { id:'auto',   name: t('filters.watches.movements.auto','Automatik') },
+        { id:'manual', name: t('filters.watches.movements.manual','Handaufzug') },
+        { id:'spring', name: t('filters.watches.movements.spring','Spring Drive') }
+      ],
+      functions: [
+        { id:'chronograph',        name: t('filters.watches.functions.chronograph','Chronograph') },
+        { id:'date',               name: t('filters.watches.functions.date','Datum') },
+        { id:'gmt',                name: t('filters.watches.functions.gmt','GMT / Zweite Zeitzone') },
+        { id:'moonphase',          name: t('filters.watches.functions.moonphase','Mondphase') },
+        { id:'power_reserve',      name: t('filters.watches.functions.power_reserve','Gangreserve') },
+        { id:'perpetual_calendar', name: t('filters.watches.functions.perpetual_calendar','Ewiger Kalender') },
+        { id:'regatta',            name: t('filters.watches.functions.regatta','Regatta') }
+      ],
+      deliveries: [
+        { id:'authenticity_papers',  name: t('filters.watches.deliveries.authenticity_papers','Echtheits-Zertifikat') },
+        { id:'authenticity_box',     name: t('filters.watches.deliveries.authenticity_box','Box') },
+        { id:'authenticity_warranty',name: t('filters.watches.deliveries.authenticity_warranty','Echtheits-Garantie') }
+      ],
+      dialColors: [
+        { id:'black',  name: t('filters.watches.dialColors.black','Schwarz') },
+        { id:'blue',   name: t('filters.watches.dialColors.blue','Blau') },
+        { id:'white',  name: t('filters.watches.dialColors.white','Weiß') },
+        { id:'silver', name: t('filters.watches.dialColors.silver','Silber') },
+        { id:'green',  name: t('filters.watches.dialColors.green','Grün') }
+      ],
+      claspMaterials: [
+        { id:'steel',    name: t('filters.watches.claspMaterials.steel','Edelstahl') },
+        { id:'gold',     name: t('filters.watches.claspMaterials.gold','Gold') },
+        { id:'titanium', name: t('filters.watches.claspMaterials.titanium','Titan') }
+      ],
+      claspTypes: [
+        { id:'folding',   name: t('filters.watches.claspTypes.folding','Faltschließe') },
+        { id:'pin',       name: t('filters.watches.claspTypes.pin','Dornschließe') },
+        { id:'butterfly', name: t('filters.watches.claspTypes.butterfly','Doppelfaltschließe') }
+      ],
+    crystals: [
+      { id: 1,   name: t('filters.watches.crystals.1',   'Saphirglas') },
+      { id: 2,   name: t('filters.watches.crystals.2',   'Plexiglas') },
+      { id: 3,   name: t('filters.watches.crystals.3',   'Kunststoff') },
+      { id: 4,   name: t('filters.watches.crystals.4',   'Mineralglas') },
+      { id: 255, name: t('filters.watches.crystals.255', 'Sonstige') }
+    ],
+
+
+    };
+
+        %>
+
+<!-- ====== BASISDATEN (Watches) ====== -->
+<section class="md-card">
+  <h3 class="md-title"><%= t('filters.watches.section_basics','Marke') %></h3>
+  <div class="md-grid">
+
+    <!-- Marke -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.watches.brand','Marke') %></label>
+      <div class="md-select">
+        <select name="brand" id="fBrand">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% (filters.brands||[]).forEach(b => { %>
+            <option value="<%= b.id %>" <%= isSel(selectedFilters.brand, b.id) ? 'selected' : '' %>><%= b.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Modell -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.watches.model','Modell') %></label>
+      <div class="md-select">
+        <select name="model" id="fModel">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% (filters.models||[]).forEach(m => { %>
+            <option value="<%= m.id %>" <%= isSel(selectedFilters.model, m.id) ? 'selected' : '' %>><%= m.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Uhrentyp -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.watches.watchtype','Uhrentyp') %></label>
+      <div class="md-select">
+        <select name="watchtype" id="fWatchType">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% pick(filters.watchTypes, FB.watchTypes).forEach(o => { %>
+            <option value="<%= o.id %>" <%= isSel(selectedFilters.watchtype, o.id) ? 'selected' : '' %>><%= o.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Geschlecht -->
+    <div class="md-col-3">
+      <label class="md-label"><%= t('filters.watches.gender','Geschlecht') %></label>
+      <div class="md-select">
+        <select name="gender" id="fGender">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% pick(filters.genders, FB.genders).forEach(o => { %>
+            <option value="<%= o.id %>" <%= isSel(selectedFilters.gender, o.id) ? 'selected' : '' %>><%= o.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Land -->
+    <div class="md-col-3">
+      <label class="md-label"><%= t('filters.watches.country','Land') %></label>
+      <div class="md-select">
+        <select name="country" id="fCountry">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% (filters.countries||[]).forEach(c => { %>
+            <option value="<%= c.id %>" <%= isSel(selectedFilters.country, c.id) ? 'selected' : '' %>><%= countryName(c) %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Baujahr -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('buyer.listing.car.year','Baujahr') %></label>
+  <div class="md-select d-flex gap-2">
+
+    <!-- Von -->
+    <select name="yearMin" id="fWatchYearMin">
+      <option value=""><%= t('labels.common.from','von') %></option>
+      <% const currentYearWMin = new Date().getFullYear();
+         for (let y=currentYearWMin; y>=1900; y--) { %>
+        <option value="<%= y %>" <%= (selectedFilters.yearMin||[]).map(String).includes(String(y)) ? 'selected' : '' %>>
+          <%= y %>
+        </option>
+      <% } %>
+    </select>
+
+    <!-- Bis -->
+    <select name="yearMax" id="fWatchYearMax">
+      <option value=""><%= t('labels.common.to','bis') %></option>
+      <% const currentYearWMax = new Date().getFullYear();
+         for (let y=currentYearWMax; y>=1900; y--) { %>
+        <option value="<%= y %>" <%= (selectedFilters.yearMax||[]).map(String).includes(String(y)) ? 'selected' : '' %>>
+          <%= y %>
+        </option>
+      <% } %>
+    </select>
+
+  </div>
+</div>
+
+
+    <!-- Preis -->
+    <div class="md-col-3">
+      <label class="md-label"><%= t('filters.watches.price','Preis (€)') %></label>
+      <div class="md-range">
+        <input type="number" name="priceMin" min="0" step="100" 
+          value="<%= (selectedFilters.priceMin||[])[0] || '' %>" 
+          placeholder="<%= t('common.from','von') %>">
+        <span class="sep"><%= t('common.to','bis') %></span>
+        <input type="number" name="priceMax" min="0" step="100" 
+          value="<%= (selectedFilters.priceMax||[])[0] || '' %>" 
+          placeholder="<%= t('common.to','bis') %>">
+      </div>
+    </div>
+
+    <!-- Ort/PLZ -->
+    <div class="md-col-3">
+      <label class="md-label"><%= t('filters.watches.location','Ort oder PLZ') %></label>
+      <div class="md-input">
+        <input type="text" name="location" value="<%= (selectedFilters.location||[])[0] || '' %>" placeholder="<%= t('common.any','Beliebig') %>">
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== MATERIAL & FARBEN ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.watches.section_materials','Material & Farben') %></h3>
+  <div class="md-grid">
+
+    <!-- Gehäusematerial -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.case_material','Gehäusematerial') %></label>
+  <div class="md-select">
+    <select name="case_material">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+      <% 
+        pick(filters.caseMaterials, FB.caseMaterials)
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { 
+      %>
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.case_material, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+
+<!-- Material Lünette -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.bezel_material','Material Lünette') %></label>
+  <div class="md-select">
+    <select name="bezel_material">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+      <% 
+        pick(filters.bezelMaterials, FB.bezelMaterials)
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { 
+      %>
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.bezel_material, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+
+  <!-- Armbandmaterial -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.strap_material','Armbandmaterial') %></label>
+  <div class="md-select">
+    <select name="strap_material">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+
+      <% (filters.strapMaterials || [])
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { %>
+
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.strap_material, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+
+      <% }) %>
+
+    </select>
+  </div>
+</div>
+
+
+<!-- Armbandfarbe -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.strap_color','Armbandfarbe') %></label>
+  <div class="md-select">
+    <select name="strap_color">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+      <% 
+        pick(filters.strapColors, FB.strapColors)
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { 
+      %>
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.strap_color, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<!-- Material Schließe -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.clasp_material','Material Schließe') %></label>
+  <div class="md-select">
+    <select name="clasp_material">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+
+      <% (filters.claspMaterials || [])
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { %>
+
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.clasp_material, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+
+      <% }) %>
+
+    </select>
+  </div>
+</div>
+
+
+<!-- Schließe -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.clasp_type','Schließe') %></label>
+  <div class="md-select">
+    <select name="clasp_type">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+
+      <% (filters.claspTypes || [])
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { %>
+
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.clasp_type, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<!-- Zifferblattfarbe -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.dial_color','Zifferblattfarbe') %></label>
+  <div class="md-select">
+    <select name="dial_color">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+
+      <% (filters.dialColors || [])
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { %>
+
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.dial_color, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<!-- Zifferblattform -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.dial_shape','Zifferblattform') %></label>
+  <div class="md-select">
+    <select name="dial_shape">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+
+      <% (filters.dialShapes || [])
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { %>
+
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.dial_shape, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+
+<!-- Ziffern -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.dial_numbers','Ziffern') %></label>
+  <div class="md-select">
+    <select name="dial_numbers">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+      <% 
+        filters.dialNumbers
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { 
+      %>
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.dial_numbers, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+      <% }) %>
+    </select>
+
+  </div>
+</div>
+
+</section>
+
+
+<!-- ====== WERK & ANZEIGE ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.watches.section_movement','Werk & Anzeige') %></h3>
+  <div class="md-grid">
+
+<!-- Aufzug -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.movement','Aufzug') %></label>
+  <div class="md-select">
+    <select name="movement">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+      <% 
+        pick(filters.movements, FB.movements)
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { 
+      %>
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.movement, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<!-- Uhrenglas -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('filters.watches.crystal','Uhrenglas') %></label>
+  <div class="md-select">
+    <select name="crystal">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+      <% 
+        pick(filters.crystals, FB.crystals)
+          .sort((a, b) => a.name.localeCompare(b.name, 'de', { sensitivity: 'base' }))
+          .forEach(o => { 
+      %>
+        <option value="<%= o.id %>" <%= isSel(selectedFilters.crystal, o.id) ? 'selected' : '' %>>
+          <%= o.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+
+    <!-- Wasserdicht -->
+    <div class="md-col-3">
+      <label class="md-label"><%= t('filters.watches.waterproof','Wasserdicht') %></label>
+      <div class="md-select">
+        <select name="waterproof">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% pick(filters.waterproofs, FB.waterproofs).forEach(o => { %>
+            <option value="<%= o.id %>" <%= isSel(selectedFilters.waterproof, o.id) ? 'selected' : '' %>><%= o.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ====== ABMESSUNGEN ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.watches.section_dimensions','Abmessungen') %></h3>
+  <div class="td-row">
+
+    <!-- Durchmesser -->
+    <div class="td-6">
+      <label class="td-label"><%= t('filters.watches.diameter','Durchmesser (mm)') %></label>
+      <div class="md-range">
+        <input type="number" name="diameterMin" min="0" step="0.5"
+          value="<%= (selectedFilters.diameterMin||[])[0] || '' %>"
+          placeholder="<%= t('common.from','von') %>">
+        <span class="sep"><%= t('common.to','bis') %></span>
+        <input type="number" name="diameterMax" min="0" step="0.5"
+          value="<%= (selectedFilters.diameterMax||[])[0] || '' %>"
+          placeholder="<%= t('common.to','bis') %>">
+      </div>
+    </div>
+
+    <!-- Höhe -->
+    <div class="td-6">
+      <label class="td-label"><%= t('filters.watches.height','Höhe (mm)') %></label>
+      <div class="md-range">
+        <input type="number" name="heightMin" min="0" step="0.1"
+          value="<%= (selectedFilters.heightMin||[])[0] || '' %>"
+          placeholder="<%= t('common.from','von') %>">
+        <span class="sep"><%= t('common.to','bis') %></span>
+        <input type="number" name="heightMax" min="0" step="0.1"
+          value="<%= (selectedFilters.heightMax||[])[0] || '' %>"
+          placeholder="<%= t('common.to','bis') %>">
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ====== FUNKTIONEN ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.watches.section_functions','Funktionen') %></h3>
+  <div class="chips">
+    <% pick(filters.functions, FB.functions).forEach(fn => { 
+         const val = fn.value ?? fn.id;
+         const label = fn.label ?? fn.name;
+         const on = isSel((selectedFilters.functions||[]), val);
+    %>
+      <label class="chip-x <%= on ? 'active' : '' %>">
+        <input type="checkbox" name="functions" value="<%= val %>" <%= on ? 'checked' : '' %> />
+        <span><%= label %></span>
+      </label>
+    <% }) %>
+  </div>
+</section>
+
+<!-- ====== BESONDERHEITEN ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.watches.section_features','Besonderheiten') %></h3>
+  <% const FEAT = {
+    feature_heliumvalve: t('filters.watches.feature_heliumvalve','Heliumventil'),
+    feature_tourbillon: t('filters.watches.feature_tourbillon','Tourbillon'),
+    feature_diamondsbezel: t('filters.watches.feature_diamondsbezel','Diamantlünette'),
+    feature_chronometer: t('filters.watches.feature_chronometer','Chronometer'),
+    feature_master_chronometer: t('filters.watches.feature_master_chronometer','Master Chronometer'),
+    feature_rotatingbezel: t('filters.watches.feature_rotatingbezel','drehbare Lünette'),
+    feature_powerreserve: t('filters.watches.feature_powerreserve','Gangreserveanzeige'),
+    feature_luminescenthands: t('filters.watches.feature_luminescenthands','Leuchtzeiger'),
+    feature_luminescentnumerals: t('filters.watches.feature_luminescentnumerals','Leuchtziffern'),
+    feature_luminous_indexes: t('filters.watches.feature_luminous_indexes','Leuchtindizes'),
+    feature_screwedcrone: t('filters.watches.feature_screwedcrone','verschraubte Krone'),
+    feature_screwed_pushers: t('filters.watches.feature_screwed_pushers','verschraubte Drücker'),
+    feature_crown_left: t('filters.watches.feature_crown_left','Krone links'),
+    feature_skeletonized: t('filters.watches.feature_skeletonized','Skelettiert'),
+    feature_guilloched: t('filters.watches.feature_guilloched','Guillochiertes Zifferblatt'),
+    feature_hand_guilloched: t('filters.watches.feature_hand_guilloched','Handguillochiertes Zifferblatt'),
+    feature_gemsetting: t('filters.watches.feature_gemsetting','Edelsteinbesatz'),
+    feature_geneva_seal: t('filters.watches.feature_geneva_seal','Genfer Siegel'),
+    feature_limited_edition: t('filters.watches.feature_limited_edition','Limitierte Serie'),
+    feature_quickset_mechanism: t('filters.watches.feature_quickset_mechanism','Schnellschaltung'),
+    feature_original: t('filters.watches.feature_original','Originalzustand/Originalteile'),
+    feature_pvd: t('filters.watches.feature_pvd','PVD/DLC Beschichtung'),
+    feature_solar: t('filters.watches.feature_solar','Solaruhr'),
+    feature_display_back: t('filters.watches.feature_display_back','Sichtboden'),
+    feature_bluedsteel_hands: t('filters.watches.feature_bluedsteel_hands','Zeiger aus gebläutem Stahl'),
+    feature_smartwatch: t('filters.watches.feature_smartwatch','Smartwatch'),
+    feature_onehand_watch: t('filters.watches.feature_onehand_watch','Einzeigeruhr'),
+  }; %>
+  <div class="chips">
+    <% Object.entries(FEAT).forEach(([col, label]) => {
+         const on = ((selectedFilters[col]||[])[0] == 1); %>
+      <label class="chip-x <%= on ? 'active' : '' %>">
+        <input type="checkbox" name="<%= col %>" value="1" <%= on ? 'checked' : '' %> />
+        <span><%= label %></span>
+      </label>
+    <% }) %>
+  </div>
+</section>
+
+<!-- ====== LIEFERUMFANG ====== -->
+<section class="fp-card">
+  <h3><%= t('filters.watches.section_delivery','Lieferumfang') %></h3>
+  <div class="chips">
+    <% pick(filters.deliveries, FB.deliveries).forEach(d => { 
+         const val = d.value ?? d.id; 
+         const label = d.label ?? d.name; 
+         const on = isSel(selectedFilters.delivery||[], val);
+    %>
+      <label class="chip-x <%= on ? 'active' : '' %>">
+        <input type="checkbox" name="delivery" value="<%= val %>" <%= on ? 'checked' : '' %> />
+        <span><%= label %></span>
+      </label>
+    <% }) %>
+  </div>
+</section>
+
+
+    <% } %> <!-- /watches -->
+
+    <!-- =========================================================
+         PROPERTIES (ohne Marke/Modell)
+    ========================================================== -->
+<% if (currentEntity.route === 'properties') { %>
+
+<!-- ====== BASISDATEN ====== -->
+<section class="md-card">
+  <h3 class="md-title"><%= t('filters.realestate.section_basic','Immobilien – Basisdaten') %></h3>
+  <div class="md-grid">
+
+    <!-- Immobilienart -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.propertytype','Immobilienart') %></label>
+      <div class="md-select">
+        <select name="propertytype" id="fPropertyType">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+
+          <% 
+            // SAFETY: Normalize selectedFilters.propertytype to an array
+            const propertyTypesSelected = Array.isArray(selectedFilters.propertytype)
+              ? selectedFilters.propertytype.map(String)
+              : selectedFilters.propertytype
+                  ? [String(selectedFilters.propertytype)]
+                  : [];
+          %>
+
+          <% (filters.propertyTypes || []).forEach(pt => { %>
+            <option value="<%= pt.id %>" 
+              <%= propertyTypesSelected.includes(String(pt.id)) ? 'selected' : '' %>
+            >
+              <%= pt.name %>
+            </option>
+          <% }) %>
+
+        </select>
+      </div>
+    </div>
+
+    <!-- Investmenttyp -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.investmenttype','Investmenttyp') %></label>
+      <div class="md-select">
+        <select name="investmenttype" id="fInvestmentType">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.investmentTypes || []).forEach(it => { %>
+            <option value="<%= it.id %>" <%= (selectedFilters.investmenttype||[]).map(String).includes(String(it.id)) ? 'selected' : '' %>><%= it.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const propertySelect = document.getElementById("fPropertyType");
+  const investmentSelect = document.getElementById("fInvestmentType");
+
+  // Hilfsfunktion: Placeholder-Text ändern
+  function setPlaceholder(select, text) {
+    const firstOption = select.querySelector("option[value='']");
+    if (firstOption) firstOption.textContent = text;
+  }
+
+  function syncFilters() {
+    // 1) Immobilienart → deaktiviert Investmenttyp
+    if (propertySelect.value) {
+      investmentSelect.value = "";
+      investmentSelect.disabled = true;
+      investmentSelect.classList.add("disabled-filter");
+
+      setPlaceholder(investmentSelect, "🔒 Auswahl durch Immobilienart eingeschränkt");
+    } else {
+      investmentSelect.disabled = false;
+      investmentSelect.classList.remove("disabled-filter");
+
+      setPlaceholder(investmentSelect, "Beliebig");
+    }
+
+    // 2) Investmenttyp → deaktiviert Immobilienart
+    if (investmentSelect.value) {
+      propertySelect.value = "";
+      propertySelect.disabled = true;
+      propertySelect.classList.add("disabled-filter");
+
+      setPlaceholder(propertySelect, "🔒 Auswahl durch Investmenttyp eingeschränkt");
+    } else {
+      propertySelect.disabled = false;
+      propertySelect.classList.remove("disabled-filter");
+
+      setPlaceholder(propertySelect, "Beliebig");
+    }
+  }
+
+  propertySelect.addEventListener("change", syncFilters);
+  investmentSelect.addEventListener("change", syncFilters);
+
+  // Initial bei Seitenaufruf
+  syncFilters();
+});
+</script>
+
+
+
+<!-- Preis (€) -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.realestate.price','Preis (€)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="priceMin" 
+      min="0" 
+      step="1000" 
+      value="<%= (selectedFilters.priceMin||[])[0] || '' %>" 
+      placeholder="<%= t('labels.price.from','von') %>">
+    <span class="sep">-</span>
+    <input 
+      type="number" 
+      name="priceMax" 
+      min="0" 
+      step="1000" 
+      value="<%= (selectedFilters.priceMax||[])[0] || '' %>" 
+      placeholder="<%= t('labels.price.to','bis') %>">
+  </div>
+</div>
+
+
+    <!-- Objektzustand -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.quality','Objektzustand') %></label>
+      <div class="md-select">
+        <select name="quality" id="fQuality">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.qualities || []).forEach(q => { %>
+            <option value="<%= q.id %>" <%= (selectedFilters.quality||[]).map(String).includes(String(q.id)) ? 'selected' : '' %>><%= q.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Baujahr ab -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.yacht.year','Baujahr') %></label>
+  <div class="md-range">
+    <input type="number" name="yearMin" min="1800" max="2026" step="1"
+      value="<%= (selectedFilters.yearMin||[])[0] || '' %>" 
+      placeholder="<%= t('labels.price.from','von') %>">
+    <span class="sep">-</span>
+    <input type="number" name="yearMax" min="1800" max="2026" step="1"
+      value="<%= (selectedFilters.yearMax||[])[0] || '' %>" 
+      placeholder="<%= t('labels.area.to','bis') %>">
+  </div>
+</div>
+
+
+    <!-- Land -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.country','Land') %></label>
+      <div class="md-select">
+        <select name="country" id="fCountry">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.countries || []).forEach(c => { %>
+            <option value="<%= c.id %>" <%= (selectedFilters.country||[]).map(String).includes(String(c.id)) ? 'selected' : '' %>><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Ort / PLZ -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.location','Ort / PLZ') %></label>
+      <div class="md-input">
+        <input type="text" name="location" value="<%= (selectedFilters.location||[])[0] || '' %>" placeholder="<%= t('labels.common.any','Beliebig') %>">
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ====== ENERGIE & HEIZUNG ====== -->
+<section class="md-card">
+  <h3 class="md-title"><%= t('filters.realestate.section_energy','Energie & Heizung') %></h3>
+  <div class="md-grid">
+
+    <!-- Heizung -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.heating','Heizung') %></label>
+      <div class="md-select">
+        <select name="heating" id="fHeating">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.heating || []).forEach(h => { %>
+            <option value="<%= h.id %>" <%= (selectedFilters.heating||[]).map(String).includes(String(h.id)) ? 'selected' : '' %>><%= h.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Energieträger -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.energysource','Energieträger') %></label>
+      <div class="md-select">
+        <select name="energysource" id="fEnergySource">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.energySources || []).forEach(es => { %>
+            <option value="<%= es.id %>" <%= (selectedFilters.energysource||[]).map(String).includes(String(es.id)) ? 'selected' : '' %>><%= es.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Energieausweis -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.energypass','Energieausweis') %></label>
+      <div class="md-select">
+        <select name="energypass" id="fEnergyPass">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.energyPasses || []).forEach(ep => { %>
+            <option value="<%= ep.id %>" <%= (selectedFilters.energypass||[]).map(String).includes(String(ep.id)) ? 'selected' : '' %>><%= ep.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div class="md-col-4">
+  <label class="md-label"><%= t('filters.realestate.stage','Bauphase') %></label>
+  <div class="md-select">
+    <select name="stage" id="fStage">
+      <option value=""><%= t('labels.common.any','Beliebig') %></option>
+      <% (filters.stages || []).forEach(stage => { %>
+        <option value="<%= stage.id %>" 
+          <%= (selectedFilters.stage || []).map(String).includes(String(stage.id)) ? 'selected' : '' %>>
+          <%= stage.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+
+
+
+    <!-- Ausweistyp -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.energypass_type','Ausweistyp') %></label>
+      <div class="md-select">
+        <select name="energypass_type" id="fEnergyPassType">
+          <option value=""><%= t('labels.common.any','Beliebig') %></option>
+          <% (filters.energyPassTypes || []).forEach(ept => { %>
+            <option value="<%= ept.id %>" <%= (selectedFilters.energypass_type||[]).map(String).includes(String(ept.id)) ? 'selected' : '' %>><%= ept.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Energiekennwert bis -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.realestate.energypass_value','Energiekennwert (kWh/m²)') %></label>
+  <div class="md-range">
+    <input type="number" name="energypass_valueMin" min="0" step="1" value="<%= (selectedFilters.energypass_valueMin||[])[0] || '' %>" placeholder="<%= t('labels.area.from','von') %>">
+    <span class="sep">-</span>
+    <input type="number" name="energypass_valueMax" min="0" step="1" value="<%= (selectedFilters.energypass_valueMax||[])[0] || '' %>" placeholder="<%= t('labels.area.to','bis') %>">
+  </div>
+</div>
+
+
+  </div>
+</section>
+
+<!-- ====== FLÄCHE & RÄUME ====== -->
+<section class="md-card">
+  <h3 class="md-title"><%= t('filters.realestate.section_area','Fläche & Räume') %></h3>
+  <div class="md-grid">
+
+    <!-- Grundstücksfläche -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.landarea','Grundstücksfläche (m²)') %></label>
+      <div class="md-range">
+        <input 
+          type="number" 
+          name="landareaMin" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.landareaMin||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.from','von') %>">
+        <span class="sep">-</span>
+        <input 
+          type="number" 
+          name="landareaMax" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.landareaMax||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.to','bis') %>">
+      </div>
+    </div>
+
+    <!-- Wohnfläche -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.livingarea','Wohnfläche (m²)') %></label>
+      <div class="md-range">
+        <input 
+          type="number" 
+          name="areaMin" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.areaMin||selectedFilters.livingAreaMin||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.from','von') %>">
+        <span class="sep">-</span>
+        <input 
+          type="number" 
+          name="areaMax" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.areaMax||selectedFilters.livingAreaMax||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.to','bis') %>">
+      </div>
+    </div>
+
+    <!-- Etagen -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.floors','Etagen') %></label>
+      <div class="md-range">
+        <input 
+          type="number" 
+          name="floorsMin" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.floorsMin||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.from','von') %>">
+        <span class="sep">-</span>
+        <input 
+          type="number" 
+          name="floorsMax" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.floorsMax||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.to','bis') %>">
+      </div>
+    </div>
+
+    <!-- Zimmer -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.rooms','Zimmer') %></label>
+      <div class="md-range">
+        <input 
+          type="number" 
+          name="roomsMin" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.roomsMin||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.from','von') %>">
+        <span class="sep">-</span>
+        <input 
+          type="number" 
+          name="roomsMax" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.roomsMax||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.to','bis') %>">
+      </div>
+    </div>
+
+    <!-- Badezimmer -->
+    <div class="md-col-4">
+      <label class="md-label"><%= t('filters.realestate.bathrooms','Badezimmer') %></label>
+      <div class="md-range">
+        <input 
+          type="number" 
+          name="bathroomsMin" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.bathroomsMin||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.from','von') %>">
+        <span class="sep">-</span>
+        <input 
+          type="number" 
+          name="bathroomsMax" 
+          min="0" 
+          step="1" 
+          value="<%= (selectedFilters.bathroomsMax||[])[0] || '' %>" 
+          placeholder="<%= t('labels.area.to','bis') %>">
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<% } %>
+
+<% if (currentEntity.route === 'yachts') { %>
+
+  <!-- ====== BASISDATEN ====== -->
+<section class="md-card">
+  <h3 class="md-title"><%= t('filters.yacht.section_basic','Yacht – Basisdaten') %></h3>
+  <div class="md-grid">
+
+    <!-- Marke -->
+    <div class="md-col-4">
+      <label class="md-label" for="fBrand"><%= t('filters.yacht.brand','Marke') %></label>
+      <div class="md-select">
+        <select name="brand" id="fBrand">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% (filters.brands || []).forEach(b => { %>
+            <option value="<%= b.id %>" <%= (selectedFilters.brand||[]).map(String).includes(String(b.id)) ? 'selected' : '' %>><%= b.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <div class="md-col-4">
+      <label class="md-label"><%= t('labels.common.model','Modell') %></label>
+      <div class="md-range">
+        <input
+          type="text"
+          name="model"
+          id="fModel"
+          class="md-input"
+          placeholder="Modell eingeben..."
+          value="<%= (selectedFilters.model && selectedFilters.model[0]) ? selectedFilters.model[0] : '' %>"
+          style="height: 37px;"
+        >
+      </div>
+    </div>
+
+    <!-- Bootstyp -->
+    <div class="md-col-4">
+      <label class="md-label" for="fYachtType"><%= t('filters.yacht.type','Bootstyp') %></label>
+      <div class="md-select">
+        <select name="yachttype" id="fYachtType">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% (filters.yachtTypes || []).forEach(tY => { %>
+            <option value="<%= tY.id %>" <%= (selectedFilters.yachttype||[]).map(String).includes(String(tY.id)) ? 'selected' : '' %>><%= tY.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+    <!-- Land -->
+    <div class="md-col-4">
+      <label class="md-label" for="fCountry"><%= t('filters.yacht.country','Land') %></label>
+      <div class="md-select">
+        <select name="country" id="fCountry">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% (filters.countries || []).forEach(c => { %>
+            <option value="<%= c.id %>" <%= (selectedFilters.country||[]).map(String).includes(String(c.id)) ? 'selected' : '' %>><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ====== PREIS & BAUJAHR ====== -->
+<section class="md-card">
+  <h3 class="md-title"><%= t('filters.yacht.section_price_year','Preis & Baujahr') %></h3>
+  <div class="md-grid">
+
+    <!-- Preis -->
+    <div class="md-col-12">
+      <label class="md-label"><%= t('filters.yacht.price','Preis (€)') %></label>
+      <div class="md-range">
+        <input type="number" name="priceMin" min="0" step="1000" 
+          value="<%= (selectedFilters.priceMin||[])[0] || '' %>" 
+          placeholder="<%= t('labels.price.from','von') %>">
+        <span class="sep">-</span>
+        <input type="number" name="priceMax" min="0" step="1000" 
+          value="<%= (selectedFilters.priceMax||[])[0] || '' %>" 
+          placeholder="<%= t('labels.year.to','bis') %>">
+      </div>
+    </div>
+
+    <!-- Baujahr -->
+    <div class="md-col-12">
+      <label class="md-label"><%= t('filters.yacht.year','Baujahr') %></label>
+      <div class="md-range">
+        <input type="number" name="yearMin" min="1800" max="2099" step="1"
+          value="<%= (selectedFilters.yearMin||[])[0] || '' %>"
+          placeholder="<%= t('labels.year.from','von') %>">
+        <span class="sep">-</span>
+        <input type="number" name="yearMax" min="1800" max="2099" step="1"
+          value="<%= (selectedFilters.yearMax||[])[0] || '' %>"
+          placeholder="<%= t('labels.year.to','bis') %>">
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ====== ANTRIEB ====== -->
+<section class="md-card">
+  <h3 style="margin-bottom: 30px;"><b>Technische Daten</b></h3>
+  <h3 class="md-title"><%= t('filters.yacht.section_engine','Antrieb') %></h3>
+  <div class="md-grid">
+
+<!-- Anzahl Motoren -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.yacht.engines_count','Anzahl Motoren') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="engines_count_min" 
+      min="1" 
+      max="10" 
+      step="1"
+      value="<%= (selectedFilters.engines_count_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="engines_count_max" 
+      min="1" 
+      max="10" 
+      step="1"
+      value="<%= (selectedFilters.engines_count_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+<!-- Leistung (kW) -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.yacht.power_kw','Leistung (kW)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="power_kw_min" 
+      min="0" 
+      step="10"
+      value="<%= (selectedFilters.power_kw_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="power_kw_max" 
+      min="0" 
+      step="10"
+      value="<%= (selectedFilters.power_kw_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+<!-- Betriebsstunden (h) -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.yacht.hours_run','Betriebsstunden (h)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="hours_run_min" 
+      min="0" 
+      step="50"
+      value="<%= (selectedFilters.hours_run_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="hours_run_max" 
+      min="0" 
+      step="50"
+      value="<%= (selectedFilters.hours_run_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+  </div>
+
+  <h3 class="md-title" style="margin-top: 50px;"><%= t('filters.yacht.section_speed','Geschwindigkeit') %></h3>
+  <div class="md-grid">
+
+<!-- Mindestgeschwindigkeit in km/h -->
+<div class="md-col-6">
+  <label class="md-label">Mindestgeschwindigkeit in km/h</label>
+  <div class="md-range" style="margin-top:4px;">
+    <input 
+      type="number" 
+      name="cruising_speed_min"
+      min="0" 
+      step="1"
+      value="<%= (selectedFilters.cruising_speed_min||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.from','von') %>">
+    <span class="sep">–</span>
+    <input 
+      type="number" 
+      name="cruising_speed_max"
+      min="0" 
+      step="1"
+      value="<%= (selectedFilters.cruising_speed_max||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.to','bis') %>">
+  </div>
+</div>
+
+<!-- Mindestgeschwindigkeit in kn -->
+<div class="md-col-6">
+  <label class="md-label">Mindestgeschwindigkeit in kn</label>
+  <div class="md-range" style="margin-top:4px;">
+    <input 
+      type="number" 
+      name="cruising_speed_kn_min"
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.cruising_speed_kn_min||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.from','von') %>">
+    <span class="sep">–</span>
+    <input 
+      type="number" 
+      name="cruising_speed_kn_max"
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.cruising_speed_kn_max||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.to','bis') %>">
+  </div>
+</div>
+
+<!-- Maximale Geschwindigkeit in km/h -->
+<div class="md-col-6" style="margin-top:10px;">
+  <label class="md-label">Maximale Geschwindigkeit in km/h</label>
+  <div class="md-range" style="margin-top:4px;">
+    <input 
+      type="number" 
+      name="max_speed_min"
+      min="0" 
+      step="1"
+      value="<%= (selectedFilters.max_speed_min||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.from','von') %>">
+    <span class="sep">–</span>
+    <input 
+      type="number" 
+      name="max_speed_max"
+      min="0" 
+      step="1"
+      value="<%= (selectedFilters.max_speed_max||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.to','bis') %>">
+  </div>
+</div>
+
+<!-- Maximale Geschwindigkeit in kn -->
+<div class="md-col-6" style="margin-top:10px;">
+  <label class="md-label">Maximale Geschwindigkeit in kn</label>
+  <div class="md-range" style="margin-top:4px;">
+    <input 
+      type="number" 
+      name="max_speed_kn_min"
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.max_speed_kn_min||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.from','von') %>">
+    <span class="sep">–</span>
+    <input 
+      type="number" 
+      name="max_speed_kn_max"
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.max_speed_kn_max||[])[0] || '' %>"
+      placeholder="<%= t('labels.year.to','bis') %>">
+  </div>
+</div>
+
+
+
+
+  </div>
+
+  <h3 class="md-title" style="margin-top: 50px;"><%= t('filters.yacht.section_tank_displacement','Tank & Verdrängung') %></h3>
+  <div class="md-grid">
+
+<!-- Tankinhalt (l) -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.yacht.tank_volume','Tankinhalt (l)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="tank_volume_min" 
+      min="0" 
+      step="100"
+      value="<%= (selectedFilters.tank_volume_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="tank_volume_max" 
+      min="0" 
+      step="100"
+      value="<%= (selectedFilters.tank_volume_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+<!-- Wasserverdrängung (t) -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.yacht.displacement','Wasserverdrängung (t)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="displacement_min" 
+      min="0" 
+      step="1"
+      value="<%= (selectedFilters.displacement_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="displacement_max" 
+      min="0" 
+      step="1"
+      value="<%= (selectedFilters.displacement_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+  </div>
+
+  <h3 class="md-title" style="margin-top: 50px;"><%= t('filters.yacht.section_hull','Rumpf & Abmessungen') %></h3>
+  <div class="md-grid">
+
+    <!-- Rumpfmaterial -->
+    <div class="md-col-4">
+      <label class="md-label" for="fHullMat"><%= t('filters.yacht.hull_material','Schiffsrumpf (Material)') %></label>
+      <div class="md-select">
+        <select name="hull_material" id="fHullMat">
+          <option value=""><%= t('common.any','Beliebig') %></option>
+          <% (filters.hullMaterials||[]).forEach(h => { %>
+            <option value="<%= h.id %>" <%= (selectedFilters.hull_material||[]).map(String).includes(String(h.id)) ? 'selected' : '' %>><%= h.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+<!-- Breite (m) -->
+<div class="md-col-4">
+  <label class="md-label" for="fWidthMin"><%= t('filters.yacht.widthMax','Breite (m)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="width_min" 
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.width_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="width_max" 
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.width_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+<!-- Länge (m) -->
+<div class="md-col-4">
+  <label class="md-label" for="fLengthMin"><%= t('filters.yacht.lengthMax','Länge (m)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="length_min" 
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.length_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="length_max" 
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.length_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+<!-- Tiefgang (m) -->
+<div class="md-col-4">
+  <label class="md-label" for="fDraftMin"><%= t('filters.yacht.draftMax','Tiefgang (m)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="draft_min" 
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.draft_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="draft_max" 
+      min="0" 
+      step="0.1"
+      value="<%= (selectedFilters.draft_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+<!-- Wasservorrat (l) -->
+<div class="md-col-4">
+  <label class="md-label"><%= t('filters.yacht.water_tankage','Wasservorrat (l)') %></label>
+  <div class="md-range">
+    <input 
+      type="number" 
+      name="water_tankage_min" 
+      min="0" 
+      step="100"
+      value="<%= (selectedFilters.water_tankage_min||[])[0] || '' %>"
+      placeholder="von"
+      style="width: 45%;">
+    <span class="sep" style="margin: 0 5px;">bis</span>
+    <input 
+      type="number" 
+      name="water_tankage_max" 
+      min="0" 
+      step="100"
+      value="<%= (selectedFilters.water_tankage_max||[])[0] || '' %>"
+      placeholder="bis"
+      style="width: 45%;">
+  </div>
+</div>
+
+
+  </div>
+
+  <h3 class="md-title" style="margin-top: 50px;"><%= t('filters.yacht.section_layout','Layout & Registrierung') %></h3>
+  <div class="md-grid">
+
+    <!-- Kabinen -->
+<!-- Kabinen -->
+    <div class="md-col-4">
+      <label class="md-label" for="fCabins"><%= t('filters.yacht.cabins','Kabinen') %></label>
+      <div class="md-range">
+        <input 
+          type="number" 
+          id="fCabinsMin"
+          name="cabins_min" 
+          min="1" 
+          max="50"
+          value="<%= (selectedFilters.cabins_min||[])[0] || '' %>"
+          placeholder="<%= t('labels.cabins.from','von') %>"
+          style="width:45%;">
+        <span class="sep" style="margin:0 5px;">bis</span>
+        <input 
+          type="number" 
+          id="fCabinsMax"
+          name="cabins_max" 
+          min="1" 
+          max="50"
+          value="<%= (selectedFilters.cabins_max||[])[0] || '' %>"
+          placeholder="<%= t('labels.cabins.to','bis') %>"
+          style="width:45%;">
+      </div>
+    </div>
+
+
+    
+  </div>
+</section>
+
+
+<% } %>
+
+
+
+
+
+
+
+
+
+
+    <!-- =========================================================
+         LIFESTYLES
+    ========================================================== -->
+    <% if (currentEntity.route === 'lifestyles') { %>
+    <section class="md-card">
+      <h3 class="md-title">Lifestyle-Filter</h3>
+      <div class="md-grid">
+
+<!-- KATEGORIE -->
+<div class="md-col-4">
+  <label class="md-label">Kategorie</label>
+  <div class="md-select">
+    <select name="lifestyleType" id="fLifeType">
+      <option value="">Beliebig</option>
+      <% (filters.lifestyleTypes || []).forEach(l => { %>
+        <option value="<%= l.id %>"><%= l.name %></option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<!-- UNTERKATEGORIE -->
+<div class="md-col-4">
+  <label class="md-label">Unterkategorie</label>
+  <div class="md-select">
+    <select name="lifestyleSubcategory" id="fLifeSub" disabled>
+      <option value="">Beliebig</option>
+    </select>
+  </div>
+</div>
+
+<script>
+document.getElementById('fLifeType').addEventListener('change', async function () {
+  const brandId = this.value;
+  const subSelect = document.getElementById('fLifeSub');
+
+  // Reset dropdown
+  subSelect.innerHTML = '<option value="">Beliebig</option>';
+  subSelect.disabled = true;
+
+  // Wenn nichts ausgewählt → fertig
+  if (!brandId) return;
+
+  try {
+    // AJAX: Hole Subcategories
+    const res = await fetch(`/api/lifestyle/subcategories?typeId=${brandId}`);
+    const data = await res.json();
+
+    // Befüllen
+    data.forEach(sc => {
+      const opt = document.createElement('option');
+      opt.value = sc.id;
+      opt.textContent = sc.name;
+      subSelect.appendChild(opt);
+    });
+
+    // aktivieren
+    subSelect.disabled = false;
+
+  } catch(err) {
+    console.error("Fehler beim Laden der Unterkategorien:", err);
+  }
+});
+</script>
+
+
+
+    <!-- PREIS -->
+    <div class="md-col-4">
+      <label class="md-label">Preis (€)</label>
+      <div class="md-range">
+        <input type="number" name="priceMin" min="0" step="100" placeholder="von">
+        <span class="sep">bis</span>
+        <input type="number" name="priceMax" min="0" step="100" placeholder="bis">
+      </div>
+    </div>
+
+
+    <!-- ORT / PLZ -->
+    <div class="md-col-6">
+      <label class="md-label">Ort / PLZ</label>
+      <div class="md-input">
+        <input type="text" name="location" placeholder="Beliebig">
+      </div>
+    </div>
+
+
+    <!-- LAND -->
+    <div class="md-col-6">
+      <label class="md-label">Land</label>
+      <div class="md-select">
+        <select name="country">
+          <option value="">Beliebig</option>
+          <% (filters.countries || []).forEach(c => { %>
+            <option value="<%= c.id %>"><%= c.name %></option>
+          <% }) %>
+        </select>
+      </div>
+    </div>
+
+      </div>
+    </section>
+    <% } %>
+
+
+
+    <!-- =========================================================
+         GENERIC FALLBACK
+    ========================================================== -->
+    <% if (!['cars','watches','properties','lifestyles', 'yachts'].includes(currentEntity.route)) { %>
+    <section class="md-card">
+      <h3 class="md-title">Filter</h3>
+      <div class="md-grid">
+        <% if (filters.brands && filters.brands.length) { %>
+        <div class="md-col-4">
+          <label class="md-label">Marke</label>
+          <div class="md-select">
+            <select name="brand" id="fBrand">
+              <option value="">Beliebig</option>
+              <% filters.brands.forEach(b => { %>
+                <option value="<%= b.id %>" <%= (selectedFilters.brand||[]).map(String).includes(String(b.id)) ? 'selected':'' %>><%= b.name %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <% } %>
+
+        <% if (filters.models && filters.models.length) { %>
+        <div class="md-col-4">
+          <label class="md-label">Modell</label>
+          <div class="md-select">
+            <select name="model" id="fModel">
+              <option value="">Beliebig</option>
+              <% filters.models.forEach(m => { %>
+                <option value="<%= m.id %>" <%= (selectedFilters.model||[]).map(String).includes(String(m.id)) ? 'selected':'' %>><%= m.name %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <% } %>
+
+        <div class="md-col-4">
+          <label class="md-label">Preis (€)</label>
+          <div class="md-range">
+            <input type="number" name="priceMin" min="0" step="100" value="<%= (selectedFilters.priceMin||[])[0] || '' %>" placeholder="von">
+            <span class="sep">bis</span>
+            <input type="number" name="priceMax" min="0" step="100" value="<%= (selectedFilters.priceMax||[])[0] || '' %>" placeholder="bis">
+          </div>
+        </div>
+
+        <div class="md-col-6">
+          <label class="md-label">Ort / PLZ</label>
+          <div class="md-input"><input type="text" name="location" value="<%= (selectedFilters.location||[])[0] || '' %>"></div>
+        </div>
+        <div class="md-col-6">
+          <label class="md-label">Land</label>
+          <div class="md-select">
+            <select name="country">
+              <option value="">Beliebig</option>
+              <% (filters.countries||[]).forEach(c => { %>
+                <option value="<%= c.id %>" <%= (selectedFilters.country||[]).map(String).includes(String(c.id)) ? 'selected':'' %>><%= c.name %></option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </div>
+    </section>
+    <% } %>
+
+    <!-- ====== Bottom Bar ====== -->
+    <div class="fp-bottom">
+<a class="btn btn-ghost" id="fp-reset" href="/<%= currentEntity.route %>/filters">
+  <%= t('common.reset','Zurücksetzen') %>
+</a>
+
+<button type="button" class="btn btn-herando" id="fp-apply">
+  <%= t('common.apply','Ergebnisse anzeigen') %>
+</button>
+
+    </div>
+
+  </form>
+</div>
+
+<script>
+(() => {
+  const page     = document.getElementById('filterpage');
+  const form     = document.getElementById('fp-form');
+  const applyBtn = document.getElementById('fp-apply');
+  const resetBtn = document.getElementById('fp-reset');
+  const brandSel = document.getElementById('fBrand');
+  const modelSel = document.getElementById('fModel');
+
+  const entity =
+    (page && page.dataset && page.dataset.entity) ||
+    '<%= currentEntity.route %>' ||
+    (location.pathname.split('/')[1] || 'cars');
+    
+
+  // KEYS: für watches → brand_id/model_id, sonst brand/model
+  const brandKey = 'brand';
+  const modelKey = 'model';
+
+
+  if (!form) return;
+
+  const debounce = (fn, ms) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+  const KEY = `filters:${entity}`;
+
+  function collectAllParams() {
+    const fd = new FormData(form);
+    const p  = new URLSearchParams();
+
+    for (const [k, v] of fd.entries()) {
+      if (v === '' || v == null) continue;
+      p.append(k, v);
+    }
+
+    // Mehrfach-Selects normalisieren
+    form.querySelectorAll('select[multiple]').forEach(sel => {
+      const arr = [...sel.options].filter(o => o.selected).map(o => o.value).filter(Boolean);
+      p.delete(sel.name);
+      arr.forEach(v => p.append(sel.name, v));
+    });
+
+    // ----- Kompatibilitäts-Synonyme (nur Frontend) -----
+    if (entity === 'watches') {
+      // brand_id/model_id zusätzlich mitsenden (für Backends die das erwarten)
+      const b = p.get('brand'); if (b) p.append('brand_id', b);
+      const m = p.get('model'); if (m) p.append('model_id', m);
+
+      // functions / functions[] beide füllen
+      const fn1 = p.getAll('functions');
+      const fn2 = p.getAll('functions[]');
+      if (fn1.length && !fn2.length) fn1.forEach(v => p.append('functions[]', v));
+      if (fn2.length && !fn1.length) fn2.forEach(v => p.append('functions', v));
+
+      // delivery / delivery[] beide füllen
+      const dl1 = p.getAll('delivery');
+      const dl2 = p.getAll('delivery[]');
+      if (dl1.length && !dl2.length) dl1.forEach(v => p.append('delivery[]', v));
+      if (dl2.length && !dl1.length) dl2.forEach(v => p.append('delivery', v));
+    }
+
+    // Flag für „von Filterpage“
+    p.set('hp', '1');
+    return p;
+  }
+
+  function readQuery() {
+    const out = {};
+    const sp = new URLSearchParams(location.search);
+    for (const [k, v] of sp.entries()) {
+      if (out[k] === undefined) out[k] = v;
+      else if (Array.isArray(out[k])) out[k].push(v);
+      else out[k] = [out[k], v];
+    }
+    return out;
+  }
+
+  function applyState(f, state) {
+    f.querySelectorAll('select:not([multiple]), input[type="text"], input[type="number"], input[type="date"]')
+      .forEach(el => {
+        if (el.name && state[el.name] != null && !Array.isArray(state[el.name])) {
+          el.value = String(state[el.name]);
+        }
+      });
+
+    const radiosByName = {};
+    f.querySelectorAll('input[type="radio"][name]').forEach(r => (radiosByName[r.name] ||= []).push(r));
+    Object.entries(radiosByName).forEach(([name, group]) => {
+      const v = state[name];
+      group.forEach(r => (r.checked = v != null && !Array.isArray(v) && String(v) === String(r.value)));
+    });
+
+    const checksByName = {};
+    f.querySelectorAll('input[type="checkbox"][name]').forEach(cb => (checksByName[cb.name] ||= []).push(cb));
+    Object.entries(checksByName).forEach(([name, group]) => {
+      const arr = state[name];
+      group.forEach(cb => (cb.checked = Array.isArray(arr) ? arr.map(String).includes(String(cb.value)) : false));
+    });
+
+    f.querySelectorAll('select[multiple]').forEach(sel => {
+      const arr = state[sel.name];
+      [...sel.options].forEach(o => (o.selected = Array.isArray(arr) ? arr.map(String).includes(String(o.value)) : false));
+    });
+  }
+
+    const APPLY_LABEL = "<%= t('common.results.show','Ergebnisse anzeigen') %>";
+
+function hasAnyFilterSelected() {
+  const p = collectAllParams();
+
+  // diese Keys setzt dein Code automatisch → zählen NICHT als Filter
+  ['hp', 'page', 'limit', 'view'].forEach(k => p.delete(k));
+
+  // wenn danach noch irgendwas übrig ist → Filter aktiv
+  return [...p.keys()].length > 0;
+}
+
+  // ----- COUNT -----
+async function updateCount() {
+  if (!applyBtn) return;
+
+  // ✅ NUR zeigen wenn wirklich Filter ausgewählt
+  if (!hasAnyFilterSelected()) {
+    applyBtn.textContent = APPLY_LABEL;
+    return;
+  }
+
+  try {
+    const p = collectAllParams();
+    const res = await fetch(`/api/${entity}/count?` + p.toString());
+    const { count = 0 } = res.ok ? await res.json() : { count: 0 };
+    applyBtn.textContent = `${APPLY_LABEL} (${Number(count).toLocaleString('de-DE')})`;
+  } catch {
+    applyBtn.textContent = APPLY_LABEL;
+  }
+}
+
+const updateCountDebounced = debounce(updateCount, 150);
+
+
+    const LABEL_ANY = "<%= t('common.any','Beliebig') %>";
+
+// ----- MODELS (abhängig von Entity) -----
+async function loadModels(preselectValue) {
+  if (!brandSel?.value || !modelSel) return;
+  const qs = new URLSearchParams({ brand_id: brandSel.value, brand: brandSel.value });
+  const rows = await fetch(`/api/${entity}/models?` + qs.toString())
+                .then(r => r.ok ? r.json() : [])
+                .catch(() => []);
+  modelSel.innerHTML = `<option value="">${LABEL_ANY}</option>` +
+    rows.map(r => `<option value="${r.id}">${r.name}</option>`).join('');
+  if (preselectValue != null && preselectValue !== '') {
+    modelSel.value = String(Array.isArray(preselectValue) ? preselectValue[0] : preselectValue);
+  }
+}
+
+function syncModelEnabled() {
+  if (!modelSel) return;
+
+  // Wenn Yacht → nie deaktivieren
+  if (entity === 'yachts') {
+    modelSel.disabled = false;
+    return;
+  }
+
+  if (!brandSel?.value) {
+    modelSel.innerHTML = `<option value="">${LABEL_ANY}</option>`;
+    modelSel.disabled = true;
+  } else {
+    modelSel.disabled = false;
+  }
+}
+
+
+
+  // ----- EVENTS -----
+  form.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t && (t.type === 'checkbox' || t.type === 'radio')) {
+      const chip = t.closest('label.chip-x');
+      if (chip) chip.classList.toggle('active', t.checked);
+    }
+    updateCountDebounced();
+  });
+
+  form.querySelectorAll('input[data-any]').forEach(any => {
+    const name = any.getAttribute('data-any');
+    any.addEventListener('change', () => {
+      if (any.checked) form.querySelectorAll(`input[name="${name}"]`).forEach(r => (r.checked = false));
+      updateCountDebounced();
+    });
+  });
+
+  form.querySelectorAll('select, input[type="number"], input[type="text"], input[type="date"]').forEach(el => {
+    el.addEventListener('input', updateCountDebounced);
+    el.addEventListener('change', updateCountDebounced);
+  });
+
+  brandSel?.addEventListener('change', async () => {
+    syncModelEnabled();
+    await loadModels();
+    updateCountDebounced();
+  });
+  modelSel?.addEventListener('change', updateCountDebounced);
+
+  form.addEventListener('submit', (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const p = collectAllParams();
+    location.href = `/${entity}?` + p.toString();
+  });
+
+  applyBtn?.addEventListener('click', () => {
+    const p = collectAllParams();
+    location.href = `/${entity}?` + p.toString();
+  });
+
+  resetBtn?.addEventListener('click', () => {
+    localStorage.removeItem(KEY);
+  });
+
+  // ----- INIT -----
+  (async function initState() {
+    const fromQuery = readQuery();
+    let state = null;
+
+    if (Object.keys(fromQuery).length) {
+      state = fromQuery;
+      applyState(form, state);
+      localStorage.setItem(KEY, JSON.stringify(state));
+    } else {
+      const saved = localStorage.getItem(KEY);
+      if (saved) {
+        state = JSON.parse(saved);
+        applyState(form, state);
+      }
+    }
+
+    syncModelEnabled();
+
+    if ((entity === 'watches' || entity === 'cars') && brandSel?.value) {
+      const preModel = state ? state[modelKey] : null;
+      await loadModels(preModel);
+    }
+
+
+    updateCount();
+  })();
+
+})();
+</script>
+
+
+
+
+<%- include('../../partials/footer', { footerColumns }) %>

@@ -1,0 +1,486 @@
+.row{
+    justify-content: space-between;
+}
+
+.product-single-title{
+    text-align: left;
+    font-size: 24px;
+}
+
+span{
+    text-align: justify;
+}
+
+.share-circle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 70px;
+  height: 70px;
+  border-radius: 50%;
+  background-color: #1d4567; /* dein Blau */
+  color: #fff;
+  font-size: 28px;
+  text-decoration: none;
+}
+.share-circle:hover {
+  background-color: #163653;
+  color: #fff;
+}
+.social-icon {
+  font-size: 26px;
+  color: #1d4567;
+}
+.social-icon:hover {
+  color: #163653;
+}
+
+.home-icon {
+  font-size: 28px; /* kannst du anpassen */
+  vertical-align: middle; /* damit es schön zentriert ist */
+}
+
+.breadcrumb-icon {
+  font-size: 1.5rem;   /* kannst du anpassen (z. B. 2rem für noch größer) */
+  vertical-align: middle;
+}
+
+.breadcrumb-separator {
+  font-size: 1rem;
+  color: #6c757d; /* dezentes Grau */
+  vertical-align: middle;
+}
+
+.custom-striped tbody tr:nth-of-type(odd) {
+  background-color: #f9f9f9; /* hellgrau */
+}
+
+.custom-striped tbody tr:nth-of-type(even) {
+  background-color: #ffffff; /* weiß */
+}
+
+.description-text ul {
+  margin: 0 0 0.5rem 0; /* wenig Abstand unten */
+  padding-left: 1.2rem;  /* sauberes Einrücken */
+}
+
+.description-text li {
+  margin-bottom: 0.25rem; /* enge Abstände zwischen Bulletpoints */
+}
+
+.description-text {
+  font-size: 0.95rem;
+  line-height: 1.5;
+  color: #333;
+}
+
+.collapsed-text {
+  max-height: 220px; /* nur ca. 4-5 Absätze zeigen */
+  overflow: hidden;
+  position: relative;
+}
+
+.fade-overlay {
+  position: absolute;
+  bottom: 45px;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(to bottom, rgba(255,255,255,0), #fff);
+  pointer-events: none;
+}
+
+#toggleDescription {
+  background-color: #a07847;
+  color: #fff; /* schönes Rot wie im Screenshot */
+  transition: color 0.2s;
+}
+
+.custom-icon {
+  font-size: 1.4rem;     /* größer als Text */
+  color: #d4af37;        /* Goldfarbe */
+  margin-right: 10px;    /* Abstand */
+  vertical-align: middle;
+}
+
+.custom-text {
+  font-size: 1rem;
+  color: #212529;   /* Edles Dunkelgrau */
+  font-weight: 500;
+}
+
+
+/* Einheitliche Bildgröße */
+.fixed-img {
+  height: 200px;        /* feste Höhe */
+  width: 100%;          /* volle Breite */
+  object-fit: cover;    /* Bild zuschneiden, nicht verzerren */
+}
+
+.carousel-indicators {
+  margin-top: 2rem !important;   /* Abstand nach unten */
+  position: relative;            /* nicht mehr überlappt */
+}
+
+.carousel-indicators .line-indicator {
+  width: 40px;
+  height: 3px;
+  margin: 0 6px;
+  background-color: #ccc;
+  border: none;
+}
+
+.carousel-indicators .line-indicator.active {
+  background-color: #a07847;        /* aktiver Strich gold */
+}
+
+
+/* Grid für Ausstattung */
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Mobile: 2 Spalten */
+  gap: 0.75rem 1rem; /* vertikal / horizontal Abstand */
+}
+
+/* Grid für Ausstattung */
+.equipment-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Mobile: 2 Spalten */
+  gap: 0.75rem 1rem;
+}
+
+.equipment-item {
+  display: flex;
+  align-items: center;
+}
+
+.markED{
+  display: none !important; 
+}
+
+/* 🔹 Bootstrap Modal Overlay fixiert immer Fullscreen */
+.modal-backdrop {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: rgba(0, 0, 0, 0.65) !important; /* leicht dunkler */
+  z-index: 1050 !important; /* über allem, aber unter Modal */
+}
+
+/* 🔹 Modal selbst mittig & vor Overlay */
+.modal {
+  position: fixed !important;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  z-index: 1060 !important;
+}
+
+/* Optional: Body-Fix gegen Scroll-Probleme */
+body.modal-open {
+  overflow: hidden !important;
+}
+
+
+/* Desktop (ab Tablet ≥ 768px): 3 Spalten */
+@media (min-width: 768px) {
+  .equipment-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* --- Pfeile: auch für Similar-Carousel (#carousel-similar) UND alle anderen Bootstrap-Carousels (#carousel-...) verwenden --- */
+/* --- Pfeile: auch für Similar-Carousel (#carousel-similar) UND alle anderen Bootstrap-Carousels (#carousel-...) verwenden --- */
+#myUniqueProducts .my-carousel-prev,
+#myUniqueProducts .my-carousel-next,
+.my-prod-section .my-carousel-prev,
+.my-prod-section .my-carousel-next,
+#carousel-similar .my-carousel-prev,
+#carousel-similar .my-carousel-next,
+[id^="carousel-"] .my-carousel-prev,
+[id^="carousel-"] .my-carousel-next {
+  position:absolute;
+  transform: translateY(-50%); /* ✅ Korrigiert die Position, indem die halbe Pfeilhöhe hochgezogen wird */
+  top: 50%;
+  width:60px;
+  height:60px;
+  border:0;
+  border-radius:20px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background:#fff;
+  color:#000;
+  font-size:22px;
+  line-height:1;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  z-index: 3;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity .2s ease, transform .2s ease, color .15s ease, box-shadow .15s ease;
+}
+/* Position links/rechts auch für Similar + alle anderen (#carousel-...) */
+#myUniqueProducts .my-carousel-prev,
+.my-prod-section .my-carousel-prev,
+#carousel-similar .my-carousel-prev,
+[id^="carousel-"] .my-carousel-prev { 
+  left:10px; 
+}
+
+#myUniqueProducts .my-carousel-next,
+.my-prod-section .my-carousel-next,
+#carousel-similar .my-carousel-next,
+[id^="carousel-"] .my-carousel-next { 
+  right:10px; 
+}
+
+/* Hover-Effekt (auch für alle neuen Carousels) */
+#myUniqueProducts .my-carousel-prev:hover,
+#myUniqueProducts .my-carousel-next:hover,
+.my-prod-section .my-carousel-prev:hover,
+.my-prod-section .my-carousel-next:hover,
+#carousel-similar .my-carousel-prev:hover,
+#carousel-similar .my-carousel-next:hover,
+[id^="carousel-"] .my-carousel-prev:hover,
+[id^="carousel-"] .my-carousel-next:hover {
+  transform: translateY(-50%) scale(1.05);
+  color:#0d3b8e;
+  box-shadow: 0 8px 22px rgba(13,110,253,.18);
+}
+
+/* Sichtbar bei Hover (auch auf allen #carousel-...) */
+@media (hover:hover){
+  #myUniqueProducts:hover .my-carousel-prev,
+  #myUniqueProducts:hover .my-carousel-next,
+  .my-prod-section:hover .my-carousel-prev,
+  .my-prod-section:hover .my-carousel-next,
+  #carousel-similar:hover .my-carousel-prev,
+  #carousel-similar:hover .my-carousel-next,
+  [id^="carousel-"]:hover .my-carousel-prev,
+  [id^="carousel-"]:hover .my-carousel-next {
+    opacity:1; 
+    pointer-events:auto;
+  }
+}
+
+/* Mobile kompakt – auch für alle Carousels (#carousel-...) */
+@media (max-width:575px){
+  #myUniqueProducts .my-carousel-prev,
+  #myUniqueProducts .my-carousel-next,
+  .my-prod-section .my-carousel-prev,
+  .my-prod-section .my-carousel-next,
+  #carousel-similar .my-carousel-prev,
+  #carousel-similar .my-carousel-next,
+  [id^="carousel-"] .my-carousel-prev,
+  [id^="carousel-"] .my-carousel-next {
+    width:52px; 
+    height:44px; 
+    font-size:20px;
+    left:16px; 
+    right:16px;
+  }
+}
+
+/* ==========================================================================
+   BASE STYLE (Fallback)
+   ========================================================================== */
+
+
+
+
+/* ==========================================================================
+   MOBILE (<576px)
+   ==========================================================================
+   - Perfekte Höhe & kein Springen
+   - Ideal für iPhone / Android
+   ==========================================================================
+*/
+@media (max-width: 575px) {
+    .product-single-images img {
+        width: 100% !important;
+        object-fit: cover !important;
+        object-position: center !important;
+        border-radius: 8px;
+    }
+}
+
+
+
+/* ==========================================================================
+   TABLET (576px – 1199px)
+   ==========================================================================
+   - Eigene “Sweet Spot” Größen
+   - Keine Überschneidung mit Mobile oder Desktop
+   ==========================================================================
+*/
+@media (min-width: 576px) and (max-width: 1199px) {
+
+    /* Cars / Yachts / Properties */
+    body.route-cars .product-single-images img,
+    body.route-yachts .product-single-images img,
+    body.route-properties .product-single-images img {
+        width: 100% !important;
+        height: 650px !important;
+        object-fit: cover !important;
+        object-position: center !important;
+    }
+
+    /* Watches (vertikale Bilder) */
+    body.route-watches .product-single-images img {
+        width: 100% !important;
+        height: 550px !important;
+        object-fit: cover !important;
+        object-position: center !important;
+    }
+
+    /* Lifestyles */
+    body.route-lifestyles .product-single-images img {
+        width: 100% !important;
+        height: 400px !important;
+        object-fit: cover !important;
+        object-position: center !important;
+    }
+}
+
+
+
+/* ==========================================================================
+   DESKTOP (>=1200px)
+   ==========================================================================
+   - Premium Darstellung für große Screens
+   - Eigens für jede Route optimiert
+   ==========================================================================
+*/
+
+
+/* ==========================================================================
+   TABLET (576px – 899px)
+   ==========================================================================
+   → Bootstrap's md-breakpoint (768px) wird deaktiviert!!!
+   → Spalten bleiben untereinander bis 899px
+   ==========================================================================
+*/
+@media (min-width: 576px) and (max-width: 899px) {
+
+    /* Spalten NICHT nebeneinander */
+    .col-md-5,
+    .col-md-6,
+    .col-md-4,
+    .col-md-7 {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex: 0 0 100% !important;
+    }
+
+}
+
+@media(max-width: 800px) {
+    .disPlayed{
+      display: none !important; 
+    }
+
+    .product-single-title{
+      margin-top: 16px;
+    }
+
+    .markED{
+      display: block !important; 
+    }
+}
+
+
+/* ==========================================================================
+   DESKTOP (>=900px)
+   ==========================================================================
+   → Ab hier sollen die Spalten NEBENEINANDER sein
+   ==========================================================================
+*/
+@media (min-width: 900px) {
+
+    /* Linke Spalte (Text) – col-md-5 */
+    .col-md-5 {
+        flex: 0 0 auto !important;
+        width: 41.66666667% !important;
+        max-width: 41.66666667% !important;
+    }
+
+    /* Rechte Spalte (Bild) – col-md-6 */
+    .col-md-6 {
+        flex: 0 0 auto !important;
+        width: 50% !important;
+        max-width: 50% !important;
+    }
+
+    /* Desktop Bildgrößen */
+    body.route-cars .product-single-images img,
+    body.route-yachts .product-single-images img,
+    body.route-properties .product-single-images img {
+        width: 100%;
+        height: 100%;
+        object-position: top !important;
+    }
+
+    body.route-watches .product-single-images img {
+        width: 100% !important;
+        height: auto !important;
+        object-position: center !important;
+    }
+
+    body.route-lifestyles .product-single-images img {
+        width: 100%;
+        height: 100%;
+        object-position: center !important;
+    }
+}
+
+.button{
+    background-color: white;
+    color: black;
+    border: none;
+    padding: 0.75rem;
+    font-weight: bold;
+    font-size: 1rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color .2s;
+}
+
+.button:hover{
+  color: white !important; 
+  background-color:#c39052; 
+}
+
+.small-coo{
+    background-color: white;
+    color: black;
+    border: none;
+    padding: 0.75rem;
+    font-weight: bold;
+    font-size: 1.2rem;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color .2s;
+}
+
+.small-coo:hover{
+  background-color: #c39052;
+  color: white; 
+}
+
+.text-success {
+    --bs-text-opacity: 1;
+    color: black !important;
+}
+
+.seller-imprint-link:hover{
+  color: #c39052; 
+}
+
+.btn:first-child:active{
+  border-color: transparent;
+}

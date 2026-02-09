@@ -1,0 +1,196 @@
+<!-- views/admin/ads/slider-list.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+<%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-fill p-4">
+    <h1 class="mb-4">Advert-Inserat-Werbeanzeigen</h1>
+
+    <% entieties.forEach(ent => { %>
+      <section class="mb-5">
+        <h2 class="h5 mb-3"><%= ent.name %></h2>
+        <div class="row gx-3 gy-3">
+          <% 
+            const slots = adsMap[ent.id] || [];
+            for (let slot = 0; slot < 20; slot++) {
+              const ad = slots[slot];
+          %>
+            <div class="col-12 col-md-6 col-lg-4">
+              <div class="bg-light border rounded p-4 text-center" style="min-height:250px; position:relative;">
+                <% if (ad) { %>
+                  <img src="<%= ad.image %>" loading="lazy" class="img-fluid"
+                       style="width:360px; height:250px; object-fit:cover;">
+                  <div class="mt-2">
+                    <button class="btn btn-sm btn-primary me-2"
+                            onclick='openModal("edit", <%=ent.id%>, <%=slot%>, {
+                              id: <%=ad.id%>,
+                              advert_id: <%=ad.advert_id%>,
+                              image: "<%=ad.image%>",
+                              start_date: "<%=ad.start_date.toISOString().slice(0,10)%>",
+                              end_date: "<%=ad.end_date.toISOString().slice(0,10)%>"
+                            })'>
+                      ✏️ Bearbeiten
+                    </button>
+                    <button class="btn btn-sm btn-danger"
+                            onclick="deleteEntry(<%=ad.id%>)">🗑️ Löschen</button>
+                  </div>
+                <% } else { %>
+                  <button class="btn btn-outline-primary"
+                          onclick='openModal("new", <%=ent.id%>, <%=slot%>)'>
+                    + Werbeanzeige hinzufügen
+                  </button>
+                <% } %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+      </section>
+    <% }) %>
+  </main>
+</div>
+
+<!-- Global Modal -->
+<div class="modal fade" id="modal-global" tabindex="-1">
+  <div class="modal-dialog"><div class="modal-content">
+    <form id="modal-form" onsubmit="onModalSubmit(); return false;">
+      <input type="hidden" id="modal-mode" name="mode">
+      <input type="hidden" id="modal-ent-id" name="entitie_id">
+      <input type="hidden" id="modal-slot" name="slot">
+      <input type="hidden" id="modal-ad-id" name="ad_id">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modal-title"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-3">
+          <label class="form-label">Inserat</label>
+          <select id="modal-select" name="advert_id" class="form-select" required>
+            <option value="">– wählen –</option>
+          </select>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Startdatum</label>
+          <input type="date" id="modal-start" name="start_date" class="form-control" required>
+        </div>
+        <div class="mb-3">
+          <label class="form-label">Enddatum</label>
+          <input type="date" id="modal-end" name="end_date" class="form-control" required>
+        </div>
+        <div class="text-center">
+          <img id="modal-preview" src="" class="img-fluid d-none"
+               style="width:360px; height:250px; object-fit:cover;">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+        <button type="submit" class="btn btn-primary" id="modal-save-btn"></button>
+      </div>
+    </form>
+  </div></div>
+</div>
+
+<script>
+  // Server-side Daten verfügbar machen
+  const advertsMap  = <%- JSON.stringify(advertsMap) %>;
+  const entitiesMap = <%- JSON.stringify(
+    entieties.reduce((m,e) => (m[e.id] = e.name, m), {})
+  ) %>;
+
+  const modalSelect    = document.getElementById('modal-select');
+  const modalTitle     = document.getElementById('modal-title');
+  const modalSaveBtn   = document.getElementById('modal-save-btn');
+  const modalModeInput = document.getElementById('modal-mode');
+  const entIdInput     = document.getElementById('modal-ent-id');
+  const slotInput      = document.getElementById('modal-slot');
+  const adIdInput      = document.getElementById('modal-ad-id');
+  const startInput     = document.getElementById('modal-start');
+  const endInput       = document.getElementById('modal-end');
+  const previewImg     = document.getElementById('modal-preview');
+
+  function openModal(mode, entId, slot, ad = {}) {
+    modalModeInput.value = mode;
+    entIdInput.value     = entId;
+    slotInput.value      = slot;
+    adIdInput.value      = ad.id || '';
+
+    // Titel und Button-Text setzen
+    modalTitle.textContent   = mode === 'new'
+      ? `Neue Anzeige für ${entitiesMap[entId]}`
+      : `Anzeige bearbeiten für ${entitiesMap[entId]}`;
+    modalSaveBtn.textContent = mode === 'new' ? 'Speichern' : 'Aktualisieren';
+
+    // Datum & Preview
+    if (mode === 'edit') {
+      startInput.value = ad.start_date;
+      endInput.value   = ad.end_date;
+    } else {
+      startInput.value = '';
+      endInput.value   = '';
+      hidePreview();
+    }
+
+    // Optionen neu füllen
+    modalSelect.innerHTML = '<option value="">– wählen –</option>';
+    (advertsMap[entId] || []).forEach(a => {
+      const opt = new Option(a.name, a.id);
+      opt.dataset.image = a.image;
+      modalSelect.add(opt);
+    });
+
+    // bei Edit: richtigen Wert auswählen & Bild anzeigen
+    if (mode === 'edit' && ad.advert_id) {
+      modalSelect.value = ad.advert_id;
+      showPreview(ad.image);
+    }
+
+    // Modal öffnen
+    new bootstrap.Modal(document.getElementById('modal-global')).show();
+  }
+
+  // Preview-Logik
+  modalSelect.addEventListener('change', () => {
+    const url = modalSelect.selectedOptions[0]?.dataset.image;
+    url ? showPreview(url) : hidePreview();
+  });
+  function showPreview(src) {
+    previewImg.src = src;
+    previewImg.classList.remove('d-none');
+  }
+  function hidePreview() {
+    previewImg.src = '';
+    previewImg.classList.add('d-none');
+  }
+
+  // Formular abschicken
+  function onModalSubmit() {
+    const mode = modalModeInput.value;
+    const adId = adIdInput.value;
+    const url  = mode === 'new'
+      ? '/admin/ads/advert_inserat/new'
+      : `/admin/ads/advert_inserat/${adId}/edit`;
+    const data = new URLSearchParams(new FormData(document.getElementById('modal-form')));
+
+    fetch(url, {
+      method: 'POST',
+      body: data,
+      headers: {'X-Requested-With':'XMLHttpRequest'}
+    })
+    .then(() => location.reload())
+    .catch(console.error);
+  }
+
+  // Löschen
+  function deleteEntry(adId) {
+    if (!confirm('Wirklich löschen?')) return;
+    fetch(`/admin/ads/advert_inserat/${adId}/delete`, {
+      method: 'POST',
+      headers: {'X-Requested-With':'XMLHttpRequest'}
+    })
+    .then(() => location.reload())
+    .catch(console.error);
+  }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>

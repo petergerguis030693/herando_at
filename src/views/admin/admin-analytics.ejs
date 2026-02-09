@@ -1,0 +1,459 @@
+<%- include('../partials/header-admin') %>
+
+<div class="container-fluid">
+  <div class="row">
+    <!-- Sidebar -->
+    <aside class="col-md-2 col-lg-2 bg-white border-end p-3">
+      <%- include('./sidebar', { active: 'Analytics' }) %>
+    </aside>
+
+    <!-- Main -->
+    <main class="col-md-10 col-lg-10 px-4 py-3">
+      
+      <!-- Toolbar -->
+      <div class="d-flex flex-wrap align-items-center justify-content-between mb-4">
+        <h4 class="mb-0 d-flex align-items-center gap-2">
+          <i class="bi bi-graph-up"></i> Analytics
+        </h4>
+
+        <div class="d-flex flex-wrap gap-2">
+          <div class="btn-group">
+            <button class="btn btn-sm btn-outline-secondary" data-preset="today">Heute</button>
+            <button class="btn btn-sm btn-outline-secondary" data-preset="7">7T</button>
+            <button class="btn btn-sm btn-outline-secondary" data-preset="30">30T</button>
+            <button class="btn btn-sm btn-outline-secondary" data-preset="90">90T</button>
+          </div>
+          <input id="from" type="date" class="form-control form-control-sm" value="<%= from %>">
+          <input id="to" type="date" class="form-control form-control-sm" value="<%= to %>">
+          <div class="btn-group">
+            <button id="apply" class="btn btn-sm btn-primary">
+              <i class="bi bi-arrow-repeat"></i> Anwenden
+            </button>
+            <button class="btn btn-sm btn-outline-secondary dropdown-toggle" data-bs-toggle="dropdown">
+              <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+              <li><a id="exportPv" class="dropdown-item" href="#">Pageviews (CSV)</a></li>
+              <li><a id="exportEv" class="dropdown-item" href="#">Events (CSV)</a></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- KPIs -->
+      <div class="row g-3 mb-4">
+        <div class="col-sm-6 col-lg-3">
+          <div class="card text-center shadow-sm">
+            <div class="card-body">
+              <div class="fw-bold text-muted">Pageviews</div>
+              <h3 id="kpiViews" class="fw-bold mb-0 skeleton">–</h3>
+              <small class="text-muted">Summe im Zeitraum</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="card text-center shadow-sm">
+            <div class="card-body">
+              <div class="fw-bold text-muted">Sessions</div>
+              <h3 id="kpiSessions" class="fw-bold mb-0 skeleton">–</h3>
+              <small class="text-muted">Distinct Sessions</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="card text-center shadow-sm">
+            <div class="card-body">
+              <div class="fw-bold text-muted">Ø Zeit / Seite</div>
+              <h3 id="kpiAvgTime" class="fw-bold mb-0 skeleton">–</h3>
+              <small class="text-muted">Sekunden</small>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="card text-center shadow-sm">
+            <div class="card-body">
+              <div class="fw-bold text-muted">Bounce Rate</div>
+              <h3 id="kpiBounce" class="fw-bold mb-0">
+                <%= (kpis && typeof kpis.bounce_rate !== 'undefined') ? kpis.bounce_rate : 0 %>%
+              </h3>
+              <small class="text-muted">Sessions mit 1 Pageview*</small>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Zeitreihen-Chart -->
+      <div class="card shadow-sm mb-4">
+        <div class="card-header d-flex align-items-center justify-content-between">
+          <span>Seitenaufrufe (Zeitverlauf)</span>
+          <span class="text-muted small">Zeitraum: 
+            <span id="rangeLabel"><%= from %></span> – 
+            <span id="rangeLabel2"><%= to %></span>
+          </span>
+        </div>
+        <div class="card-body">
+          <canvas id="viewsChart" height="100"></canvas>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <ul class="nav nav-pills mb-3" id="analyticsTabs" role="tablist">
+        <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pane-top">Top-Listen</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-tech">Geräte & Technik</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-geo">Geo & Länder</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-entryexit">Entry / Exit</button></li>
+      </ul>
+
+      <div class="tab-content">
+        <!-- Top-Listen -->
+        <div class="tab-pane fade show active" id="pane-top">
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">Top-Seiten</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr><th>Pfad</th><th class="text-end">Views</th><th class="text-end">Ø Zeit (s)</th></tr>
+                      </thead>
+                      <tbody id="tblPages">
+                        <tr><td colspan="3" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">Top-Klickziele</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead><tr><th>Ziel</th><th class="text-end">Klicks</th></tr></thead>
+                      <tbody id="tblClicks">
+                        <tr><td colspan="2" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">Suchen</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead><tr><th>Suchbegriff</th><th class="text-end">Anzahl</th></tr></thead>
+                      <tbody id="tblSearches">
+                        <tr><td colspan="2" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">Referrer</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead><tr><th>Quelle</th><th class="text-end">Hits</th></tr></thead>
+                      <tbody id="tblReferrers">
+                        <tr><td colspan="2" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Geräte & Technik -->
+        <div class="tab-pane fade" id="pane-tech">
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="card shadow-sm">
+                <div class="card-header">Geräte-Typen</div>
+                <div class="card-body"><canvas id="chartDevices" height="140"></canvas></div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="card shadow-sm">
+                <div class="card-header">Browser</div>
+                <div class="card-body"><canvas id="chartBrowsers" height="140"></canvas></div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="card shadow-sm">
+                <div class="card-header">Betriebssysteme</div>
+                <div class="card-body"><canvas id="chartOS" height="140"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Geo -->
+        <div class="tab-pane fade" id="pane-geo">
+          <div class="card shadow-sm">
+            <div class="card-header d-flex justify-content-between">
+              <span>Länder</span><span class="text-muted small">Top 20</span>
+            </div>
+            <div class="card-body"><canvas id="chartCountries" height="140"></canvas></div>
+          </div>
+        </div>
+
+        <!-- Entry / Exit -->
+        <div class="tab-pane fade" id="pane-entryexit">
+          <div class="row g-3">
+            <div class="col-lg-6">
+              <div class="card shadow-sm">
+                <div class="card-header">Entry Pages</div>
+                <div class="card-body"><canvas id="chartEntries" height="160"></canvas></div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="card shadow-sm">
+                <div class="card-header">Exit Pages</div>
+                <div class="card-body"><canvas id="chartExits" height="160"></canvas></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p class="text-muted small mt-4">* Bounce Rate = Anteil der Sessions mit genau einem Pageview im Zeitraum.</p>
+    </main>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+<script>
+  // ---------- Helpers ----------
+  const elFrom   = document.getElementById('from');
+  const elTo     = document.getElementById('to');
+  const btnApply = document.getElementById('apply');
+
+  document.querySelectorAll('[data-preset]').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const p = b.getAttribute('data-preset');
+      const to = new Date();
+      const from = new Date();
+      if (p === 'today') {
+        // heute: 00:00..23:59
+      } else {
+        from.setDate(from.getDate() - parseInt(p,10) + 1);
+      }
+      elFrom.value = toISODate(from);
+      elTo.value   = toISODate(to);
+    });
+  });
+  btnApply.addEventListener('click', loadAll);
+
+  function toISODate(d){
+    const z = n => String(n).padStart(2,'0');
+    return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
+  }
+  function qs(){
+    const p = new URLSearchParams();
+    if (elFrom.value) p.set('from', elFrom.value);
+    if (elTo.value)   p.set('to',   elTo.value);
+    return p.toString();
+  }
+  function fmt(n){ return new Intl.NumberFormat('de-DE').format(n ?? 0); }
+  async function getJSON(url){
+    const r = await fetch(url);
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  // ---------- Summary + Timeseries ----------
+  let lineChart;
+  async function loadSummary(){
+    const data = await getJSON(`/admin/analytics/summary.json?${qs()}`);
+
+    // KPIs
+    setVal('kpiViews', fmt(data.kpis.pageviews));
+    setVal('kpiSessions', fmt(data.kpis.sessions));
+    setVal('kpiAvgTime', (data.kpis.avg_time_s ?? 0).toLocaleString('de-DE'));
+
+    // Bounce (client-approximiert via Sessions-API, max 1000)
+    try {
+      const sess = await getJSON(`/admin/analytics/sessions.json?${qs()}&limit=1000`);
+      const total = sess.length;
+      const bounces = sess.filter(s => (s.pv_count || 0) === 1).length;
+      const br = total ? Math.round((bounces / total) * 1000) / 10 : 0;
+      setText('kpiBounce', br.toLocaleString('de-DE') + '%');
+    } catch(e) {
+      // Fallback: belasse initialen Serverwert
+    }
+
+    // Range label
+    setText('rangeLabel', elFrom.value || '');
+    setText('rangeLabel2', elTo.value   || '');
+
+    // Chart
+    const labels = data.series.map(r => r.day);
+    const values = data.series.map(r => r.views);
+    const ctx = document.getElementById('viewsChart').getContext('2d');
+
+    if (lineChart) lineChart.destroy();
+    lineChart = new Chart(ctx, {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [{ label: 'Views', data: values, tension: .25, fill: false }]
+      },
+      options: {
+        maintainAspectRatio: false,
+        responsive: true,
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        plugins: { legend: { display: false } }
+      }
+    });
+  }
+
+  function setVal(id, text){
+    const el = document.getElementById(id);
+    el.textContent = text;
+    el.classList.remove('skeleton');
+  }
+  function setText(id, text){
+    const el = document.getElementById(id);
+    el.textContent = text;
+  }
+
+  // ---------- Tables ----------
+  async function loadTable(endpoint, tbodyId, columns, emptyText){
+    const rows = await getJSON(`/admin/analytics/${endpoint}?${qs()}`);
+    const tb = document.getElementById(tbodyId);
+    tb.innerHTML = '';
+    if (!rows.length) {
+      tb.innerHTML = `<tr><td colspan="${columns.length}" class="text-muted">${emptyText}</td></tr>`;
+      return;
+    }
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      for (const col of columns) {
+        const td = document.createElement('td');
+        if (col.align === 'end') td.classList.add('text-end');
+        let val = r[col.key];
+        if (['views','clicks','cnt','hits'].includes(col.key)) val = fmt(val);
+        td.textContent = (val ?? '–');
+        tr.appendChild(td);
+      }
+      tb.appendChild(tr);
+    }
+  }
+
+  // ---------- Donuts & Bars ----------
+  let chDevices, chBrowsers, chOS, chCountries, chEntries, chExits;
+
+  async function loadDonut(endpoint, canvasId, label){
+    const rows = await getJSON(`/admin/analytics/${endpoint}?${qs()}`);
+    const labels = rows.map(r => Object.values(r)[0]);
+    const values = rows.map(r => Object.values(r)[1]);
+
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (window[canvasId]) window[canvasId].destroy();
+    window[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values }] },
+      options: { plugins: { legend: { position:'bottom' } } }
+    });
+    return window[canvasId];
+  }
+
+  async function loadBarsEntryExit(){
+    const data = await getJSON(`/admin/analytics/entry-exit.json?${qs()}`);
+    const entries = (data.entries || []).slice(0, 15);
+    const exits   = (data.exits   || []).slice(0, 15);
+
+    const eCtx = document.getElementById('chartEntries').getContext('2d');
+    if (chEntries) chEntries.destroy();
+    chEntries = new Chart(eCtx, {
+      type: 'bar',
+      data: {
+        labels: entries.map(r => r.path),
+        datasets: [{ label: 'Entries', data: entries.map(r => r.entries) }]
+      },
+      options: {
+        indexAxis: 'y',
+        plugins: { legend: { display:false } },
+        scales: { x: { beginAtZero: true, ticks:{ precision:0 } } }
+      }
+    });
+
+    const xCtx = document.getElementById('chartExits').getContext('2d');
+    if (chExits) chExits.destroy();
+    chExits = new Chart(xCtx, {
+      type: 'bar',
+      data: {
+        labels: exits.map(r => r.path),
+        datasets: [{ label: 'Exits', data: exits.map(r => r.exits) }]
+      },
+      options: {
+        indexAxis: 'y',
+        plugins: { legend: { display:false } },
+        scales: { x: { beginAtZero: true, ticks:{ precision:0 } } }
+      }
+    });
+  }
+
+  // ---------- Exports ----------
+  function wireExports(){
+    const q = qs();
+    document.getElementById('exportPv').href = `/admin/analytics/export/pageviews.csv?${q}`;
+    document.getElementById('exportEv').href = `/admin/analytics/export/events.csv?${q}`;
+  } 
+
+  // ---------- Loader ----------
+  async function loadAll(){
+    wireExports();
+    await Promise.all([
+      loadSummary(),
+      loadTable('top-pages.json',  'tblPages',
+        [{key:'path'},{key:'views',align:'end'},{key:'avg_time_s',align:'end'}],
+        'Keine Seitenaufrufe im Zeitraum.'
+      ),
+      loadTable('top-clicks.json', 'tblClicks',
+        [{key:'target'},{key:'clicks',align:'end'}],
+        'Keine Klicks im Zeitraum.'
+      ),
+      loadTable('searches.json',   'tblSearches',
+        [{key:'query'},{key:'cnt',align:'end'}],
+        'Keine Suchen im Zeitraum.'
+      ),
+      loadTable('referrers.json',  'tblReferrers',
+        [{key:'referer'},{key:'hits',align:'end'}],
+        'Keine Referrer im Zeitraum.'
+      ),
+      loadDonut('devices.json',  'chartDevices'),
+      loadDonut('browsers.json', 'chartBrowsers'),
+      loadDonut('os.json',       'chartOS'),
+      (async ()=>{ const c = await getJSON(`/admin/analytics/countries.json?${qs()}&limit=20`);
+        const ctx = document.getElementById('chartCountries').getContext('2d');
+        if (chCountries) chCountries.destroy();
+        chCountries = new Chart(ctx, {
+          type: 'bar',
+          data: { labels: c.map(r=>r.country || '–'), datasets: [{ label:'Sessions', data: c.map(r=>r.sessions) }] },
+          options: { plugins: { legend:{ display:false } }, scales: { y:{ beginAtZero:true, ticks:{ precision:0 } } } }
+        });
+      })(),
+      loadBarsEntryExit()
+    ]);
+  }
+
+  // initial load
+  loadAll();
+</script>

@@ -1,0 +1,24 @@
+     <%- include('../partials/header-admin') %>
+
+<%- include('./sidebar', { active }) %>
+<main class="main-content">
+  <div class="content">
+    <h3><%= isNew ? 'Neue Kategorie' : 'Kategorie bearbeiten' %></h3>
+    <form action="<%= isNew ? '/admin/categories/new' : '/admin/categories/' + row.id + '/edit' %>" method="POST">
+      <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input type="text" id="name" name="name" class="form-control"
+               value="<%= row.name || '' %>" required>
+      </div>
+      <div class="mb-3">
+        <label for="seoname" class="form-label">SEO-Name (z.B. kleingeschrieben)</label>
+        <input type="text" id="seoname" name="seoname" class="form-control"
+               value="<%= row.seoname || '' %>" required>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <%= isNew ? 'Anlegen' : 'Speichern' %>
+      </button>
+      <a href="/admin/categories" class="btn btn-secondary">Abbrechen</a>
+    </form>
+  </div>
+</main>

@@ -1,0 +1,207 @@
+     <%- include('../../partials/header-admin') %>
+
+<!-- views/admin/profile.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+
+  <main class="p-4 flex-fill">
+    <h1 class="h4 mb-4">Mein Profil bearbeiten</h1>
+
+    <form method="POST" enctype="multipart/form-data">
+      
+      <!-- Anrede & Name -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Anrede &amp; Name</legend>
+        <div class="row g-3">
+          <div class="col-md-2">
+            <label for="gender" class="form-label">Anrede *</label>
+            <select id="gender" name="gender" class="form-select form-select-sm" required>
+              <option value="">– Bitte wählen –</option>
+              <option value="1" <%= data.gender=='1'?'selected':'' %>>Herr</option>
+              <option value="2" <%= data.gender=='2'?'selected':'' %>>Frau</option>
+            </select>
+          </div>
+          <div class="col-md-5">
+            <label for="firstname" class="form-label">Vorname *</label>
+            <input type="text" id="firstname" name="firstname"
+                   class="form-control form-control-sm"
+                   value="<%= data.firstname||'' %>" required>
+          </div>
+          <div class="col-md-5">
+            <label for="lastname" class="form-label">Nachname *</label>
+            <input type="text" id="lastname" name="lastname"
+                   class="form-control form-control-sm"
+                   value="<%= data.lastname||'' %>" required>
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Adresse -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Adresse</legend>
+        <div class="row g-3 mb-2">
+          <div class="col-md-6">
+            <label for="company" class="form-label">Firma</label>
+            <input type="text" id="company" name="company"
+                   class="form-control form-control-sm"
+                   value="<%= data.company||'' %>">
+          </div>
+          <div class="col-md-4">
+            <label for="street" class="form-label">Straße</label>
+            <input type="text" id="street" name="street"
+                   class="form-control form-control-sm"
+                   value="<%= data.street||'' %>">
+          </div>
+          <div class="col-md-2">
+            <label for="housenumber" class="form-label">Nr.</label>
+            <input type="text" id="housenumber" name="housenumber"
+                   class="form-control form-control-sm"
+                   value="<%= data.housenumber||'' %>">
+          </div>
+        </div>
+        <div class="row g-3">
+          <div class="col-md-2">
+            <label for="postcode" class="form-label">PLZ</label>
+            <input type="text" id="postcode" name="postcode"
+                   class="form-control form-control-sm"
+                   value="<%= data.postcode||'' %>">
+          </div>
+          <div class="col-md-4">
+            <label for="city" class="form-label">Stadt</label>
+            <input type="text" id="city" name="city"
+                   class="form-control form-control-sm"
+                   value="<%= data.city||'' %>">
+          </div>
+          <div class="col-md-6">
+            <label for="country_id" class="form-label">Land</label>
+            <select id="country_id" name="country_id" class="form-select form-select-sm">
+              <option value="">– Bitte wählen –</option>
+              <% countries.forEach(c => { %>
+                <option value="<%= c.id %>" <%= data.country_id==c.id?'selected':'' %>>
+                  <%= c.label %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <small class="text-muted mt-2 d-block">
+          USt‑ID:
+          <input type="text" id="vatid" name="vatid"
+                 class="form-control form-control-sm d-inline-block w-auto ms-1"
+                 value="<%= data.vatid||'' %>">
+        </small>
+      </fieldset>
+
+      <!-- Kontakt -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Kontakt</legend>
+        <div class="row g-3">
+          <div class="col-md-4">
+            <label for="phone" class="form-label">Telefon</label>
+            <input type="text" id="phone" name="phone"
+                   class="form-control form-control-sm"
+                   value="<%= data.phone||'' %>">
+          </div>
+          <div class="col-md-4">
+            <label for="mobile" class="form-label">Mobil</label>
+            <input type="text" id="mobile" name="mobile"
+                   class="form-control form-control-sm"
+                   value="<%= data.mobile||'' %>">
+          </div>
+          <div class="col-md-4">
+            <label for="fax" class="form-label">Fax</label>
+            <input type="text" id="fax" name="fax"
+                   class="form-control form-control-sm"
+                   value="<%= data.fax||'' %>">
+          </div>
+        </div>
+        <div class="row g-3 mt-3">
+          <div class="col-md-6">
+            <label for="email" class="form-label">E‑Mail-Adresse *</label>
+            <input type="email" id="email" name="email"
+                   class="form-control form-control-sm"
+                   value="<%= data.email||'' %>" required>
+          </div>
+          <div class="col-md-6">
+            <label for="website" class="form-label">Webseite</label>
+            <input type="text" id="website" name="website"
+                   class="form-control form-control-sm"
+                   value="<%= data.website||'' %>">
+          </div>
+        </div>
+      </fieldset>
+
+      <!-- Im Inserat anzeigen -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Im Inserat anzeigen</legend>
+        <div class="form-check mb-2">
+          <input type="checkbox" id="showPhone" name="showPhone"
+                 class="form-check-input" <%= data.showPhone?'checked':'' %>>
+          <label for="showPhone" class="form-check-label">
+            Name <strong>nicht</strong> anzeigen
+          </label>
+        </div>
+        <div class="form-check mb-2">
+          <input type="checkbox" id="showEmail" name="showEmail"
+                 class="form-check-input" <%= data.showEmail?'checked':'' %>>
+          <label for="showEmail" class="form-check-label">
+            E‑Mailadresse <strong>nicht</strong> anzeigen
+          </label>
+        </div>
+        <div class="form-check">
+          <input type="checkbox" id="showWebsite" name="showWebsite"
+                 class="form-check-input" <%= data.showWebsite?'checked':'' %>>
+          <label for="showWebsite" class="form-check-label">
+            Telefonnummer <strong>nicht</strong> anzeigen
+          </label>
+        </div>
+      </fieldset>
+
+      <!-- Firmenlogo hochladen -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Firmenlogo</legend>
+        <input type="file" name="logo" class="form-control form-control-sm">
+      </fieldset>
+
+      <!-- Impressum -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Impressum</legend>
+        <textarea name="imprint" class="form-control" rows="4"><%= data.imprint||'' %></textarea>
+      </fieldset>
+
+      <!-- Paket & Kategorie -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Paket &amp; Kategorie</legend>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="package_id" class="form-label">Paket auswählen</label>
+            <select id="package_id" name="package_id" class="form-select form-select-sm">
+              <option value="">– Bitte wählen –</option>
+              <% packages.forEach(pkg => { %>
+                <option value="<%= pkg.id %>" <%= data.package_id==pkg.id?'selected':'' %>>
+                  <%= pkg.name %> – €<%= Number(pkg.price).toFixed(2) %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-md-6">
+            <label for="category_id" class="form-label">Kategorie für Paket</label>
+            <select id="category_id" name="category_id" class="form-select form-select-sm">
+              <option value="">– Bitte wählen –</option>
+              <% categories.forEach(cat => { %>
+                <option value="<%= cat.id %>" <%= data.category_id==cat.id?'selected':'' %>>
+                  <%= cat.name %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+      </fieldset>
+
+      <button type="submit" class="btn btn-primary">Profil speichern</button>
+    </form>
+  </main>
+</div>

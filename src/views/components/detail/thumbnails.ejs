@@ -1,0 +1,15 @@
+<div class="thumbnail-slider">
+  <button id="prevThumb" disabled>&#10094;</button>
+
+  <div class="product-single-thumbnails d-flex">
+    <% if (item.thumbnailUrls && item.thumbnailUrls.length) { %>
+      <% item.thumbnailUrls.forEach(url => { %>
+        <img src="<%= url %>"
+             alt="Thumbnail von <%= item.title %>"
+             onclick="changeImage(this)" />
+      <% }) %>
+    <% } %>
+  </div>
+
+  <button id="nextThumb">&#10095;</button>
+</div>

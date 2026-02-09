@@ -1,0 +1,381 @@
+
+
+ .angebot-container {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .intro,
+  .steps,
+  .features,
+  .pricing,
+  .testimonials {
+    padding: 50px 0;
+    text-align: center;
+  }
+
+  .optimal {
+    max-width: 1500px;
+    margin: 0 auto;
+    padding: 20px;
+  }
+
+  .content {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  .intro-image {
+    width: 50%;
+    border-radius: 10px;
+  }
+
+  .steps-grid,
+  .features-grid,
+  .testimonial-grid {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  .step,
+  .feature,
+  .testimonial {
+    width: 30%;
+    padding: 20px;
+    border: 1px solid #ddd;
+    border-radius: 10px;
+    background-color: #f9f9f9;
+    box-sizing: border-box;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+  }
+
+  th,
+  td {
+    border: 1px solid #ddd;
+    padding: 10px;
+    text-align: center;
+  }
+
+  th {
+    background-color: #333;
+    color: white;
+  }
+
+  li {
+    text-align: justify;
+    font-size: 18px;
+  }
+
+  .text {
+    display: flex;
+    flex-direction: column;
+    align-items: baseline;
+    position: relative;
+    bottom: 0;
+    gap: 10px;
+  }
+
+  .carouseliert {
+    max-width: 1500px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .abtrennung {
+    max-width: 100%;
+    height: 1px;
+    background-color: #ddd;
+    display: flex;
+    justify-content: center;
+    margin: 20px 5%;
+  }
+
+  .carouselStepsContainer {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 50px 20px;
+    text-align: center;
+  }
+
+  .carouselStepsItem {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+
+  /* Standardmäßig ausblenden */
+  .carousel-item {
+    display: none;
+  }
+
+  /* Nur das aktive Element anzeigen */
+  .carousel-item.active {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .stepImage {
+    width: 400px;
+    height: 250px;
+    border-radius: 15px;
+    object-fit: cover;
+  }
+
+  .stepNumber {
+    font-size: 3rem;
+    font-weight: bold;
+    margin-right: 20px;
+  }
+
+  .progressIndicator {
+    display: flex;
+    justify-content: center;
+    margin-top: 20px;
+  }
+
+  .progressIndicator div {
+    width: 50px;
+    height: 4px;
+    background: #ccc;
+    margin: 0 5px;
+    transition: background 0.3s ease-in-out;
+  }
+
+  .progressIndicator .activeStep {
+    background: black;
+  }
+
+  .modal-dialog {
+    max-width: 1000px;    /* Breite auf 1000px erhöhen */
+    margin: 30px auto;
+  }
+
+  .modal-content {
+    height: auto;        /* Höhe automatisch */
+  }
+
+  .modal-body {
+    overflow-y: auto;
+  }
+
+  .vorteileContainer {
+    padding: 60px 20px;
+    background-color: #fff;
+  }
+
+  .vorteileContainer h2 {
+    font-size: 24px;
+    font-weight: bold;
+    margin-bottom: 40px;
+  }
+
+  .vorteilBox {
+    padding: 20px;
+    box-sizing: border-box;
+  }
+
+  .vorteilIcon {
+    width: 60px;
+    height: auto;
+    margin-bottom: 15px;
+  }
+
+  .vorteilBox h4 {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 10px;
+  }
+
+  .vorteilBox p {
+    font-size: 14px;
+    color: #555;
+  }
+
+  .marketingPackages {
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 30px;
+    flex-wrap: wrap;
+  }
+
+  .package {
+    background: #fff;
+    padding: 20px;
+    border-radius: 10px;
+    box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.1);
+    text-align: center;
+    width: 30%;
+    min-width: 250px;
+    box-sizing: border-box;
+    margin-bottom: 20px;
+  }
+
+  .package h3 {
+    font-size: 20px;
+    margin-bottom: 15px;
+  }
+
+  .package ul {
+    list-style: none;
+    padding: 0;
+  }
+
+  .package ul li {
+    padding: 5px 0;
+  }
+
+  .price {
+    font-size: 24px;
+    font-weight: bold;
+    margin-top: 15px;
+  }
+
+  .buyButton {
+    background: #040344;
+    color: white;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    margin-top: 10px;
+  }
+
+  .buyButton:hover {
+    background: #0056b3;
+  }
+
+  /* --------------------------------------
+     Responsive Anpassungen
+     -------------------------------------- */
+
+  @media (max-width: 1024px) {
+    .step,
+    .feature,
+    .testimonial {
+      width: 45%; /* zwei Spalten bei mittleren Tablets */
+    }
+
+    .stepImage {
+      width: 100%;
+      height: auto;
+      max-height: 250px;
+    }
+
+    .stepNumber {
+      font-size: 2.5rem;
+      margin-right: 10px;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .content {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .intro-image {
+      width: 100%;
+    }
+
+    .step,
+    .feature,
+    .testimonial {
+      width: 100%;
+    }
+
+    .carouselStepsItem {
+      flex-direction: column;
+    }
+
+    .stepNumber {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      margin-right: 0;
+    }
+
+    .vorteilBox {
+      padding: 10px;
+    }
+
+    /* Intro-Section: Desktop unverändert, nur für Mobile anpassen */
+    .intro .content {
+      flex-direction: column;
+      text-align: center;
+    }
+
+    .intro .intro-image {
+      width: 100%;
+      margin-bottom: 20px;
+    }
+
+    .intro .text {
+      position: static;
+      align-items: center;
+    }
+
+    .intro .text h2 {
+      text-align: center !important;
+    }
+
+    .intro .text ul li {
+      margin-bottom: 8px;
+      line-height: 1.4;
+    }
+  }
+
+  @media (max-width: 576px) {
+    .vorteileContainer h2 {
+      font-size: 20px;
+    }
+
+    .vorteilBox h4 {
+      font-size: 16px;
+    }
+
+    .vorteilBox p {
+      font-size: 12px;
+    }
+
+    .package {
+      width: 100%;
+    }
+
+    .stepNumber {
+      font-size: 1.5rem;
+    }
+
+    .step,
+    .feature,
+    .testimonial {
+      width: 100%;
+    }
+  }
+
+:root {
+  --bs-backdrop-opacity: 0.75 !important;
+}
+
+.modal-backdrop.show {
+  background-color: rgba(0, 0, 0, 0.75) !important;
+  opacity: 1 !important;
+  z-index: 1050 !important;
+  position: fixed !important;
+  inset: 0 !important;
+}
+.modal.show {
+  z-index: 1060 !important;
+}

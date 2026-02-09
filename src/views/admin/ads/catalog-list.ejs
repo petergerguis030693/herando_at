@@ -1,0 +1,238 @@
+<!-- views/admin/ads/slider-list.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+<%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+  <main class="flex-fill p-4">
+  <h1 class="mb-4">Katalog-Werbeanzeigen</h1>
+
+  <% entieties.forEach(ent => { %>
+    <section class="mb-5">
+      <h2 class="h5 mb-3"><%= ent.name %></h2>
+      <div class="row gx-3 gy-3">
+        <% 
+          // fünf Slots pro Kategorie
+          const slots = adsMap[ent.id] || [];
+          for (let slot = 0; slot < 5; slot++) {
+            const ad = slots[slot];
+        %>
+          <div class="col-12 col-md-6 col-lg-4">
+            <div
+              class="bg-light border rounded p-4 text-center"
+              style="min-height:250px; position:relative;"
+            >
+              <% if (ad) { %>
+                <!-- vorhandene Anzeige -->
+                <img
+                  src="<%= ad.image %>"
+                  class="img-fluid"
+                  style="width:360px; height:250px; object-fit:cover;"
+                >
+                <div class="mt-2">
+                  <button
+                    class="btn btn-sm btn-primary me-2"
+                    data-bs-toggle="modal"
+                    data-bs-target="#modal-edit-<%=ent.id%>-<%=slot%>"
+                  >✏️ Bearbeiten</button>
+                  <button
+                    class="btn btn-sm btn-danger"
+                    onclick="deleteEntry(<%=ad.id%>,<%=ent.id%>)"
+                  >🗑️ Löschen</button>
+                </div>
+              <% } else { %>
+                <!-- Platzhalter für neue Anzeige -->
+                <button
+                  class="btn btn-outline-primary"
+                  data-bs-toggle="modal"
+                  data-bs-target="#modal-new-<%=ent.id%>-<%=slot%>"
+                >+ Werbeanzeige hinzufügen</button>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+    </section>
+  <% }) %>
+
+  <% entieties.forEach(ent => {
+       // die fünf Slots durchlaufen
+       for (let slot = 0; slot < 5; slot++) {
+         const ad = (adsMap[ent.id] || [])[slot];
+         if (!ad) {
+  %>
+    <!-- NEW-Modal für ent.id, slot -->
+    <div class="modal fade" id="modal-new-<%=ent.id%>-<%=slot%>" tabindex="-1">
+      <div class="modal-dialog"><div class="modal-content">
+        <form onsubmit="applyNew(<%=ent.id%>, <%=slot%>); return false;">
+          <input type="hidden" name="entitie_id" value="<%=ent.id%>">
+          <div class="modal-header">
+            <h5 class="modal-title">Neue Anzeige für <%=ent.name%></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Inserat</label>
+              <select
+                id="new-select-<%=ent.id%>-<%=slot%>"
+                name="advert_id"
+                class="form-select"
+                onchange="previewNew('<%=ent.id%>','<%=slot%>')"
+                required
+              >
+                <option value="">– wählen –</option>
+                <% advertsMap[ent.id].forEach(a => { %>
+                  <option
+                    value="<%=a.id%>"
+                    data-image="<%=a.image%>"
+                  ><%=a.name%></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Startdatum</label>
+              <input type="date" name="start_date" class="form-control" required>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Enddatum</label>
+              <input type="date" name="end_date" class="form-control" required>
+            </div>
+            <div class="text-center">
+              <img
+                id="new-preview-<%=ent.id%>-<%=slot%>"
+                src=""
+                class="img-fluid d-none"
+                style="width:360px; height:250px; object-fit:cover;"
+              >
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Abbrechen</button>
+            <button type="submit" class="btn btn-primary">Speichern</button>
+          </div>
+        </form>
+      </div></div>
+    </div>
+  <%   } else { %>
+    <!-- EDIT-Modal für ent.id, slot -->
+    <div class="modal fade" id="modal-edit-<%=ent.id%>-<%=slot%>" tabindex="-1">
+      <div class="modal-dialog"><div class="modal-content">
+        <form onsubmit="applyEdit(<%=ad.id%>, <%=ent.id%>); return false;">
+          <div class="modal-header">
+            <h5 class="modal-title">Anzeige bearbeiten für <%=ent.name%></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-3">
+              <label class="form-label">Inserat</label>
+              <select
+                id="edit-select-<%=ent.id%>-<%=slot%>"
+                name="advert_id"
+                class="form-select"
+                onchange="previewEdit('<%=ent.id%>','<%=slot%>')"
+                required
+              >
+                <% advertsMap[ent.id].forEach(a => { %>
+                  <option
+                    value="<%=a.id%>"
+                    data-image="<%=a.image%>"
+                    <%= a.id===ad.advert_id?'selected':'' %>
+                  ><%=a.name%></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Startdatum</label>
+              <input
+                type="date"
+                name="start_date"
+                class="form-control"
+                value="<%=ad.start_date.toISOString().slice(0,10)%>"
+                required
+              >
+            </div>
+            <div class="mb-3">
+              <label class="form-label">Enddatum</label>
+              <input
+                type="date"
+                name="end_date"
+                class="form-control"
+                value="<%=ad.end_date.toISOString().slice(0,10)%>"
+                required
+              >
+            </div>
+            <div class="text-center">
+              <img
+                id="edit-preview-<%=ent.id%>-<%=slot%>"
+                src="<%=ad.image%>"
+                class="img-fluid"
+                style="width:360px; height:250px; object-fit:cover;"
+              >
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary"
+                    data-bs-dismiss="modal">Abbrechen</button>
+            <button type="submit" class="btn btn-primary">Aktualisieren</button>
+          </div>
+        </form>
+      </div></div>
+    </div>
+  <%   }
+       }
+     }) %>
+</main>
+
+<script>
+  function previewNew(entId, slot) {
+    const sel = document.getElementById(`new-select-${entId}-${slot}`);
+    const url = sel.selectedOptions[0]?.dataset.image;
+    const img = document.getElementById(`new-preview-${entId}-${slot}`);
+    if (url) { img.src = url; img.classList.remove('d-none'); }
+    else    { img.classList.add('d-none'); }
+  }
+
+  function applyNew(entId, slot) {
+    const modalEl = document.getElementById(`modal-new-${entId}-${slot}`);
+    const form    = modalEl.querySelector('form');
+    const data    = new URLSearchParams(new FormData(form));
+    fetch('/admin/ads/catalog/new', {
+      method: 'POST', body: data,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(() => location.reload())
+    .catch(console.error);
+  }
+
+  function previewEdit(entId, slot) {
+    const sel = document.getElementById(`edit-select-${entId}-${slot}`);
+    const url = sel.selectedOptions[0]?.dataset.image;
+    const img = document.getElementById(`edit-preview-${entId}-${slot}`);
+    if (url) img.src = url;
+  }
+
+  function applyEdit(adId, entId) {
+    const modalEl = document.querySelector(`[id^="modal-edit-${entId}-"]`);
+    const form    = modalEl.querySelector('form');
+    const data    = new URLSearchParams(new FormData(form));
+    fetch(`/admin/ads/catalog/${adId}/edit`, {
+      method: 'POST', body: data,
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(() => location.reload())
+    .catch(console.error);
+  }
+
+  function deleteEntry(adId, entId) {
+    if (!confirm('Wirklich löschen?')) return;
+    fetch(`/admin/ads/catalog/${adId}/delete`, {
+      method: 'POST',
+      headers: { 'X-Requested-With': 'XMLHttpRequest' }
+    })
+    .then(() => location.reload())
+    .catch(console.error);
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+

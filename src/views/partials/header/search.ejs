@@ -1,0 +1,141 @@
+<div class="input-group" style="height:50px;">
+  <span class="input-group-text bg-white border-end-0">
+    <i class="bi bi-search text-secondary"></i>
+  </span>
+  <input id="searchInput" type="text" class="form-control border-start-0"
+         placeholder="  <%= t('search.global.subtitle').replace('{count}', '114709') %>"
+         aria-label="<%= t('header.search.aria_label') %>"
+         autocomplete="off"
+         style="border-top-left-radius:0;border-bottom-left-radius:0;">
+</div>
+
+<div id="searchDropdown"
+     class="search-dropdown-box"
+     style="display:none;">
+</div>
+
+<script>
+const searchInput = document.getElementById('searchInput');
+const searchDropdown = document.getElementById('searchDropdown');
+let searchDebounce;
+
+searchInput?.addEventListener('input', () => {
+  clearTimeout(searchDebounce);
+  searchDebounce = setTimeout(async () => {
+    const q = searchInput.value.trim();
+    if (q.length < 2) {
+      searchDropdown.style.display = 'none';
+      searchDropdown.innerHTML = '';
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      renderSearchDropdown(data, q);
+    } catch (e) {}
+  }, 300);
+});
+
+function renderSearchDropdown(data, q) {
+  const { 
+    propertySuggestions = [], 
+    brandModels = [], 
+    models = [], 
+    sellers = [], 
+    listings = [] 
+  } = data;
+
+  let html = '';
+
+  if (propertySuggestions.length > 0) {
+    html += `<div class="search-section-title">Immobilien</div>`;
+    html += propertySuggestions.map(p => `
+      <a href="${p.url}" class="search-result-item">
+        <i class="bi bi-house-door"></i>
+        <div>
+          <div class="search-result-title">${p.title}</div>
+          <div class="search-result-sub">${p.subtitle}</div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  if (brandModels.length > 0 || models.length > 0) {
+    html += `<div class="search-section-title">Marken & Modelle</div>`;
+    const combined = [...brandModels, ...models];
+    html += combined.map(m => `
+      <a href="${m.url}" class="search-result-item">
+        <i class="bi bi-grid"></i>
+        <div>
+          <div class="search-result-title">${m.title}</div>
+          <div class="search-result-sub">${m.subtitle}</div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  if (sellers.length > 0) {
+    html += `<div class="search-section-title">Händler</div>`;
+    html += sellers.map(s => `
+      <a href="${s.url}" class="search-result-item">
+        <i class="bi bi-person-badge"></i>
+        <div>
+          <div class="search-result-title">${s.title}</div>
+          <div class="search-result-sub">${s.subtitle}</div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  if (listings.length > 0) {
+    html += `<div class="search-section-title">Inserate</div>`;
+    html += listings.map(i => `
+      <a href="${i.url}" class="search-result-item">
+        <i class="bi bi-search"></i>
+        <div>
+          <div class="search-result-title">${i.title}</div>
+          <div class="search-result-sub">${i.subtitle}</div>
+        </div>
+      </a>
+    `).join('');
+  }
+
+  if (!propertySuggestions.length && !brandModels.length && !models.length && !sellers.length && !listings.length) {
+    html = `<div class="px-3 py-3 text-muted small">Keine Ergebnisse gefunden.</div>`;
+  }
+
+  searchDropdown.innerHTML = html;
+  searchDropdown.style.display = 'block';
+}
+
+searchInput?.addEventListener('keydown', async (e) => {
+  if (e.key !== 'Enter') return;
+  e.preventDefault();
+
+  const q = searchInput.value.trim();
+  if (q.length < 2) return;
+
+  try {
+    const res = await fetch(`/api/search/suggestions?q=${encodeURIComponent(q)}`);
+    const data = await res.json();
+
+    if (data.propertySuggestions?.length > 0) return location.href = data.propertySuggestions[0].url;
+    if (data.brandModels?.length > 0) {
+      const b = data.brandModels.find(x => x.subtitle === 'Marke');
+      if (b) return location.href = b.url;
+    }
+    if (data.models?.length > 0) return location.href = data.models[0].url;
+    if (data.sellers?.length > 0) return location.href = data.sellers[0].url;
+    if (data.listings?.length > 0) return location.href = data.listings[0].url;
+
+  } catch(e) {}
+
+});
+
+document.addEventListener('click', (e) => {
+  if (!searchDropdown.contains(e.target) && e.target !== searchInput) {
+    searchDropdown.style.display = 'none';
+  }
+});
+</script>

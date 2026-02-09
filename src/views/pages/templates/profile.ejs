@@ -1,0 +1,1130 @@
+<%- include('../../partials/header') %>
+  <link rel="stylesheet" href="/css/buyer.css">
+  <link rel="stylesheet" href="/css/profile.css">
+  
+
+
+  </head>
+
+  <% if (billingMissing) { %>
+<%
+  const _missingList = String(billingMissing || '').split(',').map(k => k.trim()).filter(Boolean);
+  const _missingSet = new Set(_missingList);
+  const isMissing = (key) => _missingSet.has(key);
+%>
+<div class="modal fade show" id="billingMissingModal" style="display:block;" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <%= t('buyer.profile.billing_missing_title') %>
+        </h5>
+      </div>
+
+      <div class="modal-body">
+        <p><%= t('buyer.profile.billing_missing_desc') %></p>
+
+        <% if (_missingList.length) { %>
+          <ul class="small text-muted">
+            <% _missingList.forEach(k => { %>
+              <li><strong><%= t(k.trim()) %></strong></li>
+            <% }) %>
+          </ul>
+        <% } %>
+
+        <form id="billingMissingForm" method="POST" action="/buyer/profile/update">
+          <input type="hidden" name="type" value="person_billing">
+          <% if (pendingCheckout) { %>
+            <input type="hidden" name="resumeCheckout" value="1">
+          <% } %>
+
+          <input type="hidden" name="gender" value="<%= user.gender || '' %>">
+          <input type="hidden" name="phone" value="<%= user.phone || '' %>">
+          <input type="hidden" name="mobile" value="<%= user.mobile || '' %>">
+          <input type="hidden" name="fax" value="<%= user.fax || '' %>">
+          <input type="hidden" name="website" value="<%= user.website || '' %>">
+          <input type="hidden" name="imprint" value="<%= user.imprint || '' %>">
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">
+                <%= t('buyer.profile.firstname') %>
+                <% if (isMissing('buyer.profile.firstname')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="firstname" class="form-control" value="<%= user.firstname || '' %>" <%= isMissing('buyer.profile.firstname') ? 'required' : '' %>>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">
+                <%= t('buyer.profile.lastname') %>
+                <% if (isMissing('buyer.profile.lastname')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="lastname" class="form-control" value="<%= user.lastname || '' %>" <%= isMissing('buyer.profile.lastname') ? 'required' : '' %>>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">
+                <%= t('buyer.profile.company') %>
+                <% if (isMissing('buyer.profile.company')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="company" class="form-control" value="<%= user.company || '' %>" <%= isMissing('buyer.profile.company') ? 'required' : '' %>>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">
+                <%= t('buyer.profile.vat_id') %>
+                <% if (isMissing('buyer.profile.vatid')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="vatid" class="form-control" value="<%= user.vatid || '' %>" <%= isMissing('buyer.profile.vatid') ? 'required' : '' %>>
+            </div>
+
+            <div class="col-md-8">
+              <label class="form-label">
+                <%= t('buyer.profile.street') %>
+                <% if (isMissing('buyer.profile.street')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="street" class="form-control" value="<%= user.street || '' %>" <%= isMissing('buyer.profile.street') ? 'required' : '' %>>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">
+                <%= t('buyer.profile.house_number') %>
+                <% if (isMissing('buyer.profile.housenumber')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="housenumber" class="form-control" value="<%= user.housenumber || '' %>" <%= isMissing('buyer.profile.housenumber') ? 'required' : '' %>>
+            </div>
+
+            <div class="col-md-4">
+              <label class="form-label">
+                <%= t('buyer.profile.postcode') %>
+                <% if (isMissing('buyer.profile.postcode')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="postcode" class="form-control" value="<%= user.postcode || '' %>" <%= isMissing('buyer.profile.postcode') ? 'required' : '' %>>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">
+                <%= t('buyer.profile.city') %>
+                <% if (isMissing('buyer.profile.city')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <input name="city" class="form-control" value="<%= user.city || '' %>" <%= isMissing('buyer.profile.city') ? 'required' : '' %>>
+            </div>
+            <div class="col-md-4">
+              <label class="form-label">
+                <%= t('buyer.profile.country') %>
+                <% if (isMissing('buyer.profile.country')) { %><span class="text-danger">*</span><% } %>
+              </label>
+              <select name="country_id" class="form-select" <%= isMissing('buyer.profile.country') ? 'required' : '' %>>
+                <option value="" disabled <%= !user.country_id ? 'selected' : '' %>><%= t('global.select_placeholder') %></option>
+                <% countries.forEach(c => { %>
+                  <option value="<%= c.id %>" <%= String(user.country_id) === String(c.id) ? 'selected' : '' %>><%= c.name %></option>
+                <% }) %>
+              </select>
+            </div>
+          </div>
+        </form>
+      </div> 
+
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" type="button" onclick="closeBillingModal()">
+          <%= t('global.cancel') %>
+        </button>
+        <% if (pendingCheckout) { %>
+          <button class="btn btn-primary" type="submit" form="billingMissingForm">
+            <%= t('buyer.sold.checkout', 'Zur Kasse gehen') %>
+          </button>
+        <% } else { %>
+          <button class="btn btn-primary" type="submit" form="billingMissingForm">
+            <%= t('global.save', 'Speichern') %>
+          </button>
+        <% } %>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+function closeBillingModal(){
+  document.getElementById('billingMissingModal').style.display='none';
+  history.replaceState({}, '', '/buyer/profil');
+}
+</script>
+<% } %>
+
+
+  <body>
+
+    <% const _cp=(typeof currentPage !=='undefined' ? currentPage : null); %>
+
+      <% if (typeof errorMessage !=='undefined' && errorMessage) { %>
+        <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+          role="alert" style="z-index:1050;min-width:300px;">
+          <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        <% } %>
+          <% if (typeof successMessage !=='undefined' && successMessage) { %>
+            <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+              role="alert" style="z-index:1050;min-width:300px;">
+              <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            <% } %>
+
+              <div class="account-shell d-flex gap-3">
+
+                <%- include('../../partials/asside') %>
+
+                  <main class="profile-container">
+
+                    <!-- 🔹 Kopfbereich -->
+<header class="profile-header d-flex align-items-center profile-grid" style="margin-bottom: 50px;">
+  
+  <!-- Kreis mit Initialen -->
+<div class="profile-photo-big d-flex align-items-center justify-content-center position-relative" id="logoBox">
+
+  <% if (user.logo && user.logo.trim() !== '') { %>
+
+      <!-- X Button -->
+      <button id="deleteLogo"
+              style="position:absolute; top:6px; right:6px; z-index:5;"
+              class="btn btn-sm btn-danger">✕</button>
+
+      <img 
+        id="logoImg"
+        src="/images/users/<%= user.id %>/<%= user.logo %>" 
+        alt="Logo"
+        style="max-width:100%; max-height:100%; object-fit:contain;">
+
+  <% } else { %>
+
+      <% 
+        const initials = 
+          (user.firstname ? user.firstname.charAt(0).toUpperCase() : '') +
+          (user.lastname ? user.lastname.charAt(0).toUpperCase() : ''); 
+      %>
+
+      <span id="initialsBox"><%= initials || '?' %></span>
+
+  <% } %>
+</div>
+
+
+
+  <!-- Name + Kundennummer -->
+  <div class="profile-info">
+    <h1 class="profile-name">
+      <%= user.firstname || '' %> <%= user.lastname || '' %>
+    </h1>
+
+    <p class="customer-id">
+      <%= t('buyer.profile.customer_id') %>
+      <span><%= String(user.id).padStart(9, '0') %></span>
+    </p>
+  </div>
+
+</header>
+
+
+<% if (typeof success !== "undefined" && success) { %>
+<div class="alert alert-success alert-dismissible fade show" role="alert">
+  <%= success %>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<% } %>
+
+<% if (typeof error !== "undefined" && error) { %>
+<div class="alert alert-danger alert-dismissible fade show" role="alert">
+  <%= error %>
+  <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+<% } %>
+
+
+
+
+
+                    <!-- 🔸 Profil-Boxen -->
+                    <section class="profile-grid" style="width: 1300px; max-width: 1500px;">
+
+<div class="profile-box">
+  <div class="box-header">
+    <h3><%= t('buyer.profile.personal_billing.title') %></h3>
+    <button class="edit-btn" data-modal="modalPersonBilling">
+      <i class="bi bi-pencil"></i>
+    </button>
+  </div>
+
+<div class="box-content address-grid">
+
+  <p>
+    <strong><%= t('buyer.profile.gender.label') %></strong>
+    <span>
+      <%= user.gender == 1 ? t('buyer.profile.gender.male')
+          : user.gender == 2 ? t('buyer.profile.gender.female')
+          : '-' %>
+    </span>
+  </p>
+
+  <p><strong><%= t('buyer.profile.firstname') %></strong> <span><%= user.firstname || '-' %></span></p>
+  <p><strong><%= t('buyer.profile.lastname') %></strong> <span><%= user.lastname || '-' %></span></p>
+
+  <!-- 📞 TELEFON / MOBIL -->
+  <!-- 📧 E-MAIL -->
+
+
+  <!-- 🌐 WEBSITE -->
+
+
+  <hr>
+
+  <p><strong><%= t('buyer.profile.company') %></strong> <span><%= user.company || '-' %></span></p>
+
+  <p>
+    <strong><%= t('buyer.profile.street') %></strong>
+    <span><%= user.street || '-' %> <%= user.housenumber || '' %></span>
+  </p>
+
+  <p><strong><%= t('buyer.profile.postcode') %></strong> <span><%= user.postcode || '-' %></span></p>
+  <p><strong><%= t('buyer.profile.city') %></strong> <span><%= user.city || '-' %></span></p>
+  <p><strong><%= t('buyer.profile.country') %></strong> <span><%= user.country_name || '-' %></span></p>
+
+    <hr>
+
+
+  <p><strong><%= t('buyer.profile.phone') %></strong> <span><%= user.phone || '-' %></span></p>
+  <p><strong><%= t('buyer.profile.mobile') %></strong> <span><%= user.mobile || '-' %></span></p>
+  <p>
+    <strong><%= t('buyer.profile.email') %></strong>
+    <span><%= user.email || '-' %></span>
+  </p>
+  <p>
+    <strong><%= t('buyer.profile.website') %></strong>
+    <span>
+      <% if (user.website) { %>
+        <a href="<%= user.website %>" target="_blank" rel="noopener">
+          <%= user.website %>
+        </a>
+      <% } else { %>
+        -
+      <% } %>
+    </span>
+  </p>
+  <p><strong><%= t('buyer.profile.vat_id') %></strong> <span><%= user.vatid || '-' %></span></p>
+
+</div>
+
+</div>
+
+
+
+
+<div class="profile-box">
+  <div class="box-header">
+    <h3><%= t('buyer.profile.privacy.title') %></h3>
+  </div>
+
+  <div class="box-content">
+
+    <p class="privacy-info">
+      <%= t('buyer.profile.privacy.info') %>
+    </p>
+
+    <div class="privacy-grid" id="privacyGrid">
+
+      <!-- Name -->
+      <div class="privacy-left">
+        <input type="checkbox"
+              class="privacy-toggle"
+              data-field="details_name_hidden"
+              <%= user.details_name_hidden == 1 ? "checked" : "" %>>
+        <p class="privacy-desc"><%= t('buyer.profile.privacy.name.desc') %></p>
+      </div>
+      <div class="privacy-right">
+        <strong><%= t('buyer.profile.privacy.name.label') %></strong>
+      </div>
+
+      <!-- Telefon -->
+      <div class="privacy-left">
+        <input type="checkbox"
+              class="privacy-toggle"
+              data-field="details_phone_hidden"
+              <%= user.details_phone_hidden == 1 ? "checked" : "" %>>
+        <p class="privacy-desc"><%= t('buyer.profile.privacy.phone.desc') %></p>
+      </div>
+      <div class="privacy-right">
+        <strong><%= t('buyer.profile.privacy.phone.label') %></strong>
+      </div>
+
+      <!-- E-Mail -->
+      <div class="privacy-left">
+        <input type="checkbox"
+              class="privacy-toggle"
+              data-field="details_email_hidden"
+              <%= user.details_email_hidden == 1 ? "checked" : "" %>>
+        <p class="privacy-desc"><%= t('buyer.profile.privacy.email.desc') %></p>
+      </div>
+      <div class="privacy-right">
+        <strong><%= t('buyer.profile.privacy.email.label') %></strong>
+      </div>
+
+    </div>
+    <script>
+      document.querySelectorAll('.privacy-toggle').forEach(cb => {
+        cb.addEventListener('change', async () => {
+          const field = cb.dataset.field;
+          const value = cb.checked ? 1 : 0;
+
+          try {
+            const res = await fetch('/api/user/privacy', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ field, value })
+            });
+
+            const data = await res.json();
+            if (!res.ok) throw new Error(data.message);
+
+          } catch (err) {
+            alert("<%= t('global.error.save_failed') %>");
+            cb.checked = !cb.checked; // rollback
+          }
+        });
+      });
+      </script>
+
+
+
+  </div>
+</div>
+
+<div class="modal-overlay" id="modalPersonBilling">
+  <div class="modal-box">
+    <h4><%= t('buyer.profile.personal_billing.edit_title') %></h4>
+
+    <form method="POST" action="/buyer/profile/update">
+      <input type="hidden" name="type" value="person_billing">
+
+      <label><%= t('buyer.profile.gender.label') %></label>
+      <select name="gender" class="form-select">
+        <option value=""></option>
+        <option value="1" <%= user.gender==1?'selected':'' %>><%= t('buyer.profile.gender.male') %></option>
+        <option value="2" <%= user.gender==2?'selected':'' %>><%= t('buyer.profile.gender.female') %></option>
+      </select>
+
+      <label><%= t('buyer.profile.firstname') %></label>
+      <input name="firstname" value="<%= user.firstname||'' %>">
+
+      <label><%= t('buyer.profile.lastname') %></label>
+      <input name="lastname" value="<%= user.lastname||'' %>">
+
+      <hr>
+
+      <label><%= t('buyer.profile.company') %></label>
+      <input name="company" value="<%= user.company||'' %>">
+
+      <label><%= t('buyer.profile.street') %></label>
+      <input name="street" value="<%= user.street||'' %>">
+
+      <label><%= t('buyer.profile.house_number') %></label>
+      <input name="housenumber" value="<%= user.housenumber||'' %>">
+
+      <label><%= t('buyer.profile.postcode') %></label>
+      <input name="postcode" value="<%= user.postcode||'' %>">
+
+      <label><%= t('buyer.profile.city') %></label>
+      <input name="city" value="<%= user.city||'' %>">
+
+      <label><%= t('buyer.profile.country') %></label>
+      <select name="country_id" class="form-select">
+        <% (countries || []).forEach(c => { %>
+          <option value="<%= c.id %>"
+            <%= Number(user.country_id) === Number(c.id) ? 'selected' : '' %>>
+            <%= c.name %>
+          </option>
+        <% }) %>
+      </select>
+
+      <label><%= t('buyer.profile.phone') %></label>
+      <input name="phone" value="<%= user.phone||'' %>">
+
+      <label><%= t('buyer.profile.mobile') %></label>
+      <input name="mobile" value="<%= user.mobile||'' %>">
+
+      <label><%= t('buyer.profile.website') %></label>
+      <input name="website" value="<%= user.website||'' %>">
+
+      <label><%= t('buyer.profile.vat_id') %></label>
+      <input name="vatid" value="<%= user.vatid||'' %>">
+
+      <div class="modal-actions">
+        <button type="submit" class="btn"><%= t('global.save') %></button>
+        <button type="button" class="btn close-modal"><%= t('global.cancel') %></button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<div class="profile-box">
+  <div class="box-header">
+    <h3><%= t('buyer.profile.packages.title') %></h3>
+  </div>
+
+  <div class="box-content">
+
+    <% if (!activePackages || activePackages.length === 0) { %>
+
+      <p class="text-muted"><%- t('buyer.profile.packages.none') %></p>
+
+    <% } else { %>
+
+      <table style="width:100%; border-collapse: collapse; margin-top:10px;">
+        <thead>
+          <tr style="background:#f7f7f7; text-align:left;">
+            <th style="padding:8px;"><%= t('buyer.profile.packages.col_package') %></th>
+            <th style="padding:8px;"><%= t('buyer.profile.packages.col_category') %></th>
+            <th style="padding:8px;"><%= t('buyer.profile.packages.col_end_date') %></th>
+            <th style="padding:8px;"><%= t('buyer.profile.packages.col_remaining') %></th>
+            <th style="padding:8px;"><%= t('buyer.profile.packages.col_listings') %></th>
+          </tr>
+        </thead>
+
+        <%
+          function pkgName(pkg) {
+            const key = 'buyer.package.' + pkg.package_name.toLowerCase().replace(/\s+/g, '_');
+            return t(key, pkg.package_name);
+          }
+        %>
+
+        <tbody>
+          <% activePackages.forEach(pkg => { %>
+            <tr style="border-bottom:1px solid #eee;">
+              <td style="padding:8px;">
+                <%= pkgName(pkg) %>
+                (<%= pkg.registration_type === 'commercial' ? t('buyer.profile.packages.type_commercial') : t('buyer.profile.packages.type_private') %>)
+              </td>
+
+                <%
+                  const CATEGORY_ROUTE_MAP = {
+                    'autos': 'cars',
+                    'immobilien': 'properties',
+                    'yachten': 'yachts',
+                    'lifestyle': 'lifestyles',
+                    'lifestyles': 'lifestyles',
+                    'uhren': 'watches'
+                  };
+
+                  function catName(pkg) {
+                    const raw = (pkg.categoryName || '').toString().trim().toLowerCase();
+                    const route = CATEGORY_ROUTE_MAP[raw] || raw; // Fallback: raw selbst
+                    return t('global.category.' + route);
+                  }
+                %>
+
+              <td style="padding:8px;">
+                <%= catName(pkg) %>
+              </td>
+
+
+              <td style="padding:8px;">
+                <%= new Date(pkg.end_date).toLocaleDateString(user.language || 'de-DE') %>
+              </td>
+
+              <td style="padding:8px;">
+                <%= pkg.restDays %> <%= t('global.days') %>
+              </td>
+
+              <td style="padding:8px;">
+                <%= pkg.used_listings %> / <%= pkg.max_listings %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+
+      </table>
+
+    <% } %>
+
+  </div>
+
+  
+</div>
+
+
+<div class="profile-box logo-box">
+  <div class="box-header">
+    <h3><%= t('buyer.profile.logo') %></h3>
+  </div>
+
+  <div class="box-content">
+
+    <form action="/buyer/profile/updatelogo"
+          method="POST"
+          enctype="multipart/form-data">
+
+      <div id="logoDropzone" class="logo-dropzone">
+        <input type="file" name="logo" id="logoInput" accept="image/*" hidden required>
+
+        <div class="logo-dropzone-content">
+          <i class="bi bi-cloud-upload fs-1 mb-2"></i>
+          <div class="fw-semibold"><%= t('buyer.profile.logo_drop_title') %></div>
+          <div class="text-muted small"><%= t('buyer.profile.logo_drop_desc') %></div>
+        </div>
+
+        <img id="logoPreview" class="logo-preview d-none">
+      </div>
+
+      <button class="btn btn-primary w-100 mt-3">
+        <%= t('global.upload') %>
+      </button>
+    </form>
+
+  </div>
+</div>
+
+
+
+<div class="profile-box fullwidth-box" 
+     style="grid-column: 1 / -1; padding: 20px; background: #fff; border-radius: 8px; 
+            box-shadow: 0 2px 6px rgba(0,0,0,0.08); margin-top: 20px; overflow-x:auto;">
+
+  <h5 style="margin-bottom: 15px; font-weight: 600; padding-bottom: 6px;">
+    <%= t('buyer.profile.invoices.title') %>
+  </h5>
+
+  <% if (invoices && invoices.length > 0) { %>
+
+  <table style="width:100%; border-collapse: collapse; margin-top: 10px; font-size:15px;">
+    <thead>
+      <tr style="background:#f7f7f7; text-align:left;">
+        <th style="padding:8px;"><%= t('buyer.profile.invoices.col_order_id') %></th>
+        <th style="padding:8px;"><%= t('buyer.profile.invoices.col_product') %></th>
+        <th style="padding:8px;"><%= t('buyer.profile.invoices.col_amount') %></th>
+        <th style="padding:8px;"><%= t('buyer.profile.invoices.col_purchase_date') %></th>
+        <th style="padding:8px;"><%= t('buyer.profile.invoices.col_expiry_date') %></th>
+        <th style="padding:8px;"><%= t('buyer.profile.invoices.col_status') %></th>
+        <th style="padding:8px;"><%= t('buyer.profile.invoices.col_pdf') %></th>
+      </tr>
+    </thead>
+
+    <tbody>
+      <% invoices.forEach(inv => { %>
+        <tr style="border-bottom:1px solid #eee;">
+          <td style="padding:8px;"><%= inv.bestell_id %></td>
+
+          <td style="padding:8px; white-space: nowrap;">
+            <%= inv.product_name || t('global.unknown') %>
+          </td>
+
+          <td style="padding:8px;">
+            <%= inv.amount ? Number(inv.amount).toFixed(2).replace('.', ',' ) + ' €' : t('global.unknown') %>
+          </td>
+
+          <td style="padding:8px;">
+            <%= new Date(inv.created_at).toLocaleDateString(user.language || 'de-DE') %>
+          </td>
+
+          <td style="padding:8px;">
+            <%= inv.expiry_date 
+                ? new Date(inv.expiry_date).toLocaleDateString(user.language || 'de-DE') 
+                : new Date(new Date(inv.created_at).setFullYear(new Date(inv.created_at).getFullYear() + 1))
+                    .toLocaleDateString(user.language || 'de-DE') %>
+          </td>
+
+          <td style="padding:8px;">
+            <% 
+              let statusKey = 'buyer.profile.invoices.status.' + (inv.payment_status || 'unknown');
+            %>
+            <span style="color:<%= inv.payment_status==='succeeded' ? '#28a745' : inv.payment_status==='failed' ? '#dc3545' : inv.payment_status==='pending' ? '#ffc107' : '#6c757d' %>; font-weight:500;">
+              <%= t(statusKey) %>
+            </span>
+          </td>
+
+          <td style="padding:8px;">
+            <a href="<%= inv.pdf_path %>" target="_blank" class="pin-link">
+              <i class="bi bi-file-earmark-pdf"></i> <%= t('global.show') %>
+            </a>
+          </td>
+        </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <% } else { %>
+    <p><%= t('buyer.profile.invoices.none') %></p>
+  <% } %>
+
+</div>
+
+
+
+
+        <% const hasCommercial = activePackages.some(p => p.registration_type === 'commercial'); %>
+
+        <% if (hasCommercial) { %>
+          <div class="fullwidth-box" 
+              style="grid-column: 1 / -1; padding: 30px; background: #fff; border-radius: 8px;
+                      margin-top: 25px; text-align:center;">
+            
+            <button
+              class="btn btn-danger btn-lg px-5"
+              data-bs-toggle="modal"
+              data-bs-target="#cancelModal1"
+              id="triggerCancelButton"
+            >
+              <%= t('buyer.profile.packages.cancel') %>
+            </button>
+
+          </div>
+        <% } %>
+
+        <script>
+          <% if (hasCommercial) { 
+              const pkg = activePackages.find(p => p.registration_type === 'commercial'); %>
+
+            document.addEventListener("DOMContentLoaded", () => {
+              const btn = document.getElementById("triggerCancelButton");
+
+              if (!btn) return;
+
+              btn.addEventListener("click", () => {
+                const form = document.getElementById("cancelForm");
+
+                form.selected_package_id.value = "<%= pkg.selected_package_id %>";
+                form.package_id.value = "<%= pkg.package_id %>";
+                form.order_id.value = "<%= pkg.order_id %>";
+                form.package_name.value = "<%= pkg.package_name %>";
+
+                document.getElementById("cancelPackageInfo").value =
+                  "<%= pkg.package_name %> (läuft bis <%= pkg.end_date_str %>)";
+              });
+            });
+          <% } %>
+        </script>
+
+<div class="modal fade" id="cancelModal1" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title"><%= t('buyer.profile.cancel.title') %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <form id="cancelForm" method="POST" action="/buyer/profil/cancel-package">
+
+          <input type="hidden" name="selected_package_id" id="selected_package_id">
+          <input type="hidden" name="package_id" id="package_id">
+          <input type="hidden" name="order_id" id="order_id">
+          <input type="hidden" name="package_name" id="package_name">
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('buyer.profile.cancel.customer_name') %></label>
+            <input class="form-control" value="<%= user.firstname %> <%= user.lastname %>" readonly>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('buyer.profile.cancel.customer_id') %></label>
+            <input class="form-control" value="<%= user.id %>" readonly>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('buyer.profile.cancel.email') %></label>
+            <input class="form-control" value="<%= user.email %>" readonly>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('buyer.profile.cancel.package_to_cancel') %></label>
+
+            <select class="form-select" id="cancelPackageSelect">
+              <option value=""><%= t('buyer.profile.cancel.select_package_placeholder') %></option>
+
+              <% activePackages
+                .filter(p => p.registration_type === 'commercial')
+                .forEach(p => { %>
+
+                <option
+                  value="<%= p.selected_package_id %>"
+                  data-package-id="<%= p.package_id %>"
+                  data-order-id="<%= p.order_id %>"
+                  data-package-name="<%= p.package_name %>"
+                  data-category-name="<%= p.entity_name %>"
+                  data-end-date="<%= p.end_date_str %>"
+                >
+                  <%= p.package_name %> – <%= p.entity_name %> – <%= t('buyer.profile.cancel.expires_at') %> <%= p.end_date_str %>
+                </option>
+
+              <% }) %>
+
+            </select>
+          </div>
+
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('buyer.profile.cancel.reason_optional') %></label>
+            <select class="form-select" name="reason" id="reasonSelect">
+              <option value="">(optional)</option>
+              <option><%= t('buyer.profile.cancel.reason.no_need') %></option>
+              <option><%= t('buyer.profile.cancel.reason.price') %></option>
+              <option><%= t('buyer.profile.cancel.reason.service') %></option>
+              <option><%= t('buyer.profile.cancel.reason.other_platform') %></option>
+              <option value="other"><%= t('buyer.profile.cancel.reason.other') %></option>
+            </select>
+          </div>
+
+          <div class="mb-3" id="otherReasonBox" style="display:none;">
+            <label class="form-label"><%= t('buyer.profile.cancel.reason.other') %></label>
+            <textarea class="form-control" name="otherReason" rows="3"></textarea>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('buyer.profile.cancel.termination_date') %></label>
+            <select class="form-select" name="termination_date_type" id="terminationSelect">
+              <option value="nextPossible"><%= t('buyer.profile.cancel.next_possible') %></option>
+              <option value="manual"><%= t('buyer.profile.cancel.manual_date') %></option>
+            </select>
+          </div>
+
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="confirmCancel">
+            <label class="form-check-label" for="confirmCancel">
+              <%= t('buyer.profile.cancel.confirm_text') %>
+            </label>
+          </div>
+
+        </form>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal"><%= t('global.cancel') %></button>
+        <button class="btn btn-danger" id="openConfirmCancel"><%= t('buyer.profile.cancel.execute') %></button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+        <script>
+document.addEventListener("DOMContentLoaded", () => {
+  const select = document.getElementById("cancelPackageSelect");
+
+  if (!select) return;
+
+  select.addEventListener("change", () => {
+    const opt = select.selectedOptions[0];
+    if (!opt || !opt.value) return;
+
+    document.getElementById("selected_package_id").value = opt.value;
+    document.getElementById("package_id").value = opt.dataset.packageId;
+    document.getElementById("order_id").value = opt.dataset.orderId;
+    document.getElementById("package_name").value = opt.dataset.packageName;
+
+    console.log("📦 Paket gewählt:", {
+      selectedPackageId: opt.value,
+      packageId: opt.dataset.packageId,
+      orderId: opt.dataset.orderId,
+      packageName: opt.dataset.packageName,
+      categoryName: opt.dataset.categoryName,
+      endDate: opt.dataset.endDate
+    });
+  });
+});
+</script>
+
+
+
+<div class="modal fade" id="cancelModal2" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title"><%= t('buyer.profile.cancel.confirm.title') %></h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <p class="fw-bold"><%= t('buyer.profile.cancel.confirm.text_final') %></p>
+        <button class="btn btn-danger w-100 mb-3" id="finalCancelBtn">
+          <%= t('buyer.profile.cancel.confirm.confirm_button') %>
+        </button>
+
+        <hr>
+
+        <p class="fw-bold mt-3"><%= t('buyer.profile.cancel.confirm.contact_support_text') %></p>
+        <button class="btn btn-primary w-100" id="contactSupportBtn">
+          <%= t('buyer.profile.cancel.confirm.contact_support_button') %>
+        </button>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">
+          <%= t('global.cancel') %>
+        </button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<div class="modal fade" id="cancelModal3" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+
+      <div class="modal-header">
+        <h5 class="modal-title"><%= t('buyer.profile.cancel.support.title') %></h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <div class="modal-body">
+
+        <form id="supportForm" action="/buyer/profil/cancel-support" method="POST">
+
+          <div class="row mb-3">
+            <div class="col">
+              <label class="form-label"><%= t('form.firstname') %></label>
+              <input name="firstname" class="form-control" value="<%= user.firstname %>">
+            </div>
+
+            <div class="col">
+              <label class="form-label"><%= t('form.lastname') %></label>
+              <input name="lastname" class="form-control" value="<%= user.lastname %>">
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('form.email') %></label>
+            <input name="email" class="form-control" value="<%= user.email %>">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('form.phone') %></label>
+            <input name="phone" class="form-control" value="<%= user.phone %>">
+          </div>
+
+          <div class="mb-3">
+            <label class="form-label"><%= t('form.message') %></label>
+            <textarea name="message" class="form-control" rows="4"></textarea>
+          </div>
+
+        </form>
+
+      </div>
+
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal"><%= t('global.cancel') %></button>
+        <button class="btn btn-primary" id="sendSupportRequest"><%= t('global.send') %></button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modal1 = new bootstrap.Modal(document.getElementById("cancelModal1"));
+  const modal2 = new bootstrap.Modal(document.getElementById("cancelModal2"));
+  const modal3 = new bootstrap.Modal(document.getElementById("cancelModal3"));
+
+  document.getElementById("openConfirmCancel").addEventListener("click", () => {
+    if (!document.getElementById("confirmCancel").checked) {
+      return alert("<%= t('buyer.profile.cancel.confirm_required') %>");
+    }
+
+    modal1.hide();
+    modal2.show();
+  });
+
+  document.getElementById("finalCancelBtn").addEventListener("click", () => {
+    document.getElementById("cancelForm").submit();
+  });
+
+  document.getElementById("contactSupportBtn").addEventListener("click", () => {
+    modal2.hide();
+    modal3.show();
+  });
+
+  document.getElementById("sendSupportRequest").addEventListener("click", () => {
+    document.getElementById("supportForm").submit();
+  });
+});
+</script>
+
+
+                    </section>
+
+                    <section class="container my-5" style="max-width: 700px;">
+                      <h2 class="text-center mb-4 fw-bold"><%= t('buyer.profile.faq.title') %></h2>
+
+                      <div class="custom-faq">
+
+                        <div class="faq-item">
+                          <button class="faq-question">
+                            <%= t('buyer.profile.faq.q.password_forgotten') %>
+                            <span class="faq-chevron"></span>
+                          </button>
+                          <div class="faq-answer">
+                            <%= t('buyer.profile.faq.a.password_forgotten') %>
+                          </div>
+                        </div>
+
+                        <div class="faq-item">
+                          <button class="faq-question">
+                            <%= t('buyer.profile.faq.q.change_email') %>
+                            <span class="faq-chevron"></span>
+                          </button>
+                          <div class="faq-answer">
+                            <%= t('buyer.profile.faq.a.change_email') %>
+                          </div>
+                        </div>
+
+                        <div class="faq-item">
+                          <button class="faq-question">
+                            <%= t('buyer.profile.faq.q.privacy') %>
+                            <span class="faq-chevron"></span>
+                          </button>
+                          <div class="faq-answer">
+                            <%= t('buyer.profile.faq.a.privacy') %>
+                          </div>
+                        </div>
+
+                        <div class="faq-item">
+                          <button class="faq-question">
+                            <%= t('buyer.profile.faq.q.delete_account') %>
+                            <span class="faq-chevron"></span>
+                          </button>
+                          <div class="faq-answer">
+                            <%= t('buyer.profile.faq.a.delete_account') %>
+                          </div>
+                        </div>
+
+                      </div>
+
+                      <div class="text-center mt-5">
+                        <h5 class="fw-semibold mb-3"><%= t('buyer.profile.faq.contact_cta') %></h5>
+                        <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap">
+                          <div><i class="bi bi-telephone me-1"></i> <a href="tel:+420228884177">+420 228 884 177</a></div>
+                          <div><i class="bi bi-envelope me-1"></i> <a href="mailto:direct@herando.com">direct@herando.com</a></div>
+                          <div><i class="bi bi-chat-dots me-1"></i> <a href="/kontakt"><%= t('global.contact') %></a></div>
+                        </div>
+                      </div>
+
+                    </section>
+
+
+                    <script>
+                      document.addEventListener('DOMContentLoaded', () => {
+                        const faqItems = document.querySelectorAll('.faq-item');
+
+                        faqItems.forEach(item => {
+                          const button = item.querySelector('.faq-question');
+                          button.addEventListener('click', () => {
+                            // Wenn offen → schließen
+                            if (item.classList.contains('active')) {
+                              item.classList.remove('active');
+                              return;
+                            }
+                            // Alle anderen schließen
+                            faqItems.forEach(i => i.classList.remove('active'));
+                            // Diesen öffnen
+                            item.classList.add('active');
+                          });
+                        });
+                      });
+                    </script>
+
+
+                    <!-- 🔻 Konto löschen -->
+                  </main>
+
+                  <script>
+                    document.querySelectorAll('.edit-btn').forEach(btn => {
+                      btn.addEventListener('click', () => {
+                        document.getElementById(btn.dataset.modal).classList.add('open');
+                      });
+                    });
+
+                    document.querySelectorAll('.close-modal').forEach(btn => {
+                      btn.addEventListener('click', () => {
+                        btn.closest('.modal-overlay').classList.remove('open');
+                      });
+                    });
+                  </script>
+
+              </div>
+
+              <script>
+                function handleBuy(packageId, type) {
+                  console.log('🟢 Paket gewählt:', packageId, 'Typ:', type);
+                  window.location.href = '/buyer/checkout?packageId=' + packageId + '&type=' + type;
+                }
+              </script>
+
+<script>
+const dropzone = document.getElementById('logoDropzone');
+const input = document.getElementById('logoInput');
+const preview = document.getElementById('logoPreview');
+
+dropzone.addEventListener('click', () => input.click());
+
+input.addEventListener('change', () => {
+  if (input.files.length) showPreview(input.files[0]);
+});
+
+dropzone.addEventListener('dragover', e => {
+  e.preventDefault();
+  dropzone.classList.add('dragover');
+});
+
+dropzone.addEventListener('dragleave', () => {
+  dropzone.classList.remove('dragover');
+});
+
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+
+  const dt = new DataTransfer();
+  dt.items.add(e.dataTransfer.files[0]);
+  input.files = dt.files;   // ✅ DAS funktioniert
+
+  showPreview(input.files[0]);
+});
+
+function showPreview(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    preview.src = e.target.result;
+    preview.classList.remove('d-none');
+
+    // 👇 DAS FEHLT
+    dropzone.classList.add('no-border');
+    dropzone.querySelector('.logo-dropzone-content').style.display = 'none';
+  };
+  reader.readAsDataURL(file);
+}
+
+</script>
+
+<script>
+document.getElementById('deleteLogo')?.addEventListener('click', async () => {
+  await fetch('/buyer/api/profile/logo/delete', { method: 'POST' });
+
+  document.getElementById('logoImg').remove();
+  document.getElementById('deleteLogo').remove();
+  document.getElementById('initialsBox').style.display = 'flex';
+});
+
+document.getElementById('deleteLogo')?.addEventListener('click', async () => {
+  await fetch('/buyer/api/profile/logo/delete', { method: 'POST' });
+
+  window.location.href = '/buyer/profil';
+});
+</script>
+
+
+<%- include('../../partials/footer', { footerColumns }) %>

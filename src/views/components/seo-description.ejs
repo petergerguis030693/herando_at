@@ -1,0 +1,67 @@
+<%
+  // 1) Keys für Übersetzung (z. B. "entity.cars.description_html")
+  const route = (currentEntity && currentEntity.route ? String(currentEntity.route).toLowerCase() : '');
+  const keys = [
+    `entity.${route}.description_html`,
+    `entity.${route}.description`
+  ];
+
+  // 2) Fallback aus DB
+  const dbFallback = (currentEntity && typeof currentEntity.description === 'string')
+    ? currentEntity.description
+    : '';
+
+  // 3) Helper zum Laden aus i18n
+  function fromT(k) {
+    try {
+      if (typeof t === 'function') {
+        const value = t(k, { fallback: '' });
+        return typeof value === 'string' ? value : '';
+      }
+    } catch (e) {}
+    return '';
+  }
+
+  // 4) Tatsächliche Beschreibung finden
+  let descHtml = '';
+  for (const k of keys) {
+    const v = fromT(k);
+    if (v && v.trim()) {
+      descHtml = v;
+      break;
+    }
+  }
+
+  // 5) Falls nichts in i18n → DB-Fallback
+  if (!descHtml) descHtml = dbFallback;
+%>
+
+<% if (descHtml && descHtml.trim()) { %>
+<section class="container mb-5">
+  <div class="entity-description p-4">
+    <%- descHtml %>
+  </div>
+</section>
+<% } %>
+
+<style>
+.entity-description {
+  font-size: 15pt;
+  line-height: 1.6;
+  color: #1d2a44;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e6e6e6;
+}
+
+.entity-description h1,
+.entity-description h2,
+.entity-description h3 {
+  font-family: 'Prata', serif;
+  color: #1d2a44;
+}
+
+.entity-description p {
+  margin-bottom: 14px;
+}
+</style>

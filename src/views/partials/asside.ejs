@@ -1,0 +1,44 @@
+<!-- DEBUG -->
+<div style="display:none">
+  userHasPackage = <%= userHasPackage %>
+</div>
+
+<aside class="left-nav">
+
+  <a href="/buyer" class="<%= currentPage === 'overview' ? 'active' : '' %>">
+    <i class="bi bi-grid"></i> <%= t('buyer.sidebar.title_overview') %>
+  </a>
+
+  <a href="/buyer/messages" class="<%= currentPage === 'messages' ? 'active' : '' %>">
+    <i class="bi bi-chat-square-text"></i> <%= t('buyer.sidebar.title_messages') %>
+  </a>
+
+  <a href="/buyer/sold" class="<%= currentPage === 'sold' ? 'active' : '' %>">
+    <i class="bi bi-cash-stack"></i> <%= t('buyer.sidebar.title_sold') %>
+  </a>
+
+<% if (userHasPackage) { %>
+  <a href="/buyer/historie" class="<%= currentPage === 'historie' ? 'active' : '' %>">
+    <i class="bi bi-clock-history"></i> <%= t('buyer.sidebar.title_history') %>
+  </a>
+<% } %>
+
+  <a href="/buyer/wishlist" class="<%= currentPage === 'wishlist' ? 'active' : '' %>">
+    <i class="bi bi-heart"></i> <%= t('buyer.sidebar.title_wishlist') %>
+  </a>
+
+  <div class="nav-title mt-3"><%= t('buyer.sidebar.block_account') %></div>
+
+  <a href="/buyer/newsletters" class="<%= currentPage === 'newsletter' ? 'active' : '' %>">
+    <i class="bi bi-envelope-paper-heart"></i> <%= t('buyer.sidebar.title_newsletter') %>
+  </a>
+
+  <a href="/buyer/profil" class="<%= currentPage === 'profil' ? 'active' : '' %>">
+    <i class="bi bi-person-gear"></i> <%= t('buyer.sidebar.title_profile') %>
+  </a>
+
+  <a href="/auth/logout">
+    <i class="bi bi-box-arrow-right"></i> <%= t('buyer.sidebar.title_logout') %>
+  </a>
+
+</aside>

@@ -1,0 +1,59 @@
+<a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>"
+   class="lux-card">
+
+  <!-- IMAGE -->
+  <div class="lux-card-img">
+    <img 
+      src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= item.mainPic %>"
+      alt="<%= item.title %>" 
+      loading="lazy"
+    >
+  </div>
+
+  <!-- BODY -->
+  <div class="lux-card-body">
+
+    <!-- TITLE -->
+    <h3 class="lux-card-title">
+      <%= item.title.length > 40 ? item.title.substring(0, 40) + "…" : item.title %>
+    </h3>
+
+    <!-- SPECS (falls vorhanden – bei Lifestyle oft optional) -->
+    <div class="lux-card-specs">
+
+      <% if (item.categoryname) { %>
+        <span><i class="bi bi-bookmark-heart"></i> <%= item.categoryname %></span>
+      <% } %>
+
+      <% if (item.brand) { %>
+        <span><i class="bi bi-star"></i> <%= item.brand %></span>
+      <% } %>
+
+      <% if (item.material) { %>
+        <span><i class="bi bi-box"></i> <%= item.material %></span>
+      <% } %>
+
+      <% if (item.condition) { %>
+        <span><i class="bi bi-award"></i> <%= item.condition %></span>
+      <% } %>
+
+      <% if (item.year) { %>
+        <span><i class="bi bi-calendar-event"></i> <%= item.year %></span>
+      <% } %>
+
+    </div>
+
+    <!-- PRICE -->
+    <div class="lux-card-price">
+      <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
+    </div>
+
+          <% if (item.countryCode) { %>
+        <div class="lux-card-country">
+          <i class="bi bi-geo-alt"></i>
+          <%= item.countryCode %>
+        </div>
+      <% } %>
+
+  </div>
+</a>

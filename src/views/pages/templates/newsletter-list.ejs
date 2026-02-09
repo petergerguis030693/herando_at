@@ -1,0 +1,84 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/buyer.css">
+</head>
+<body>
+
+<% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+  <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+
+<% if (typeof successMessage !== 'undefined' && successMessage) { %>
+  <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+
+<div class="account-shell d-flex gap-3">
+  <%- include('../../partials/asside') %>
+
+  <main class="main">
+    <div class="d-flex align-items-center justify-content-between mb-3">
+      <h4 class="m-0"><i class="bi bi-envelope-open me-2"></i><%= t('buyer.news.title') %></h4>
+      <div class="d-flex gap-2">
+        <input id="nlSearch" type="search" class="form-control form-control-sm" placeholder="<%= t('buyer.news.search') %>">
+      </div>
+    </div>
+
+    <div class="card-clean">
+      <div class="card-header"><%= t('buyer.news.all') %></div>
+      <div class="card-body">
+
+        <% if (!items || !items.length) { %>
+          <div class="text-muted"><%= t('buyer.news.none') %></div>
+
+        <% } else { %>
+          <div class="list-group" id="nlList">
+            <% items.forEach(nl => { %>
+              <a class="list-group-item list-group-item-action d-flex justify-content-between align-items-start nl-item"
+                 data-search="<%- (nl.subject || nl.title || '').toLowerCase() %>"
+                 href="/buyer/newsletters/<%= nl.id %>">
+
+                <div class="me-auto">
+                  <div class="fw-semibold">
+                    <%= nl.title || nl.subject || t('buyer.news.nosubject') %>
+                  </div>
+                  <div class="text-muted small">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    <%= nl.sent_at ? new Date(nl.sent_at).toLocaleString() : '' %>
+                  </div>
+                </div>
+
+                <% if (nl.status) { %>
+                  <span class="badge bg-<%= nl.status==='sent' ? 'success' : 'danger' %> status-badge">
+                    <%= nl.status === 'sent' ? t('buyer.news.sent') : t('buyer.news.failed') %>
+                  </span>
+                <% } %>
+
+              </a>
+            <% }) %>
+          </div>
+        <% } %>
+
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const nlSearch = document.getElementById('nlSearch');
+  const list = document.getElementById('nlList');
+  if (nlSearch && list) {
+    nlSearch.addEventListener('input', () => {
+      const q = nlSearch.value.trim().toLowerCase();
+      list.querySelectorAll('.nl-item').forEach(el => {
+        const txt = el.getAttribute('data-search') || '';
+        el.style.display = (!q || txt.includes(q)) ? '' : 'none';
+      });
+    });
+  }
+</script>
+
+</body>
+</html>

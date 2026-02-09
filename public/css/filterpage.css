@@ -1,0 +1,862 @@
+.bodytype-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 18px;
+}
+
+.bodytype-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+  border: 2px solid #e5e7eb;
+  border-radius: 14px;
+  background: #f9fafb;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.bodytype-card:hover {
+  border-color: #cbd5e1;
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, .08);
+}
+
+.bodytype-card input {
+  display: none;
+}
+
+.bodytype-card i {
+  font-size: 42px;
+  /* GROßES ICON */
+  margin-bottom: 10px;
+  color: #1e293b;
+}
+
+.bodytype-card span {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.bodytype-card input:checked+i {
+  color: #cfd7e3;
+  /* Blau wenn aktiv */
+}
+
+.bodytype-card input:checked~span {
+  color: #cfd7e3;
+}
+
+
+
+:root {
+  --ink: #1A253C;
+  --muted: #6b7280;
+  --line: #e5e7eb;
+  --bg: #ffffff;
+  --chip: #f3f4f6;
+  --brand: #1a2847;
+  --accent: #1A253C;
+}
+
+body {
+  color: var(--ink);
+}
+
+.fp-wrap {
+  max-width: 1500px;
+  margin: 24px auto 48px;
+  padding: 0 16px;
+}
+
+.fp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.fp-title {
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.fp-actions a {
+  text-decoration: none;
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.fp-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .03);
+}
+
+.fp-card h3 {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0 0 12px;
+  color: var(--ink);
+}
+
+.fp-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px 16px;
+}
+
+.fi {
+  grid-column: span 4;
+  min-width: 0;
+}
+
+.fi-6 {
+  grid-column: span 6;
+}
+
+.fi-12 {
+  grid-column: span 12;
+}
+
+@media (max-width: 991px) {
+
+  .fi,
+  .fi-6 {
+    grid-column: span 6;
+  }
+}
+
+@media (max-width: 575px) {
+
+  .fi,
+  .fi-6,
+  .fi-12 {
+    grid-column: span 12;
+  }
+}
+
+.fi-label {
+  display: block;
+  font-weight: 700;
+  font-size: .94rem;
+  margin-bottom: 6px;
+  color: var(--ink);
+}
+
+.fi-input input,
+.fi-select select {
+  width: 100%;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: .96rem;
+  outline: 0;
+  color: var(--ink);
+}
+
+.fi-select {
+  position: relative;
+}
+
+.fi-select i {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  pointer-events: none;
+}
+
+.fi-select select:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.chip {
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  user-select: none;
+}
+
+.chip input {
+  display: none;
+}
+
+.chip.active {
+  background: #fff;
+  border-color: #cfd5df;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+}
+
+.fi-range {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.fi-range .sep {
+  color: var(--muted);
+}
+
+.fp-bottom {
+  position: sticky;
+  bottom: 0;
+  z-index: 10;
+  background: rgba(255, 255, 255, .85);
+  backdrop-filter: blur(6px);
+  border-top: 1px solid var(--line);
+  padding: 12px 16px;
+  margin-top: 16px;
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.btn {
+  border: 0;
+  border-radius: 12px;
+}
+
+.btn-ghost {
+  background: #eef2f7;
+  color: var(--ink);
+}
+
+.btn:active {
+      color: white;
+    background-color: #1a2847;
+    border-color: transparent;
+}
+
+.btn:disabled {
+  opacity: .6;
+  cursor: not-allowed;
+}
+
+.muted {
+  color: var(--muted);
+  font-size: .9rem;
+}
+
+/* --- mobile.de-artiges Basisdaten Styling --- */
+.md-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  padding: 16px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, .03)
+}
+
+.md-title {
+  font-size: 1rem;
+  font-weight: 800;
+  margin: 0 0 12px;
+  color: #0f172a
+}
+
+.md-grid {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px 16px
+}
+
+.md-col-12 {
+  grid-column: span 12
+}
+
+.md-col-6 {
+  grid-column: span 6
+}
+
+.md-col-4 {
+  grid-column: span 4
+}
+
+.md-col-3 {
+  grid-column: span 3
+}
+
+@media (max-width:991px) {
+
+  .md-col-6,
+  .md-col-4,
+  .md-col-3 {
+    grid-column: span 6
+  }
+}
+
+@media (max-width:575px) {
+
+  .md-col-6,
+  .md-col-4,
+  .md-col-3 {
+    grid-column: span 12
+  }
+}
+
+.md-label {
+  display: block;
+  font-weight: 700;
+  font-size: .94rem;
+  margin-bottom: 6px;
+  color: #0f172a
+}
+
+/* Inputs + Selects – einheitlich dunkel lesbar */
+.md-input input,
+.md-range input {
+  width: 100%;
+  border: 1px solid #cfd7e3;
+  background: #f7f9fc;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: .96rem;
+  color: #0f172a;
+  outline: 0;
+}
+
+.btn-herando{
+  background-color: #1a2847;
+  color: white;
+}
+
+.btn-herando:hover{
+  background-color: #c39052; 
+  color: white; 
+}
+
+.md-input input::placeholder,
+.md-range input::placeholder {
+  color: #94a3b8;
+}
+
+.md-input input:hover,
+.md-range input:hover {
+  border-color: #b9c4d3;
+}
+
+.md-input input:focus,
+.md-range input:focus {
+  border-color: #cfd7e3;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, .25);
+}
+
+/* Select im Screenshot-Look (Chevron via ::after) */
+.md-select {
+  position: relative;
+}
+
+.md-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  width: 100%;
+  height: 48px;
+  border: 1px solid #cfd7e3;
+  background: #f7f9fc;
+  border-radius: 12px;
+  padding: 8px 34px 8px 12px;
+  font-size: .96rem;
+  color: #0f172a;
+  outline: 0;
+  box-shadow: inset 0 1px 0 #fff;
+}
+
+.md-select select:hover {
+  border-color: #b9c4d3;
+}
+
+.md-select select:focus {
+  border-color: #cfd7e3;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, .25);
+}
+
+.md-select::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  opacity: .9;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%2390A3B6' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+/* Mehrfach-Select – andere Darstellung, Chevron ausblenden */
+.md-select select[multiple] {
+  min-height: 96px;
+  padding-right: 12px;
+  background: #fff;
+}
+
+.md-select select[multiple]+* {
+  display: none;
+}
+
+/* falls irgendwo noch ein Icon wäre */
+
+/* Range-Zeile */
+.md-range {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.md-range .sep {
+  color: #6b7280;
+}
+
+/* Segment-Toggle */
+.seg {
+  display: inline-grid;
+  grid-auto-flow: column;
+  gap: 8px;
+  background: #f3f4f6;
+  padding: 4px;
+  border-radius: 12px
+}
+
+.seg input {
+  display: none
+}
+
+.seg label {
+  padding: 8px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+  color: #111827;
+  border: 1px solid transparent
+}
+
+.seg input:checked+label {
+  background: #fff;
+  border-color: #cfd5df;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06)
+}
+
+/* Checkbox-Grid (Karosserie) */
+.check-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px
+}
+
+@media (max-width:991px) {
+  .check-grid {
+    grid-template-columns: repeat(3, 1fr)
+  }
+}
+
+@media (max-width:575px) {
+  .check-grid {
+    grid-template-columns: repeat(2, 1fr)
+  }
+}
+
+.cg-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 12px;
+  padding: 8px 10px;
+  font-weight: 600;
+  color: #0f172a
+}
+
+.cg-item input {
+  width: 18px;
+  height: 18px
+}
+
+/* Hinweisbox */
+.note-blue {
+  background: #e8f1ff;
+  border: 1px solid #cfe0ff;
+  color: #0f3a92;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: .9rem
+}
+
+
+/* ==== Technische Daten – UI ==== */
+.td-row {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 12px 16px;
+  margin-bottom: 8px
+}
+
+.td-12 {
+  grid-column: span 12
+}
+
+.td-6 {
+  grid-column: span 6
+}
+
+.td-4 {
+  grid-column: span 4
+}
+
+.td-3 {
+  grid-column: span 3
+}
+
+@media (max-width:991px) {
+
+  .td-6,
+  .td-4,
+  .td-3 {
+    grid-column: span 6
+  }
+}
+
+@media (max-width:575px) {
+
+  .td-6,
+  .td-4,
+  .td-3 {
+    grid-column: span 12
+  }
+}
+
+.td-label {
+  display: block;
+  font-weight: 700;
+  font-size: .94rem;
+  margin-bottom: 6px;
+  color: #0f172a
+}
+
+/* Chips (Checkboxen als Pillen) */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px
+}
+
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  padding: 8px 12px;
+  font-weight: 600;
+  color: #0f172a;
+  cursor: pointer;
+  user-select: none
+}
+
+.chip-x input {
+  width: 18px;
+  height: 18px
+}
+
+.chip-x.active {
+  background: #fff;
+  border-color: transparent;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .06)
+}
+
+/* Range-Inputs mit Einheit */
+.range {
+  display: flex;
+  gap: 8px;
+  align-items: center
+}
+
+.range .unit {
+  min-width: 64px
+}
+
+.range .sep {
+  color: #6b7280
+}
+
+.td-input input,
+.td-select select {
+  width: 100%;
+  height: 48px;
+  border: 1px solid #cfd7e3;
+  background: #f7f9fc;
+  border-radius: 12px;
+  padding: 10px 12px;
+  font-size: .96rem;
+  color: #0f172a;
+  outline: 0
+}
+
+.td-input input:hover,
+.td-select select:hover {
+  border-color: #b9c4d3
+}
+
+.td-input input:focus,
+.td-select select:focus {
+  border-color: #cfd7e3;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, .25)
+}
+
+.td-select {
+  position: relative
+}
+
+.td-select::after {
+  content: "";
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  pointer-events: none;
+  opacity: .9;
+  background-repeat: no-repeat;
+  background-size: 14px 14px;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 24 24' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M6 9l6 6 6-6' stroke='%2390A3B6' stroke-width='2' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+
+.td-select select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  padding-right: 34px
+}
+
+/* Radios horizontal */
+.radios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px
+}
+
+.radios label {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  color: #0f172a
+}
+
+/* ====== Extras (Chip-Checkboxen) ====== */
+.extras-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+@media (max-width:991px) {
+  .extras-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ex-title {
+  font-weight: 800;
+  margin-bottom: 8px;
+  color: #0f172a;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.chip-x {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  color: #0f172a;
+  padding: 10px 12px;
+  border-radius: 12px;
+  cursor: pointer;
+  user-select: none;
+  font-weight: 700;
+  transition: .15s border-color, .15s box-shadow, .15s background;
+}
+
+.chip-x input {
+  display: none;
+}
+
+.chip-x.active {
+  background: #1A253C;
+  color: white;
+  border-color: transparent;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, .06);
+}
+
+.fp-card--tight {
+  padding: 1.25rem 1.25rem 1rem;
+}
+
+.fp-card__title {
+  margin: 0 0 .25rem;
+  font-size: 1.15rem;
+}
+
+.fp-subtitle {
+  font-weight: 600;
+  margin: .25rem 0 .5rem;
+}
+
+.fp-grid--gap-lg {
+  row-gap: 1rem;
+}
+
+.chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem .6rem;
+}
+
+.chip {
+  --bd: #e5e7eb;
+  --bg: #fff;
+  --txt: #111827;
+  --hover: #f9fafb;
+  --active: #111827;
+  --active-bg: #eef2ff;
+  --ring: 0 0 0 3px rgba(99, 102, 241, .25);
+  position: relative;
+  display: inline-block;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid var(--bd);
+  background: var(--bg);
+  color: var(--txt);
+  border-radius: 999px;
+  padding: .42rem .7rem;
+  transition: background .15s, border-color .15s, box-shadow .15s, transform .02s;
+}
+
+.chip--ghost {
+  --bg: #f8fafc;
+}
+
+.chip:hover {
+  background: var(--hover);
+}
+
+.chip:active {
+  transform: translateY(1px);
+}
+
+.chip__control {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.chip-visual {
+  display: inline-flex;
+  align-items: center;
+  gap: .5rem;
+}
+
+.chip-label {
+  font-size: .92rem;
+  white-space: nowrap;
+}
+
+.chip-ind {
+  inline-size: .9rem;
+  block-size: .9rem;
+  border-radius: 4px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  box-shadow: inset 0 0 0 2px transparent;
+  transition: all .15s;
+}
+
+.chip--color .chip-swatch {
+  width: .9rem;
+  height: .9rem;
+  border-radius: 50%;
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1);
+}
+
+.chip .chip__control:checked+.chip-visual {
+  color: var(--active);
+  background: var(--active-bg);
+  border-radius: 999px;
+}
+
+.chip .chip__control:checked+.chip-visual .chip-ind {
+  border-color: #6366f1;
+  box-shadow: inset 0 0 0 6px #6366f1;
+}
+
+.chip .chip__control:focus-visible+.chip-visual {
+  box-shadow: var(--ring);
+}
+
+@media (max-width:640px) {
+  .chip {
+    padding: .36rem .6rem;
+  }
+
+  .chip-label {
+    font-size: .9rem;
+  }
+}
+
+.span{
+  color: #000 !important;
+}
+
+/* Grundzustand: hell */
+.bodytype-card img {
+  opacity: 0.35;
+  filter: grayscale(100%);
+  transition: opacity 0.25s ease, filter 0.25s ease;
+}
+
+/* Hover (optional, dezent) */
+.bodytype-card:hover img {
+  opacity: 0.6;
+  filter: grayscale(40%);
+}
+
+/* AUSGEWÄHLT: Checkbox ist checked → Bild aktiv */
+.bodytype-card input[type="checkbox"]:checked + img {
+  opacity: 1;
+  filter: none;
+}
+
+/* Optional: Goldener Rahmen bei Auswahl */
+.bodytype-card input[type="checkbox"]:checked + img {
+  outline-offset: 4px;
+  border-radius: 6px;
+}

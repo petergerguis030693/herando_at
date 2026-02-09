@@ -1,0 +1,626 @@
+<!-- views/admin/admin-newsletter.ejs -->
+ <%- include('../partials/header-admin') %>
+
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active }) %>
+  </aside>
+
+  <div class="container-fluid py-4 flex-grow-1">
+    <h1 class="h3 fw-semibold mb-3">Newsletter & Nachrichten</h1>
+
+    <!-- Haupt-Tabs: Nachrichten | Verwaltung -->
+    <ul class="nav nav-pills gap-2 mb-4" id="mainTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link active" id="messages-tab" data-bs-toggle="pill" data-bs-target="#messages" type="button" role="tab">
+          📩 Nachrichten
+        </button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link" id="admin-tab" data-bs-toggle="pill" data-bs-target="#admin" type="button" role="tab">
+          🛠️ Verwaltung
+        </button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <!-- =========================
+           TAB: NACHRICHTEN
+      ========================== -->
+      <div class="tab-pane fade show active" id="messages" role="tabpanel" aria-labelledby="messages-tab">
+        <div class="row g-4">
+          <!-- Linke Spalte: Ordner + Liste -->
+          <div class="col-12 col-xl-4">
+            <div class="card shadow-sm rounded-4 border-0 overflow-hidden">
+              <div class="card-header bg-white border-0 py-3 d-flex align-items-center justify-content-between">
+                <span class="fw-semibold">Nachrichten</span>
+                <button class="btn btn-primary btn-sm rounded-3" id="jumpToComposeBtn">Verfassen</button>
+              </div>
+
+              <div class="card-body p-0">
+                <!-- Ordner -->
+                <div class="list-group list-group-flush small px-2 py-2 d-flex flex-row gap-2 border-bottom">
+                  <button class="btn btn-light-subtle flex-fill active" id="folderReceivedBtn">Erhaltene</button>
+                  <button class="btn btn-light-subtle flex-fill" id="folderSentBtn">Gesendete</button>
+                </div>
+
+                <!-- Suche -->
+                <div class="p-3 border-bottom">
+                  <div class="input-group input-group-sm">
+                    <span class="input-group-text bg-white border-end-0">🔎</span>
+                    <input type="text" id="msgSearch" class="form-control border-start-0" placeholder="Betreff oder Text …">
+                    <button class="btn btn-outline-secondary" id="msgSearchBtn">Suchen</button>
+                  </div>
+                </div>
+
+                <!-- Liste -->
+                <div class="message-list" id="messageList" style="max-height: 520px; overflow: auto;">
+                  <!-- Rows werden via JS gerendert -->
+                </div>
+
+                <!-- Pagination (einfach) -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-top small">
+                  <button class="btn btn-outline-secondary btn-sm" id="msgPrevBtn">Zurück</button>
+                  <div><span id="msgPageLabel">Seite 1</span></div>
+                  <button class="btn btn-outline-secondary btn-sm" id="msgNextBtn">Weiter</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Rechte Spalte: Verfassen + Detail -->
+          <div class="col-12 col-xl-8">
+            <div class="card shadow-sm rounded-4 border-0">
+              <div class="card-header bg-white border-0 py-3">
+                <div class="d-flex align-items-center justify-content-between">
+                  <span class="fw-semibold">Neue Nachricht verfassen</span>
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-light btn-sm" id="showComposeBtn">Verfassen</button>
+                    <button class="btn btn-light btn-sm" id="showDetailBtn">Details</button>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card-body">
+                <!-- Compose -->
+                <form id="composeForm" class="d-grid gap-3">
+                  <div>
+                    <label class="form-label small text-muted">An</label>
+                    <select name="group_id" id="composeGroupSelect" class="form-select" required>
+                      <option value="">Gruppe wählen…</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label class="form-label small text-muted">Betreff</label>
+                    <input type="text" name="subject" class="form-control" placeholder="Betreff eingeben" required>
+                  </div>
+
+                  <div>
+                    <label class="form-label small text-muted">Nachricht</label>
+                    <textarea name="body" class="form-control" rows="8" placeholder="Nachricht schreiben…" required></textarea>
+                  </div>
+
+                  <div class="d-flex gap-2">
+                    <button type="submit" class="btn btn-primary px-4">Senden</button>
+                    <button type="button" class="btn btn-outline-secondary" id="composeClearBtn">Leeren</button>
+                  </div>
+                </form>
+
+                <!-- Detail-Ansicht -->
+                <div id="detailView" class="d-none">
+                  <div class="d-grid gap-2">
+                    <div class="border rounded-3 p-3 bg-body-tertiary">
+                      <div class="small text-muted">Betreff</div>
+                      <div class="fw-semibold" id="dvSubject">—</div>
+                    </div>
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <div class="border rounded-3 p-3 bg-body-tertiary">
+                          <div class="small text-muted">Von</div>
+                          <div id="dvFrom">—</div>
+                        </div>
+                      </div>
+                      <div class="col-md-6">
+                        <div class="border rounded-3 p-3 bg-body-tertiary">
+                          <div class="small text-muted">An</div>
+                          <div id="dvTo">—</div>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="border rounded-3 p-3" style="min-height: 180px;">
+                      <div class="small text-muted mb-2">Nachricht</div>
+                      <div id="dvBody" style="white-space: pre-wrap;">—</div>
+                    </div>
+                    <div class="text-end small text-muted" id="dvMeta">—</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div> <!-- /right column -->
+        </div>
+      </div>
+
+      <!-- =========================
+           TAB: VERWALTUNG (Gruppen, Templates, Senden)
+      ========================== -->
+      <div class="tab-pane fade" id="admin" role="tabpanel" aria-labelledby="admin-tab">
+        <div class="card shadow-sm rounded-4 border-0">
+          <div class="card-header bg-white border-0 py-3">
+            <div class="nav nav-pills gap-2" id="adminInnerTabs" role="tablist">
+              <button class="nav-link active" data-bs-toggle="pill" data-bs-target="#tab-groups" type="button">Gruppen</button>
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-templates" type="button">Templates</button>
+              <button class="nav-link" data-bs-toggle="pill" data-bs-target="#tab-send" type="button">Senden (per Template)</button>
+            </div>
+          </div>
+
+          <div class="card-body">
+            <div class="tab-content">
+              <!-- Gruppen -->
+              <div class="tab-pane fade show active" id="tab-groups">
+                <div class="row g-4">
+                  <div class="col-12 col-lg-6">
+                    <div class="border rounded-4 p-3">
+                      <h5 class="mb-3">Gruppe anlegen</h5>
+                      <form id="createGroupForm" class="d-grid gap-2">
+                        <input type="text" name="name" class="form-control" placeholder="Gruppenname" required>
+                        <input type="text" name="description" class="form-control" placeholder="Beschreibung">
+                        <button type="submit" class="btn btn-primary">Erstellen</button>
+                      </form>
+                    </div>
+
+                    <div class="border rounded-4 p-3 mt-4">
+                      <h5 class="mb-3">Gruppen</h5>
+                      <table class="table align-middle small" id="groupsTable">
+                        <thead class="table-light">
+                          <tr>
+                            <th style="width:80px;">ID</th>
+                            <th>Name</th>
+                            <th style="width:120px;">Aktion</th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-lg-6">
+                    <div class="border rounded-4 p-3">
+                      <h5 class="mb-3">Mitglieder verwalten</h5>
+                      <div class="row g-2 mb-2">
+                        <div class="col-md-7">
+                          <select id="groupSelectForMembers" class="form-select">
+                            <option value="">Gruppe wählen…</option>
+                          </select>
+                        </div>
+                        <div class="col-md-5 d-flex gap-2">
+                          <input id="userSearch" class="form-control" placeholder="Suche (Name, E-Mail, Firma)">
+                          <button id="reloadUsersBtn" class="btn btn-outline-secondary">Suchen</button>
+                        </div>
+                      </div>
+
+                      <div class="table-responsive" style="max-height: 340px; overflow:auto;">
+                        <table class="table table-sm align-middle" id="usersTable">
+                          <thead class="table-light">
+                            <tr>
+                              <th style="width:40px;"><input type="checkbox" id="checkAllUsers"></th>
+                              <th>ID</th>
+                              <th>Name</th>
+                              <th>E-Mail</th>
+                              <th>Firma</th>
+                              <th>OK</th>
+                            </tr>
+                          </thead>
+                          <tbody></tbody>
+                        </table>
+                      </div>
+
+                      <div class="text-end">
+                        <button id="saveMembersBtn" class="btn btn-primary mt-2">Auswahl speichern</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Templates -->
+              <div class="tab-pane fade" id="tab-templates">
+                <div class="row g-4">
+                  <div class="col-12 col-lg-5">
+                    <div class="border rounded-4 p-3">
+                      <h5 class="mb-3">Template erstellen</h5>
+                      <form id="createTemplateForm" class="d-grid gap-2">
+                        <select name="type" class="form-select" required>
+                          <option value="">Typ wählen</option>
+                          <option value="newsletter">Newsletter</option>
+                          <option value="message">Message</option>
+                        </select>
+                        <input type="text" name="name" class="form-control" placeholder="Template-Name" required>
+                        <input type="text" name="subject" class="form-control" placeholder="Betreff" required>
+                        <textarea name="body" class="form-control" rows="6" placeholder="Text …" required></textarea>
+                        <button type="submit" class="btn btn-primary">Speichern</button>
+                      </form>
+                    </div>
+                  </div>
+
+                  <div class="col-12 col-lg-7">
+                    <div class="border rounded-4 p-3">
+                      <h5 class="mb-3">Vorlagen</h5>
+                      <table class="table align-middle small" id="templatesTable">
+                        <thead class="table-light">
+                          <tr>
+                            <th style="width:80px;">ID</th>
+                            <th>Typ</th>
+                            <th>Name</th>
+                            <th>Betreff</th>
+                            <th style="width:120px;">Aktion</th>
+                          </tr>
+                        </thead>
+                        <tbody></tbody>
+                      </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Senden per Template -->
+              <div class="tab-pane fade" id="tab-send">
+                <div class="border rounded-4 p-3">
+                  <h5 class="mb-3">Senden (per Template)</h5>
+                  <form id="sendNotificationForm" class="row g-2">
+                    <div class="col-md-5">
+                      <select name="group_id" id="groupSelect" class="form-select" required></select>
+                    </div>
+                    <div class="col-md-5">
+                      <select name="template_id" id="templateSelect" class="form-select" required></select>
+                    </div>
+                    <div class="col-md-2">
+                      <button class="btn btn-success w-100">Senden</button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+            </div> <!-- /tab-content (admin inner) -->
+          </div>
+        </div>
+      </div>
+    </div> <!-- /main tab-content -->
+  </div> <!-- /container -->
+</div> <!-- /layout -->
+
+<!-- Bootstrap Bundle (Tabs etc.) -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+<style>
+/* Modern, clean tweaks */
+.btn-light-subtle { background: #f6f7fb; border: 1px solid #eef0f5; }
+.btn-light-subtle.active { background: #e8ecf7; border-color: #dee5f5; }
+.message-item { cursor: pointer; transition: background .15s ease; }
+.message-item:hover { background: #f9fafc; }
+.message-item .badge { font-weight: 500; }
+.card { border-radius: 1rem; }
+.form-control, .form-select, .btn { border-radius: .7rem; }
+#detailView .border { border-color: #eef0f5 !important; }
+</style>
+
+<script>
+const BASE = "/admin/newsletter";
+
+/* ========== Utilities ========== */
+async function ensureJsonOk(res) {
+  const ct = res.headers.get("content-type") || "";
+  if (!res.ok) {
+    const payload = ct.includes("application/json") ? await res.json() : { error: await res.text() };
+    throw new Error(payload.error || `HTTP ${res.status}`);
+  }
+  return ct.includes("application/json") ? res.json() : {};
+}
+const esc = s => (s || "").toString().replace(/[&<>"']/g, m => ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;" }[m]));
+
+/* ========== State ========== */
+let allUsers = [];
+let selectedUserIds = new Set();
+let folder = "received"; // "received" | "sent"
+let page = 1;            // pagination for messages
+let limit = 20;
+let lastLoaded = [];     // cache of last message items
+
+/* ========== Boot ==========/ */
+document.addEventListener("DOMContentLoaded", async () => {
+  // Verwaltung initial
+  const groups = await loadGroups();
+  await mirrorGroupsToMemberSelect(groups);
+  await fillComposeGroups();
+  loadTemplates();
+  loadUsers();
+
+  // Navigation Nachrichten (Ordner)
+  document.getElementById("folderReceivedBtn").addEventListener("click", () => { setFolder("received"); });
+  document.getElementById("folderSentBtn").addEventListener("click", () => { setFolder("sent"); });
+
+  // Suche
+  document.getElementById("msgSearchBtn").addEventListener("click", () => renderMessageList(filterItemsBySearch()));
+  document.getElementById("msgSearch").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); renderMessageList(filterItemsBySearch()); } });
+
+  // Pagination
+  document.getElementById("msgPrevBtn").addEventListener("click", () => changePage(-1));
+  document.getElementById("msgNextBtn").addEventListener("click", () => changePage(+1));
+
+  // Compose / Detail toggles
+  document.getElementById("showComposeBtn").addEventListener("click", () => { toggleDetail(false); });
+  document.getElementById("showDetailBtn").addEventListener("click", () => { toggleDetail(true); });
+  document.getElementById("jumpToComposeBtn").addEventListener("click", () => {
+    document.querySelector('#mainTabs [data-bs-target="#messages"]').click();
+    toggleDetail(false);
+    document.getElementById("composeForm").scrollIntoView({ behavior:"smooth", block:"start" });
+  });
+
+  // Compose form
+  document.getElementById("composeForm").addEventListener("submit", onComposeSend);
+  document.getElementById("composeClearBtn").addEventListener("click", () => document.getElementById("composeForm").reset());
+
+  // Verwaltung-Formen
+  document.getElementById("createGroupForm").addEventListener("submit", onCreateGroup);
+  document.getElementById("createTemplateForm").addEventListener("submit", onCreateTemplate);
+  document.getElementById("sendNotificationForm").addEventListener("submit", onSendNotification);
+  document.getElementById("groupSelectForMembers").addEventListener("change", onChangeMembersGroup);
+  document.getElementById("reloadUsersBtn").addEventListener("click", (e) => { e.preventDefault(); loadUsers(document.getElementById("userSearch").value.trim()); });
+  document.getElementById("saveMembersBtn").addEventListener("click", saveMembers);
+  document.getElementById("checkAllUsers").addEventListener("change", onCheckAllUsers);
+
+  // Erste Ladung Nachrichten
+  await loadFolder();
+});
+
+/* ========== Nachrichten UI ========== */
+function toggleDetail(show) {
+  document.getElementById("detailView").classList.toggle("d-none", !show);
+}
+function filterItemsBySearch() {
+  const q = document.getElementById("msgSearch").value.trim().toLowerCase();
+  if (!q) return lastLoaded;
+  return lastLoaded.filter(m =>
+    (m.subject || "").toLowerCase().includes(q) ||
+    (m.body || "").toLowerCase().includes(q)
+  );
+}
+function changePage(delta) {
+  page = Math.max(1, page + delta);
+  loadFolder();
+}
+async function setFolder(f) {
+  if (folder === f) return;
+  folder = f; page = 1;
+  document.getElementById("folderReceivedBtn").classList.toggle("active", f === "received");
+  document.getElementById("folderSentBtn").classList.toggle("active", f === "sent");
+  await loadFolder();
+}
+async function loadFolder() {
+  const url = folder === "received" ? `${BASE}/notifications/received?page=${page}&limit=${limit}`
+                                    : `${BASE}/notifications/sent?page=${page}&limit=${limit}`;
+  const data = await ensureJsonOk(await fetch(url)); // {total,page,limit,items}
+  lastLoaded = data.items || [];
+  document.getElementById("msgPageLabel").innerText = `Seite ${data.page}`;
+  renderMessageList(lastLoaded);
+}
+function renderMessageList(items) {
+  const el = document.getElementById("messageList");
+  el.innerHTML = "";
+  if (!items.length) {
+    el.innerHTML = `<div class="text-center text-muted small py-5">Keine Nachrichten vorhanden.</div>`;
+    return;
+  }
+  items.forEach(row => {
+    const who = folder === "received"
+      ? `${esc(row.sender_firstname||"")} ${esc(row.sender_lastname||"")}`.trim() || esc(row.sender_email||"—")
+      : `${esc(row.receiver_firstname||"")} ${esc(row.receiver_lastname||"")}`.trim() || esc(row.receiver_email||"—");
+    el.insertAdjacentHTML("beforeend", `
+      <div class="p-3 border-bottom message-item" data-id="${row.id}">
+        <div class="d-flex justify-content-between align-items-center">
+          <div class="fw-semibold">${esc(row.subject || "—")}</div>
+          <span class="badge bg-light text-dark">${esc((row.sent_at||"").toString().slice(0,16))}</span>
+        </div>
+        <div class="text-muted small">${who}</div>
+        <div class="small mt-1" style="color:#5f6677; max-height: 3.2em; overflow:hidden;">${esc(row.body || "")}</div>
+      </div>
+    `);
+  });
+  el.querySelectorAll(".message-item").forEach(item => {
+    item.addEventListener("click", () => openDetail(item.dataset.id));
+  });
+}
+async function openDetail(id) {
+  // Detail vom Backend holen + ggf. read_at setzen
+  const res = await ensureJsonOk(await fetch(`${BASE}/notifications/${id}`));
+  // befüllen
+  document.getElementById("dvSubject").innerText = res.subject || "—";
+  const from = `${res.sender_firstname||""} ${res.sender_lastname||""}`.trim() || res.sender_email || "—";
+  const to   = `${res.receiver_firstname||""} ${res.receiver_lastname||""}`.trim() || res.receiver_email || "—";
+  document.getElementById("dvFrom").innerText = from;
+  document.getElementById("dvTo").innerText = to;
+  document.getElementById("dvBody").innerText = res.body || "—";
+  document.getElementById("dvMeta").innerText = `${(res.type || "").toUpperCase()} • Gesendet: ${res.sent_at || "—"}${res.read_at ? " • Gelesen: "+res.read_at : ""}`;
+  toggleDetail(true);
+}
+
+/* ========== Verwaltung: Gruppen ========== */
+async function loadGroups() {
+  const res = await fetch(`${BASE}/groups`);
+  const groups = await ensureJsonOk(res);
+
+  // Groups table
+  const tbody = document.querySelector("#groupsTable tbody");
+  tbody.innerHTML = "";
+  groups.forEach(g => {
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${g.id}</td>
+        <td>${esc(g.name)}</td>
+        <td>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteGroup(${g.id})">Löschen</button>
+        </td>
+      </tr>
+    `);
+  });
+
+  // Senden-Tab Auswahl
+  const groupSelect = document.querySelector("#groupSelect");
+  groupSelect.innerHTML = "<option value=''>Gruppe wählen</option>";
+  groups.forEach(g => groupSelect.insertAdjacentHTML("beforeend", `<option value="${g.id}">${esc(g.name)}</option>`));
+
+  return groups;
+}
+async function deleteGroup(id) {
+  if (!confirm("Gruppe wirklich löschen?")) return;
+  await ensureJsonOk(await fetch(`${BASE}/groups/${id}`, { method: "DELETE" }));
+  const groups = await loadGroups();
+  await mirrorGroupsToMemberSelect(groups);
+  const sel = document.getElementById("groupSelectForMembers");
+  if (String(sel.value) === String(id)) {
+    sel.value = "";
+    selectedUserIds.clear();
+    renderUsersTable();
+  }
+}
+async function onCreateGroup(e) {
+  e.preventDefault();
+  const res = await fetch(`${BASE}/groups`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: new URLSearchParams(new FormData(e.target))
+  });
+  await ensureJsonOk(res);
+  e.target.reset();
+  const groups = await loadGroups();
+  await mirrorGroupsToMemberSelect(groups);
+}
+async function mirrorGroupsToMemberSelect(groups) {
+  const sel = document.getElementById("groupSelectForMembers");
+  sel.innerHTML = "<option value=''>Gruppe wählen…</option>";
+  groups.forEach(g => sel.insertAdjacentHTML("beforeend", `<option value="${g.id}">${esc(g.name)}</option>`));
+}
+async function fillComposeGroups() {
+  const groups = await ensureJsonOk(await fetch(`${BASE}/groups`));
+  const sel = document.getElementById("composeGroupSelect");
+  sel.innerHTML = "<option value=''>Gruppe wählen…</option>";
+  groups.forEach(g => sel.insertAdjacentHTML("beforeend", `<option value="${g.id}">${esc(g.name)}</option>`));
+}
+
+/* ========== Verwaltung: Templates & Senden ========== */
+async function loadTemplates() {
+  const templates = await ensureJsonOk(await fetch(`${BASE}/templates`));
+  // Tabelle
+  const tbody = document.querySelector("#templatesTable tbody");
+  tbody.innerHTML = "";
+  templates.forEach(t => {
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td>${t.id}</td>
+        <td>${esc(t.type)}</td>
+        <td>${esc(t.name)}</td>
+        <td>${esc(t.subject)}</td>
+        <td><button class="btn btn-sm btn-outline-danger" onclick="deleteTemplate(${t.id})">Löschen</button></td>
+      </tr>
+    `);
+  });
+  // Auswahl
+  const templateSelect = document.querySelector("#templateSelect");
+  templateSelect.innerHTML = "<option value=''>Template wählen</option>";
+  templates.forEach(t => templateSelect.insertAdjacentHTML("beforeend", `<option value="${t.id}">${esc(t.name)}</option>`));
+}
+async function deleteTemplate(id) {
+  if (!confirm("Template wirklich löschen?")) return;
+  await ensureJsonOk(await fetch(`${BASE}/templates/${id}`, { method: "DELETE" }));
+  loadTemplates();
+}
+async function onCreateTemplate(e) {
+  e.preventDefault();
+  await ensureJsonOk(await fetch(`${BASE}/templates`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: new URLSearchParams(new FormData(e.target))
+  }));
+  e.target.reset();
+  loadTemplates();
+}
+async function onSendNotification(e) {
+  e.preventDefault();
+  const data = await ensureJsonOk(await fetch(`${BASE}/notifications/send`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: new URLSearchParams(new FormData(e.target))
+  }));
+  alert(data.message);
+}
+
+/* ========== Verwaltung: Mitglieder ========== */
+async function loadUsers(q = "") {
+  const res = await fetch(`${BASE}/users` + (q ? `?q=${encodeURIComponent(q)}` : ""));
+  allUsers = await ensureJsonOk(res);
+  renderUsersTable();
+}
+function renderUsersTable() {
+  const tbody = document.querySelector("#usersTable tbody");
+  tbody.innerHTML = "";
+  allUsers.forEach(u => {
+    const checked = selectedUserIds.has(u.id) ? "checked" : "";
+    tbody.insertAdjacentHTML("beforeend", `
+      <tr>
+        <td><input type="checkbox" class="user-check" data-id="${u.id}" ${checked}></td>
+        <td>${u.id}</td>
+        <td>${esc((u.firstname||"")+" "+(u.lastname||""))}</td>
+        <td>${esc(u.email)}</td>
+        <td>${esc(u.company || "")}</td>
+        <td>${u.confirmed ? "✔" : ""}</td>
+      </tr>
+    `);
+  });
+  tbody.querySelectorAll(".user-check").forEach(chk => {
+    chk.addEventListener("change", (e) => {
+      const id = Number(e.target.dataset.id);
+      if (e.target.checked) selectedUserIds.add(id); else selectedUserIds.delete(id);
+    });
+  });
+  const checkAll = document.getElementById("checkAllUsers");
+  checkAll.checked = allUsers.length > 0 && allUsers.every(u => selectedUserIds.has(u.id));
+}
+async function onChangeMembersGroup(e) {
+  selectedUserIds.clear();
+  const gid = e.target.value;
+  if (!gid) { renderUsersTable(); return; }
+  const ids = await ensureJsonOk(await fetch(`${BASE}/groups/${gid}/members`));
+  selectedUserIds = new Set(ids);
+  renderUsersTable();
+}
+function onCheckAllUsers(e) {
+  if (e.target.checked) allUsers.forEach(u => selectedUserIds.add(u.id));
+  else allUsers.forEach(u => selectedUserIds.delete(u.id));
+  renderUsersTable();
+}
+async function saveMembers() {
+  const gid = document.getElementById("groupSelectForMembers").value;
+  if (!gid) { alert("Bitte zuerst eine Gruppe wählen."); return; }
+  const ids = Array.from(selectedUserIds);
+  const res = await ensureJsonOk(await fetch(`${BASE}/groups/${gid}/members`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ user_ids: ids })
+  }));
+  alert(res.message || "Mitglieder gespeichert.");
+}
+
+/* ========== Compose senden ========== */
+async function onComposeSend(e) {
+  e.preventDefault();
+  const data = await ensureJsonOk(await fetch(`${BASE}/notifications/compose`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+    body: new URLSearchParams(new FormData(e.target))
+  }));
+  alert(data.message || "Nachricht gesendet.");
+  e.target.reset();
+  // Nach Versand in "Gesendet" wechseln & neu laden
+  setFolder("sent");
+}
+</script>

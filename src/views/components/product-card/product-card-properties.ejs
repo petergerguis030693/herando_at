@@ -1,0 +1,103 @@
+<%
+  const propertyTypeLabels = {
+    10: t('properties.type.finca', 'Finca'),
+    5:  t('properties.type.penthouse', 'Penthouse'),
+    11: t('properties.type.private_island', 'Privatinsel'),
+    6:  t('properties.type.villa', 'Villa'),
+    8:  t('properties.type.maisonette', 'Maisonette'),
+    4:  t('properties.type.apartment', 'Wohnung'),
+    12: t('properties.type.castle', 'Schloss'),
+    255: t('properties.type.other', 'Sonstige')
+  };
+
+  const investmentTypeLabels = {
+    1: t('properties.invest.living', 'Wohnen'),
+    2: t('properties.invest.commercial', 'Gewerbe'),
+    3: t('properties.invest.hotel', 'Hotel'),
+    4: t('properties.invest.care', 'Pflegeimmobilie'),
+    5: t('properties.invest.gastro', 'Gastronomie'),
+    6: t('properties.invest.other', 'Sonstiges'),
+    9: t('properties.invest.land', 'Grundstück')
+  };
+
+  const pt = propertyTypeLabels[item.propertytype] || null;
+  const it = investmentTypeLabels[item.investmenttype] || null;
+%>
+
+<a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>"
+   class="lux-card lux-property-card">
+
+  <!-- IMAGE -->
+  <div class="lux-card-img">
+    <img 
+      src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= item.mainPic %>" 
+      alt="<%= item.title %>"
+      loading="lazy"
+    >
+  </div>
+
+  <!-- BODY -->
+  <div class="lux-card-body">
+
+    <h3 class="lux-card-title">
+      <%= item.title.length > 40 ? item.title.substring(0, 40) + "…" : item.title %>
+    </h3>
+
+    <p class="cartype-box" style="font-size:12pt; margin-top:8px;">
+
+      <% if (pt) { %>
+        <span class="info-item">
+          <i class="bi bi-building"></i>
+          <%= pt %>
+        </span>
+      <% } else if (it) { %>
+        <span class="info-item">
+          <i class="bi bi-cash-coin"></i>
+          <%= it %>
+        </span>
+      <% } %>
+
+      <% if (item.bedrooms) { %>
+        <span class="info-item">
+          <i class="bi bi-door-closed"></i>
+          <%= item.bedrooms %> Zimmer
+        </span>
+      <% } %>
+
+      <% if (item.bathrooms) { %>
+        <span class="info-item">
+          <i class="bi bi-droplet"></i>
+          <%= item.bathrooms %> Bad
+        </span>
+      <% } %>
+
+      <% if (item.livingarea) { %>
+        <span class="info-item">
+          <i class="bi bi-aspect-ratio"></i>
+          <%= new Intl.NumberFormat('de-DE').format(item.livingarea) %> m²
+        </span>
+      <% } %>
+
+      <% if (item.location) { %>
+        <span class="info-item">
+          <i class="bi bi-geo-alt"></i>
+          <%= item.location %>
+        </span>
+      <% } %>
+
+    </p>
+
+
+    <div class="lux-card-price">
+      <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
+    </div>
+
+          <% if (item.countryCode) { %>
+        <div class="lux-card-country">
+          <i class="bi bi-geo-alt"></i>
+          <%= item.countryCode %>
+        </div>
+      <% } %>
+
+  </div>
+</a>

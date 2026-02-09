@@ -1,0 +1,28 @@
+/* /public/css/category/active-filters.css */
+
+.active-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.filter-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 10px 14px;
+  background: #f4f4f4;
+  border: 1px solid #1d2a44;
+  color: #1d2a44;
+  border-radius: 5px;
+  font-size: 14pt;
+  font-weight: 500;
+  cursor: pointer;
+  text-decoration: none;
+  transition: .2s ease;
+}
+
+.filter-tag:hover {
+  background: #1d2a44;
+  color: white;
+}

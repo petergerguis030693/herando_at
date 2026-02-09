@@ -1,0 +1,23 @@
+.category-products {
+  width: 100%;
+  padding: 40px 0;
+}
+
+.category-container {
+  width: 90%;
+  max-width: 1800px;
+  margin: 0 auto;
+}
+
+.category-grid {
+  display: grid;
+  gap: 25px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+}
+
+/* Mobile Feintuning */
+@media (max-width: 768px) {
+  .category-grid {
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  }
+}

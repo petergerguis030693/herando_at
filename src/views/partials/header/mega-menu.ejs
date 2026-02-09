@@ -1,0 +1,319 @@
+<%
+const normalize = (r) => {
+  const x = String(r || "").trim().toLowerCase();
+  if (["auto","autos","car","cars","fahrzeug","fahrzeuge"].includes(x)) return "autos";
+  if (["watch","watches","uhr","uhren"].includes(x)) return "watches";
+  if (["property","properties","immobilie","immobilien","realestate","real-estate"].includes(x)) return "properties";
+  if (["yacht","yachts","boot","boote","boats"].includes(x)) return "yachts";
+  if (["lifestyle","lifestyles"].includes(x)) return "lifestyles";
+  return x;
+};
+
+const route = normalize(cat.route);
+%>
+<style>
+/* Button immer unten rechts */
+.mega-dropdown .btn-outline-dark {
+  position: absolute;
+  bottom: 60px;
+  right: 120px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  padding: 6px 14px;
+  transition: .25s ease;
+  font-size: 15px;
+}
+
+.mega-dropdown .btn-outline-dark:hover {
+  background:#111;
+  color:#fff;
+  border-color:transparent;
+}
+
+
+</style>
+
+<div class="dropdown-menu mega-dropdown p-0 dropDown-ententies" aria-labelledby="dropdown-<%= route %>">
+  <div class="mega-container">
+    <div class="mega-columns">
+
+      <!-- BRANDS -->
+      <div class="mega-col">
+<% if (['autos', 'watches', 'yachts', 'lifestyles'].includes(route)) { %>
+        <h6 class="fw-bold mb-3"><%= t('menu.brands','Marken') %></h6>
+<% } else { %>
+        <h6 class="fw-bold mb-3"><%= t('menu.premium_properties','Premium Immobilien') %></h6>
+<% } %>
+
+        <% if (route === 'autos') { %>
+        <ul class="list-unstyled text-start">
+          <% [
+            { slug: "lamborghini", name: "Lamborghini" },
+            { slug: "mercedes-benz", name: "Mercedes-Benz" },
+            { slug: "ferrari", name: "Ferrari" },
+            { slug: "porsche", name: "Porsche" },
+            { slug: "aston-martin", name: "Aston-Martin" },
+            { slug: "bentley", name: "Bentley" },
+            { slug: "rolls-royce", name: "Rolls-Royce" },
+          ].forEach(b => { %>
+            <li><a class="dropdown-item" href="/cars/<%= b.slug %>"><%= b.name %></a></li>
+          <% }) %>
+            <li>
+              <a class="dropdown-item fw-bold" href="/cars/allmodels">
+                <%= t('menu.show_all_brands','Alle Marken anzeigen') %>
+              </a>
+            </li>
+        </ul>
+
+        <% } else if (route === 'watches') { %>
+        <ul class="list-unstyled text-start">
+          <% [
+            { slug: "patek-philippe", name: "Patek Philippe" },
+            { slug: "rolex", name: "Rolex" },
+            { slug: "breitling", name: "Breitling" },
+            { slug: "cartier", name: "Cartier" },
+            { slug: "audemars-piguet", name: "Audemars Piguet" },
+            { slug: "hublot", name: "Hublot" },
+            { slug: "chopard", name: "Chopard" },
+            { slug: "iwc", name: "IWC" },
+          ].forEach(b => { %>
+            <li><a class="dropdown-item" href="/watches/<%= b.slug %>"><%= b.name %></a></li>
+          <% }) %>
+          <li><a class="dropdown-item fw-bold" href="/watches/allmodels"><%= t('menu.show_all_brands','Alle Marken anzeigen') %></a></li>
+        </ul>
+
+        <% } else if (route === 'yachts') { %>
+        <ul class="list-unstyled text-start">
+          <% [
+            { slug: "sunseeker", name: "Sunseeker" },
+            { slug: "sanlorenzo", name: "Sanlorenzo" },
+            { slug: "azimut-yachts", name: "Azimut Yachts" },
+            { slug: "benetti", name: "Benetti" },
+            { slug: "ferretti-yachts", name: "Ferretti Yachts" },
+            { slug: "dominator", name: "Dominator" },
+            { slug: "fairline", name: "Fairline" },
+            { slug: "alalunga", name: "Alalunga" },
+          ].forEach(b => { %>
+            <li><a class="dropdown-item" href="/yachts/<%= b.slug %>"><%= b.name %></a></li>
+          <% }) %>
+          <li><a class="dropdown-item fw-bold" href="/yachts/allmodels"><%= t('menu.show_all_brands','Alle Marken anzeigen') %></a></li>
+        </ul>
+
+        <% } else if (route === 'properties') { %>
+        <ul class="list-unstyled">
+          <% [
+            { slug: "10", name: "Finca" },
+            { slug: "8", name: "Maissonete" },
+            { slug: "6", name: "Villa/Haus" },
+            { slug: "4", name: "Wohnung" },
+            { slug: "11", name: "Privatinsel" },
+            { slug: "5", name: "Penthouse" },
+            { slug: "12", name: "Schloss/Herrenhaus" },
+
+          ].forEach(i => { %>
+            <li><a class="dropdown-item" href="/properties?propertytype=<%= i.slug %>"><%= i.name %></a></li>
+          <% }) %>
+
+        </ul>
+
+        <% } else { %>
+        <ul class="list-unstyled">
+          <% menu.brands.forEach(b => { %>
+            <li><a class="dropdown-item" href="/<%= route %>/<%= b.toLowerCase().replace(/\s+/g,'-') %>"><%= b %></a></li>
+          <% }) %>
+            <li>
+              <a class="dropdown-item fw-bold" href="/<%= route %>">
+                <%= t('menu.show_all_brands','Alle Marken anzeigen') %>
+              </a>
+            </li>
+        </ul>
+        <% } %>
+      </div>
+
+      <!-- CATEGORIES -->
+<div class="mega-col">
+
+  <% if (['autos', 'watches', 'yachts', 'lifestyles'].includes(route)) { %>
+    <h6 class="fw-bold mb-3"><%= t('menu.categories','Kategorien') %></h6>
+  <% } else { %>
+    <h6 class="fw-bold mb-3"><%= t('menu.investment_properties','Renditeimmobilien') %></h6>
+  <% } %>
+
+  <ul class="list-unstyled">
+
+    <% if (route === 'autos') { %>
+
+      <li><a class="dropdown-item" href="/cars?cartype=1&hp=1">
+        <%= t('category.autos.coupe','Coupé') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/cars?cartype=2&hp=1">
+        <%= t('category.autos.convertible','Cabrio') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/cars?cartype=3&hp=1">
+        <%= t('attribute.cars.cartype.3','Limousine') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/cars?cartype=4&hp=1">
+        <%= t('attribute.cars.cartype.4','Limousine') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/cars?cartype=5&hp=1">
+        <%= t('attribute.cars.cartype.5','Limousine') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/cars?cartype=6&hp=1">
+        <%= t('attribute.cars.cartype.6','Pickup') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/cars?onlyOldtimer=1">
+        <%= t('attribute.cars.cartype.7','Oldtimer') %>
+      </a></li>
+
+
+    <% } else if (route === 'watches') { %>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=1&hp=1">
+        <%= t('category.watches.wristwatch','Armbanduhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=2&hp=1">
+        <%= t('category.watches.pocketwatch','Taschenuhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=3&hp=1">
+        <%= t('category.watches.tableclock','Tischuhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=4&hp=1">
+        <%= t('category.watches.antique','Antike Uhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=5&hp=1">
+        <%= t('category.watches.standuhr', 'Standuhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=6&hp=1">
+        <%= t('category.watches.wanduhr', 'Wanduhr') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/watches?watchtype=255&hp=1">
+        <%= t('category.watches.sonstiges', 'Sonstige Uhren') %>
+      </a></li>
+
+
+
+    <% } else if (route === 'yachts') { %>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=1&hp=1">
+        <%= t('category.yachts.motor','Motor Yachts') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=10&hp=1">
+        <%= t('category.yachts.flybridge','Flybridge') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=14&hp=1">
+        <%= t('category.yachts.cabin','Kajütboot') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=15&hp=1">
+        <%= t('category.yachts.catamaran','Katamaran') %>
+      </a></li>
+
+            <li><a class="dropdown-item" href="/yachts?yachttype=6&hp=1">
+        <%= t('attribute.yachts.yachttype.6') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=7&hp=1">
+        <%= t('attribute.yachts.yachttype.7') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=8&hp=1">
+        <%= t('attribute.yachts.yachttype.8') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=10&hp=1">
+        <%= t('attribute.yachts.yachttype.10') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=11&hp=1">
+        <%= t('attribute.yachts.yachttype.11') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/yachts?yachttype=12&hp=1">
+        <%= t('attribute.yachts.yachttype.12') %>
+      </a></li>
+
+
+    <% } else if (route === 'properties') { %>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=1">
+        <%= t('category.properties.residential','Wohnimmobilie') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=2">
+        <%= t('category.properties.hotel','Hotels & Gastronomie') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=3">
+        <%= t('category.properties.commercial','Gewerbe') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=4">
+        <%= t('category.properties.land','Grundstück') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=5">
+        <%= t('attribute.properties.investmenttype.5','Pflegeimmobilie') %>
+      </a></li>
+
+      <li><a class="dropdown-item" href="/properties?investmenttype=6">
+        <%= t('attribute.properties.investmenttype.6','Pflegeimmobilie') %>
+      </a></li>
+
+
+    <% } else { %>
+
+      <% menu.categories.forEach(c => { %>
+        <li><a class="dropdown-item" href="#"><%= c %></a></li>
+      <% }) %>
+
+    <% } %>
+
+  </ul>
+
+  <!-- CTA: Alle anzeigen -->
+<div class="text-end mt-3 px-2 pb-2">
+<%
+const urlMap = {
+  autos: 'cars',
+  watches: 'watches',
+  yachts: 'yachts',
+  properties: 'properties',
+  lifestyles: 'lifestyles'
+};
+const urlSlug = urlMap[route] || route;  // Fallback
+%>
+
+<a href="/<%= urlSlug %>" class="btn btn-outline-dark btn-sm fw-bold">
+  <%= 
+    route === 'cars'       ? t('menu.all_cars','Alle Autos anzeigen') :
+    route === 'watches'    ? t('menu.all_watches','Alle Uhren anzeigen') :
+    route === 'yachts'     ? t('menu.all_yachts','Alle Yachten anzeigen') :
+    route === 'properties' ? t('menu.all_properties','Alle Immobilien anzeigen') :
+    route === 'lifestyles' ? t('menu.all_lifestyles','Alle Lifestyle-Produkte anzeigen') :
+    t('menu.show_all','Alle anzeigen')
+  %>
+</a>
+
+
+</div>
+
+</div>
+
+
+    </div>
+  </div>
+</div>

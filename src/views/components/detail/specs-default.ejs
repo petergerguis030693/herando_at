@@ -1,0 +1,74 @@
+<div class="container product-details">
+
+  <!-- ========= GENERIC SPECS ========= -->
+  <div class="p-3 mb-4" style="background:#f8f9fa;border-radius:8px;">
+    <h4 class="fw-bold mb-3">Details</h4>
+    <table class="table table-striped">
+      <tbody>
+        <% if (item.specs && item.specs.length) { %>
+          <% item.specs.forEach(s => { %>
+            <tr>
+              <th style="width:40%;"><%= s.label %></th>
+              <td><%= s.value %></td>
+            </tr>
+          <% }) %>
+        <% } %>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ========= DESCRIPTION ========= -->
+  <% if (item.description) { %>
+    <div class="p-3 mb-4" style="background:#fff;border-radius:8px;">
+      <h4 class="fw-bold mb-3">Beschreibung</h4>
+      <div><%- item.description %></div>
+    </div>
+  <% } %>
+
+  <!-- ========= SIMILAR ITEMS ========= -->
+  <% if (similarItems && similarItems.length) { %>
+    <div class="mt-5">
+      <h4 class="fw-bold mb-3">Ähnliche Angebote</h4>
+      <div class="row">
+        <% similarItems.forEach(sim => { %>
+          <div class="col-md-3 mb-4">
+            <a href="/<%= currentEntity.route %>/<%= sim.id %>/<%= sim.slug %>"
+               class="text-decoration-none text-dark">
+              <div class="card h-100">
+                <img src="<%= sim.imageUrl %>" class="card-img-top" alt="<%= sim.title %>">
+                <div class="card-body">
+                  <h6 class="fw-bold"><%= sim.title %></h6>
+                  <p class="text-muted"><%= convertPrice(sim.price) %></p>
+                </div>
+              </div>
+            </a>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+
+  <!-- ========= MORE FROM SELLER ========= -->
+  <% if (moreItems && moreItems.length) { %>
+    <div class="mt-5">
+      <h4 class="fw-bold mb-3">Weitere Angebote dieses Verkäufers</h4>
+      <div class="row">
+        <% moreItems.forEach(m => { %>
+          <div class="col-md-3 mb-4">
+            <a href="/<%= currentEntity.route %>/<%= m.id %>/<%= m.slug %>"
+               class="text-decoration-none text-dark">
+              <div class="card h-100">
+                <img src="<%= m.imageUrl %>" class="card-img-top" alt="<%= m.title %>">
+                <div class="card-body">
+                  <h6 class="fw-bold"><%= m.title %></h6>
+                  <p class="text-muted"><%= convertPrice(m.price) %></p>
+                </div>
+              </div>
+            </a>
+          </div>
+        <% }) %>
+      </div>
+    </div>
+  <% } %>
+
+</div>

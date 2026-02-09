@@ -1,0 +1,56 @@
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: 'seo' }) %>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-grow-1 p-4">
+    <h1 class="mb-4"><%= headerTitle %></h1>
+
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
+      <form class="d-flex" method="get" action="/admin/seo">
+        <input class="form-control me-2" name="q" placeholder="Suchen nach Pfad/Titel" value="<%= q || '' %>">
+        <button class="btn btn-outline-info"><i class="bi bi-search"></i></button>
+      </form>
+      <a class="btn btn-success" href="/admin/seo/manage">
+        <i class="bi bi-plus-lg"></i> Neu
+      </a>
+    </div>
+
+    <div class="table-responsive card p-3">
+      <table class="table align-middle">
+        <thead>
+        <tr>
+          <th>Pfad/Pattern</th>
+          <th>Titel</th>
+          <th>Robots</th>
+          <th>Prio</th>
+          <th class="text-end">Aktionen</th>
+        </tr>
+        </thead>
+        <tbody>
+        <% if (!seoItems || !seoItems.length) { %>
+          <tr><td colspan="5" class="text-center text-muted py-5">Keine Einträge</td></tr>
+        <% } else { seoItems.forEach(it => { %>
+          <tr>
+            <td><code><%= it.path_pattern %></code></td>
+            <td><%= it.title %></td>
+            <td><span class="badge bg-secondary"><%= it.robots %></span></td>
+            <td><span class="badge bg-info text-dark"><%= it.priority %></span></td>
+            <td class="text-end">
+              <a class="btn btn-sm btn-outline-secondary" href="/admin/seo/manage/<%= it.id %>">
+                <i class="bi bi-sliders"></i> Verwalten
+              </a>
+              <form class="d-inline" method="post" action="/admin/seo/delete" onsubmit="return confirm('Eintrag löschen?')">
+                <input type="hidden" name="id" value="<%= it.id %>">
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+        <% }) } %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>

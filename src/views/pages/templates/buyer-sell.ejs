@@ -1,0 +1,429 @@
+     <%- include('../../partials/header') %>
+          <link rel="stylesheet" href="/css/buyer.css">
+
+
+</head>
+<body>
+
+<% const _cp = (typeof currentPage !== 'undefined' ? currentPage : null); %>
+
+<% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+  <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+<% if (typeof successMessage !== 'undefined' && successMessage) { %>
+  <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+
+<div class="account-shell d-flex gap-3">
+
+     <%- include('../../partials/asside') %>
+
+  <!-- MAIN -->
+  <main class="main px-4 py-5 text-center">
+
+<h2 class="fw-bold mb-4 d-flex align-items-center" style="text-align: left;">
+  <i class="bi bi-cart-check me-2"></i>
+  Kaufen
+</h2>
+
+<section class="text-center py-5">
+  <!-- 🛍️ Icon -->
+  <div class="mb-4">
+    <i class="bi bi-bag-check display-1 text-primary"></i>
+  </div>
+
+  <!-- 🧾 Hinweistext -->
+  <p class="lead text-muted mx-auto" style="max-width: 800px;">
+    Sie haben noch kein Premiumprodukt gekauft.
+  </p>
+    <p class="lead text-muted mx-auto" style="max-width: 800px;">
+        Welche Kategorie möchten Sie entdecken?
+  </p>
+</section>
+
+<section class="myProdSection" id="myUniqueProducts" style="margin-top: 100px;">
+  <!--<h3 class="sectionTitle">Featured Kategorien</h3>-->
+  
+  <div class="prodGrid">
+    <div class="prodItem">
+      <a href="/cars">
+      <img src="/assets/cars-kategorie.jpg" alt="Cars">
+      <div class="overlay">
+        <h4>Cars</h4>
+      </div>
+    </div></a>
+    <div class="prodItem">
+      <a href="/watches">
+      <img src="/assets/watches-kategorie.jpg" alt="Watches">
+      <div class="overlay">
+        <h4>Watches</h4>
+      </div>
+    </div></a>
+    <a href="/yachts">
+    <div class="prodItem">
+      <img src="/assets/yacht-kategorie.jpg" alt="Yachts">
+      <div class="overlay">
+        <h4>Yachts</h4>
+      </div>
+    </div></a>
+    <a href="/properties">
+    <div class="prodItem">
+      <img src="/assets/properties-kategorie.jpg" alt="Properties">
+      <div class="overlay">
+        <h4>Properties</h4>
+      </div>
+    </div>
+  </div></a>
+</section>
+
+<section class="dynamicShowcaseSection" id="dynamicShowcase" style="margin-top: 100px;">
+  <div class="container">
+    <h3 class="showcaseTitle mb-3"><%= t('discover_herando', 'Entdecken Sie Herando') %></h3>
+
+    <div class="showcaseCarousel">
+      <div class="showcaseSlides"></div>
+      <div class="showcaseDots"></div>
+      <button class="showcasePrev">‹</button>
+      <button class="showcaseNext">›</button>
+    </div>
+  </div>
+</section>
+
+<style>
+/* ===============================
+   💎 Herando Dynamic Showcase
+   =============================== */
+
+.dynamicShowcaseSection {
+  padding: 60px 0;
+  overflow: hidden;
+}
+
+.showcaseTitle {
+  text-align: center;
+  font-size: 26px;
+  font-weight: 700;
+  color: #1a1a1a;
+  letter-spacing: 0.5px;
+}
+
+.showcaseCarousel {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  margin-top: 30px;
+}
+
+.showcaseSlides {
+  display: flex;
+  transition: transform 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.showcaseSlide {
+  flex: 0 0 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 24px;
+  padding: 20px 0;
+}
+
+/* Karten */
+.showcaseCard {
+  background: #fff;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 3px 16px rgba(0, 0, 0, 0.08);
+  transition: transform 0.35s ease, box-shadow 0.35s ease;
+}
+
+.showcaseCard:hover {
+  transform: translateY(-6px);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
+}
+
+/* Bilder */
+.showcaseImage {
+  position: relative;
+  height: 180px;
+  overflow: hidden;
+}
+
+.showcaseImage img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s ease;
+}
+
+.showcaseCard:hover .showcaseImage img {
+  transform: scale(1.08);
+}
+
+/* Badge */
+.showcaseBadge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background: linear-gradient(135deg, #b18b2c, #d3b55f);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: 20px;
+  text-transform: uppercase;
+}
+
+/* Text */
+.showcaseInfo {
+  padding: 16px 18px;
+  text-align: left;
+}
+
+.showcaseInfo h5 {
+  font-size: 15px;
+  font-weight: 600;
+  color: #111;
+  margin-bottom: 6px;
+}
+
+.showcaseInfo h5 a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.showcaseInfo h5 a:hover {
+  color: #b18b2c;
+}
+
+.showcaseInfo .infoItem {
+  font-size: 12px;
+  color: #555;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 10px;
+}
+
+.showcaseInfo .infoItem i {
+  color: #777;
+}
+
+.showcasePrice {
+  margin-top: 10px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1c1c1c;
+}
+
+/* Navigation */
+.showcasePrev,
+.showcaseNext {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  border-radius: 50%;
+  width: 38px;
+  height: 38px;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+  transition: all 0.3s ease;
+}
+
+.showcasePrev:hover,
+.showcaseNext:hover {
+  background: #b18b2c;
+  color: #fff;
+}
+
+.showcasePrev { left: 10px; }
+.showcaseNext { right: 10px; }
+
+/* Dots */
+.showcaseDots {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.showcaseDots button {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: none;
+  background: #ccc;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.showcaseDots button.active {
+  background: #b18b2c;
+  width: 20px;
+  border-radius: 8px;
+}
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const LABEL_POPULAR = <%- JSON.stringify(t('label_popular','BELIEBT')) %>;
+  const ERR_LOADING_OFFERS = <%- JSON.stringify(t('error_loading_offers','Fehler beim Laden der Angebote.')) %>;
+
+  const categories = <%- JSON.stringify(
+    entieties.map(e => ({ id: e.id, route: e.route }))
+  ) %>;
+
+  const slidesContainer = document.querySelector("#dynamicShowcase .showcaseSlides");
+  const dotsContainer   = document.querySelector("#dynamicShowcase .showcaseDots");
+  const prevBtn         = document.querySelector("#dynamicShowcase .showcasePrev");
+  const nextBtn         = document.querySelector("#dynamicShowcase .showcaseNext");
+
+  function renderInfo(entRoute, it) {
+    let html = `<div class="showcaseDetails"><p style="font-size: 12pt; margin-top: 8px;">`;
+
+    if (entRoute === 'cars') {
+      const cartypeLabels = {1:"Schaltgetriebe",2:"Automatik",6:"Automatik",255:"Schaltgetriebe"};
+      const fuelLabels = {1:"Benzin",2:"Diesel",3:"Elektro",4:"Hybrid"};
+      const cartype = cartypeLabels[it.cartype];
+      const fuel = fuelLabels[it.fuel];
+      const firstReg = it.firstregistration ? `${it.firstregistration_month ? String(it.firstregistration_month).padStart(2,'0') : '01'}/${it.firstregistration}` : null;
+
+      if (cartype) html += `<span class="infoItem"><i class="bi bi-gear-fill"></i>${cartype}</span>`;
+      if (it.mileage) html += `<span class="infoItem"><i class="bi bi-speedometer2"></i>${new Intl.NumberFormat('de-DE').format(it.mileage)} km</span>`;
+      if (fuel) html += `<span class="infoItem"><i class="bi bi-fuel-pump"></i>${fuel}</span>`;
+      if (firstReg) html += `<span class="infoItem"><i class="bi bi-calendar-event"></i>${firstReg}</span>`;
+    }
+
+    if (entRoute === 'properties') {
+      const types = {10:"Finca",5:"Penthouse",11:"Privatinsel",6:"Villa/Haus",8:"Maisonette",4:"Wohnung",12:"Schloss/Herrenhaus",255:"Sonstige"};
+      const inv = {1:"Wohnen",2:"Gewerbe",3:"Hotel",4:"Pflegeimmobilie",5:"Gastronomie",6:"Sonstiges",9:"Grundstück"};
+      const pt = types[it.propertytype];
+      const itype = inv[it.investmenttype];
+      if (pt) html += `<span class="infoItem"><i class="bi bi-building"></i>${pt}</span>`;
+      else if (itype) html += `<span class="infoItem"><i class="bi bi-cash-coin"></i>${itype}</span>`;
+      if (it.bedrooms) html += `<span class="infoItem"><i class="bi bi-door-closed"></i>${it.bedrooms} Zi</span>`;
+      if (it.bathrooms) html += `<span class="infoItem"><i class="bi bi-droplet"></i>${it.bathrooms} Bad</span>`;
+      if (it.livingarea) html += `<span class="infoItem"><i class="bi bi-aspect-ratio"></i>${new Intl.NumberFormat('de-DE').format(it.livingarea)} m²</span>`;
+    }
+
+    if (entRoute === 'watches') {
+      const types = {1:"Armbanduhr",2:"Taschenuhr",3:"Smartwatch"};
+      const genders = {1:"Herren",2:"Damen",3:"Unisex"};
+      const moves = {1:"Automatik",2:"Handaufzug",3:"Quarz"};
+      if (types[it.watchtype]) html += `<span class="infoItem"><i class="bi bi-watch"></i>${types[it.watchtype]}</span>`;
+      if (genders[it.gender]) html += `<span class="infoItem"><i class="bi bi-gender-ambiguous"></i>${genders[it.gender]}</span>`;
+      if (moves[it.movement]) html += `<span class="infoItem"><i class="bi bi-cpu"></i>${moves[it.movement]}</span>`;
+    }
+
+    if (entRoute === 'yachts') {
+      const types = {1:"Motoryacht",2:"Segelyacht",3:"Katamaran"};
+      if (types[it.yachttype]) html += `<span class="infoItem"><i class="bi bi-water"></i>${types[it.yachttype]}</span>`;
+      if (it.length) html += `<span class="infoItem"><i class="bi bi-rulers"></i>${it.length} m</span>`;
+      if (it.berths) html += `<span class="infoItem"><i class="bi bi-person"></i>${it.berths} Kojen</span>`;
+      if (it.year) html += `<span class="infoItem"><i class="bi bi-calendar-event"></i>Baujahr ${it.year}</span>`;
+    }
+
+    html += `</p></div>`;
+    return html;
+  }
+
+  // 🔄 Carousel laden
+  Promise.all(categories.map(cat =>
+    fetch(`/api/catalog_ads/${cat.id}`).then(res => res.ok ? res.json() : [])
+  ))
+  .then(results => {
+    const slideCount = Math.max(...results.map(r => r.length));
+
+    Array.from({ length: slideCount }).forEach((_, idx) => {
+      let slideHTML = `<div class="showcaseSlide" data-slide="${idx}">`;
+
+      categories.forEach((cat, cIdx) => {
+        const item = results[cIdx][idx];
+        if (!item) return;
+        const slug = (item.title || "").toLowerCase().replace(/\s+/g, "-").replace(/[^\w-]/g, "");
+        const price = !item.price || Number(item.price) === 0
+          ? "Preis auf Anfrage"
+          : Number(item.price).toLocaleString("de-DE");
+        const shortTitle = item.title?.length > 30 ? item.title.slice(0, 30) + "..." : item.title;
+
+        slideHTML += `
+          <div class="showcaseCard">
+            <div class="showcaseImage">
+              <img src="${item.imageUrl}" alt="${item.title}">
+              <div class="showcaseBadge">${LABEL_POPULAR}</div>
+            </div>
+            <div class="showcaseInfo">
+              <h5><a href="https://herando.at/${cat.route}/${item.reference}/${slug}">${shortTitle}</a></h5>
+              ${renderInfo(cat.route, item)}
+              <p class="showcasePrice">${price} €</p>
+            </div>
+          </div>`;
+      });
+
+      slideHTML += `</div>`;
+      slidesContainer.insertAdjacentHTML("beforeend", slideHTML);
+
+      const dot = document.createElement("button");
+      dot.dataset.slide = idx;
+      if (idx === 0) dot.classList.add("active");
+      dotsContainer.appendChild(dot);
+    });
+
+    dotsContainer.querySelectorAll("button").forEach(dot => {
+      dot.addEventListener("click", function() {
+        const idx = +this.dataset.slide;
+        slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
+        dotsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        this.classList.add("active");
+      });
+    });
+
+    prevBtn.addEventListener("click", () => {
+      const active = dotsContainer.querySelector("button.active");
+      let idx = +active.dataset.slide;
+      idx = idx > 0 ? idx - 1 : slideCount - 1;
+      slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
+      dotsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      dotsContainer.querySelector(`button[data-slide="${idx}"]`).classList.add("active");
+    });
+
+    nextBtn.addEventListener("click", () => {
+      const active = dotsContainer.querySelector("button.active");
+      let idx = +active.dataset.slide;
+      idx = (idx + 1) % slideCount;
+      slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
+      dotsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      dotsContainer.querySelector(`button[data-slide="${idx}"]`).classList.add("active");
+    });
+  })
+  .catch(err => {
+    console.error("Fehler beim Laden:", err);
+    slidesContainer.innerHTML = `<p class="text-center text-danger">${ERR_LOADING_OFFERS}</p>`;
+  });
+});
+</script>
+
+
+
+
+
+
+  </main>
+</div>
+
+<script>
+  // 🛒 Kaufen-Handler
+  function handleBuy(packageId, type) {
+    console.log('🟢 Paket gewählt:', packageId, 'Typ:', type);
+    window.location.href = '/buyer/checkout?packageId=' + packageId + '&type=' + type;
+  }
+</script>
+
+<%- include('../../partials/footer', { footerColumns }) %>

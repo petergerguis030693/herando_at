@@ -1,0 +1,294 @@
+<section class="filter-bar shell" data-entity="<%= currentEntity.route %>">
+  <form method="get" action="" class="filter-form" id="quickFilters">
+
+    <div class="filter-grid" style="padding: 20px;">
+
+      <!-- ===========================
+           COMMON SEARCH INPUT (ALLE)
+      ============================ -->
+      <div class="fi">
+        <label class="fi-label"><%= t('header.search.placeholder') %></label>
+        <div class="fi-input">
+          <input type="text" name="q" placeholder="<%= t('common.any') %>"
+                 value="<%= selectedFilters.q || '' %>">
+        </div>
+      </div>
+
+
+      <!-- ===========================
+           BRAND & MODEL (Cars, Watches)
+      ============================ -->
+      <% if (['cars','watches'].includes(currentEntity.route)) { %>
+
+        <div class="fi">
+          <label class="fi-label"><%= t('filter.brand') %></label>
+          <div class="fi-select">
+            <select name="brand" id="fBrand">
+              <option value=""><%= t('common.any') %></option>
+              <% (filters.brands || []).forEach(b => { %>
+                <option value="<%= b.id %>"
+                  <%= (selectedFilters.brand||[]).map(String).includes(String(b.id)) ? 'selected' : '' %>>
+                  <%= b.name %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+        <div class="fi">
+          <label class="fi-label"><%= t('filter.model') %></label>
+          <div class="fi-select">
+            <select name="model" id="fModel" 
+              <%= !(filters.models && filters.models.length) ? 'disabled' : '' %>>
+              <option value=""><%= t('common.any') %></option>
+              <% (filters.models || []).forEach(m => { %>
+                <option value="<%= m.id %>" 
+                  <%= (selectedFilters.model||[]).map(String).includes(String(m.id)) ? 'selected' : '' %>>
+                  <%= m.name %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+      <% } %>
+
+
+
+      <!-- ===========================
+           CARS – SPECIFIC FILTERS
+      ============================ -->
+      <% if (currentEntity.route === 'cars') { %>
+
+        <!-- First Registration -->
+        <div class="fi">
+          <label class="fi-label"><%= t('filter.first_reg_from') %></label>
+          <div class="fi-select">
+            <select name="yearMin">
+              <option value=""><%= t('common.any') %></option>
+              <% (filters.registrationYears || []).forEach(y => { 
+                   const val = y.year || y;
+              %>
+                <option value="<%= val %>"
+                  <%= (selectedFilters.yearMin||[]).map(String).includes(String(val)) ? 'selected' : '' %>>
+                  <%= val %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+        <!-- Mileage -->
+        <div class="fi">
+          <label class="fi-label"><%= t('filter.km_upto') %></label>
+          <div class="fi-select">
+            <select name="mileageMax">
+              <option value=""><%= t('common.any') %></option>
+              <% [5000,10000,20000,30000,50000,75000,100000,150000,200000].forEach(km => { %>
+                <option value="<%= km %>"
+                  <%= (selectedFilters.mileageMax||[]).map(String).includes(String(km)) ? 'selected' : '' %>>
+                  <%= km.toLocaleString('de-DE') %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+      <% } %>
+
+
+
+      <!-- ===========================
+           PROPERTIES – IMMOBILIEN
+      ============================ -->
+      <% if (currentEntity.route === 'properties') { %>
+
+        <div class="fi">
+          <label class="fi-label"><%= t('filters.realestate.propertytype') %></label>
+          <div class="fi-select">
+            <select name="propertytype">
+              <option value=""><%= t('common.any') %></option>
+              <% (filters.propertyTypes || []).forEach(pt => { %>
+                <option value="<%= pt.id %>"
+                  <%= (selectedFilters.propertytype||[]).map(String).includes(String(pt.id)) ? 'selected' : '' %>>
+                  <%= pt.name %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+        <div class="fi">
+          <label class="fi-label"><%= t('filters.realestate.quality') %></label>
+          <div class="fi-select">
+            <select name="quality">
+              <option value=""><%= t('common.any') %></option>
+              <% [1,2,3,4,5,6,7].forEach(id => { %>
+                <option value="<%= id %>"
+                  <%= (selectedFilters.quality||[]).map(String).includes(String(id)) ? 'selected' : '' %>>
+                  <%= t('filters.realestate.quality.'+id) %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+      <% } %>
+
+
+
+      <!-- ===========================
+           YACHTS
+      ============================ -->
+      <% if (currentEntity.route === 'yachts') { %>
+
+        <div class="fi">
+          <label class="fi-label"><%= t('filter.yacht.type') %></label>
+          <div class="fi-select">
+            <select name="yachttype">
+              <option value=""><%= t('common.any') %></option>
+              <% (filters.yachtTypes || []).forEach(yt => { %>
+                <option value="<%= yt.id %>"
+                  <%= (selectedFilters.yachttype||[]).map(String).includes(String(yt.id)) ? 'selected' : '' %>>
+                  <%= yt.name %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+        <div class="fi">
+          <label class="fi-label"><%= t('filter.brand') %></label>
+          <div class="fi-select">
+            <select name="brand">
+              <option value=""><%= t('common.any') %></option>
+              <% (filters.brands || []).forEach(b => { %>
+                <option value="<%= b.id %>"
+                  <%= (selectedFilters.brand||[]).map(String).includes(String(b.id)) ? 'selected' : '' %>>
+                  <%= b.name %>
+                </option>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+
+      <% } %>
+
+
+
+      <!-- ===========================
+           LIFESTYLE (Kategorie / Subcategory)
+      ============================ -->
+      <% if (currentEntity.route === 'lifestyles') { %>
+
+        <div class="fi">
+          <label class="fi-label">Kategorie</label>
+          <div class="fi-select">
+            <select name="lifestyleType" id="fLifeType">
+              <option value="">Beliebig</option>
+              <% (filters.lifestyleTypes || []).forEach(t => { %>
+                <option value="<%= t.id %>"
+                  <%= (selectedFilters.lifestyleType||[]).map(String).includes(String(t.id)) ? 'selected' : '' %>>
+                  <%= t.name %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+        <div class="fi">
+          <label class="fi-label">Unterkategorie</label>
+          <div class="fi-select">
+            <select name="lifestyleSubcategory" id="fLifeSub"
+              <%= !(filters.lifestyleSubcategories && filters.lifestyleSubcategories.length) ? 'disabled' : '' %>>
+              <option value="">Beliebig</option>
+              <% (filters.lifestyleSubcategories || []).forEach(sc => { %>
+                <option value="<%= sc.id %>"
+                  <%= (selectedFilters.lifestyleSubcategory||[]).map(String).includes(String(sc.id)) ? 'selected' : '' %>>
+                  <%= sc.name %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+      <% } %>
+
+
+
+      <!-- ===========================
+           UNIVERSAL: PRICE, LOCATION, COUNTRY
+      ============================ -->
+      <div class="fi">
+        <label class="fi-label"><%= t('filters.realestate.price') %></label>
+        <div class="fi-range">
+          <input type="number" name="priceMin" placeholder="<%= t('labels.price.from') %>" 
+                 value="<%= (selectedFilters.priceMin||[])[0] || '' %>">
+          <span class="sep">–</span>
+          <input type="number" name="priceMax" placeholder="<%= t('labels.price.to') %>"
+                 value="<%= (selectedFilters.priceMax||[])[0] || '' %>">
+        </div>
+      </div>
+
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.location_or_zip') %></label>
+        <div class="fi-input">
+          <input type="text" name="location" placeholder="<%= t('common.any') %>"
+                 value="<%= (selectedFilters.location||[])[0] || '' %>">
+        </div>
+      </div>
+
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.country') %></label>
+        <div class="fi-select">
+          <select name="country">
+            <option value=""><%= t('common.all_countries') %></option>
+            <% (filters.countries || []).forEach(c => { %>
+              <option value="<%= c.id %>"
+                <%= (selectedFilters.country||[]).map(String).includes(String(c.id)) ? 'selected' : '' %>>
+                <%= c.name %>
+              </option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+
+
+
+      <!-- ===========================
+           RESET + SUBMIT + MORE FILTERS
+      ============================ -->
+      <div class="fi fi-actions">
+
+        <a href="?hp=1" class="btn btn-reset">
+          <i class="bi bi-arrow-counterclockwise me-1"></i>
+          <%= t('actions.reset') %>
+        </a>
+
+        <button type="submit" class="btn btn-search">
+          <i class="bi bi-search me-2"></i>
+          <%= t('actions.show_offers') %>
+        </button>
+
+        <button type="button" id="openFilterPage" class="btn btn-more">
+          <i class="bi bi-sliders me-2"></i>
+          <%= t('actions.more_filters') %>
+        </button>
+
+      </div>
+
+    </div>
+
+    <input type="hidden" name="fuel" id="hiddenFuel">
+
+  </form>
+</section>

@@ -1,0 +1,71 @@
+<h1 class="product-single-title mb-2"><%= item.title %></h1>
+
+<a href="/" class="text-decoration-none">
+  <i class="bi bi-house-door-fill breadcrumb-icon"></i>
+</a>
+<i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
+
+<a href="/<%= currentEntity.route %>">
+  <% if (currentEntity.route === "cars") { %>
+    <i class="bi bi-car-front-fill breadcrumb-icon"></i>
+  <% } else if (currentEntity.route === "watches") { %>
+    <i class="bi bi-watch breadcrumb-icon"></i>
+  <% } else if (currentEntity.route === "properties") { %>
+    <i class="bi bi-house-door-fill breadcrumb-icon"></i>
+  <% } else if (currentEntity.route === "yachts") { %>
+    <i class="bi bi-life-preserver breadcrumb-icon"></i>
+  <% } %>
+  <%= t("categories." + currentEntity.route) %>
+</a>
+
+<i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
+<span>
+  <%= (item.title || "")
+        .replace(/<\/?h1[^>]*>/gi, '')
+        .replace(/&lt;\/?h1[^&]*&gt;/gi, '')
+        .trim() %>
+</span>
+
+<p class="text-muted mb-3"><%- item.subtitle || '' %></p>
+<p class="product-single-price fs-4 fw-bold mb-4"><%= convertPrice(item.price) %></p>
+
+<!-- Land -->
+<div class="d-flex align-items-center mb-3">
+  <%
+    let country = item.specs.find(s => s.label==='Land')?.value || '';
+    const countryMap = {
+      'Österreich':'at','Austria':'at',
+      'Deutschland':'de','Germany':'de',
+      'Schweiz':'ch','Switzerland':'ch',
+      'Italien':'it','Italy':'it',
+      'Frankreich':'fr','France':'fr',
+      'Spanien':'es','Spain':'es',
+      'Portugal':'pt',
+      'Niederlande':'nl','Netherlands':'nl',
+      'Belgien':'be','Belgium':'be',
+      'Luxemburg':'lu','Luxembourg':'lu',
+      'Großbritannien':'gb','United Kingdom':'gb','UK':'gb',
+      'USA':'us','United States':'us',
+      'Tschechien':'cz','Czech Republic':'cz',
+      'Polen':'pl','Poland':'pl',
+      'Türkei':'tr','Turkey':'tr',
+      'Griechenland':'gr','Greece':'gr',
+      'Kroatien':'hr','Croatia':'hr',
+      'Monaco':'mc',
+      'Ägypten':'eg','Egypt':'eg',
+      'Brasilien':'br','Brazil':'br',
+      'Singapur':'sg','Singapore':'sg',
+      'Indien':'in','India':'in'
+    };
+    const countryCode = countryMap[country] || null;
+  %>
+
+  <% if (countryCode) { %>
+    <img src="https://flagcdn.com/h20/<%= countryCode %>.png"
+         alt="<%= country %>"
+         width="24" height="16" class="me-2" />
+  <% } %>
+  <span><%= country %></span>
+</div>
+
+<hr />

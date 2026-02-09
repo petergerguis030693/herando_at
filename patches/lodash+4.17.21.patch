@@ -1,0 +1,13 @@
+diff --git a/node_modules/lodash/fp/_baseConvert.js b/node_modules/lodash/fp/_baseConvert.js
+index 9baf8e1..41e465f 100644
+--- a/node_modules/lodash/fp/_baseConvert.js
++++ b/node_modules/lodash/fp/_baseConvert.js
+@@ -169,7 +169,7 @@ function baseConvert(util, name, func, options) {
+     'clone': util.clone,
+     'curry': util.curry,
+     'forEach': util.forEach,
+-    'isArray': util.isArray,
++    'isArray': Array.isArray,
+     'isError': util.isError,
+     'isFunction': util.isFunction,
+     'isWeakMap': util.isWeakMap,

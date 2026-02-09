@@ -1,0 +1,266 @@
+<%
+  const _user        = typeof user !== 'undefined' ? user : null;
+  const _unread      = typeof unreadMessages !== 'undefined' ? unreadMessages : 0;
+  const _entities    = typeof ententies !== 'undefined' ? ententies : [];
+  const _catLabel    = typeof catLabel !== 'undefined' ? catLabel : (()=>{});
+  const _getMegaMenu = typeof getMegaMenu !== 'undefined' ? getMegaMenu : (()=>{});
+
+  const _lang        = typeof lang !== 'undefined' ? lang : 'de';
+  const _currentLang = typeof currentLang !== 'undefined' ? currentLang : _lang;
+  const _LANGS       = typeof LANGS !== 'undefined' ? LANGS : [];
+
+  const _country     = typeof country !== 'undefined' ? country : 'DE';
+  const _currency    = typeof currency !== 'undefined' ? currency : 'EUR';
+
+  const ORDER = ["autos", "watches", "properties", "yachts", "lifestyles"];
+
+  const normalize = (r) => {
+    const x = String(r || "").trim().toLowerCase();
+    if (["auto","car","cars","fahrzeug","fahrzeuge"].includes(x)) return "autos";
+    if (["uhr","watch","watches"].includes(x)) return "watches";
+    if (["immobilie","realestate","real-estate","property","properties"].includes(x)) return "properties";
+    if (["yacht","yachts","boot","boote","boats"].includes(x)) return "yachts";
+    if (["lifestyle","lifestyles"].includes(x)) return "lifestyles";
+    return x;
+  };
+
+  const sortedEntities = [..._entities].sort((a,b) => {
+    const A = normalize(a.route);
+    const B = normalize(b.route);
+    return ORDER.indexOf(A) - ORDER.indexOf(B);
+  });
+%>
+
+<!DOCTYPE html>
+<html lang="<%= _currentLang %>">
+<head>
+  <%- include('header/meta') %>
+  <%- include('header/styles') %>
+
+  <style>
+    [data-cookie-tab].active {
+      background-color: #c99b5d;
+      color: #fff;
+      border-color: #c99b5d;
+    }
+  </style>
+</head>
+
+<body>
+<div id="skeletonOverlay" class="sk-overlay">
+
+  <!-- NAVBAR -->
+  <div class="sk-nav">
+    <div class="sk sk-logo"></div>
+    <div class="sk sk-search"></div>
+    <div style="display:flex; gap:16px;">
+      <div class="sk sk-btn"></div>
+      <div class="sk sk-btn"></div>
+      <div class="sk sk-user"></div>
+    </div>
+  </div>
+
+  <!-- HERO -->
+  <div class="sk sk-hero"></div>
+
+  <!-- CONTENT -->
+  <div class="sk sk-title"></div>
+  <div class="sk sk-line"></div>
+  <div class="sk sk-line short"></div>
+
+  <div class="sk-grid">
+    <div class="sk sk-card"></div>
+    <div class="sk sk-card"></div>
+    <div class="sk sk-card"></div>
+    <div class="sk sk-card"></div>
+  </div>
+
+</div>
+
+
+<%- include('header/navbar', {
+  user: _user,
+  unreadMessages: _unread,
+  ententies: _entities,
+  sortedEntities: sortedEntities,
+  catLabel: _catLabel,
+  getMegaMenu: _getMegaMenu,
+  currentLang: _currentLang,
+  LANGS: _LANGS,
+  country: _country,
+  currency: _currency
+}) %>
+
+<%- include('header/language-modal', {
+  currentLang: _currentLang,
+  LANGS: _LANGS,
+  country: _country,
+  currency: _currency
+}) %>
+
+<div id="cookie-overlay">
+  <div class="cookie-modal">
+
+    <div class="cookie-header">
+      <h2><%= t('cookie.settings.title') %></h2>
+      <button type="button" id="cookie-close">✕</button>
+    </div>
+
+    <div class="cookie-intro" id="cookie-intro">
+        <%- t('cookie.tabs.required').replace(/\n/g, '<br>') %>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="cookie-body is-hidden" id="cookie-settings-body">
+
+    <div class="cookie-tabs">
+      <button type="button" class="active" data-tab="required">
+        <%= t('cookie.tabs.essential') %>
+      </button>
+      <button type="button" data-tab="stats">
+        <%= t('cookie.tabs.statistics') %>
+      </button>
+    </div>
+
+
+      <div class="cookie-content">
+      <div data-content="required">
+        <%- t('cookie.content.required') %>
+      </div>
+
+
+
+<div data-content="stats" hidden>
+<h3><%= t('cookie.stats.title') %></h3>
+
+  <!-- Einleitung -->
+  <p>
+        <%= t('cookie.stats.intro') %>
+  </p>
+
+  <!-- TOGGLE -->
+  <div class="cookie-toggle">
+    <label class="toggle-switch">
+      <input type="checkbox" id="cookieStats" aria-describedby="stats-desc">
+      <span class="slider" aria-hidden="true"></span>
+      <span class="toggle-label"><%= t('cookie.stats.toggle.label') %></span>
+    </label>
+  </div>
+
+  <!-- RECHTSTEXT -->
+<div id="stats-desc">
+  <%- t('cookie.stats.desc') %>
+</div>
+
+
+  <!-- COOKIE TABELLE -->
+  <h4>Verwendete Cookies</h4>
+
+<%- t('cookie.stats.table') %>
+
+<p><%- t('cookie.consent.withdraw') %></p>
+
+</div>
+
+
+
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <%- t('cookie.footer.html') %>
+
+
+  </div>
+</div>
+
+<a href="#" id="cookie-reopen" style="display:none;"><%= t('cookie.reopen.link') %></a>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  if (window.__cookieInit) return;
+  window.__cookieInit = true;
+
+  const overlay = document.getElementById('cookie-overlay');
+  const intro = document.getElementById('cookie-intro');
+  const settings = document.getElementById('cookie-settings-body');
+  const stats = document.getElementById('cookieStats');
+
+  const KEY = 'cookie.consent';
+  const SIX_MONTHS = 6 * 30 * 24 * 60 * 60 * 1000;
+  const TWO_HOURS  = 2 * 60 * 60 * 1000;
+
+  function save(statsAccepted, duration) {
+    localStorage.setItem(KEY, JSON.stringify({
+      version: '1.0',
+      stats: statsAccepted,
+      expiresAt: Date.now() + duration
+    }));
+    close();
+  }
+
+  function valid() {
+    try {
+      const c = JSON.parse(localStorage.getItem(KEY));
+      return c && Date.now() < c.expiresAt;
+    } catch { return false; }
+  }
+
+  function open(settingsMode=false) {
+    overlay.classList.add('open');
+    intro.style.display = settingsMode ? 'none' : 'block';
+    settings.classList.toggle('is-hidden', !settingsMode);
+  }
+
+  function close() {
+    overlay.classList.remove('open');
+    intro.style.display = 'block';
+    settings.classList.add('is-hidden');
+  }
+
+  if (!valid()) open();
+
+  document.getElementById('cookie-settings').onclick = () => open(true);
+  document.getElementById('cookie-required').onclick = () => save(false, SIX_MONTHS);
+  document.getElementById('cookie-save').onclick = () => save(stats.checked, SIX_MONTHS);
+  document.getElementById('cookie-accept').onclick = () => save(true, SIX_MONTHS);
+  document.getElementById('cookie-close').onclick = () => save(false, TWO_HOURS);
+
+  document.querySelectorAll('[data-tab]').forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll('[data-tab]').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.querySelectorAll('[data-content]').forEach(c => {
+        c.hidden = c.dataset.content !== btn.dataset.tab;
+      });
+    };
+  });
+});
+</script>
+
+<script>
+(function () {
+  const MAX_MS = 300;
+  const FADE_MS = 200;
+  let hidden = false;
+
+  function hide() {
+    if (hidden) return;
+    hidden = true;
+    const el = document.getElementById('skeletonOverlay');
+    if (!el) return;
+    el.style.transition = `opacity ${FADE_MS}ms ease`;
+    el.style.opacity = '0';
+    setTimeout(() => el.remove(), FADE_MS + 40);
+  }
+
+  window.addEventListener('load', hide, { once: true });
+  setTimeout(hide, MAX_MS);
+})();
+</script>
+
+
+<!-- BOOTSTRAP + GLOBAL SCRIPTS -->
+<%- include('header/scripts') %>
+
+

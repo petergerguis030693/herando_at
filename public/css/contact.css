@@ -1,0 +1,184 @@
+
+  .contact-page {
+    font-family: "Helvetica Neue", Arial, sans-serif;
+    color: #333;
+  }
+
+  .contact-page .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+  }
+
+  .contact-page .info {
+    flex: 1 1 40%;
+    background: #f9f9f9;
+    padding: 2rem;
+    border-radius: 6px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    line-height: 1.6;
+  }
+  .contact-page .info h2,
+  .contact-page .info h3 {
+    margin-top: 1.5rem;
+    color: #c79e59;
+  }
+  .contact-page .info a {
+    color: #c79e59;
+    text-decoration: none;
+  }
+  .contact-page .info a:hover {
+    text-decoration: underline;
+  }
+
+  .contact-page .form-wrapper {
+    flex: 1 1 55%;
+    border: 1px solid #ddd;
+    padding: 2rem;
+    border-radius: 6px;
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  }
+  .contact-page .form-wrapper h2 {
+    margin-bottom: .5rem;
+    color: #333;
+  }
+  .contact-page .form-wrapper .hint {
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1.5rem;
+  }
+
+  .contact-page label {
+    display: block;
+    margin-top: 1rem;
+    font-weight: 600;
+  }
+  .contact-page input[type="text"],
+  .contact-page input[type="email"],
+  .contact-page select,
+  .contact-page textarea {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    margin-top: 0.3rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 0.95rem;
+    transition: all 0.2s ease;
+    background: white;
+    color: black;
+  }
+  .contact-page input:focus,
+  .contact-page textarea:focus,
+  .contact-page select:focus {
+    border-color: #c79e59;
+    outline: none;
+    box-shadow: 0 0 0 2px rgba(199,158,89,0.2);
+  }
+  .contact-page textarea {
+    min-height: 8rem;
+  }
+
+  .contact-page .row .col {
+    flex: 1;
+  }
+
+  .contact-page .checkbox-group {
+    margin-top: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .contact-page .checkbox-group a {
+    color: #c79e59;
+    text-decoration: none;
+  }
+  .contact-page .checkbox-group a:hover {
+    text-decoration: underline;
+  }
+
+  .btn-submit {
+    display: inline-block;
+    margin-top: 2rem;
+    padding: 0.85rem 2rem;
+    border: 2px solid #c79e59;
+    background: white;
+    color: #c79e59;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 10px;
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.3s ease;
+  }
+
+  .btn-submit:hover {
+    background-color: #c79e59;
+    color: white; 
+    border-color: transparent;
+  }
+
+  .honeypot {
+    position: absolute;
+    left: -9999px;
+    top: -9999px;
+    height: 0;
+    overflow: hidden;
+    visibility: hidden;
+  }
+
+  .captcha-group {
+    margin-top: 1.5rem;
+    font-size: 1rem;
+  }
+  .captcha-group label {
+    font-weight: bold;
+    margin-bottom: .5rem;
+    display: block;
+  }
+  .captcha-group input {
+    width: 120px;
+    padding: .5rem;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    background: white;
+  }
+
+.checkbox-group input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid #c8a24e;   /* Herando-Gold */
+  border-radius: 4px;
+  background: #fff;
+  cursor: pointer;
+  position: relative;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+/* Checked: goldener Hintergrund */
+.checkbox-group input[type="checkbox"]:checked {
+  background: #c8a24e;
+  border-color: #c8a24e;
+}
+
+/* Weißes Hakerl */
+.checkbox-group input[type="checkbox"]:checked::after {
+  content: "";
+  position: absolute;
+  left: 7.5px;
+  top: 2px;
+  width: 7.5px;
+  height: 13px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+/* Fokus sauber */
+.checkbox-group input[type="checkbox"]:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(200,162,78,0.35);
+}
+

@@ -1,0 +1,194 @@
+  <%- include('../partials/header-admin') %>
+
+
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active }) %>
+  </aside>
+
+  
+
+        <!-- Main Content -->
+        <main class="main-content flex-fill">
+            <div class="content">
+              <!-- HTML / EJS -->
+              <div class="welcome-banner">
+                <div class="welcome-text">
+                  <% if (gender === 2) { %>
+                    <h4>Willkommen, Herr <%= userName %>!</h4>
+                  <% } else if (gender === 1) { %>
+                    <h4>Willkommen, Frau <%= userName %>!</h4>
+                  <% } else if (gender === 3) { %>
+                    <h4>Guten Tag, <%= userName %>!</h4>
+                  <% } else { %>
+                    <h4>Willkommen, <%= userName %>!</h4>
+                  <% } %>
+                  <p>Willkommen zurück!</p>
+                </div>
+                <div class="welcome-icon">
+                  <!-- Du kannst hier dein eigenes Diagramm-SVG oder ein <img> verwenden -->
+                  <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <!-- Beispiel eines einfachen Balkendiagramm-Icons -->
+                    <rect x="3" y="13" width="4" height="8" rx="1" fill="#fff" fill-opacity="0.8"/>
+                    <rect x="10" y="8" width="4" height="13" rx="1" fill="#fff" fill-opacity="0.8"/>
+                    <rect x="17" y="4" width="4" height="17" rx="1" fill="#fff" fill-opacity="0.8"/>
+                  </svg>
+                </div>
+              </div><BR><BR>
+
+              <div class="row">
+                  <!-- Erstes Chart: Neue Registrierungen -->
+                  <div class="col-md-4 mb-4">
+                      <div class="card h-100">
+                          <div class="card-header bg-herando text-white">
+                        Neue Registrierungen (7 Tage)
+                      </div>
+                      <div class="card-body">
+                        <canvas id="chartUsers"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                
+                  <!-- Zweites Chart: Umsatz -->
+                  <div class="col-md-4 mb-4">
+                      <div class="card h-100">
+                          <div class="card-header bg-herando text-white">
+                              Umsatz pro Monat
+                      </div>
+                      <div class="card-body">
+                        <canvas id="chartRevenue"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                
+                  <!-- Drittes Chart: Listings -->
+                  <div class="col-md-4 mb-4">
+                    <div class="card h-100">
+                      <div class="card-header bg-herando text-white">
+                        Aktive Inserate nach Kategorie
+                      </div>
+                      <div class="card-body">
+                        <canvas id="chartListings"></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                
+
+                <div class="row mt-4">
+                  <% entieties.forEach(ent => { %>
+                    <div class="col-md-3 mb-3">
+                      <div class="card text-white border-0" style="
+                        background-image: url('https://picsum.photos/seed/<%= ent.table_name %>/400/200');
+                        background-size: cover;
+                        background-position: center;
+                        height: 200px;
+                      ">
+                        <div class="card-body d-flex flex-column justify-content-end bg-dark bg-opacity-50 p-2" style="height: 100%;">
+                          <h5 class="card-title mb-1"><%= ent.name %></h5>
+                          <a href="/admin/listings?category=<%= ent.table_name %>" class="btn btn-light btn-sm">
+                            Zu <%= ent.name %>
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  <% }) %>
+                </div>
+                                  
+
+            </div>
+        </main>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+          fetch('/admin/api/stats')
+            .then(res => res.json())
+            .then(({ usersPerDay, listingsByType, revenuePerMonth }) => {
+              console.log('usersPerDay:', usersPerDay);
+      
+              // 1) Neue User pro Tag
+              const ctxUsers = document
+                .getElementById('chartUsers')
+                .getContext('2d');
+              new Chart(ctxUsers, {
+                type: 'line',
+                data: {
+                  labels: usersPerDay.map(r => r.date),
+                  datasets: [{
+                    label: 'Neue User',
+                    data: usersPerDay.map(r => r.count),
+                    fill: false,
+                    tension: 0.1,
+                    borderColor: '#080422',
+                    backgroundColor: '#080422'
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: { beginAtZero: true }
+                  }
+                }
+              });
+      
+              // 2) Umsatz pro Monat
+              const ctxRevenue = document
+                .getElementById('chartRevenue')
+                .getContext('2d');
+              new Chart(ctxRevenue, {
+                type: 'bar',
+                data: {
+                  labels: revenuePerMonth.map(r => r.month),
+                  datasets: [{
+                    label: 'Umsatz (€)',
+                    data: revenuePerMonth.map(r => r.revenue),
+                    backgroundColor: '#080422'
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false,
+                  scales: {
+                    y: { beginAtZero: true }
+                  }
+                }
+              });
+      
+              // 3) Aktive Inserate nach Kategorie
+              const ctxListings = document
+                .getElementById('chartListings')
+                .getContext('2d');
+              new Chart(ctxListings, {
+                type: 'pie',
+                data: {
+                  labels: Object.keys(listingsByType),
+                  datasets: [{
+                    data: Object.values(listingsByType),
+                    backgroundColor: [
+                      '#080422','#4e73df','#1cc88a','#36b9cc'
+                    ]
+                  }]
+                },
+                options: {
+                  responsive: true,
+                  maintainAspectRatio: false
+                }
+              });
+            })
+            .catch(err => {
+              console.error('Statistik‑Fehler:', err);
+            });
+        });
+      </script>
+      
+
+
+</body>
+
+</html>

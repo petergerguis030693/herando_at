@@ -1,0 +1,276 @@
+<div class="container product-details">
+
+  <!-- ======================================= -->
+  <!--              TECHNISCHE DATEN           -->
+  <!-- ======================================= -->
+  <div class="p-3 mb-4" style="background:#f8f9fa;border-radius:8px;">
+    <h4 class="fw-bold mb-3">Technische Daten</h4>
+    <table class="table table-striped">
+      <tbody>
+
+        <% 
+        // ======= CAR MAPPINGS =======
+        const gearboxMap = {
+          1: "Schaltgetriebe",
+          2: "Automatik",
+          6: "Automatik",
+          255: "Schaltgetriebe"
+        };
+
+        const fuelMap = {
+          1: "Benzin",
+          2: "Diesel",
+          3: "Elektro",
+          4: "Hybrid"
+        };
+
+        const cartypeMap = {
+          1: "Limousine",
+          2: "SUV",
+          3: "Sportwagen",
+          4: "Cabrio",
+          5: "Kombi",
+          6: "Coupé"
+        };
+
+        const driveMap = {
+          1: "Frontantrieb",
+          2: "Heckantrieb",
+          3: "Allrad"
+        };
+
+        const powerUnit = "PS";
+        %>
+
+        <!-- Marke -->
+        <tr>
+          <th style="width:40%;">Marke</th>
+          <td><%= item.brand %></td>
+        </tr>
+
+        <!-- Modell -->
+        <tr>
+          <th>Modell</th>
+          <td><%= item.model %></td>
+        </tr>
+
+        <!-- Erstzulassung -->
+        <tr>
+          <th>Erstzulassung</th>
+          <td>
+            <% if (item.firstregistration) { %>
+              <%= item.firstregistration_month ? String(item.firstregistration_month).padStart(2, "0") : "01" %>/<%= item.firstregistration %>
+            <% } else { %>
+              -
+            <% } %>
+          </td>
+        </tr>
+
+        <!-- Kilometerstand -->
+        <tr>
+          <th>Kilometerstand</th>
+          <td><%= item.mileage ? item.mileage.toLocaleString() + " km" : "-" %></td>
+        </tr>
+
+        <!-- Getriebe -->
+        <tr>
+          <th>Getriebe</th>
+          <td><%= gearboxMap[item.cartype] || "-" %></td>
+        </tr>
+
+        <!-- Treibstoff -->
+        <tr>
+          <th>Treibstoff</th>
+          <td><%= fuelMap[item.fuel] || "-" %></td>
+        </tr>
+
+        <!-- Antrieb -->
+        <tr>
+          <th>Antrieb</th>
+          <td><%= driveMap[item.drive] || "-" %></td>
+        </tr>
+
+        <!-- Leistung -->
+        <tr>
+          <th>Leistung</th>
+          <td><%= item.power ? item.power + " " + powerUnit : "-" %></td>
+        </tr>
+
+        <!-- Hubraum -->
+        <tr>
+          <th>Hubraum</th>
+          <td><%= item.cubic ? item.cubic.toLocaleString() + " cm³" : "-" %></td>
+        </tr>
+
+        <!-- Außenfarbe -->
+        <tr>
+          <th>Farbe</th>
+          <td><%= item.exterior_color || "-" %></td>
+        </tr>
+
+        <!-- Innenfarbe -->
+        <tr>
+          <th>Innenfarbe</th>
+          <td><%= item.interior_color || "-" %></td>
+        </tr>
+
+        <!-- Türen -->
+        <tr>
+          <th>Türen</th>
+          <td><%= item.doors || "-" %></td>
+        </tr>
+
+        <!-- Sitzplätze -->
+        <tr>
+          <th>Sitzplätze</th>
+          <td><%= item.seats || "-" %></td>
+        </tr>
+
+      </tbody>
+    </table>
+  </div>
+
+
+  <!-- ======================================= -->
+  <!--                AUSSTATTUNG              -->
+  <!-- ======================================= -->
+  <%
+  const equipmentMap = {
+    10: "ABS",
+    11: "Airbag",
+    12: "Alarmanlage",
+    13: "Alufelgen",
+    14: "Bordcomputer",
+    15: "Elektrische Fensterheber",
+    16: "Elektrische Sitze",
+    17: "Elektrische Spiegel",
+    18: "ESP",
+    19: "Klimaanlage",
+    20: "Klimaautomatik",
+    21: "Lederausstattung",
+    22: "Navigationssystem",
+    23: "Parkhilfe",
+    24: "Rückfahrkamera",
+    25: "Sitzheizung",
+    26: "Tempomat",
+    27: "Xenon/LED Scheinwerfer",
+    28: "Sportpaket",
+    29: "Panoramadach",
+    30: "Soundsystem"
+  };
+
+  const equipmentIcons = {
+    10: "bi-shield-fill-check",
+    11: "bi-airplane-engines",
+    12: "bi-bell-fill",
+    13: "bi-disc",
+    14: "bi-cpu-fill",
+    15: "bi-windows",
+    16: "bi-person-fill-up",
+    17: "bi-mirror",
+    18: "bi-shield-fill",
+    19: "bi-snow",
+    20: "bi-fan",
+    21: "bi-armchair",
+    22: "bi-geo-alt-fill",
+    23: "bi-bounding-box-circles",
+    24: "bi-camera-video-fill",
+    25: "bi-thermometer-sun",
+    26: "bi-speedometer",
+    27: "bi-lightbulb-fill",
+    28: "bi-people-fill",
+    29: "bi-cloud-sun-fill",
+    30: "bi-boombox"
+  };
+  %>
+
+  <% if (item.equipment && item.equipment.length) { %>
+    <div class="p-3 mb-4" style="background:#fff;border-radius:8px;">
+      <h4 class="fw-bold mb-3">Ausstattung</h4>
+
+      <div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-3">
+
+        <% item.equipment.forEach(eq => { %>
+          <div class="col">
+            <div class="d-flex align-items-center gap-2">
+              <% if (equipmentIcons[eq]) { %>
+                <i class="bi <%= equipmentIcons[eq] %>"
+                   style="font-size:18px;color:#9c7240;"></i>
+              <% } %>
+              <span><%= equipmentMap[eq] || "Ausstattung #" + eq %></span>
+            </div>
+          </div>
+        <% }) %>
+
+      </div>
+    </div>
+  <% } %>
+
+
+  <!-- ======================================= -->
+  <!--             BESCHREIBUNG                -->
+  <!-- ======================================= -->
+  <% if (item.description) { %>
+    <div class="p-3 mb-4" style="background:#fff;border-radius:8px;">
+      <h4 class="fw-bold mb-3">Beschreibung</h4>
+      <div><%- item.description %></div>
+    </div>
+  <% } %>
+
+
+  <!-- ======================================= -->
+  <!--     ÄHNLICHE FAHRZEUGE (SIMILAR)        -->
+  <!-- ======================================= -->
+  <% if (similarItems && similarItems.length) { %>
+    <div class="mt-5">
+      <h4 class="fw-bold mb-3">Ähnliche Fahrzeuge</h4>
+      <div class="row">
+
+        <% similarItems.forEach(sim => { %>
+          <div class="col-md-3 mb-4">
+            <a href="/cars/<%= sim.id %>/<%= sim.slug %>"
+               class="text-decoration-none text-dark">
+              <div class="card h-100">
+                <img src="<%= sim.imageUrl %>" class="card-img-top" alt="<%= sim.title %>">
+                <div class="card-body">
+                  <h6 class="fw-bold"><%= sim.title %></h6>
+                  <p class="text-muted"><%= convertPrice(sim.price) %></p>
+                </div>
+              </div>
+            </a>
+          </div>
+        <% }) %>
+
+      </div>
+    </div>
+  <% } %>
+
+
+  <!-- ======================================= -->
+  <!--   WEITERE FAHRZEUGE DES HÄNDLERS        -->
+  <!-- ======================================= -->
+  <% if (moreItems && moreItems.length) { %>
+    <div class="mt-5">
+      <h4 class="fw-bold mb-3">Weitere Fahrzeuge dieses Händlers</h4>
+      <div class="row">
+
+        <% moreItems.forEach(m => { %>
+          <div class="col-md-3 mb-4">
+            <a href="/cars/<%= m.id %>/<%= m.slug %>"
+               class="text-decoration-none text-dark">
+              <div class="card h-100">
+                <img src="<%= m.imageUrl %>" class="card-img-top" alt="<%= m.title %>">
+                <div class="card-body">
+                  <h6 class="fw-bold"><%= m.title %></h6>
+                  <p class="text-muted"><%= convertPrice(m.price) %></p>
+                </div>
+              </div>
+            </a>
+          </div>
+        <% }) %>
+
+      </div>
+    </div>
+  <% } %>
+
+</div>

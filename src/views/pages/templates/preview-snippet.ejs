@@ -1,0 +1,43 @@
+<%
+// Safety-Fallbacks
+percent = Number(percent || 0);
+net = Number(net || 0);
+discountedNet = Number(discountedNet || net);
+vat = Number(vat || 0);
+gross = Number(gross || 0);
+
+// Abgeleitet
+const discountAmount = net - discountedNet;
+const taxRate = percent > 0 ? (vat / discountedNet * 100) : (vat / net * 100);
+%>
+
+<div style="font-size:18px">
+
+  <p><b>Paket:</b> <%= pkg?.name || '-' %></p>
+
+  <p>Netto: <b><%= net.toFixed(2) %> €</b></p>
+
+  <% if (percent > 0) { %>
+    <p>
+      Rabatt (<%= percent %>%):
+      <b>-<%= discountAmount.toFixed(2) %> €</b>
+    </p>
+  <% } %>
+
+  <p>
+    Netto nach Rabatt:
+    <b><%= discountedNet.toFixed(2) %> €</b>
+  </p>
+
+  <p>
+    MwSt:
+    <b><%= vat.toFixed(2) %> €</b>
+  </p>
+
+  <hr>
+
+  <p style="font-size:22px">
+    Gesamt: <b><%= gross.toFixed(2) %> €</b>
+  </p>
+
+</div>

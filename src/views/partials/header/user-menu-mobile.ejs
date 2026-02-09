@@ -1,0 +1,39 @@
+<div class="dropdown position-relative user-switcher">
+  <div class="user-icon" id="userDropdownMobile" data-bs-toggle="dropdown" aria-expanded="false">
+    <% if (user && (user.firstname || user.name)) { %>
+      <span><%= (user.firstname ? user.firstname[0] : user.name[0]).toUpperCase() %></span>
+    <% } else { %>
+      <i class="bi bi-person fs-5 text-dark"></i>
+    <% } %>
+  </div>
+
+  <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2 rounded-3"
+      aria-labelledby="userDropdownMobile"
+      style="min-width:200px;">
+
+    <% if (user) { %>
+
+      <li><a class="dropdown-item" href="/buyer"><i class="bi bi-grid me-2"></i> Übersicht</a></li>
+      <li><a class="dropdown-item" href="/buyer/messages"><i class="bi bi-chat-square-text me-2"></i> Nachrichten</a></li>
+      <li><a class="dropdown-item" href="/buyer/sold"><i class="bi bi-cash-stack me-2"></i> Verkaufen</a></li>
+      <li><a class="dropdown-item" href="/buyer/historie"><i class="bi bi-clock-history me-2"></i> Historie</a></li>
+      <li><a class="dropdown-item" href="/buyer/wishlist"><i class="bi bi-heart me-2"></i> Merkliste</a></li>
+
+      <li><hr class="dropdown-divider"></li>
+
+      <li><a class="dropdown-item" href="/buyer/profil"><i class="bi bi-person-gear me-2"></i> Profil-Einstellungen</a></li>
+      <li><a class="dropdown-item" href="/buyer/newsletters"><i class="bi bi-envelope-paper-heart me-2"></i> Newsletter</a></li>
+
+      <li><hr class="dropdown-divider"></li>
+
+      <li><a class="dropdown-item text-danger" href="/auth/logout"><i class="bi bi-box-arrow-right me-2"></i> Logout</a></li>
+
+    <% } else { %>
+
+      <li><a class="dropdown-item" href="/auth/login"><i class="bi bi-box-arrow-in-right me-2"></i> Login</a></li>
+      <li><a class="dropdown-item" href="/auth/register"><i class="bi bi-person-plus me-2"></i> Registrieren</a></li>
+
+    <% } %>
+
+  </ul>
+</div>

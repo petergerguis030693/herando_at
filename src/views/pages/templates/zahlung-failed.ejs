@@ -1,0 +1,23 @@
+<%- include('../../partials/header') %>
+
+  <body>
+    <div class="container py-5">
+      <div class="text-center">
+        <h1 class="mb-3" style="color:#b80000;">
+          ❌ <%= t('payment.failed.title') %>
+        </h1>
+
+        <p class="lead">
+          <%= t('payment.failed.subtitle') %>
+        </p>
+
+        <div class="mt-4">
+          <a href="/buyer/sold" class="btn btn-primary">
+            🔁 <%= t('payment.failed.try_again') %>
+          </a>
+        </div>
+      </div>
+    </div>
+  </body>
+
+  </html>

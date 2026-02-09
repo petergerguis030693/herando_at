@@ -1,0 +1,293 @@
+<section id="UltraSlider" class="us-wrapper">
+  <div class="container">
+    <h3 class="us-title"><%= t('all_categories_title','Entdecken Sie Herando') %></h3>
+
+    <div class="us-carousel">
+
+      <button class="us-arrow us-prev">‹</button>
+
+      <div class="us-track">
+        <div class="us-slides"></div>
+      </div>
+
+      <button class="us-arrow us-next">›</button>
+    </div>
+
+    <div class="us-dots"></div>
+  </div>
+</section>
+<style>
+/* ROOT */
+#UltraSlider {
+  padding: 70px 0;
+}
+
+.us-title {
+  font-size: 28px;
+  font-weight: 600;
+  margin-bottom: 30px;
+}
+
+/* WRAPPER */
+.us-carousel {
+  position: relative;
+  overflow: hidden;
+}
+
+.us-track {
+  overflow: hidden;
+  width: 100%;
+}
+
+.us-slides {
+  display: flex;
+  transition: transform .45s ease;
+}
+
+/* --- SLIDE --- */
+.us-slide {
+  display: flex;
+  gap: 24px;
+  padding: 10px 2px;
+}
+
+/* --- CARD --- */
+.us-card {
+  flex-shrink: 0;
+  border-radius: 14px;
+  background: #fff;
+  width: 100%;
+  max-width: 360px;
+  box-shadow: 0 6px 18px rgba(0,0,0,.12);
+  overflow: hidden;
+  transition: .2s ease;
+}
+
+/* Hover nur Desktop */
+@media (min-width: 1201px) {
+  .us-card:hover {
+    transform: translateY(-4px);
+  }
+}
+
+.us-img {
+  height: 230px;
+  overflow: hidden;
+}
+
+.us-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.us-body {
+  padding: 14px;
+}
+
+.us-title2 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.us-price {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+/* === ARROWS === */
+
+.us-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  border: none;
+  background: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.18);
+  z-index: 10;
+}
+
+/* Desktop Hover */
+@media (min-width: 1201px) {
+  .us-arrow:hover {
+    transform: translateY(-50%) scale(1.07);
+  }
+}
+
+.us-prev { left: 10px; }
+.us-next { right: 10px; }
+
+/* === DOTS (nur Desktop) === */
+.us-dots {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.us-dots button {
+  width: 34px;
+  height: 4px;
+  background: #d1d5db;
+  border: none;
+  border-radius: 999px;
+  transition: .25s;
+}
+
+.us-dots .active {
+  width: 60px;
+  background: #1a1a1a;
+}
+
+/* ============================ */
+/* RESPONSIVE BREAKPOINTS */
+/* ============================ */
+
+/* Tablet */
+@media (max-width: 1200px) {
+  .us-dots { display: none; } /* keine dots */
+}
+
+/* Mobile */
+@media (max-width: 768px) {
+  .us-dots { display: none; }
+  .us-card { max-width: none; }
+}
+
+/* Mini */
+@media (max-width: 400px) {
+  .us-card { width: 100%; }
+}    
+</style>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  /* ==========================
+        SETTINGS
+  ========================== */
+
+  const items = <%- JSON.stringify(items  || []) %>;
+
+  const slidesEl = document.querySelector(".us-slides");
+  const dotsEl   = document.querySelector(".us-dots");
+  const track    = document.querySelector(".us-track");
+  const prevBtn  = document.querySelector(".us-prev");
+  const nextBtn  = document.querySelector(".us-next");
+
+  let slides = [];
+  let current = 0;
+  let slideWidth = 0;
+
+
+  /* --- CARDS PER SLIDE BY DEVICE --- */
+
+  function getCardsPerSlide() {
+    const w = window.innerWidth;
+
+    if (w > 1200) return 4;      // Desktop
+    if (w > 768) return 3;       // Tablet
+    if (w > 400) return 2;       // Mobile
+    return 1;                    // Mini
+  }
+
+
+  /* --- BUILD SLIDES --- */
+
+  function buildSlides() {
+    const n = getCardsPerSlide();
+
+    slides = [];
+    for (let i = 0; i < items.length; i += n) {
+      slides.push(items.slice(i, i + n));
+    }
+
+    slidesEl.innerHTML = "";
+    dotsEl.innerHTML = "";
+
+    slides.forEach((slide, i) => {
+      let html = `<div class="us-slide">`;
+
+      slide.forEach(item => {
+        const price = item.price ? 
+          Number(item.price).toLocaleString("de-DE")+" €" : 
+          "Preis auf Anfrage";
+
+        html += `
+          <div class="us-card">
+            <div class="us-img"><img src="${item.imageUrl}"></div>
+            <div class="us-body">
+              <div class="us-title2">${item.title.slice(0,60)}</div>
+              <div class="us-price">${price}</div>
+            </div>
+          </div>`;
+      });
+
+      html += `</div>`;
+      slidesEl.insertAdjacentHTML("beforeend", html);
+
+      // Only Desktop dots
+      if (window.innerWidth > 1200) {
+        const b = document.createElement("button");
+        if (i === 0) b.classList.add("active");
+        b.dataset.slide = i;
+        dotsEl.appendChild(b);
+      }
+    });
+
+    recalc(true);
+  }
+
+
+  /* --- RECALC WIDTHS --- */
+
+  function recalc(reset) {
+    slideWidth = track.offsetWidth;
+
+    if (reset) current = 0;
+
+    slidesEl.style.transform = `translateX(-${current * slideWidth}px)`;
+
+    document.querySelectorAll(".us-slide").forEach(s => {
+      s.style.width = slideWidth + "px";
+    });
+  }
+
+
+  /* --- NAVIGATION --- */
+
+  function goTo(i) {
+    current = (i + slides.length) % slides.length;
+    slidesEl.style.transform = `translateX(-${current * slideWidth}px)`;
+
+    dotsEl.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+    const active = dotsEl.querySelector(`button[data-slide="${current}"]`);
+    if (active) active.classList.add("active");
+  }
+
+  prevBtn.onclick = () => goTo(current - 1);
+  nextBtn.onclick = () => goTo(current + 1);
+
+  dotsEl.onclick = e => {
+    const b = e.target.closest("button[data-slide]");
+    if (b) goTo(Number(b.dataset.slide));
+  };
+
+
+  /* --- INIT --- */
+  buildSlides();
+  recalc();
+
+
+  /* --- RESIZE (automatically rebuilds slides) --- */
+  window.addEventListener("resize", () => {
+    buildSlides();
+  });
+
+});
+</script>

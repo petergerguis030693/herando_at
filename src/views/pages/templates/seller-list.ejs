@@ -1,0 +1,428 @@
+<%- include('../../partials/header', { entieties }) %>
+<link rel="stylesheet" href="/css/seller.css">
+
+<%
+  // Getriebe (gearbox)
+  const gearboxMap = {
+    1: "Schaltgetriebe",
+    2: "Halbautomatik",
+    3: "Automatik",
+    4: "F1-Getriebe"
+  };
+
+  // Kraftstoff (fuel)
+  const fuelMap = {
+    1: "Benzin",
+    2: "Diesel",
+    3: "Ethanol",
+    4: "Hybrid",
+    5: "Elektro"
+  };
+
+  // Fahrzeugtyp (cartype)
+  const cartypeMap = {
+    1: "Coupé",
+    2: "Cabrio",
+    3: "Limousine",
+    4: "Stretch",
+    5: "Kombi",
+    6: "Pickup"
+  };
+%>
+
+<%
+  const propertyTypeMap = {
+    4: "Wohnung",
+    5: "Penthouse",
+    6: "Villa / Haus",
+    8: "Maisonette",
+    10: "Finca",
+    11: "Privatinsel",
+    12: "Schloss / Herrenhaus",
+    255: "Sonstige"
+  };
+
+  const propertyShapeMap = {
+    1: "Erstbezug",
+    2: "Erstbezug nach Sanierung",
+    3: "Wie neu",
+    4: "Renoviert",
+    5: "Modernisiert",
+    6: "Saniert",
+    7: "Gepflegt"
+  };
+%>
+
+
+
+<section class="seller-page">
+  <!-- Verkäuferprofil -->
+<div class="seller-header">
+  <div class="avatar">
+    <% if (sellerProfile.hasLogo && sellerProfile.logo) { %>
+      <img
+        src="<%= sellerProfile.logo %>"
+        alt="<%= sellerProfile.company || 'Händler' %>"
+        class="seller-logo"
+        loading="lazy">
+    <% } else { %>
+      <span class="seller-initials">
+        <%= sellerProfile.company
+          ? sellerProfile.company.split(' ').map(n => n[0]).join('').substring(0,2)
+          : 'H' %>
+      </span>
+    <% } %>
+  </div>
+
+  <div class="info">
+    <h2><%= sellerProfile.company %></h2>
+
+    <% if (sellerProfile.company) { %>
+      <p>
+        <strong><%= t('seller.company', 'Firma:') %></strong>
+        <%= sellerProfile.company %>
+      </p>
+    <% } %>
+
+    <% if (sellerProfile.address) { %>
+      <p>
+        <strong><%= t('seller.address', 'Adresse:') %></strong>
+        <%= sellerProfile.address %>
+      </p>
+    <% } %>
+  </div>
+</div>
+
+
+
+  <!-- Inserate -->
+<% if (allItems.length > 0) { %>
+  <div class="productGrid d-flex flex-wrap" style="margin-top: 30px;">
+    <% allItems.forEach(item => { %>
+      <a href="/<%= item.route %>/<%= item.id %>/<%= item.slug %>">
+        <div class="cardPeter mb-4 me-4">
+          <div class="imageBild">
+            <div class="bild">
+              <img 
+                src="<%= item.image %>" 
+                alt="<%= item.title %>" 
+                loading="lazy" 
+                style="width:400px;height:280px;object-fit:cover;object-position:center top;display:block;margin:0 auto;cursor:pointer;">
+            </div>
+          </div>
+
+          <div class="informationSection pt-2">
+            <div class="productInfo">
+              <h3 class="lux-card-title" style="margin-bottom:10px;font-size:14pt;">
+                <b><%= item.title.length > 30 ? item.title.substring(0,30) + '...' : item.title %></b>
+              </h3>
+
+              <% if (item.route === 'cars') { %>
+                <div class="cartype-box">
+                  <p class="cartype-box" style="font-size:12pt;margin-top:12px;">
+
+                    <% if (item.gearbox) { %>
+                      <span class="info-item">
+                        <i class="bi bi-gear-fill"></i>
+                        <%= gearboxMap[item.gearbox] || '' %>
+                      </span>
+                    <% } %>
+
+                    <% if (item.mileage) { %>
+                      <span class="info-item">
+                        <i class="bi bi-speedometer2"></i>
+                        <%= new Intl.NumberFormat('de-DE').format(item.mileage) %> km
+                      </span>
+                    <% } %>
+
+                    <% if (item.fuel) { %>
+                      <span class="info-item">
+                        <i class="bi bi-fuel-pump"></i>
+                        <%= fuelMap[item.fuel] || '' %>
+                      </span>
+                    <% } %>
+
+                    <% if (item.firstregistration) { %>
+                      <span class="info-item">
+                        <i class="bi bi-calendar-event"></i>
+                        Erstzulassung <%= item.firstregistration %>
+                      </span>
+                    <% } %>
+
+                  </p>
+                </div>
+              <% } %>
+
+<% if (item.route === 'properties') { %>
+  <div class="cartype-box">
+    <p class="cartype-box" style="font-size:12pt;margin-top:12px;">
+
+      <% if (item.propertytype) { %>
+        <span class="info-item">
+          <i class="bi bi-building"></i>
+          <%= propertyTypeMap[item.propertytype] || '' %>
+        </span>
+      <% } %>
+
+      <% if (item.livingarea) { %>
+        <span class="info-item">
+          <i class="bi bi-aspect-ratio"></i>
+          <%= new Intl.NumberFormat('de-DE').format(item.livingarea) %> m²
+        </span>
+      <% } %>
+
+      <% if (item.rooms) { %>
+        <span class="info-item">
+          <i class="bi bi-door-closed"></i>
+          <%= item.rooms %> Zimmer
+        </span>
+      <% } %>
+
+      <% if (item.propertyshape) { %>
+        <span class="info-item">
+          <i class="bi bi-bricks"></i>
+          <%= propertyShapeMap[item.propertyshape] || '' %>
+        </span>
+      <% } %>
+
+    </p>
+  </div>
+<% } %>
+
+<%
+  const yachtTypeMap = {
+    1: "Motoryacht",
+    2: "Sportkreuzer",
+    3: "Kajütkreuzer",
+    4: "Kreuzer",
+    5: "Runabout",
+    6: "Daycruiser",
+    7: "Sportfischer",
+    8: "Dutchman",
+    9: "Motor Cabin Boat",
+    10: "Flybridge",
+    11: "Hausboot",
+    12: "See-Erlaubnis",
+    13: "Elektroboot",
+    14: "Kajütboot",
+    15: "Katamaran",
+    16: "Offshore-Boot",
+    17: "Trawler",
+    18: "Solarboot",
+    19: "Wasserski-Boot",
+    20: "Sportboot"
+  };
+
+  const yachtFuelMap = {
+    1: "Benzin",
+    2: "Diesel",
+    3: "Ethanol",
+    4: "Hybrid",
+    5: "Elektrisch",
+    6: "Wasserstoff",
+    7: "Solar",
+    8: "Sonstige"
+  };
+%>
+
+<% if (item.route === 'yachts') { %>
+  <div class="cartype-box">
+    <p style="font-size:12pt;margin-top:12px;">
+
+      <% if (item.yachttype) { %>
+        <span class="info-item">
+          <i class="bi bi-tsunami"></i>
+          <%= yachtTypeMap[item.yachttype] || '' %>
+        </span>
+      <% } %>
+
+      <% if (item.length) { %>
+        <span class="info-item">
+          <i class="bi bi-rulers"></i>
+          <%= item.length %> m
+        </span>
+      <% } %>
+
+      <% if (item.fuel) { %>
+        <span class="info-item">
+          <i class="bi bi-fuel-pump"></i>
+          <%= yachtFuelMap[item.fuel] || '' %>
+        </span>
+      <% } %>
+
+      <% if (item.year) { %>
+        <span class="info-item">
+          <i class="bi bi-calendar-event"></i>
+          Baujahr <%= item.year %>
+        </span>
+      <% } %>
+
+    </p>
+  </div>
+<% } %>
+
+<%
+  const watchTypeMap = {
+    1: "Armbanduhr",
+    2: "Taschenuhr",
+    3: "Tischuhr"
+  };
+
+  const watchMovementMap = {
+    1: "Automatikwerk",
+    2: "Handaufzugswerk",
+    3: "Quarzwerk"
+  };
+
+  const watchCaseMap = {
+    1: "Roségold",
+    2: "Edelstahl",
+    3: "Weißgold",
+    4: "Gelbgold",
+    5: "Platin",
+    6: "Rotgold",
+    7: "Titan",
+    8: "Gold & Stahl",
+    9: "Keramik",
+    10: "Palladium",
+    11: "Silber"
+  };
+%>
+
+<% if (item.route === 'watches') { %>
+  <div class="cartype-box">
+    <p style="font-size:12pt;margin-top:12px;">
+
+      <% if (item.watchtype) { %>
+        <span class="info-item">
+          <i class="bi bi-watch"></i>
+          <%= watchTypeMap[item.watchtype] || '' %>
+        </span>
+      <% } %>
+
+      <% if (item.case_material) { %>
+        <span class="info-item">
+          <i class="bi bi-circle-half"></i>
+          <%= watchCaseMap[item.case_material] || '' %>
+        </span>
+      <% } %>
+
+      <% if (item.movement) { %>
+        <span class="info-item">
+          <i class="bi bi-cpu"></i>
+          <%= watchMovementMap[item.movement] || '' %>
+        </span>
+      <% } %>
+
+      <% if (item.gender) { %>
+        <span class="info-item">
+          <i class="bi bi-person"></i>
+          <%= item.gender === 1 ? "Herren" : item.gender === 2 ? "Damen" : "Unisex" %>
+        </span>
+      <% } %>
+
+    </p>
+  </div>
+<% } %>
+
+
+              <p class="productPrice mb-2" style="margin-top:12px;">
+                <%= item.priceFormatted || 'Preis auf Anfrage' %>
+              </p>
+            </div>
+          </div>
+        </div>
+      </a>
+    <% }) %>
+  </div>
+<% } else { %>
+  <p class="no-listings">
+    <%= t('seller.no_listings', 'Dieser Händler hat derzeit keine aktiven Inserate.') %>
+  </p>
+<% } %>
+
+
+
+<%
+  const currentPage = pagination.page;
+  const totalPages  = pagination.pages;
+  const perPage     = pagination.perPage || 32;
+
+  const maxPages = 5;
+  let start = Math.max(1, currentPage - Math.floor(maxPages / 2));
+  let end   = start + maxPages - 1;
+  if (end > totalPages) {
+    end = totalPages;
+    start = Math.max(1, end - maxPages + 1);
+  }
+%>
+
+<section class="hernando-pagination">
+  <div class="hernando-pagination-container">
+
+    <!-- TITEL OBEN -->
+    <div class="hernando-perpage-title">
+      Inserate pro Seite
+    </div>
+
+    <!-- ROW DARUNTER -->
+    <div class="hernando-pagination-row">
+
+      <div class="hernando-perpage">
+        <select id="itemsPerPage" class="form-select hernando-perpage-select">
+          <% [32,60,120].forEach(p => { %>
+            <option value="<%= p %>" <%= perPage === p ? 'selected' : '' %>><%= p %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <% if (totalPages > 1) { %>
+        <ul class="pagination">
+          <% if (currentPage > 1) { %>
+            <li><a href="#" data-page="1">«</a></li>
+            <li><a href="#" data-page="<%= currentPage - 1 %>">‹</a></li>
+          <% } %>
+
+          <% for (let p = start; p <= end; p++) { %>
+            <li class="<%= p === currentPage ? 'active' : '' %>">
+              <a href="#" data-page="<%= p %>"><%= p %></a>
+            </li>
+          <% } %>
+
+          <% if (currentPage < totalPages) { %>
+            <li><a href="#" data-page="<%= currentPage + 1 %>">›</a></li>
+            <li><a href="#" data-page="<%= totalPages %>">»</a></li>
+          <% } %>
+        </ul>
+      <% } %>
+
+    </div>
+  </div>
+</section>
+
+
+<script>
+document.querySelectorAll('.pagination a[data-page]').forEach(a => {
+  a.addEventListener('click', function (e) {
+    e.preventDefault();
+    const page = this.dataset.page;
+    const url = new URL(window.location.href);
+    url.searchParams.set('page', page);
+    window.location.href = url.toString();
+  });
+});
+
+document.getElementById('itemsPerPage')?.addEventListener('change', function () {
+  const url = new URL(window.location.href);
+  url.searchParams.set('perPage', this.value);
+  url.searchParams.set('page', 1);
+  window.location.href = url.toString();
+});
+</script>
+
+
+
+ 
+</section>
+
+<%- include('../../partials/footer', { footerColumns }) %>

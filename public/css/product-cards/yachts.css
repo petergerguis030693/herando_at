@@ -1,0 +1,12 @@
+.lux-yacht-card .lux-card-img {
+  height: 310px; /* Yachten brauchen horizontale Eleganz */
+}
+
+.lux-yacht-card .lux-card-title {
+  font-size: 1.28rem;
+  font-weight: 700;
+}
+
+.lux-yacht-card .lux-card-specs span i {
+  color: #02011f; /* maritimes blau-gold */
+}

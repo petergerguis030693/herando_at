@@ -1,0 +1,8 @@
+.lux-property-card .lux-card-img {
+  height: 330px; /* Immobilien brauchen mehr Bildfläche */
+}
+
+.lux-property-card .lux-card-title {
+  font-size: 1.28rem;
+  font-weight: 700;
+}

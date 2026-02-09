@@ -1,0 +1,321 @@
+/* ================= SELLER PAGE ================= */
+
+.seller-page {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 2rem 1rem;
+}
+
+/* ================= SELLER HEADER ================= */
+
+.seller-header {
+  background: linear-gradient(135deg, #f7f3eb, #e5d8c1);
+  border-radius: 8px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+/* AVATAR / LOGO CONTAINER */
+.seller-header .avatar {
+  flex-shrink: 0;
+  width: 160px;
+  height: 160px;
+  background: #fff;
+  border-radius: 16px;
+  border: 1px solid rgba(0,0,0,0.08);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* LOGO */
+.seller-logo {
+  width: 90%;
+  height: 90%;
+  object-fit: contain;
+  background: #fff;
+}
+
+/* FALLBACK INITIALEN */
+.seller-initials {
+  font-size: 48px;
+  font-weight: 700;
+  color: #b6864b;
+}
+
+/* INFO */
+.seller-header h2 {
+  margin: 0 0 .5rem;
+  font-size: 1.9rem;
+  color: #333;
+}
+
+.seller-header p {
+  margin: 0;
+  color: #555;
+  line-height: 1.5;
+}
+
+/* ================= LISTINGS GRID ================= */
+
+.listings-grid,
+.seller-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+}
+
+/* ================= LISTING CARD ================= */
+
+.listing-card {
+  background: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  display: flex;
+  flex-direction: column;
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+
+.listing-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+}
+
+.listing-card img {
+  width: 100%;
+  height: 220px;
+  object-fit: cover;
+}
+
+/* BODY */
+.listing-card .body {
+  flex: 1;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.listing-card h5 {
+  margin: 0 0 .75rem;
+  font-size: 1.15rem;
+  color: #222;
+}
+
+/* PRICE */
+.productPrice,
+.listing-card .price {
+  margin-top: auto;
+  font-weight: bold;
+  font-size: 14pt;
+}
+
+/* BUTTON */
+.listing-card .btn-detail {
+  margin-top: 1rem;
+  text-align: center;
+  display: inline-block;
+  padding: .5rem 1rem;
+  border-radius: 4px;
+  background: #b6864b;
+  color: #fff;
+  text-decoration: none;
+  font-size: .9rem;
+  transition: background .2s ease;
+}
+
+.listing-card .btn-detail:hover {
+  background: #9c7240;
+}
+
+/* ================= META BOXES ================= */
+
+.cartype-box {
+  margin-bottom: 20px;
+}
+
+/* ================= NO LISTINGS ================= */
+
+.no-listings {
+  text-align: center;
+  color: #777;
+  font-style: italic;
+  margin-top: 2rem;
+}
+
+/* ================= PAGINATION ================= */
+
+.pagination-numeric ul {
+  display: flex;
+  list-style: none;
+  padding: 0;
+  justify-content: center;
+  gap: .5rem;
+  margin: 2rem 0;
+}
+
+.pagination-numeric a,
+.pagination-numeric span {
+  display: block;
+  padding: .5rem .75rem;
+  text-decoration: none;
+  color: #333;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: .9rem;
+}
+
+.pagination-numeric a:hover {
+  background: #f0f0f0;
+}
+
+.pagination-numeric .active a {
+  background: #b6864b;
+  color: #fff;
+  border-color: #b6864b;
+}
+
+/* ================= RESPONSIVE ================= */
+
+@media (max-width: 768px) {
+  .seller-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+
+  .seller-header .avatar {
+    width: 120px;
+    height: 120px;
+  }
+
+  .seller-initials {
+    font-size: 40px;
+  }
+}
+
+
+/* ===== Hernando Pagination Layout ===== */
+
+.hernando-pagination{
+  width:100%;
+  margin:40px auto;
+}
+
+.hernando-pagination-container{
+  max-width:1650px;
+  margin:0 auto;
+  padding:0 10px;
+}
+
+.hernando-perpage-title{
+  font-weight:600;
+  margin-bottom:15px;
+  font-size:16px;
+}
+
+.hernando-pagination-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+}
+
+.hernando-perpage{
+  display:flex;
+  align-items:center;
+}
+
+.hernando-perpage-select{
+  width:90px !important;
+}
+
+.hernando-pagination-nav{
+  display:flex;
+  align-items:center;
+}
+
+.hernando-pagination-nav .pagination{
+  margin:0;
+  gap:6px;
+}
+
+.hernando-pagination-nav .page-item.active .page-link{
+  background:#c98d4a;
+  border-color:#c98d4a;
+  color:#fff;
+}
+
+.hernando-pagination-nav .page-link:hover{
+  background:#c98d4a;
+  color:#fff;
+}
+
+.hernando-pagination-nav .page-link:focus,
+.hernando-pagination-nav .page-link:active,
+.hernando-pagination-nav .page-link:focus-visible{
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+/* ===== Pagination Zahlen sichtbar machen ===== */
+
+.pagination {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.pagination li a {
+  min-width: 40px;
+  height: 40px;
+  border: 1px solid #e2e2e2;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #1A253C;
+  text-decoration: none;
+  font-weight: 500;
+  background: #fff;
+  transition: all .15s ease;
+}
+
+.pagination li a:hover {
+  color: white;
+  background: #c98d4a;
+}
+
+.pagination li.active a {
+  background: #c98d4a;
+  color: #fff;
+}
+
+/* Layout fix – alles in einer Linie */
+
+.hernando-pagination-row{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:20px;
+  flex-wrap:nowrap;     /* GANZ WICHTIG */
+}
+
+.hernando-perpage{
+  flex:0 0 auto;
+}
+
+.hernando-pagination-nav{
+  flex:1;
+  display:flex;
+  justify-content:flex-end;
+}
+
+

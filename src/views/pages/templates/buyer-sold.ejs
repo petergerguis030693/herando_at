@@ -1,0 +1,790 @@
+     <%- include('../../partials/header') %>
+          <link rel="stylesheet" href="/css/buyer.css">
+          <style>
+  .custom-faq {
+    border-top: 1px solid #ddd;
+  }
+
+  .faq-item {
+    border-bottom: 1px solid #ddd;
+  }
+
+  .faq-question {
+    width: 100%;
+    background: none;
+    border: none;
+    padding: 18px 0;
+    font-size: 16pt;
+    font-weight: 500;
+    text-align: left;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    color: #111;
+    transition: color 0.25s ease;
+  }
+
+  .faq-question:hover {
+    color: #000;
+  }
+
+  .faq-chevron {
+    display: inline-block;
+    width: 16px;
+    height: 16px;
+    border-right: 2px solid #000;
+    border-bottom: 2px solid #000;
+    transform: rotate(45deg);
+    transition: transform 0.25s ease;
+    margin-left: 10px;
+  }
+
+  .faq-item.active .faq-chevron {
+    transform: rotate(-135deg);
+  }
+
+  .faq-answer {
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    color: #555;
+    line-height: 1.6;
+    text-align: left;
+    transition: all 0.35s ease;
+    font-size: 16pt;
+  }
+
+  .faq-item.active .faq-answer {
+    max-height: 500px;
+    opacity: 1;
+    margin-bottom: 15px;
+  }
+
+  .MWST-class{
+    text-align: left;
+    font-size: 14px;
+  }
+
+  .sechszehnpx{
+    font-size: 16px;
+  }
+
+  /* ===== Checkout Modal ===== */
+
+.checkout-modal {
+  max-width: 820px;
+}
+
+.checkout-modal .modal-content {
+  border-radius: 18px;
+  padding: 30px 35px;
+  box-shadow: 0 25px 60px rgba(0,0,0,0.15);
+  border: none;
+}
+
+/* Titel */
+.checkout-modal h4 {
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 25px;
+}
+
+/* Paketübersicht */
+#packageSummary {
+  background: #f8f9fb;
+  padding: 18px 22px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  border: 1px solid #e6e6e6;
+}
+
+/* Preisbox */
+#priceBox, #finalSummary {
+  background: #ffffff;
+  border: 1px solid #eaeaea;
+  border-radius: 12px;
+  padding: 20px 25px;
+  font-size: 17px;
+}
+
+/* Rabattbereich */
+#couponInput {
+  height: 46px;
+  border-radius: 10px;
+  font-size: 15px;
+}
+
+#applyCouponBtn,
+#cancelCouponBtn {
+  height: 46px;
+  border-radius: 10px;
+  font-weight: 600;
+  min-width: 200px;
+}
+
+/* Buttons unten */
+#toStep2,
+#buyNowBtn {
+  height: 52px;
+  border-radius: 12px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+/* AGB Bereich */
+.form-check {
+  background: #f8f9fb;
+  padding: 15px 18px;
+  border-radius: 10px;
+  border: 1px solid #e6e6e6;
+}
+
+/* Trennlinie schöner */
+#priceBox hr {
+  margin: 18px 0;
+  border-top: 1px solid #ddd;
+}
+
+/* Scroll falls Inhalt höher */
+.checkout-modal .modal-content {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Mobile Optimierung */
+@media (max-width: 768px) {
+  .checkout-modal {
+    max-width: 96%;
+  }
+
+  .checkout-modal .modal-content {
+    padding: 20px;
+  }
+
+  #applyCouponBtn,
+  #cancelCouponBtn {
+    min-width: 100px;
+    font-size: 14px;
+  }
+}
+
+/* ===== AGB Box ===== */
+
+.agb-box {
+  background: #f8f9fb;
+  border: 1px solid #e4e6ea;
+  border-radius: 12px;
+  padding: 18px 20px;
+}
+
+.agb-label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.agb-label input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: #c89b5b; /* Herando Gold */
+  cursor: pointer;
+}
+
+.agb-label a {
+  color: #c89b5b;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.agb-label a:hover {
+  text-decoration: underline;
+}
+
+/* Herando Feedback Box (statt grün) */
+.herando-info {
+  background: #fff8ef;
+  border: 1px solid #e6c9a2;
+  color: #7a5a2b;
+  border-radius: 10px;
+  padding: 12px 16px;
+  margin-top: 12px;
+  font-size: 15px;
+  font-weight: 500;
+}
+
+/* Step Animation */
+#step1, #step2 {
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.step-hide {
+  opacity: 0;
+  transform: translateX(10px);
+}
+
+.step-show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+</style>
+
+
+</head>
+<div class="modal fade" id="confirmBuyModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered checkout-modal">
+    <div class="modal-content p-4">
+
+      <!-- HEADER MUSS HIER REIN -->
+      <div class="modal-header border-0 pt-0">
+        <h5 class="modal-title"><%= t('buyer.sold.modal.title', 'Bestellübersicht') %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <!-- BODY -->
+      <div class="modal-body p-0">
+
+        <!-- STEP 1 -->
+        <div id="step1">
+          <h4 class="mb-4"><%= t('buyer.sold.step1.title', 'Ihr gewähltes Paket') %></h4>
+
+          <div id="packageSummary"></div>
+
+          <div class="d-flex gap-2 mt-3">
+            <input type="text" id="couponInput" class="form-control" placeholder="<%= t('buyer.sold.coupon.placeholder', 'Rabattcode') %>">
+
+            <button class="btn btn-primary" id="applyCouponBtn">
+              <%= t('buyer.sold.coupon.apply', 'Rabattcode einlösen') %>
+            </button>
+
+            <button class="btn btn-outline-secondary" id="cancelCouponBtn" style="display:none;">
+              <%= t('buyer.sold.coupon.cancel', 'Rabattcode stornieren') %>
+            </button>
+          </div>
+
+          <div id="couponInfoBox" class="mt-3"></div>
+          <div class="mt-4" id="priceBox"></div>
+
+          <button class="btn btn-dark w-100 mt-4" id="toStep2"><%= t('buyer.sold.checkout', 'Zur Kasse gehen') %></button>
+        </div>
+
+        <!-- STEP 2 -->
+        <div id="step2" style="display:none;">
+          <h4 class="mb-4"><%= t('buyer.sold.modal.title', 'Bestellübersicht') %></h4>
+          <div id="finalSummary"></div>
+
+          <div class="agb-box mt-4">
+            <label class="agb-label">
+              <input type="checkbox" id="agbCheck">
+              <span>
+                <%= t('buyer.sold.agb.text1', 'Ich habe die') %>
+                <a href="/agb" target="_blank"><%= t('buyer.sold.agb.terms', 'Allgemeine Geschäftsbedingungen') %></a>
+                <%= t('buyer.sold.agb.text2', 'und die') %>
+                <a href="/datenschutz" target="_blank"><%= t('buyer.sold.agb.privacy', 'Datenschutzerklärung') %></a>
+                <%= t('buyer.sold.agb.text3', 'gelesen und akzeptiere die hiermit.') %>
+              </span>
+            </label>
+          </div>
+
+          <button class="btn btn-light w-100 mt-3" id="backToStep1">← <%= t('buyer.sold.back', 'Zurück') %></button>
+          <button class="btn btn-primary w-100 mt-3" id="buyNowBtn"><%= t('buyer.sold.buy_now', 'Jetzt kaufen') %></button>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+<body>
+
+<% const _cp = (typeof currentPage !== 'undefined' ? currentPage : null); %>
+
+<% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+  <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+<% if (typeof successMessage !== 'undefined' && successMessage) { %>
+  <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+
+<div class="account-shell d-flex gap-3">
+
+     <%- include('../../partials/asside') %>
+
+  <!-- MAIN -->
+  <main class="main px-4 py-5 text-center">
+<%
+  // Arrays absichern + Duplikate entfernen
+  const _private = Array.isArray(privatePackages) ? [...new Set(privatePackages)] : [];
+  const _light   = Array.isArray(commercialPackages?.LIGHT)   ? [...new Set(commercialPackages.LIGHT)]   : [];
+  const _pro     = Array.isArray(commercialPackages?.PRO)     ? [...new Set(commercialPackages.PRO)]     : [];
+  const _prem    = Array.isArray(commercialPackages?.PREMIUM) ? [...new Set(commercialPackages.PREMIUM)] : [];
+%>
+
+<h2 class="fw-bold mb-4" style="text-align: left;">
+  <i class="bi bi-cash-stack me-2"></i> <%= t('buyer.sidebar.title_sold') %>
+</h2>
+
+<section style="text-align: left; margin-bottom: 25px; font-size: 15pt;">
+
+  <% if (_private.length === 0 && _light.length === 0 && _pro.length === 0 && _prem.length === 0) { %>
+
+    <p class="text-muted"><%- t('buyer.marketing.none') %></p>
+
+  <% } else { %>
+
+    <% if (_private.length > 0) { %>
+      <p class="text-muted">
+        <%- t('buyer.marketing.private') %>
+        <strong><%= _private.join(', ') %></strong>
+      </p>
+    <% } %>
+
+    <% if (_light.length > 0) { %>
+      <p class="text-muted">
+        <%- t('buyer.marketing.light') %>
+        <strong><%= _light.join(', ') %></strong>
+      </p>
+    <% } %>
+
+    <% if (_pro.length > 0) { %>
+      <p class="text-muted">
+        <%- t('buyer.marketing.pro') %>
+        <strong><%= _pro.join(', ') %></strong>
+      </p>
+    <% } %>
+
+    <% if (_prem.length > 0) { %>
+      <p class="text-muted">
+        <%- t('buyer.marketing.premium') %>
+        <strong><%= _prem.join(', ') %></strong>
+      </p>
+    <% } %>
+
+  <% } %>
+
+</section>
+
+
+
+
+<section class="text-center py-5">
+  <div class="mb-4">
+    <i class="bi bi-cash-stack display-1 text-primary"></i>
+  </div>
+
+  <!-- 🟦 Button -->
+  <a href="/buyer/new-listing" class="btn btn-primary btn-lg mb-4">
+    <%= t('buyer.new.cta', 'Jetzt inserieren') %>
+  </a>
+
+  <!-- 🧾 Beschreibungstext -->
+  <p class="lead text-muted mx-auto" style="max-width: 1000px;">
+    <%= t('buyer.new.desc.line1') %><br>
+    <%= t('buyer.new.desc.line2') %><br>
+    <strong>Herando</strong> <%= t('buyer.new.desc.line3') %>
+  </p>
+</section>
+
+
+
+<% if (registrationType === 'commercial') { %>
+  <h2 class="fw-semibold mb-4"><%= t('buyer.packages.title.commercial') %></h2>
+<% } else if (registrationType === 'private') { %>
+  <h2 class="fw-semibold mb-4"><%= t('buyer.packages.title.private') %></h2>
+<% } else { %>
+  <h2 class="fw-semibold mb-4"><%= t('buyer.packages.title.default') %></h2>
+<% } %>
+
+<div class="container">
+  <div class="row justify-content-center">
+    <% if (packages && packages.length > 0) { %>
+      <% packages.forEach(pkg => { %>
+        <div class="col-md-4 mb-4">
+          <div class="card shadow-sm h-100 border-0">
+            <div class="card-body d-flex flex-column justify-content-between">
+              <div>
+                <h4 class="fw-bold mb-3">
+                  <%= pkg.translated_name || pkg.name %>
+                </h4>
+
+                  <div class="package-description"><%- pkg.translated_description %></div>
+                  
+
+
+                <% if (registrationType === 'commercial') { %>
+                  <p class="text-center fw-bold" style="font-size: 16pt;">
+                    <%= t('buyer.packages.runtime.commercial') %>
+                  </p>
+                <% } else if (registrationType === 'private') { %>
+                  <p class="text-center fw-bold" style="font-size: 16pt;">
+                    <%= t('buyer.packages.runtime.private') %>
+                  </p>
+                <% } %>
+
+                <p class="fw-semibold fs-5">
+                  <%= Number(pkg.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) %>
+                </p>
+              </div>
+
+
+              <form id="form_<%= pkg.id %>" action="/buyer/checkout" method="POST" class="mt-3">
+                <input type="hidden" name="packageId" value="<%= pkg.id %>">
+                <input type="hidden" name="type" value="<%= registrationType %>">
+                <input type="hidden" name="netPriceOverride" value="">
+                <input type="hidden" name="discountPercent">
+                <input type="hidden" name="discountAmount">
+
+
+                <div class="mb-3">
+                  <label for="categorySelect_<%= pkg.id %>" class="form-label fw-semibold">
+                    <%= t('buyer.packages.chooseCategory') %>
+                  </label>
+
+                  <select id="categorySelect_<%= pkg.id %>" name="category_id" class="form-select" required>
+                    <option value="" selected disabled>
+                      <%= t('buyer.packages.chooseCategory.placeholder') %>
+                    </option>
+                    <option value="1"><%= t('category.cars') %></option>
+                    <option value="2"><%= t('category.watches') %></option>
+                    <option value="3"><%= t('category.yachts') %></option>
+                    <option value="4"><%= t('category.properties') %></option>
+                    <option value="5"><%= t('category.lifestyles') %></option>
+                  </select>
+                </div>
+
+                <button type="button"
+                        class="btn btn-dark w-100 openConfirmModal"
+                        data-form="form_<%= pkg.id %>"
+                        data-package-id="<%= pkg.id %>"
+                        data-package-name="<%= (pkg.translated_name || pkg.name) %>"
+                        data-net-price="<%= Number(pkg.price) %>">
+                  <%= t('buyer.packages.buy') %>
+                </button>
+
+              </form>
+
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    <% } else { %>
+      <p class="text-muted"><%= t('buyer.packages.none') %></p>
+    <% } %>
+  </div>
+    <div class="MWST-class">
+      <span><%= t('buyer.sold.note.sync', '*Datenabgleich möglich, abhängig vom verwendeten System auf Händlerseite.') %></span><br><br>
+      <span class="sechszehnpx"><%= t('buyer.sold.note.prices', 'Diese Preise sind ab 03/2025 gültig. Alle Preise verstehen sich ggf. zzgl. Mehrwertsteuer.') %></span><br>
+      <span class="sechszehnpx"><%= t('buyer.sold.note.sales', 'Sie wollen mehr als 500 Angebote schalten oder weitere Leistungen zubuchen? Wenden Sie sich an unser Vertriebsteam für ein individuelles Angebot.') %></span>
+      </span>
+    </div>
+</div>
+
+<section class="container my-5" style="max-width: 700px;">
+
+  <h2 class="text-center mb-4 fw-bold"><%= t('faq.title') %></h2>
+
+  <div class="custom-faq">
+
+    <!-- FAQ 1 -->
+    <div class="faq-item">
+      <button class="faq-question">
+        <%= t('faq.q1') %>
+        <span class="faq-chevron"></span>
+      </button>
+      <div class="faq-answer">
+        <%= t('faq.a1') %>
+      </div>
+    </div>
+
+    <!-- FAQ 2 -->
+    <div class="faq-item">
+      <button class="faq-question">
+        <%= t('faq.q2') %>
+        <span class="faq-chevron"></span>
+      </button>
+      <div class="faq-answer">
+        <%= t('faq.a2') %>
+      </div>
+    </div>
+
+    <!-- FAQ 3 -->
+    <div class="faq-item">
+      <button class="faq-question">
+        <%= t('faq.q3') %>
+        <span class="faq-chevron"></span>
+      </button>
+      <div class="faq-answer">
+        <%= t('faq.a3') %>
+      </div>
+    </div>
+
+    <!-- FAQ 4 -->
+    <div class="faq-item">
+      <button class="faq-question">
+        <%= t('faq.q4') %>
+        <span class="faq-chevron"></span>
+      </button>
+      <div class="faq-answer">
+        <%= t('faq.a4') %>
+      </div>
+    </div>
+
+    <!-- FAQ 5 -->
+    <div class="faq-item">
+      <button class="faq-question">
+        <%= t('faq.q5') %>
+        <span class="faq-chevron"></span>
+      </button>
+      <div class="faq-answer">
+        <%= t('faq.a5') %>
+      </div>
+    </div>
+
+    <!-- FAQ 6 -->
+    <div class="faq-item">
+      <button class="faq-question">
+        <%= t('faq.q6') %>
+        <span class="faq-chevron"></span>
+      </button>
+      <div class="faq-answer">
+        <%= t('faq.a6') %>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Contact -->
+  <div class="text-center mt-5">
+    <h5 class="fw-semibold mb-3"><%= t('faq.contact.title') %></h5>
+    <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap">
+      <div><i class="bi bi-telephone me-1"></i> <a href="tel:+420228884177">+420 228 884 177</a></div>
+      <div><i class="bi bi-envelope me-1"></i> <a href="mailto:direct@herando.com">direct@herando.com</a></div>
+      <div><i class="bi bi-chat-dots me-1"></i> <a href="/contact"><%= t('faq.contact.link') %></a></div>
+    </div>
+  </div>
+</section>
+
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const faqItems = document.querySelectorAll('.faq-item');
+
+  faqItems.forEach(item => {
+    const button = item.querySelector('.faq-question');
+    button.addEventListener('click', () => {
+      // Wenn offen → schließen
+      if (item.classList.contains('active')) {
+        item.classList.remove('active');
+        return;
+      }
+      // Alle anderen schließen
+      faqItems.forEach(i => i.classList.remove('active'));
+      // Diesen öffnen
+      item.classList.add('active');
+    });
+  });
+});
+</script>
+
+
+  </main>
+</div>
+
+<script>
+  const TXT_MARKETING_PAKET = <%- JSON.stringify(t('buyer.sold.summary.marketing', 'Marketingpaket')) %>;
+  const TXT_CATEGORY = <%- JSON.stringify(t('buyer.sold.summary.category', 'Kategorie')) %>;
+  const TXT_DISCOUNT = <%- JSON.stringify(t('buyer.sold.price.discount', 'Rabatt')) %>;
+  const TXT_NEW_SUBTOTAL = <%- JSON.stringify(t('buyer.sold.price.new_subtotal', 'Neue Zwischensumme')) %>;
+  const TXT_SUBTOTAL = <%- JSON.stringify(t('buyer.sold.price.subtotal', 'Zwischensumme')) %>;
+  const TXT_TAX_LABEL = <%- JSON.stringify(t('buyer.sold.price.tax', 'Digitale USt (21%)')) %>;
+  const TXT_TOTAL = <%- JSON.stringify(t('buyer.sold.price.total', 'Gesamt inkl. Steuer')) %>;
+  const TXT_INVALID_COUPON = <%- JSON.stringify(t('buyer.sold.coupon.invalid', 'Ungültiger Rabattcode')) %>;
+  const TXT_COUPON_APPLIED = <%- JSON.stringify(t('buyer.sold.coupon.applied', 'Rabattcode erfolgreich angewendet')) %>;
+
+  // 🛒 Kaufen-Handler
+  function handleBuy(packageId, type) {
+    console.log('🟢 Paket gewählt:', packageId, 'Typ:', type);
+    window.location.href = '/buyer/checkout?packageId=' + packageId + '&type=' + type;
+  }
+</script>
+<script>
+let selectedForm = null;
+let selectedBtn  = null;
+
+let originalNet = 0;
+let currentNet  = 0;
+let discountPercent = 0;
+let discountAmount  = 0;
+
+function money(v){ return (Math.round(v*100)/100).toFixed(2).replace('.', ',') + ' €'; }
+
+function resetSteps() {
+  step1.style.display = 'block';
+  step2.style.display = 'none';
+  couponInput.value = '';
+  agbCheck.checked = false;
+}
+
+function renderSummary() {
+  const pkgName = selectedBtn.dataset.packageName;
+  const select = selectedForm.querySelector('select[name="category_id"]');
+  const entityText = select.options[select.selectedIndex].text;
+
+  const html = `
+    <div style="font-size:20px;font-weight:600;margin-bottom:10px;">${TXT_MARKETING_PAKET}</div>
+    <div style="font-size:18px;"><strong>${pkgName}</strong></div>
+    <div style="color:#666;">${TXT_CATEGORY}: <strong>${entityText}</strong></div>
+  `;
+
+  packageSummary.innerHTML = html;
+  finalSummary.innerHTML = html + '<hr>' + priceBox.innerHTML;
+}
+
+function renderPrices() {
+  const tax = currentNet * 0.21;
+  const gross = currentNet + tax;
+
+  let discountRow = '';
+  if (discountPercent > 0) {
+    discountRow = `
+      <div class="d-flex justify-content-between text-danger">
+        <div>${TXT_DISCOUNT} (${discountPercent}%)</div>
+        <div>- ${money(discountAmount)}</div>
+      </div>
+      <div class="d-flex justify-content-between">
+        <div>${TXT_NEW_SUBTOTAL}</div>
+        <div><strong>${money(currentNet)}</strong></div>
+      </div>
+    `;
+  }
+
+  priceBox.innerHTML = `
+    <div class="d-flex justify-content-between">
+      <div>${TXT_SUBTOTAL}</div>
+      <div><strong>${money(originalNet)}</strong></div>
+    </div>
+    ${discountRow}
+    <div class="d-flex justify-content-between">
+      <div>${TXT_TAX_LABEL}</div>
+      <div><strong>${money(tax)}</strong></div>
+    </div>
+    <hr>
+    <div class="d-flex justify-content-between fs-5">
+      <div><strong>${TXT_TOTAL}</strong></div>
+      <div><strong>${money(gross)}</strong></div>
+    </div>
+  `;
+
+  renderSummary();
+}
+
+// Öffnen
+document.querySelectorAll('.openConfirmModal').forEach(btn => {
+  btn.onclick = () => {
+    selectedBtn = btn;
+    selectedForm = document.getElementById(btn.dataset.form);
+
+    const select = selectedForm.querySelector('select[name="category_id"]');
+    if (!select.value) { select.focus(); return; }
+
+    originalNet = parseFloat(btn.dataset.netPrice);
+    currentNet = originalNet;
+
+    discountPercent = 0;
+    discountAmount = 0;
+    cancelCouponBtn.style.display = 'none';
+    couponInfoBox.innerHTML = '';
+
+    resetSteps();
+    renderPrices();
+
+    bootstrap.Modal.getOrCreateInstance(confirmBuyModal).show();
+  };
+});
+
+// Coupon
+applyCouponBtn.onclick = async () => {
+  const code = couponInput.value.trim().toUpperCase();
+  if (!code) return;
+
+  const res = await fetch('/buyer/apply-coupon', {
+    method: 'POST',
+    headers: {'Content-Type':'application/x-www-form-urlencoded'},
+    body: new URLSearchParams({ code, packageId: selectedBtn.dataset.packageId })
+  });
+
+  const data = await res.json();
+  if (!data.ok) return alert(TXT_INVALID_COUPON);
+
+  discountPercent = data.percent;
+  discountAmount = originalNet - parseFloat(data.newNet);
+  currentNet = parseFloat(data.newNet);
+
+  cancelCouponBtn.style.display = 'inline-block';
+
+  couponInfoBox.innerHTML =
+    `<div class="herando-info">${TXT_COUPON_APPLIED} (${discountPercent}%)</div>`;
+
+  renderPrices();
+};
+
+// Coupon löschen
+cancelCouponBtn.onclick = () => {
+  discountPercent = 0;
+  discountAmount = 0;
+  currentNet = originalNet;
+
+  couponInput.value = '';
+  cancelCouponBtn.style.display = 'none';
+  couponInfoBox.innerHTML = '';
+
+  renderPrices();
+};
+
+// Step weiter
+toStep2.onclick = () => {
+  step1.style.display = 'none';
+  step2.style.display = 'block';
+};
+
+// Zurück
+backToStep1.onclick = () => {
+  step2.style.display = 'none';
+  step1.style.display = 'block';
+};
+
+// Kaufen
+buyNowBtn.onclick = () => {
+  if (!agbCheck.checked) return;
+  selectedForm.querySelector('[name="netPriceOverride"]').value = currentNet;
+  selectedForm.querySelector('[name="discountPercent"]').value = discountPercent;
+  selectedForm.querySelector('[name="discountAmount"]').value = discountAmount;
+
+  selectedForm.submit();
+};
+
+// Modal Reset + Overlay Fix
+confirmBuyModal.addEventListener('hidden.bs.modal', () => {
+  document.querySelectorAll('.modal-backdrop').forEach(e => e.remove());
+  document.body.classList.remove('modal-open');
+  resetSteps();
+});
+</script>
+
+
+
+
+
+<%- include('../../partials/footer', { footerColumns }) %>

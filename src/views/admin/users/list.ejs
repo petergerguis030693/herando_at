@@ -1,0 +1,283 @@
+     <%- include('../../partials/header-admin') %>
+
+
+<style>
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1.5rem;
+  }
+  .card-grid-item {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  body.modal-open {
+  overflow: auto !important;
+  padding-right: 0 !important;
+}
+
+</style>
+
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+
+  <main class="flex-fill p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="mb-0">Benutzerverwaltung</h1>
+      <a href="/admin/users/new" class="btn btn-success">
+        <i class="bi bi-plus-lg me-1"></i> Neuer Benutzer
+      </a>
+    </div>
+
+    <!-- Ablaufende Verträge in diesem Monat -->
+    <% if (renewals && renewals.length) { %>
+      <div class="alert alert-warning mb-4">
+        <strong><%= renewals.length %> Vertrag<%= renewals.length > 1 ? 'e' : '' %> läuft/laufen diesen Monat ab:</strong>
+        <% renewals.forEach(u => { %>
+          <span class="badge bg-danger me-1"><%= u.firstname %> <%= u.lastname %></span>
+        <% }) %>
+      </div>
+    <% } %>
+
+    <!-- Status-Filter Buttons -->
+    <div class="mb-3">
+      <a href="?search=<%= encodeURIComponent(search) %>&status=all" class="btn <%= status==='all' ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+        Alle
+      </a>
+      <a href="?search=<%= encodeURIComponent(search) %>&status=active" class="btn <%= status==='active' ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+        Aktive
+      </a>
+      <a href="?search=<%= encodeURIComponent(search) %>&status=expired" class="btn <%= status==='expired' ? 'btn-primary' : 'btn-outline-primary' %>">
+        Abgelaufen
+      </a>
+    </div>
+
+    <div class="mb-3">
+      <a href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&package=" 
+        class="btn <%= !packageFilter ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+        Alle Pakete
+      </a>
+      <% allPackages.forEach(pkg => { %>
+        <a href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&package=<%= encodeURIComponent(pkg.package_id) %>" 
+          class="btn <%= packageFilter === pkg.package_id ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+          <%= pkg.package_id %>
+        </a>
+      <% }) %>
+    </div>
+
+
+
+
+    <!-- Suche -->
+    <form method="get" class="mb-4 d-flex">
+      <input
+        type="hidden"
+        name="status"
+        value="<%= status %>"
+      >
+      <input
+        type="text"
+        name="search"
+        class="form-control me-2"
+        placeholder="Suche nach Firma, Vor‑ oder Nachname, E‑Mail, Straße, PLZ, Stadt …"
+        value="<%= search %>"
+      >
+      <button type="submit" class="btn btn-primary">Suchen</button>
+    </form>
+
+    <!-- Grid mit exakt 4 Spalten -->
+<div class="card-grid">
+  <% users.forEach(u => { %>
+    <% 
+      const isRenew = renewals && renewals.some(r => r.id === u.id);
+      const isactive = (new Date(u.ablaufdatum) >= new Date());
+    %>
+    <div class="card-grid-item">
+      <div class="card h-100 shadow-sm card-hover <%= isRenew ? 'border border-danger' : '' %>">
+        <div class="card-body">
+
+          <% if (isRenew) { %>
+            <p>
+              <span class="badge bg-danger mb-2">läuft diesen Monat ab</span>
+            </p>
+          <% } %>
+
+          <p>
+            <span class="badge <%= isactive ? 'bg-success' : 'bg-secondary' %> mb-2">
+              <%= isactive ? 'aufrecht' : 'abgelaufen' %>
+            </span>
+          </p>
+
+          <p class="mb-2">
+            <i class="bi bi-person-fill me-2 text-primary"></i>
+            <% if (u.gender === 1) { %>
+              Frau <%= u.firstname %> <%= u.lastname %>
+            <% } else if (u.gender === 2) { %>
+              Herr <%= u.firstname %> <%= u.lastname %>
+            <% } else { %>
+              <%= u.firstname %> <%= u.lastname %>
+            <% } %>
+          </p>
+          <p class="mb-2">
+            <i class="bi bi-person-badge me-2 text-success"></i>
+            Kundennummer: <%= u.id || '–' %>
+          </p>
+          <p class="mb-2">
+            <i class="bi bi-building me-2 text-success"></i>
+            <%= u.company || '–' %>
+          </p>
+          <p class="mb-2">
+            <i class="bi bi-telephone-fill me-2 text-warning"></i>
+            <%= u.phone || '–' %>
+            <% if (u.mobile) { %>
+              <span class="ms-3">
+                <i class="bi bi-phone-fill me-1 text-danger"></i><%= u.mobile %>
+              </span>
+            <% } %>
+          </p>
+          <p class="mb-2">
+            <i class="bi bi-house-fill me-2 text-info"></i>
+            <%= u.street || '–' %> <%= u.housenumber || '' %>
+          </p>
+          <p class="mb-2">
+            <i class="bi bi-geo-alt-fill me-2 text-secondary"></i>
+            <%= u.city || '–' %>, <%= u.postcode || '' %>
+          </p>
+          <p class="mb-2">
+            <i class="bi bi-envelope-fill me-2 text-danger"></i>
+            <%= u.email %>
+          </p>
+          <% if (u.fax) { %>
+            <p class="mb-0">
+              <i class="bi bi-printer-fill me-2 text-muted"></i>
+              <%= u.fax %>
+            </p>
+          <% } %>
+
+          <div class="mt-auto">
+            <% if (u.has_flatrate) { %>
+              <form action="/admin/users/<%= u.id %>/expire" method="post">
+                <button type="submit" class="btn btn-sm btn-danger w-100">
+                  <i class="bi bi-x-circle me-1"></i> Stoppen
+                </button>
+                <a href="/admin/users/<%= u.id %>/edit" 
+                  class="btn btn-sm btn-secondary w-100 mt-2">
+                  <i class="bi bi-pencil-fill me-1"></i> Bearbeiten
+                </a>
+                <a href="/admin/users/<%= u.id %>/overview"
+                  class="btn btn-sm btn-primary w-100 mt-2">
+                  <i class="bi bi-eye me-1"></i> Overview
+                </a>
+                <a href="/admin/listings/users/<%= u.id %>/new-listing"
+                    class="btn btn-sm btn-success w-100 mt-2">
+                  <i class="bi bi-plus-circle me-1"></i> Neues Inserat
+                </a>
+              </form>
+            <% } else { %>
+              <!-- Aktivieren Button -->
+              <button type="button" 
+                      class="btn btn-sm btn-success w-100 open-activate-modal" 
+                      data-user-id="<%= u.id %>">
+                <i class="bi bi-check-circle me-1"></i> Aktivieren
+              </button>
+            <% } %>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  <% }) %>
+</div>
+
+<!-- EIN gemeinsames Modal am Ende -->
+<div class="modal fade" id="activateModal" tabindex="-1" aria-labelledby="activateModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="activateForm" method="post">
+        <div class="modal-header">
+          <h5 class="modal-title" id="activateModalLabel">Flatrate aktivieren</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        </div>
+        <div class="modal-body">
+          <label for="flatrateType" class="form-label">Flatrate auswählen:</label>
+          <select name="flatrateType" id="flatrateType" class="form-select" required>
+            <option value="flatrate_all">Alle Inserate</option>
+            <option value="flatrate_cars">Autos</option>
+            <option value="flatrate_properties">Immobilien</option>
+            <option value="flatrate_watches">Uhren</option>
+            <option value="flatrate_yachts">Yachten</option>
+            <option value="flatrate_investments">Investments</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-success">Aktivieren</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const activateModal = new bootstrap.Modal(document.getElementById('activateModal'));
+  const activateForm = document.getElementById('activateForm');
+
+  document.querySelectorAll('.open-activate-modal').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const userId = btn.getAttribute('data-user-id');
+      activateForm.action = `/admin/users/${userId}/activate`;
+      activateModal.show();
+    });
+  });
+});
+</script>
+
+
+    <!-- Elliptische Pagination -->
+    <% if (totalPages > 1) {
+         const max = 5, half = Math.floor(max/2);
+         let start = Math.max(1, page-half);
+         let end   = Math.min(totalPages, start+max-1);
+         if (end-start < max-1) start = Math.max(1, end-max+1);
+    %>
+      <nav aria-label="Seiten-Navigation" class="mt-4">
+        <ul class="pagination justify-content-center">
+          <li class="page-item <%= page===1?'disabled':'' %>">
+            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=1">« Erste</a>
+          </li>
+          <li class="page-item <%= page===1?'disabled':'' %>">
+            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= page-1 %>">‹ Zurück</a>
+          </li>
+
+          <% if (start>1) { %>
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          <% } %>
+
+          <% for (let p=start; p<=end; p++) { %>
+            <li class="page-item <%= p===page?'active':'' %>">
+              <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= p %>"><%= p %></a>
+            </li>
+          <% } %>
+
+          <% if (end<totalPages) { %>
+            <li class="page-item disabled"><span class="page-link">…</span></li>
+          <% } %>
+
+          <li class="page-item <%= page===totalPages?'disabled':'' %>">
+            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= page+1 %>">Weiter ›</a>
+          </li>
+          <li class="page-item <%= page===totalPages?'disabled':'' %>">
+            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= totalPages %>">Letzte »</a>
+          </li>
+        </ul>
+      </nav>
+    <% } %>
+  </main>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>

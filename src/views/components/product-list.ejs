@@ -1,0 +1,9 @@
+<section class="category-products">
+  <div class="category-container">
+    <div class="category-grid">
+      <% items.forEach(item => { %>
+        <%- include('../components/product-card/product-card-wrapper', { item, currentEntity }) %>
+      <% }) %>
+    </div>
+  </div>
+</section>

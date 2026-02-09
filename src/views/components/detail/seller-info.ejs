@@ -1,0 +1,107 @@
+<div class="product-single-seller-info card p-3 mb-4">
+  <% if (seller && seller.logo) { %>
+    <div class="text-center mb-3">
+      <img src="/images/users/<%= seller.id %>/<%= seller.logo %>"
+           alt="Logo von <%= seller.name || 'Verkäufer' %>"
+           class="img-fluid mb-2"
+           style="min-height:180px; width:auto; object-fit:contain; border-radius: 5px;" />
+    </div>
+  <% } %>
+
+  <div class="seller-details text-start">
+    <% if (seller) { %>
+
+      <% if (seller.company) { %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.company','ui_translations') %>:</strong>
+          <%= seller.company %>
+        </div>
+      <% } %>
+
+      <% if (seller.postcode || seller.city) { %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.city','ui_translations') %>:</strong>
+          <%= seller.postcode %> <%= seller.city %>
+        </div>
+      <% } %>
+
+      <% if (seller.country) { %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.country','ui_translations') %>:</strong>
+          <%= seller.country %>
+        </div>
+      <% } %>
+
+      <% if (seller.website) {
+           const w = seller.website.trim();
+           const safeUrl = (w.startsWith('http://') || w.startsWith('https://'))
+             ? w
+             : 'https://' + w;
+      %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.website','ui_translations') %>:</strong>
+          <a href="<%= safeUrl %>" target="_blank"><%= w %></a>
+        </div>
+      <% } %>
+
+      <% if (seller.imprint) { %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.imprint','ui_translations') %>:</strong><br>
+          <button type="button" class="btn btn-sm btn-outline-primary mt-1"
+                  data-bs-toggle="modal" data-bs-target="#impressumModal"
+                  style="color: black; border-color: #000;">
+            <%= T('product.seller.viewImprint','ui_translations') %>
+          </button>
+        </div>
+
+        <!-- Modal für Impressum -->
+        <div class="modal fade" id="impressumModal" tabindex="-1"
+             aria-labelledby="impressumModalLabel" aria-hidden="true">
+          <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content">
+              <div class="modal-header">
+                <h5 class="modal-title" id="impressumModalLabel" style="font-weight: bold;">
+                  <%= T('product.seller.imprint','ui_translations') %>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"
+                        aria-label="<%= T('product.seller.close','ui_translations') %>"></button>
+              </div>
+              <div class="modal-body">
+                <%- seller.imprint %>
+              </div>
+              <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                  <%= T('product.seller.close','ui_translations') %>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% } %>
+
+      <hr>
+
+      <% if (seller.firstname || seller.lastname) { %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.contact','ui_translations') %>:</strong>
+          <%= seller.firstname %> <%= seller.lastname %>
+        </div>
+      <% } %>
+
+      <% if (seller.phone) { %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.phone','ui_translations') %>:</strong>
+          <%= seller.phone %>
+        </div>
+      <% } %>
+
+      <% if (seller.email) { %>
+        <div class="mb-2">
+          <strong><%= T('product.seller.email','ui_translations') %>:</strong>
+          <a href="mailto:<%= seller.email %>"><%= seller.email %></a>
+        </div>
+      <% } %>
+
+    <% } %>
+  </div>
+</div>

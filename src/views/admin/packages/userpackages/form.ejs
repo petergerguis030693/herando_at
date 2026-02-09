@@ -1,0 +1,53 @@
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-fill p-4">
+    <h1>
+      <% if (action === 'new') { %>
+        Neues User Package
+      <% } else { %>
+        Package bearbeiten: <%= pkg.name %>
+      <% } %>
+    </h1>
+
+    <form action="<%= action === 'new' ? '/admin/packages/userpackages/new' : '/admin/packages/userpackages/' + pkg.id + '/edit' %>" method="POST" class="mt-4">
+      <div class="mb-3">
+        <label for="name" class="form-label">Name</label>
+        <input id="name" name="name" class="form-control" required value="<%= pkg.name || '' %>">
+      </div>
+
+      <div class="mb-3">
+        <label for="category" class="form-label">Category</label>
+        <input id="category" name="category" class="form-control" required value="<%= pkg.category || '' %>">
+      </div>
+
+      <div class="mb-3">
+        <label for="placement_table" class="form-label">Placement Table</label>
+        <select id="placement_table" name="placement_table" class="form-select">
+          <option value="" <%= !pkg.placement_table ? 'selected' : '' %>>—</option>
+          <option value="catalog_ads" <%= pkg.placement_table === 'catalog_ads' ? 'selected' : '' %>>catalog_ads</option>
+          <option value="advert_inserat" <%= pkg.placement_table === 'advert_inserat' ? 'selected' : '' %>>advert_inserat</option>
+          <option value="slider_ads" <%= pkg.placement_table === 'slider_ads' ? 'selected' : '' %>>slider_ads</option>
+        </select>
+      </div>
+
+      <div class="mb-3">
+        <label for="duration_weeks" class="form-label">Dauer (Wochen)</label>
+        <input id="duration_weeks" name="duration_weeks" type="number" min="1" class="form-control" required value="<%= pkg.duration_weeks || '' %>">
+      </div>
+
+      <div class="mb-3">
+        <label for="price_cents" class="form-label">Preis (Cent)</label>
+        <input id="price_cents" name="price_cents" type="number" min="0" class="form-control" required value="<%= pkg.price_cents || '' %>">
+      </div>
+
+      <button type="submit" class="btn btn-primary me-2">
+        <% if (action === 'new') { %>Anlegen<% } else { %>Speichern<% } %>
+      </button>
+      <a href="/admin/packages/userpackages" class="btn btn-secondary">Abbrechen</a>
+    </form>
+  </main>
+</div>

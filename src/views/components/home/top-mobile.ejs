@@ -1,0 +1,27 @@
+<!-- MOBILE Version Top Angebote-->
+<div class="topOffersWrapper topOffersWrapper-mobile" style="margin-top: 60px; margin-bottom: 60px;">
+  <div>
+    <h2 class="sectionTitle" style="text-align: center;"><%= t('homepage.top_offers') %></h2>
+  </div>
+
+  <% entieties.forEach(ent => { %>
+    <% if (ent.route !== 'lifestyles') { %>
+      <section class="my-prod-section-mobile" id="mobile-carousel-<%= ent.id %>">
+        <div class="container">
+          <h4 class="sectionSubTitle" style="margin-bottom:20px;">
+            <% if (ent.route === 'properties') { %>
+              Premiumimmobilien
+            <% } else { %>
+              Premium<%= ent.name.toLowerCase() %>
+            <% } %>
+          </h4>
+          <div class="mobile-carousel">
+            <div class="mobile-carousel-slides"></div>
+            <button class="mobile-carousel-prev">‹</button>
+            <button class="mobile-carousel-next">›</button>
+          </div>
+        </div>
+      </section>
+    <% } %>
+  <% }) %>
+</div>

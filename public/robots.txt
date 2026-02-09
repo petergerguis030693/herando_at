@@ -1,0 +1,10 @@
+# für alle Crawler
+User-agent: *
+Disallow: /
+
+# oder nur für Google
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Google
+Disallow: /

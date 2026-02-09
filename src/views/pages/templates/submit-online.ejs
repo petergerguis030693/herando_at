@@ -1,0 +1,300 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/buyer.css">
+
+<style>
+  .btn-primary{
+  --bs-btn-disabled-bg: #d8ac76;        /* Herando Gold */
+  --bs-btn-disabled-color: #1A253C;     /* Navy Text */
+  --bs-btn-disabled-border-color: transparent;
+  --bs-btn-disabled-opacity: 1;
+  color: white !important;
+}
+
+.check-inline{
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.check-inline .form-check-input{
+  margin: 0;        /* Bootstrap-Offset entfernen */
+}
+
+
+</style>
+
+<body>
+  <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <div class="account-shell d-flex gap-3">
+    <%- include('../../partials/asside') %>
+
+    <main class="main container-fluid py-4">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <a href="/buyer/historie" class="tiny-link text-decoration-none">
+          <i class="bi bi-arrow-left-circle me-1"></i> <%= t('buyer.history.back') %>
+        </a>
+      </div>
+
+<h2 class="mb-4 text-left fw-bold text-gold">
+  <i class="bi bi-clock-history"></i> <%= t('buyer.history.title') %>
+</h2>
+
+<p>
+  <%= t('buyer.history.welcome') %><br>
+  <%= t('buyer.history.desc1') %><br>
+  <%= t('buyer.history.desc2') %>
+</p>
+
+<p class="text-muted mb-4">
+  <%= t('buyer.history.desc2') %>
+</p>
+
+<h4 class="m-0 fw-semibold" style="margin-bottom: 35px !important;">
+  <%= t('buyer.history.drafts') %>
+</h4>
+
+      <% const activeEntities = entities.filter(ent => remainingByCategory && remainingByCategory[ent.id] > 0); %>
+
+      <% if (activeEntities && activeEntities.length) { %>
+
+        <!-- Tabs Navigation -->
+        <ul class="nav nav-tabs mb-4" id="categoryTabs" role="tablist" style="border-bottom: 2px solid #ccc;">
+          <% activeEntities.forEach((ent, idx) => { %>
+            <li class="nav-item" role="presentation">
+              <button 
+                class="nav-link <%= idx === 0 ? 'active' : '' %> fw-semibold text-dark" 
+                id="tab-<%= ent.id %>" 
+                data-bs-toggle="tab" 
+                data-bs-target="#cat-<%= ent.id %>" 
+                type="button" 
+                role="tab">
+                <i class="bi bi-folder2-open me-1"></i> <%= cat(ent.route) %>
+              </button>
+            </li>
+          <% }) %>
+
+          <!-- Inserat zur Prüfung -->
+          <li class="nav-item ms-auto" role="presentation">
+            <a href="/buyer/submit-online" class="nav-link fw-semibold text-primary d-flex align-items-center">
+              <i class="bi bi-clipboard-check me-1"></i> <%= t('buyer.history.submit_review') %>
+            </a>
+          </li>
+        </ul>
+
+
+        <!-- Tabs Content -->
+        <div class="tab-content" id="categoryTabsContent">
+        <%
+          // Kategorie-Übersetzung
+          function cat(route) {
+            return t('global.category.' + route);
+          }
+        %>
+
+        <% activeEntities.forEach((ent, idx) => { 
+            const categoryItems = items.filter(i => i.category_id === ent.id);
+            const remainingForCat = (remainingByCategory && remainingByCategory[ent.id]) || 0;
+        %>
+
+          <div class="tab-pane fade <%= idx === 0 ? 'show active' : '' %>" id="cat-<%= ent.id %>" role="tabpanel">
+
+            <!-- Info-Card -->
+            <div class="card shadow-sm mb-4 border-0">
+              <div class="card-body d-flex flex-wrap align-items-center gap-3">
+
+                <div class="limit-note">
+                  <i class="bi bi-info-circle me-1 text-primary"></i>
+                  <%= t('buyer.history.available') %>
+                  <strong id="remaining-<%= ent.id %>"><%= remainingForCat %></strong>
+                  <%= t('buyer.history.submission') %>
+                  <strong><%= cat(ent.route) %></strong>.
+                </div>
+
+                <div class="ms-auto d-flex align-items-center gap-4">
+
+                <div class="form-check check-inline">
+                  <input class="form-check-input" type="checkbox" id="checkAll-<%= ent.id %>">
+                  <label class="form-check-label" for="checkAll-<%= ent.id %>">
+                    <%= t('buyer.history.select.all') %>
+                  </label>
+                </div>
+
+
+                  <span class="text-muted small">
+                    <%= t('buyer.history.selected') %>
+                    <strong id="selCount-<%= ent.id %>">0</strong>
+                  </span>
+
+                  <button form="submitForm-<%= ent.id %>" type="submit" class="btn btn-primary btn-sm px-3" id="submitBtn-<%= ent.id %>" disabled>
+                    <%= t('buyer.history.submit') %>
+                  </button>
+
+                </div>
+
+                <div class="w-100 mt-3">
+                  <div class="progress" style="height:6px;">
+                    <div class="progress-bar bg-success" id="progressBar-<%= ent.id %>" style="width:0%"></div>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- Inserate -->
+            <% if (categoryItems && categoryItems.length) { %>
+              <form id="submitForm-<%= ent.id %>" action="/buyer/submit-online" method="POST">
+                <div class="row gy-4 gx-4">
+
+                  <% categoryItems.forEach(item => { %>
+                  <div class="col-12 col-md-6 col-lg-4">
+
+                    <div class="card inserat-card shadow-sm border-0 rounded-3 h-100">
+                      <div class="card-body p-3">
+
+                        <div class="d-flex align-items-start justify-content-between mb-2">
+                          <input
+                            class="form-check-input item-check-<%= ent.id %> mt-1"
+                            type="checkbox"
+                            name="items"
+                            value="<%= item.entityRoute %>:<%= item.id %>:<%= ent.id %>"
+                            id="chk-<%= ent.id %>-<%= item.id %>">
+
+                          <button 
+                            type="button"
+                            class="btn btn-link text-danger small p-0 m-0 text-decoration-none"
+                            onclick="deleteListing(<%= item.id %>)">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </div>
+
+                        <% if (item.imageUrl) { %>
+                          <div class="ratio ratio-16x9 mb-3">
+                            <img src="<%= item.imageUrl %>" alt="<%= item.title %>" class="img-fluid rounded shadow-sm" style="object-fit: cover; width: 100%; height: 100%;">
+                          </div>
+                        <% } else { %>
+                          <div class="ratio ratio-16x9 mb-3 bg-light d-flex align-items-center justify-content-center text-muted rounded">
+                            <i class="bi bi-image fs-3"></i>
+                          </div>
+                        <% } %>
+
+                        <label class="d-block fw-semibold mb-1" for="chk-<%= ent.id %>-<%= item.id %>">
+                          <%= item.title %>
+                        </label>
+
+                        <div class="d-flex align-items-center gap-2 mb-2">
+                          <span class="entity-badge <%= item.entityRoute %> px-2 py-1 rounded bg-light text-secondary small">
+                            <%= cat(item.entityRoute) %>
+                          </span>
+                          <small class="text-muted">#<%= item.id %></small>
+                        </div>
+
+                        <div class="d-flex flex-wrap gap-3 mt-2">
+                          <a class="tiny-link text-decoration-none text-primary" 
+                            href="/<%= item.entityRoute %>/<%= item.id %>/<%= item.title %>" target="_blank" rel="noopener">
+                            <i class="bi bi-eye me-1"></i> <%= t('buyer.history.preview') %>
+                          </a>
+
+                          <a class="tiny-link text-decoration-none text-secondary" 
+                            href="/buyer/edit-listing/<%= item.id %>">
+                            <i class="bi bi-pencil me-1"></i> <%= t('buyer.history.edit') %>
+                          </a>
+                        </div>
+
+                      </div>
+                    </div>
+
+                  </div>
+                  <% }) %>
+
+                </div>
+              </form>
+
+            <% } else { %>
+              <div class="alert alert-secondary mt-3">
+                <%= t('buyer.history.noitems') %> <strong><%= cat(ent.route) %></strong>.
+              </div>
+            <% } %>
+
+          </div>
+
+        <% }) %>
+        </div>
+
+      <% } else { %>
+        <div class="alert alert-warning mt-4">  
+          <%= t('buyer.history.no_packages', 'Sie haben derzeit keine aktiven Pakete für Ihre Kategorien.') %>
+        </div>
+      <% } %>
+    </main>
+  </div>
+
+<script>
+  <% activeEntities.forEach(ent => { %>
+  (function(){
+    let catId = <%= ent.id %>;
+    const remaining = Number(<%= (remainingByCategory && remainingByCategory[ent.id]) || 0 %>);
+    const checks = Array.from(document.querySelectorAll('.item-check-' + catId));
+    const selCountEl = document.getElementById('selCount-' + catId);
+    const submitBtn = document.getElementById('submitBtn-' + catId);
+    const progressBar = document.getElementById('progressBar-' + catId);
+    const checkAll = document.getElementById('checkAll-' + catId);
+
+    function updateUI(){
+      const selected = checks.filter(c=>c.checked).length;
+      selCountEl.textContent = selected;
+      submitBtn.disabled = selected === 0 || selected > remaining;
+      const pct = Math.min(100, Math.round((selected/Math.max(remaining,1))*100));
+      progressBar.style.width = pct + '%';
+      const lock = selected >= remaining;
+      checks.forEach(c=>{
+        if (!c.checked) c.disabled = lock;
+      });
+      if (checkAll){
+        checkAll.checked = selected > 0 && selected === checks.length;
+        checkAll.indeterminate = selected > 0 && selected < checks.length;
+      }
+    }
+
+    checks.forEach(c=>c.addEventListener('change', updateUI));
+    if (checkAll){
+      checkAll.addEventListener('change', ()=>{
+        const want = checkAll.checked;
+        let picked = 0;
+        checks.forEach(c=>{
+          if (want && picked < remaining){
+            if (!c.checked){ c.checked = true; picked++; }
+          } else if (!want){
+            c.checked = false;
+          }
+        });
+        updateUI();
+      });
+    }
+    updateUI();
+  })();
+  <% }) %>
+</script>
+<script>
+function deleteListing(id) {
+  if (confirm("<%= t('buyer.history.confirm.delete','Willst du dieses Inserat wirklich löschen?') %>")) {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = `/buyer/delete-listing/${id}`;
+    document.body.appendChild(form);
+    form.submit();
+  }
+}
+</script>
+
+<%- include('../../partials/footer', { footerColumns }) %>

@@ -1,0 +1,383 @@
+<%
+  const entityRoute = (currentEntity && currentEntity.route) ? String(currentEntity.route) : '';
+  const entityLabel = t('category.' + entityRoute, {
+    fallback: entityRoute ? (entityRoute[0].toUpperCase() + entityRoute.slice(1)) : ''
+  });
+  const tf = (key, vars = {}, fallback = '') => {
+    let s = t(key, { fallback });
+    for (const k in vars) s = s.replace(new RegExp('\\{' + k + '\\}', 'g'), String(vars[k]));
+    return s;
+  };
+%>
+
+  <script>window.currentEntityRoute = "<%= currentEntity.route %>";</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+  const titleEl = document.getElementById("dynamicTitle");
+  if (!titleEl) return;
+
+  const query = window.location.search.substring(1);
+
+  fetch(`/api/<%= currentEntity.route %>/translate-filters?${query}`)
+    .then(res => res.json())
+    .then(data => {
+
+      // * nur echte Labels verwenden *
+      let parts = [];
+
+      Object.entries(data).forEach(([key, label]) => {
+
+        if (["hp", "page", "limit", "sort", "view"].includes(key)) return;
+        if (!label || !String(label).trim()) return;
+        if (label == "0") return;
+
+        parts.push(label);
+      });
+
+      // Wenn keine Filter → originaler pageTitle
+      if (parts.length === 0) return;
+
+      // Entity-Name anhängen (Autos, Yachten, Lifestyle…)
+      const entityName = "<%= currentEntity.name %>";
+
+      // Titel zusammenbauen
+      const newTitle = parts.join("  ");
+
+      titleEl.textContent = newTitle;
+    });
+});
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const track = document.querySelector(".slider-track");
+  const btnLeft = document.querySelector(".scroll-btn.left");
+  const btnRight = document.querySelector(".scroll-btn.right");
+
+  if (!track || !btnLeft || !btnRight) return;
+
+  function getCardWidth() {
+    const card = track.querySelector(".product-item");
+    if (!card) return 350;
+
+    const style = window.getComputedStyle(card);
+    const marginRight = parseInt(style.marginRight) || 20;
+
+    return card.offsetWidth + marginRight;
+  }
+
+  btnRight.addEventListener("click", () => {
+    track.scrollBy({ left: getCardWidth(), behavior: "smooth" });
+  });
+
+  btnLeft.addEventListener("click", () => {
+    track.scrollBy({ left: -getCardWidth(), behavior: "smooth" });
+  });
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const lifeType = document.getElementById('fLifeType');
+  const subSelect = document.getElementById('fLifeSub');
+
+  if (!lifeType || !subSelect) return;
+
+  lifeType.addEventListener('change', async function () {
+    const brandId = this.value;
+
+    subSelect.innerHTML = '<option value="">Beliebig</option>';
+    subSelect.disabled = true;
+
+    if (!brandId) return;
+
+    const res = await fetch(`/api/lifestyle-subcategories?brand_id=${brandId}`);
+    const data = await res.json();
+
+    data.forEach(sc => {
+      const opt = document.createElement('option');
+      opt.value = sc.id;
+      opt.textContent = sc.name;
+      subSelect.appendChild(opt);
+    });
+
+    subSelect.disabled = false;
+  });
+});
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const form = document.querySelector(".filter-form"); // ✅ richtiges Formular!
+  const resultCountEl = document.querySelector("#resultCount");
+  const submitBtn = document.querySelector("#filterSubmitBtn");
+
+  if (!form || !submitBtn || !resultCountEl) return;
+
+  let abortCtrl = null;
+  let timer = null;
+
+  async function updateCountOnly() {
+    const entityRoute = window.location.pathname.split("/")[1];
+    const params = new URLSearchParams(new FormData(form));
+    const url = `/api/${entityRoute}/count?${params.toString()}`;
+
+    console.log("🚀 [updateCountOnly] Starte Fetch:", url);
+
+    if (abortCtrl) abortCtrl.abort();
+    abortCtrl = new AbortController();
+
+    try {
+      const res = await fetch(url, { signal: abortCtrl.signal });
+      const data = await res.json();
+      console.log("✅ [updateCountOnly] Antwort:", data);
+
+      if (data.count !== undefined) {
+        resultCountEl.textContent = data.count;
+      }
+    } catch (err) {
+      if (err.name === "AbortError") {
+        console.log("⚠️ [updateCountOnly] Abgebrochen");
+      } else {
+        console.error("❌ [updateCountOnly] Fehler:", err);
+      }
+    }
+  }
+
+  async function reloadResults() {
+    const entityRoute = window.location.pathname.split("/")[1];
+    const params = new URLSearchParams(new FormData(form));
+
+    if (abortCtrl) abortCtrl.abort();
+    abortCtrl = new AbortController();
+
+    try {
+      const htmlRes = await fetch(`${window.location.pathname}?${params.toString()}`, {
+        signal: abortCtrl.signal
+      });
+      const html = await htmlRes.text();
+
+      const temp = document.createElement("div");
+      temp.innerHTML = html;
+
+      const newList = temp.querySelector(".listing-container");
+      const oldList = document.querySelector(".listing-container");
+
+      if (newList && oldList) {
+        const buttonHTML = submitBtn?.outerHTML || "";
+        oldList.innerHTML = newList.innerHTML;
+        if (!document.querySelector("#filterSubmitBtn")) {
+          oldList.insertAdjacentHTML("beforebegin", buttonHTML);
+        }
+        console.log("✅ Inserate aktualisiert!");
+      }
+    } catch (err) {
+      if (err.name !== "AbortError") console.error("❌ Fehler beim Reload:", err);
+    }
+  }
+
+  // 🔹 Live-Update bei jeder Filteränderung
+  form.querySelectorAll("input, select").forEach(el => {
+    el.addEventListener("change", () => {
+      clearTimeout(timer);
+      updateCountOnly();
+      timer = setTimeout(reloadResults, 400);
+    });
+
+    el.addEventListener("input", () => {
+      clearTimeout(timer);
+      updateCountOnly();
+      timer = setTimeout(reloadResults, 600);
+    });
+  });
+
+  // 🔹 Direkt beim ersten Laden Count holen
+  updateCountOnly();
+});
+
+</script>
+
+<script>
+  window.filtersFuels = <%- JSON.stringify(filters.fuels || []) %>;
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const container = document.querySelector(".active-filters");
+  if (!container) return;
+
+  const query = window.location.search.substring(1);
+
+  fetch(`/api/<%= currentEntity.route %>/translate-filters?${query}`)
+    .then(res => res.json())
+    .then(data => {
+
+      Object.entries(data).forEach(([key, label]) => {
+
+        // 🔥 Keine technischen Felder anzeigen
+        if (["hp", "page", "limit", "sort", "view"].includes(key)) return;
+
+        // 🔥 Leere Labels ignorieren
+        if (!label || label === "" || label === null || label === undefined) return;
+
+        // 🔥 Zahlen ignorieren die NULL-Filter repräsentieren
+        if (label === "0" || label === 0) return;
+
+        // 🔥 Wenn label nur whitespace ist → ignorieren
+        if (String(label).trim().length === 0) return;
+
+        // URL ohne diesen Filter erstellen
+        const url = new URL(window.location.href);
+        url.searchParams.delete(key);
+
+        const tag = document.createElement("a");
+        tag.href = url.toString();
+        tag.className = "btn btn-search";
+        tag.innerHTML = `${label} <span class="x">×</span>`;
+        container.appendChild(tag);
+      });
+
+    });
+});
+</script>
+
+<script>
+  window.paginationLimit = <%= limit %>;
+  window.totalPages = <%= totalPages %>;
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const brandSelect = document.getElementById("fBrand");
+  const modelSelect = document.getElementById("fModel");
+
+  if (!brandSelect || !modelSelect) return;
+
+  async function loadModels(brandId, preselectModel = null) {
+    modelSelect.innerHTML = `<option value="">${"<%= t('common.any') %>"}</option>`;
+    modelSelect.disabled = true;
+
+    if (!brandId) return;
+
+    const entity = "<%= currentEntity.route %>";
+
+    try {
+      const response = await fetch(`/api/${entity}/models?brand=${brandId}`);
+      const models = await response.json();
+
+      models.forEach(m => {
+        const opt = document.createElement("option");
+        opt.value = m.id;
+        opt.textContent = m.name;
+
+        if (preselectModel && String(preselectModel) === String(m.id)) {
+          opt.selected = true;
+        }
+
+        modelSelect.appendChild(opt);
+      });
+
+      modelSelect.disabled = models.length === 0;
+
+    } catch (err) {
+      console.error("Model loader:", err);
+    }
+  }
+
+  // 🔥 beim Ändern
+  brandSelect.addEventListener("change", () => {
+    loadModels(brandSelect.value);
+  });
+
+  // 🔥 beim Laden (Watches-Fix!)
+  if (brandSelect.value) {
+    loadModels(brandSelect.value, "<%= selectedFilters.model?.[0] || '' %>");
+  }
+});
+</script>
+
+
+<script>
+  $(function(){
+    const $grid = $('.productGrid');
+    const fallbackCount = 12;
+
+    if ($grid.children().length === 0) {
+      $('<div>')
+        .addClass('no-results-message text-center py-4')
+        .text('Leider wurden keine Ergebnisse für die Suche gefunden!')
+        .insertBefore('.productContainer');
+
+      const $all = $('.product-scroller .product-item').toArray();
+
+      for (let i = $all.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [$all[i], $all[j]] = [$all[j], $all[i]];
+      }
+
+      $all.slice(0, fallbackCount).forEach(elem => {
+        const $clone = $(elem).clone();
+
+        const route = '<%= currentEntity.route %>';
+        const title = encodeURIComponent($clone.find('p').first().text().trim());
+        const id    = $clone.data('id') || '';
+
+        const href  = `/${route}/${id}/${title}`;
+        const $card = $('<div>')
+          .addClass('cardPeter mb-4 me-4')
+          .append($clone.html());
+
+        $('<a>')
+          .attr('href', href)
+          .append($card)
+          .appendTo($grid);
+      });
+    }
+  });
+</script>
+
+<script>
+(function () {
+  const btn = document.getElementById('openFilterPage');
+  if (!btn) return;
+
+  btn.addEventListener('click', () => {
+    const entity = document.querySelector('.filter-bar').dataset.entity;
+
+    // komplette aktuelle Query übernehmen
+    const qs = window.location.search;
+
+    window.location.href = `/${entity}/filters${qs}`;
+  });
+})();
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const propertySelect = document.getElementById("fPropertyType");
+  const investmentSelect = document.getElementById("fInvestmentType");
+
+  if (!propertySelect || !investmentSelect) return;
+
+  function updateFilters() {
+    const propertyValue = propertySelect.value.trim();
+    const investmentValue = investmentSelect.value.trim();
+
+    investmentSelect.disabled = propertyValue !== "";
+    propertySelect.disabled = investmentValue !== "";
+  }
+
+  propertySelect.addEventListener("change", updateFilters);
+  investmentSelect.addEventListener("change", updateFilters);
+
+  updateFilters();
+});
+</script>
+
+
+
+<script src="/js/category.js"></script>

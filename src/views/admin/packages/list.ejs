@@ -1,0 +1,57 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role  }) %>
+  </aside>
+  <main class="flex-fill p-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+      <h1 class="mb-0">Pakete verwalten</h1>
+      <a href="/admin/packages/new" class="btn btn-success">
+        <i class="bi bi-plus-lg me-1"></i> Neues Paket
+      </a>
+    </div>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Sort.</th>
+          <th>ID</th>
+          <th>Name</th>
+          <th>Beschreibung</th>
+          <th>Dauer</th>
+          <th>Empfohlen?</th>
+          <th>Preis (€)</th>
+          <th>Inserate</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <% packages.forEach(p => { %>
+          <tr>
+            <td><%= p.sort_order %></td>
+            <td><%= p.id %></td>
+            <td><%= p.name %></td>
+            <td><%= p.description || '–' %></td>
+            <td>
+              <%= p.duration_amt %>
+              <% if (p.duration_unit === 'days') { %>Tage<% }
+                 else if (p.duration_unit === 'months') { %>Monate<% }
+                 else { %>Jahre<% } %>
+            </td>
+            <td><%= p.featured ? '✔️' : '—' %></td>
+            <td><%= (+p.price).toFixed(2) %></td>
+            <td><%= p.inseratenanzahl %></td>
+            <td class="text-end">
+              <a href="/admin/packages/<%= p.id %>/edit" class="btn btn-sm btn-primary">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form action="/admin/packages/<%= p.id %>/delete" method="post" class="d-inline">
+                <button class="btn btn-sm btn-danger" onclick="return confirm('Löschen?')">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </main>
+</div>

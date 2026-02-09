@@ -1,0 +1,103 @@
+<%- include('../../partials/header-probe') %>
+<style>
+.info-item {
+  margin-right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px; 
+}
+
+.hernando-sell-btn{
+  display:flex;
+  justify-content:center;
+}
+
+.hernando-sell-btn .btn:focus,
+.hernando-sell-btn .btn:focus-visible{
+  outline:0 !important; 
+  box-shadow:none !important;
+}
+
+
+</style>
+
+<%- include('../../components/home/hero') %>
+
+<%- include('../../components/home/categories') %>
+
+<%- include('../../components/home/brands') %>
+
+<%- include('../../components/home/featured-categories') %>
+
+<% entieties.forEach(ent => { %>
+  <% if (ent.route !== 'lifestyles') { %>
+    <%- include('../../components/home/top-tablet', { ent }) %>
+  <% } %>
+<% }) %>
+
+
+<%- include('../../components/home/top-mobile') %>
+
+<%- include('../../components/home/top-desktop') %>
+
+<%- include('../../components/home/unique-products') %>
+
+<!-- <%- include('../../components/home/popular-models') %>-->
+
+<%- include('../../components/home/magazine') %>
+
+<section class="herando-section">
+  <div class="container-fluid px-4 py-5" style="max-width:1500px;">
+    <div class="row align-items-stretch rounded shadow overflow-hidden" style="background-color:#0d1b2a; border-radius:12px;">
+
+      <!-- Linke Seite (Textblock) -->
+      <div class="col-lg-6 text-white d-flex flex-column justify-content-center hernando-sell-left"
+           style="padding:50px 50px 50px 30px; text-align:left;">
+
+        <h2 class="fw-bold mb-4">
+          <%= t('index.top_offers_title','Ihre Top-Angebote bei Herando') %>
+        </h2>
+
+        <ul class="list-unstyled fs-5 mb-4">
+          <li class="mb-2"><i class="bi bi-check2 me-2 text-warning"></i><%= t('index.top_offer.bullet1','Premium-Plattform') %></li>
+          <li class="mb-2"><i class="bi bi-check2 me-2 text-warning"></i><%= t('index.top_offer.bullet2','Maximaler Verkaufserfolg') %></li>
+          <li class="mb-2"><i class="bi bi-check2 me-2 text-warning"></i><%= t('index.top_offer.bullet3','Globale Reichweite') %></li>
+          <li class="mb-2"><i class="bi bi-check2 me-2 text-warning"></i><%= t('index.top_offer.bullet4','Exklusive Präsentation') %></li>
+          <li class="mb-2"><i class="bi bi-check2 me-2 text-warning"></i><%= t('index.top_offer.bullet5','Exzellente Angebote') %></li>
+          <li class="mb-2"><i class="bi bi-check2 me-2 text-warning"></i><%= t('index.top_offer.bullet6','Maßgeschneiderte Lösung') %></li>
+          <li class="mb-3"><i class="bi bi-check2 me-2 text-warning"></i><%= t('index.top_offer.bullet7','Sichere Abwicklung') %></li>
+        </ul>
+
+        <!-- Button zentriert im blauen Bereich -->
+        <div class="hernando-sell-btn text-center">
+          <a href="/angebote" class="btn btn-outline-light fw-semibold">
+            <%= t('index.top_offer.sell_now','Jetzt verkaufen') %>
+          </a>
+        </div>
+
+      </div>
+
+      <!-- Rechte Seite (Bild) -->
+      <div class="col-lg-6 p-0" style="height:550px;">
+        <img src="/assets/immo.jpg"
+             alt="<%= t('index.top_offer.image_alt','Top-Angebote bei Herando') %>"
+             class="img-fluid w-100 h-100"
+             style="object-fit:cover;"
+             loading="eager"
+             decoding="async"
+             fetchpriority="high">
+      </div>
+
+    </div>
+  </div>
+</section>
+
+
+<%- include('../../components/home/description') %>
+
+<%- include('../../components/home/scripts') %>
+
+<%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

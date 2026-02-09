@@ -1,0 +1,736 @@
+/* === Grundlayout der Produktsektion und Überschrift === */
+.my-section-title {
+  font-size: 2rem;
+  font-weight: 600;
+  text-align: center;  /* Überschrift wird zentriert – entferne den Inline-Style im HTML */
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+/* === Produktkarte (altes Design) – angepasst und bereinigt === */
+.card-peter {
+  width: 400px;
+  height: auto;             /* Harmonischere Höhe im Vergleich zu 700px */
+  overflow: hidden;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bildbereich: 400x350 */
+.image-bild {
+  position: relative;        /* Damit das Badge innerhalb dieses Containers absolut positioniert wird */
+  width: 400px;
+  height: 250px;
+}
+
+/* Das Bild füllt den Container vollständig aus */
+.bild img {
+  width: 360px;
+  height: 250px;
+  object-fit: cover;         /* Füllt den Bereich aus, ohne das Seitenverhältnis zu verzerren */
+  border-radius: 10px;
+  display: block;
+  object-fit: bottom;
+}
+
+/* Badge (z. B. "BELIEBT") */
+.height {
+  height: 40px;
+  width: auto;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: #1A253C;
+  color: white !important;
+  border-radius: 10px;
+  font-size: 12pt;
+  padding: 8px 12px; 
+}
+
+/* Informationen (Infobereich unter dem Bild) */
+.information {
+  padding: 10px;
+  width: 100%;
+  flex-grow: 1;
+}
+
+/* Innerhalb des Infobereichs: Textformatierung */
+.information .my-prod-info h5 {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.information .my-prod-info p {
+  margin: 2px 0;
+}
+
+.my-price {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: black;
+}
+
+.my-shipping {
+  font-size: 0.9rem;
+  color: gray;
+}
+
+.my-seller-type {
+  font-size: 0.9rem;
+  color: green;
+}
+
+/* === Eigener Carousel-Stil (ohne Bootstrap) === */
+/* (Alle Selektoren arbeiten ausschließlich mit Klassen – ideal für Mehrfachinstanzen) */
+.my-carousel {
+  position: relative;
+  overflow: hidden;
+  margin: 0 auto;
+}
+
+.my-carousel-slides {
+  display: flex;
+  transition: transform 0.5s ease;
+  flex-wrap: nowrap;
+}
+
+/* Jede Slide: enthält eine Gruppe von Produktkarten */
+.my-carousel-slide {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  min-width: 100%;
+  transition: transform 0.3s ease;
+}
+
+/* Desktop: aktiver Slide wird vergrößert */
+@media (min-width: 1024px) {
+  .my-carousel-slide.active {
+    transform: scale(1.1);
+    z-index: 2;
+  }
+}
+
+/* === Navigation (Dots und Pfeile) === */
+/* Dots: (für Desktop) */
+/* NAV-DOTS CONTAINER */
+.my-carousel-nav-dots {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+/* einzelne Dot-Buttons: sichtbare 30px Breite, große unsichtbare Hit-Zone */
+.my-carousel-nav-dots button {
+  position: relative;
+  width: 30px;
+  background-color: lightgrey;
+  border: none;
+  margin: 5px;
+  transition: background-color 0.3s ease;
+  cursor: pointer;
+}
+
+/* unsichtbare Hit‑Zone: jeweils +50px oben und unten */
+.my-carousel-nav-dots button::before {
+  content: '';
+  position: absolute;
+  top:    -50px;                                /* 50px oberhalb */
+  left:     0;
+  right:    0;
+  height: calc(100% + 100px);                   /* gesamtes Element + 100px extra */
+}
+
+/* Active Dot */
+.my-carousel-nav-dots button.active {
+  background-color: #1A253C;
+  width: 60px;
+  transition: background-color 0.5s ease;
+}
+
+
+
+/* PFEILE: Standard-Style beibehalten */
+.my-carousel-prev,
+.my-carousel-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.5);
+  border: none;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 1.5rem;
+}
+
+/* unsichtbare Hit‑Zone für Pfeile: +50px oben & unten, +12px seitlich */
+.my-carousel-prev::before,
+.my-carousel-next::before {
+  content: '';
+  position: absolute;
+  top:    -50px;                                /* 50px oberhalb */
+  left:   -12px;                                /* 12px links extra */
+  height: calc(100% + 100px);                   /* gesamtes Element + 100px extra */
+  width:  calc(100% + 24px);                    /* gesamtes Element + 24px extra */
+}
+
+/* Positionierung der Pfeile */
+.my-carousel-prev { left: 10px; }
+.my-carousel-next { right: 10px; }
+
+
+
+
+
+/* Sichtbarkeit der Navigation */
+/* Desktop (ab 1024px): Dots sichtbar, Pfeile ausblenden */
+@media (min-width: 1024px) {
+  .my-carousel-nav-dots {
+    display: flex;
+  }
+  .my-carousel-prev,
+  .my-carousel-next {
+    display: none;
+  }
+  /* Tablet-Carousel soll Pfeile auch auf 1024+ zeigen */
+  .tablet-carousel .my-carousel-prev,
+  .tablet-carousel .my-carousel-next {
+    display: block;
+  }
+}
+
+/* Tablet & Mobile: Pfeile sichtbar, Dots ausblenden */
+@media (max-width: 1023px) {
+  .my-carousel-nav-dots {
+    display: none;
+  }
+  .my-carousel-prev,
+  .my-carousel-next {
+    display: block;
+  }
+}
+
+@media (max-width: 1000px) {
+  .herando-footer-links{
+    display: none !important;
+  }
+}
+
+/* ======================================================= */
+/* Responsive (≤ 1023px): Zeige alle Inserate in 2er-Reihen */
+/* ======================================================= */
+@media (max-width: 1023px) {
+  /* 1. Navigation (Dots & Pfeile) komplett ausblenden */
+  .my-carousel-nav-dots,
+  .my-carousel-prev,
+  .my-carousel-next {
+    display: none !important;
+  }
+
+  /* 2. Slides-Container in Grid umwandeln: 2 Karten pro Reihe */
+  .my-carousel-slides {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+    transition: none;
+    transform: none !important;
+  }
+
+  /* 3. Die Slide-Wrapper („.my-carousel-slide“) sollen nicht mehr als Block sichtbar sein,
+         sondern nur noch ihre Kinder (.card-peter). Dazu verwenden wir display: contents */
+  .my-carousel-slide {
+    display: contents;
+  }
+
+  /* 4. .card-peter passt sich der Grid-Spalte an: volle Breite */
+  .card-peter {
+    width: 100% !important;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  /* 5. Bildbereich an 100% anpassen */
+  .image-bild {
+    width: 100% !important;
+    height: auto;
+  }
+
+  .picCategory{
+    width: auto !important;
+  }
+
+  .picCategory img{
+    width: auto !important;
+  }
+
+  .bild img {
+    width: 99.5% !important;
+    height: auto;
+    object-fit: fill;
+    object-position: top;
+  }
+
+  a {
+    font-size: 18px; 
+  }
+
+  /* 6. Badge-Proportionen leicht anpassen (optional) */
+  .height {
+    top: 0.5rem;
+    left: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.875rem;
+  }
+
+  .information .my-prod-info h5{
+    font-size: 18px; 
+  }
+}
+
+/* --- Carousel: Layout & Pfeile nur sichtbar, wenn aktiv --- */
+#myUniqueProducts .my-carousel{
+  position: relative;
+  overflow: hidden;
+}
+#myUniqueProducts .my-carousel-slides{
+  display: flex;
+  transition: transform .45s ease;
+  will-change: transform;
+}
+#myUniqueProducts .my-carousel-slide{
+  min-width: 100%;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+}
+@media (max-width: 1199px){ #myUniqueProducts .my-carousel-slide{ grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 767px) { #myUniqueProducts .my-carousel-slide{ grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { #myUniqueProducts .my-carousel-slide{ grid-template-columns: 1fr; } }
+
+#myUniqueProducts .my-carousel-prev,
+#myUniqueProducts .my-carousel-next{
+  position:absolute; top:50%; transform: translateY(-50%);
+  width:60px; height:60px; border:0; border-radius:10px;
+  display:flex; align-items:center; justify-content:center;
+  background: rgba(255, 255, 255, 0.959); color:#000000; font-size:22px; line-height:1;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  opacity: 0; pointer-events: none; transition: opacity .2s ease, transform .2s ease;
+}
+#myUniqueProducts .my-carousel-prev{ left: 40px; }
+#myUniqueProducts .my-carousel-next{ right: 40px; }
+#myUniqueProducts .my-carousel-prev:hover,
+#myUniqueProducts .my-carousel-next:hover{ transform: translateY(-50%) scale(1.05); }
+
+/* Sichtbar NUR wenn Section aktiv (Viewport/hover/focus) */
+#myUniqueProducts.is-active .my-carousel-prev,
+#myUniqueProducts.is-active .my-carousel-next{
+  opacity: 1; pointer-events: auto;
+}
+
+/* Auf Desktop zusätzlich bei Hover der Section */
+@media (hover:hover){
+  #myUniqueProducts:hover .my-carousel-prev,
+  #myUniqueProducts:hover .my-carousel-next{
+    opacity: 1; pointer-events: auto;
+  }
+}
+
+
+/* --- Gemeinsame Carousel-Basis für #myUniqueProducts + .my-prod-section --- */
+#myUniqueProducts .my-carousel,
+.my-prod-section .my-carousel{
+  position: relative;
+  overflow: hidden;
+}
+
+#myUniqueProducts .my-carousel-slides,
+.my-prod-section .my-carousel-slides{
+  display: flex;
+  transition: transform .45s ease;
+  will-change: transform;
+}
+
+#myUniqueProducts .my-carousel-slide,
+.my-prod-section .my-carousel-slide{
+  min-width: 100%;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(4, minmax(0,1fr));
+}
+@media (max-width:1199px){
+  #myUniqueProducts .my-carousel-slide,
+  .my-prod-section .my-carousel-slide{ grid-template-columns: repeat(3,1fr); }
+}
+@media (max-width:767px){
+  #myUniqueProducts .my-carousel-slide,
+  .my-prod-section .my-carousel-slide{ grid-template-columns: repeat(2,1fr); }
+}
+@media (max-width:480px){
+  #myUniqueProducts .my-carousel-slide,
+  .my-prod-section .my-carousel-slide{ grid-template-columns: 1fr; }
+}
+
+/* --- Pfeile: rechteckig, 20px Radius, weiß; Pfeil schwarz → dunkelblau beim Hover --- */
+#myUniqueProducts .my-carousel-prev,
+#myUniqueProducts .my-carousel-next,
+.my-prod-section .my-carousel-prev,
+.my-prod-section .my-carousel-next{
+  position:absolute; top:125px; transform: translateY(-50%);
+  width:60px; height:60px; border:0; border-radius:20px;
+  display:flex; align-items:center; justify-content:center;
+  background:#fff; color:#000; font-size:22px; line-height:1;
+  box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  z-index: 3;
+  opacity:0; pointer-events:none;
+  transition: opacity .2s ease, transform .2s ease, color .15s ease, box-shadow .15s ease;
+}
+#myUniqueProducts .my-carousel-prev,
+.my-prod-section .my-carousel-prev{ left:10px; }
+#myUniqueProducts .my-carousel-next,
+.my-prod-section .my-carousel-next{ right:10px; }
+
+#myUniqueProducts .my-carousel-prev:hover,
+#myUniqueProducts .my-carousel-next:hover,
+.my-prod-section .my-carousel-prev:hover,
+.my-prod-section .my-carousel-next:hover{
+  transform: translateY(-50%) scale(1.05);
+  color:#0d3b8e; /* dunkelblau beim Hover */
+  box-shadow: 0 8px 22px rgba(13,110,253,.18);
+}
+
+/* Sichtbar NUR wenn Section aktiv (Viewport/hover/focus) */
+#myUniqueProducts.is-active .my-carousel-prev,
+#myUniqueProducts.is-active .my-carousel-next,
+.my-prod-section.is-active .my-carousel-prev,
+.my-prod-section.is-active .my-carousel-next{
+  opacity:1; pointer-events:auto;
+}
+
+/* Auf Desktop zusätzlich bei Hover der Section */
+@media (hover:hover){
+  #myUniqueProducts:hover .my-carousel-prev,
+  #myUniqueProducts:hover .my-carousel-next,
+  .my-prod-section:hover .my-carousel-prev,
+  .my-prod-section:hover .my-carousel-next{
+    opacity:1; pointer-events:auto;
+  }
+}
+
+/* Focus-Accessibility */
+#myUniqueProducts .my-carousel-prev:focus-visible,
+#myUniqueProducts .my-carousel-next:focus-visible,
+.my-prod-section .my-carousel-prev:focus-visible,
+.my-prod-section .my-carousel-next:focus-visible{
+  outline:0;
+  color:#0d3b8e;
+  box-shadow:0 0 0 3px rgba(13,110,253,.25);
+}
+
+/* Mobile: kompakter */
+@media (max-width:575px){
+  #myUniqueProducts .my-carousel-prev,
+  #myUniqueProducts .my-carousel-next,
+  .my-prod-section .my-carousel-prev,
+  .my-prod-section .my-carousel-next{
+    width:52px; height:44px; font-size:20px;
+    left:16px; right:16px;
+  }
+}
+
+/* Desktop sichtbar */
+.topOffersWrapper-desktop { display: block; }
+.topOffersWrapper-mobile { display: none; }
+
+/* Mobile sichtbar */
+@media (max-width: 767px) {
+  .topOffersWrapper-desktop { display: none; }
+  .topOffersWrapper-mobile { display: block; }
+}
+
+/* Mobile Carousel */
+.mobile-carousel {
+  position: relative;
+  overflow: hidden;
+}
+
+.mobile-carousel-slides {
+  display: flex;
+  transition: transform 0.4s ease;
+  will-change: transform;
+}
+
+.mobile-carousel-slide {
+  min-width: 100%; /* 1 Inserat pro Slide */
+}
+
+/* Pfeile IMMER sichtbar */
+.mobile-carousel-prev,
+.mobile-carousel-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px; height: 44px;
+  border: none;
+  border-radius: 20%;
+  background: rgba(255,255,255,0.95);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 10;
+}
+.mobile-carousel-prev { left: 10px; }
+.mobile-carousel-next { right: 10px; }
+
+/* Abstand zwischen Kategorien */
+.my-prod-section,
+.my-prod-section-mobile {
+  margin-bottom: 30px; /* mehr Luft */
+}
+
+/* Basis Card */
+.offer-card {
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  box-shadow: 0 4px 14px rgba(0,0,0,.08);
+}
+
+/* Bildbereich */
+.offer-card .bild {
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.offer-card .bild img {
+  display: block;
+  border-radius: 10px;
+}
+
+/* === Kategorie-spezifisch === */
+
+/* Cars & Yachts → rechteckig */
+.offer-card.cars .bild img,
+.offer-card.yachts .bild img {
+  width: 100%;
+  min-height: 400px;
+  object-fit: cover;
+}
+
+/* Properties → rechteckig */
+.offer-card.properties .bild img {
+  width: 100%;
+  height: 400px;
+}
+
+/* Watches & Lifestyles → hochkant */
+.offer-card.watches .bild img,
+.offer-card.lifestyles .bild img {
+  width: auto;
+  max-width: 100%;
+  height: 400px;
+  object-fit: contain;
+}
+
+/* Desktop sichtbar (standard) */
+#myUniqueProducts { 
+  display: block; 
+}
+
+/* Tablet korrekt aktiviert */
+@media (min-width: 767px) and (max-width: 1198px) {
+  #myUniqueProducts {          /* Desktop AUS */
+    display: none !important;
+  }
+
+  #myUniqueProducts-tablet {   /* Tablet EIN */
+    display: block !important;
+  }
+}
+
+/* Mobile / kleinere Geräte */
+@media (max-width: 766px) {
+
+  #myUniqueProducts {          /* Desktop AUS */
+    display: none !important;
+  }
+
+  #myUniqueProducts-tablet {   /* Tablet AUS */
+    display: none !important;
+  }
+}
+
+
+/* Tablet + Mobile Carousel */
+#myUniqueProducts-tablet .tablet-carousel {
+  position: relative;
+  overflow: hidden;
+}
+
+#myUniqueProducts-tablet .tablet-carousel-slides {
+  display: flex;
+  transition: transform .45s ease;
+}
+
+#myUniqueProducts-tablet .tablet-carousel-slide {
+  min-width: 100%;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: repeat(2, minmax(0,1fr)); /* Tablet: 2 Cards */
+}
+
+/* Mobile → 1 Card */
+@media (max-width: 499px) {
+  #myUniqueProducts-tablet .tablet-carousel-slide {
+    grid-template-columns: repeat(1, minmax(0,1fr)) !important;
+  }
+}
+
+/* Cards */
+#myUniqueProducts-tablet .card-peter {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+#myUniqueProducts-tablet .image-bild {
+  height: 220px;
+  overflow: hidden;
+  border-radius: 10px;
+}
+
+#myUniqueProducts-tablet .image-bild img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Entdecken Sie Herando – Tablet: Kartenhöhe automatisch */
+#myUniqueProducts-tablet .tablet-carousel-slide {
+  align-items: start;
+}
+
+#myUniqueProducts-tablet .card-peter {
+  height: auto;
+}
+
+/* Info */
+#myUniqueProducts-tablet .information {
+  padding: 10px 6px;
+}
+
+#myUniqueProducts-tablet .my-price {
+  font-size: 1rem;
+}
+
+/* Pfeile */
+#myUniqueProducts-tablet .tablet-carousel-prev,
+#myUniqueProducts-tablet .tablet-carousel-next {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background: rgba(0,0,0,0.5);
+  border: none;
+  color: #fff;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-size: 1.5rem;
+  z-index: 20;
+}
+
+#myUniqueProducts-tablet .tablet-carousel-prev { left: 10px; }
+#myUniqueProducts-tablet .tablet-carousel-next { right: 10px; }
+
+/* Dots */
+#myUniqueProducts-tablet .tablet-carousel-nav-dots {
+  display: flex;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+#myUniqueProducts-tablet .tablet-carousel-nav-dots button {
+  width: 24px;
+  height: 6px;
+  border-radius: 10px;
+  background: #ccc;
+  border: none;
+  margin: 0 5px;
+}
+
+#myUniqueProducts-tablet .tablet-carousel-nav-dots button.active {
+  background: #1A253C;
+  width: 40px;
+}
+
+/* Alles deaktivieren */
+.topOffersWrapper-desktop,
+.topOffersWrapper-mobile,
+.topOffersWrapper-tablet {
+  display: none;
+}
+
+/* ------------------------------
+   TABLET MODE 1199px → 767px
+--------------------------------*/
+@media (max-width: 1199px) and (min-width: 900px) {
+
+  .topOffersWrapper-tablet {
+    display: block;
+  }
+
+  .tablet-carousel {
+    position: relative;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .tablet-carousel-track {
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .tablet-carousel-slides {
+    display: flex;
+    transition: transform 0.4s ease;
+  }
+
+  .tablet-carousel-slide {
+    min-width: 100%;
+    flex: 0 0 100%;
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  /* 2 Inserate nebeneinander */
+  .tablet-carousel-slide .offer-card {
+    width: calc(50% - 20px);
+    background: #fff;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+}
+
+/* ------------------------------
+   MOBILE ≤ 766px
+--------------------------------*/
+@media (max-width: 899px) {
+  .topOffersWrapper-mobile {
+    display: block;
+  }
+}
+
+/* DESKTOP ≥ 1200px */
+@media (min-width: 1200px) {
+  .topOffersWrapper-desktop {
+    display: block;
+  }
+}

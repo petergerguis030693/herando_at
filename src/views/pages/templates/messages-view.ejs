@@ -1,0 +1,157 @@
+<%- include('../../partials/header') %>
+     <link rel="stylesheet" href="/css/buyer.css">
+
+</head>
+<body>
+  <% const _cp = (typeof currentPage !== 'undefined' ? currentPage : null); %>
+
+  <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+  <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+
+  <div class="account-shell d-flex gap-3">
+    <!-- Sidebar -->
+<aside class="left-nav">
+  <div class="nav-title"><%= t('buyer.sidebar.title_overview', 'Übersicht') %></div>
+  <a class="<%= !currentPage ? 'active' : '' %>" href="/buyer">
+    <i class="bi bi-grid"></i> <%= t('buyer.sidebar.overview', 'Übersicht') %>
+  </a>
+  <a class="" href="/buyer/messages"><i class="bi bi-chat-square-text"></i> Nachrichten</a>
+  <a class="" href="/buyer/sell"><i class="bi bi-bag"></i> Kaufen </a> 
+  <a class="" href="/buyer/sold"><i class="bi bi-cash-stack"></i> Verkaufen</a>
+  <a href="/buyer/wishlist"><i class="bi bi-heart"></i> <%= t('buyer.sidebar.wishlist', 'Wunschliste') %></a>
+
+
+ <%
+  const hasFlatRate = [
+    user.flatrate_all,
+    user.flatrate_cars,
+    user.flatrate_properties,
+    user.flatrate_watches,
+    user.flatrate_yachts,
+    user.flatrate_investments
+  ].some(v => {
+    if (!v || v === '0000-00-00 00:00:00') {
+      console.log('❌ Ignored value:', v);
+      return false;
+    }
+    const d = new Date(v);
+    const valid = !isNaN(d.getTime());
+    console.log(valid ? '✅ Gültiges Datum gefunden:' : '❌ Ungültig:', v);
+    return valid;
+  });
+
+  console.log('Ergebnis → hasFlatRate:', hasFlatRate);
+  console.log('-----------------------------');
+%>
+
+<% if (hasFlatRate) { %>
+  <a class="<%= currentPage==='my-listings' ? 'active' : '' %>" href="/buyer/my-listings">
+    <i class="bi bi-box-seam"></i> <%= t('buyer.sidebar.my_listings', 'Meine Inserate') %>
+  </a>
+  <a class="<%= currentPage==='online' ? 'active' : '' %>" href="/buyer/online">
+    <i class="bi bi-rocket-takeoff"></i> <%= t('buyer.sidebar.online', 'Online') %>
+  </a>
+  <a class="<%= currentPage==='offline' ? 'active' : '' %>" href="/buyer/offline">
+    <i class="bi bi-eye-slash"></i> <%= t('buyer.sidebar.offline', 'Offline') %>
+  </a>
+  <a class="<%= currentPage==='expired' ? 'active' : '' %>" href="/buyer/expired">
+    <i class="bi bi-clock-history"></i> <%= t('buyer.sidebar.expired', 'Abgelaufen') %>
+  </a>
+  <a class="<%= currentPage==='new-listing' ? 'active' : '' %>" href="/buyer/new-listing">
+    <i class="bi bi-plus-circle"></i> <%= t('buyer.sidebar.new_listing', 'Neues Inserat') %>
+  </a>
+  <a class="<%= currentPage==='submit-online' ? 'active' : '' %>" href="/buyer/submit-online">
+    <i class="bi bi-send-check"></i> <%= t('buyer.sidebar.submit_online', 'Zur Prüfung') %>
+  </a>
+<% } %>
+<!--
+  <div class="nav-title mt-3">Kommunikation</div>
+  <a class="" href="/buyer/messages"><i class="bi bi-chat-square-text"></i> Nachrichten</a>
+  <a class="" href="/buyer/newsletters"><i class="bi bi-envelope-open"></i> Newsletter</a>-->
+
+  <div class="nav-title mt-3"><%= t('buyer.sidebar.title_account', 'Konto') %></div>
+  <!--<a href="/buyer/wishlist"><i class="bi bi-heart"></i> <%= t('buyer.sidebar.wishlist', 'Wunschliste') %></a>
+  <a href="#saved-searches"><i class="bi bi-bookmark"></i> <%= t('buyer.sidebar.saved_searches', 'Gespeicherte Suchen') %></a>-->
+  <a href="/buyer#profile-section"><i class="bi bi-person-gear"></i> <%= t('buyer.sidebar.profile', 'Profil') %></a>
+  <a href="/logout"><i class="bi bi-box-arrow-right"></i> <%= t('buyer.sidebar.logout', 'Logout') %></a>
+</aside>
+    <!-- MAIN -->
+    <main class="main">
+      <% if (!item) { %>
+        <div class="alert alert-danger">Nachricht nicht gefunden.</div>
+      <% } else { %>
+
+        <!-- Header mit Back + Actions -->
+        <div class="d-flex align-items-center justify-content-between mb-3">
+          <div class="d-flex align-items-center">
+            <a href="/buyer/messages" class="btn btn-link px-0 me-2"><i class="bi bi-arrow-left"></i></a>
+            <h4 class="m-0"><i class="bi bi-chat-square-text me-2"></i><%= item.subject || 'Nachricht' %></h4>
+          </div>
+          <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary btn-sm" href="/buyer/messages">Posteingang</a>
+            <a class="btn btn-outline-secondary btn-sm" href="/buyer/messages/sent">Gesendet</a>
+            <a class="btn btn-primary btn-sm" href="/buyer/messages/compose"><i class="bi bi-pencil-square me-1"></i>Neue Nachricht</a>
+            <a class="btn btn-dark btn-sm" href="#reply-form"><i class="bi bi-reply me-1"></i>Antworten</a>
+          </div>
+        </div>
+
+        <!-- Nachricht -->
+        <div class="card-clean">
+          <div class="card-header">
+            <div class="d-flex flex-wrap justify-content-between align-items-center">
+              <div class="meta">
+                <div class="fw-semibold">
+                  Von: <%= item.sender_firstname || '' %> <%= item.sender_lastname || '' %>
+                  <%= item.sender_email ? '(' + item.sender_email + ')' : '' %>
+                </div>
+                <small>
+                  Gesendet: <%= item.sent_at ? new Date(item.sent_at).toLocaleString('de-DE') : '' %>
+                  <% if (item.read_at) { %> • Gelesen: <%= new Date(item.read_at).toLocaleString('de-DE') %> <% } %>
+                </small>
+              </div>
+              <% if (item.type) { %>
+                <span class="badge text-bg-light text-uppercase"><%= item.type %></span>
+              <% } %>
+            </div>
+          </div>
+          <div class="card-body">
+            <!-- Body kann HTML enthalten; unescaped rendern -->
+            <div><%- item.body %></div>
+          </div>
+        </div>
+
+        <!-- Antworten -->
+        <div id="reply-form" class="card-clean mt-4">
+          <div class="card-header">Antworten</div>
+          <div class="card-body">
+            <form method="POST" action="/buyer/messages/<%= item.id %>/reply">
+              <div class="mb-3">
+                <label class="form-label">Betreff</label>
+                <input type="text" name="subject" class="form-control"
+                       value="Re: <%= item.subject || '' %>" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label">Nachricht</label>
+                <textarea name="body" class="form-control" rows="6" required></textarea>
+              </div>
+              <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary" href="/buyer/messages">Zurück</a>
+                <button type="submit" class="btn btn-primary">Senden</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+      <% } %>
+    </main>
+  </div>
+<%- include('../../partials/footer', { footerColumns }) %>

@@ -1,0 +1,523 @@
+<style>
+.active-filters.product-container {
+  margin-top: 20px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-tag {
+padding: 10px !important;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  background: #f4f4f4;           /* hellgrau wie Screenshot */
+  border: 1px solid #1d2a44;      /* dunkelblauer Rahmen */
+  border-radius: 5px;
+  color: #1d2a44;                 /* dunkelblauer Text */
+  text-decoration: none;
+  font-weight: 500;
+  transition: all .2s ease;
+}
+
+.filter-tag:hover {
+  background: #1d2a44;
+  color: #fff;
+}
+
+.filter-tag .x {
+  margin-left: 8px;
+  font-weight: bold;
+  font-size: 16px;
+  color: #1d2a44;
+  transition: color .2s ease;
+}
+
+.filter-tag:hover .x {
+  color: #fff;
+}
+
+/* Wrapper */
+.fi-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: #1A253C;
+}
+
+/* Native Checkbox verstecken */
+.fi-check input[type="checkbox"] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid #cfcfcf;
+  border-radius: 4px;
+  background: #fff;
+  display: inline-grid;
+  place-content: center;
+  cursor: pointer;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+/* Hover */
+.fi-check input[type="checkbox"]:hover {
+  border-color: #c98d4a;
+}
+
+/* Checked */
+.fi-check input[type="checkbox"]:checked {
+  background-color: #c98d4a; /* GOLD */
+  border-color: #c98d4a;
+}
+
+/* Haken */
+.fi-check input[type="checkbox"]::after {
+  content: "";
+  width: 6px;
+  height: 10px;
+  border-right: 2px solid #fff;
+  border-bottom: 2px solid #fff;
+  transform: rotate(45deg);
+  display: none;
+}
+
+/* Haken anzeigen */
+.fi-check input[type="checkbox"]:checked::after {
+  display: block;
+}
+
+/* Focus (Keyboard) */
+.fi-check input[type="checkbox"]:focus-visible {
+  box-shadow: 0 0 0 2px #c98d4a;
+}
+
+/* FOCUS: Herando Gold */
+.fi input:focus,
+.fi select:focus,
+.filter-input:focus,
+.search-form input:focus,
+.fi-range input:focus {
+  border-color: #c98d4a;
+  box-shadow:
+    0 2px 6px rgba(26,37,60,.15);
+}
+
+select,
+input,
+textarea {
+  border: 1px solid #ccc;
+}
+
+
+
+</style>
+
+
+<section class="filter-bar shell" data-entity="<%= currentEntity.route %>">
+  <form method="get" action="" class="filter-form" id="quickFilters">
+    <div class="filter-grid" style="padding: 20px;">
+
+      <!-- Marke / Modell – für cars, watches, yachts -->
+      <% if (['cars','watches'].includes(currentEntity.route)) { %>
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.brand') %></label>
+        <div class="fi-select">
+          <select name="brand" id="fBrand">
+            <option value=""><%= t('common.any') %></option>
+            <% (filters.brands||[]).forEach(b => { %>
+              <option value="<%= b.id %>"
+                <%= (selectedFilters.brand||[]).map(String).includes(String(b.id)) ? 'selected' : '' %>>
+                <%= b.name %>
+              </option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.model') %></label>
+        <div class="fi-select">
+          <select name="model" id="fModel" <%= !(filters.models && filters.models.length) ? 'disabled' : '' %>>
+            <option value=""><%= t('common.any') %></option>
+            <% (filters.models||[]).forEach(m => { %>
+              <option value="<%= m.id %>"
+                <%= (selectedFilters.model||[]).map(String).includes(String(m.id)) ? 'selected' : '' %>>
+                <%= m.name %>
+              </option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <% } %>
+
+      <!-- cars: Erstzulassung, Kilometer -->
+      <% if (currentEntity.route === 'cars') { %>
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.first_reg_from') %></label>
+        <div class="fi-select">
+          <select name="yearMin" id="fYearMin">
+            <option value=""><%= t('common.any') %></option>
+            <% (filters.registrationYears || []).forEach(y => { 
+                const val = (y && typeof y === 'object' && 'year' in y) ? y.year : y; %>
+              <option value="<%= val %>"
+                <%= (selectedFilters.yearMin||[]).map(String).includes(String(val)) ? 'selected' : '' %>>
+                <%= val %>
+              </option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.km_upto') %></label>
+        <div class="fi-select">
+          <select name="mileageMax" id="fMileageMax">
+            <option value=""><%= t('common.any') %></option>
+            <% [5000,10000,20000,30000,50000,75000,100000,150000,200000,300000].forEach(km => { %>
+              <option value="<%= km %>" <%= (selectedFilters.mileageMax||[]).map(String).includes(String(km)) ? 'selected' : '' %>><%= km.toLocaleString('de-DE') %></option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <% } %>
+
+      <!-- properties: Art, Fläche, Zimmer, Bäder -->
+<% if (currentEntity.route === 'properties') { %>
+
+<!-- Immobilienart -->
+<div class="fi">
+  <label class="fi-label"><%= t('filters.realestate.propertytype','Immobilienart') %></label>
+  <div class="fi-select">
+    <select name="propertytype" id="fPropertyType">
+      <option value=""><%= t('common.any','Beliebig') %></option>
+      <% (filters.propertyTypes || []).forEach(pt => { %>
+        <option value="<%= pt.id %>" <%= (selectedFilters.propertytype||[]).map(String).includes(String(pt.id)) ? 'selected' : '' %>>
+          <%= pt.name %>
+        </option>
+      <% }) %>
+    </select>
+    <i class="bi bi-chevron-down"></i>
+  </div>
+</div>
+
+<div class="fi">
+  <label class="fi-label"><%= t('filters.realestate.investmenttype','Investmenttyp') %></label>
+  <div class="fi-select">
+    <select name="investmenttype" id="fInvestmentType">
+      <option value=""><%= t('labels.common.any','Beliebig') %></option>
+      <option value="1"><%= t('filters.properties.investmenttype.1','Wohnimmobilien') %></option>
+      <option value="2"><%= t('filters.properties.investmenttype.2','Hotels & Gastronomie') %></option>
+      <option value="3"><%= t('filters.properties.investmenttype.3','Gewerbe') %></option>
+      <option value="4"><%= t('filters.properties.investmenttype.4','Grundstücke') %></option>
+      <option value="5"><%= t('filters.properties.investmenttype.5','Pflegeimmobilien') %></option>
+      <option value="6"><%= t('filters.properties.investmenttype.6','Wohn-/Geschäftshaus') %></option>
+    </select>
+    <i class="bi bi-chevron-down"></i>
+  </div>
+</div>
+
+<!-- Baujahr (von/bis) -->
+<div class="fi-row">
+  <div class="fi">
+    <label class="fi-label"><%= t('filters.yacht.year','Baujahr') %></label>
+    <div class="fi-range">
+      <input type="number" name="yearMin" min="1800" max="2025" step="1"
+        value="<%= (selectedFilters.yearMin||[])[0] || '' %>"
+        placeholder="<%= t('labels.price.from','von') %>">
+      <span class="sep">–</span>
+      <input type="number" name="yearMax" min="1800" max="2025" step="1"
+        value="<%= (selectedFilters.yearMax||[])[0] || '' %>"
+            placeholder="<%= t('labels.price.to','bis') %>">
+    </div>
+  </div>
+</div>
+
+<!-- Objektzustand -->
+<div class="fi">
+  <label class="fi-label"><%= t('filters.realestate.quality','Objektzustand') %></label>
+  <div class="fi-select">
+    <select name="quality" id="fQuality">
+      <option value=""><%= t('labels.common.any','Beliebig') %></option>
+      <option value="1"><%= t('filters.realestate.quality.1','Erstbezug') %></option>
+      <option value="2"><%= t('filters.realestate.quality.2','Erstbezug nach Sanierung') %></option>
+      <option value="3"><%= t('filters.realestate.quality.3','Neuwertig') %></option>
+      <option value="4"><%= t('filters.realestate.quality.4','Saniert') %></option>
+      <option value="5"><%= t('filters.realestate.quality.5','Modernisiert') %></option>
+      <option value="6"><%= t('filters.realestate.quality.6','Renoviert') %></option>
+      <option value="7"><%= t('filters.realestate.quality.7','Gepflegt') %></option>
+    </select>
+    <i class="bi bi-chevron-down"></i>
+  </div>
+</div>
+
+
+<% } %>
+
+
+    <% if (currentEntity.route === 'yachts') { %>
+  <!-- Yacht Type -->
+  <div class="fi">
+    <label class="fi-label"><%= t('filter.yacht.type') %></label>
+    <div class="fi-select">
+      <select name="yachttype" id="fYachtType">
+        <option value=""><%= t('common.any') %></option>
+        <% (filters.yachtTypes || []).forEach(ti => { %>
+          <option value="<%= ti.id %>" <%= (selectedFilters.yachttype || []).map(String).includes(String(ti.id)) ? 'selected' : '' %>><%= ti.name %></option>
+        <% }) %>
+      </select>
+      <i class="bi bi-chevron-down"></i>
+    </div>
+  </div>
+
+  <!-- Yacht Brand -->
+  <div class="fi">
+    <label class="fi-label"><%= t('filter.brand') %></label>
+    <div class="fi-select">
+      <select name="brand" id="fBrand">
+        <option value=""><%= t('common.any') %></option>
+        <% (filters.brands || []).forEach(b => { %>
+          <option value="<%= b.id %>"
+            <%= (selectedFilters.brand || []).map(String).includes(String(b.id)) ? 'selected' : '' %>>
+            <%= b.name %>
+          </option>
+        <% }) %>
+      </select>
+      <i class="bi bi-chevron-down"></i>
+    </div>
+  </div>
+
+  <!-- Yacht Model (manual input) -->
+  <div class="fi">
+    <label class="fi-label"><%= t('filter.model') %></label>
+    <input
+      type="text"
+      name="model"
+      class="filter-input"
+      placeholder="<%= t('filter.model_placeholder') %>"
+      value="<%= (selectedFilters.model && selectedFilters.model[0]) || '' %>"
+    >
+  </div>
+
+  <!-- Year From -->
+  <div class="fi">
+    <label class="fi-label"><%= t('filter.year_from') %></label>
+    <div class="fi-select">
+      <select name="yearMin" id="fYachtYearMin">
+        <option value=""><%= t('common.any') %></option>
+          <% for (let y = 2025; y >= 1800; y--) { %>
+            <option value="<%= y %>" <%= (selectedFilters.yearMin || []).map(String).includes(String(y)) ? 'selected' : '' %>><%= y %></option>
+          <% } %>
+      </select>
+      <i class="bi bi-chevron-down"></i>
+    </div>
+  </div>
+
+  <!-- Length up to (m) -->
+  <div class="fi">
+    <label class="fi-label"><%= t('filter.length_upto_m') %></label>
+    <div class="fi-select">
+      <select name="lengthMax" id="fLengthMax">
+        <option value=""><%= t('common.any') %></option>
+      </select>
+      <i class="bi bi-chevron-down"></i>
+    </div>
+  </div>
+<% } %>
+
+
+      <% if (currentEntity.route === 'watches') { %>
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.watch.type') %></label>
+        <div class="fi-select">
+          <select name="watchtype" id="fWatchType">
+            <option value=""><%= t('common.any') %></option>
+            <% (filters.watchTypes||[]).forEach(wt => { %>
+              <option value="<%= wt.id %>" <%= (selectedFilters.watchtype||[]).map(String).includes(String(wt.id)) ? 'selected' : '' %>><%= wt.name %></option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <div class="fi">
+        <label class="fi-label"><%= t('filters.watches.gender','Geschlecht') %></label>
+        <div class="fi-select">
+          <select name="gender" id="fGender">
+            <option value=""><%= t('labels.common.any','Beliebig') %></option>
+            <option value="2"><%= t('filters.watches.genders.men','Herren/Unisex') %></option>
+            <option value="3"><%= t('filters.watches.genders.women','Damen') %></option>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <div class="fi">
+  <label class="fi-label"><%= t('filter.reference','Referenznummer') %></label>
+  <div class="fi-input">
+    <input type="text" name="reference" placeholder="<%= t('common.any') %>"
+           value="<%= (selectedFilters.reference || [])[0] || '' %>">
+  </div>
+</div>
+      <% } %>
+
+<% if (currentEntity.route === 'lifestyles') { %>
+
+<div class="fi">
+  <label class="fi-label">Kategorie</label>
+  <div class="fi-select">
+    <select name="lifestyleType" id="fLifeType">
+      <option value="">Beliebig</option>
+      <% (filters.lifestyleTypes || []).forEach(t => { %>
+        <option value="<%= t.id %>" 
+          <%= (selectedFilters.lifestyleType||[]).map(String).includes(String(t.id)) ? 'selected' : '' %>>
+          <%= t.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<div class="fi">
+  <label class="fi-label">Unterkategorie</label>
+  <div class="fi-select">
+    <select name="lifestyleSubcategory" id="fLifeSub"
+      <%= !(filters.lifestyleSubcategories && filters.lifestyleSubcategories.length) ? 'disabled' : '' %>>
+      <option value="">Beliebig</option>
+      <% (filters.lifestyleSubcategories || []).forEach(sc => { %>
+        <option value="<%= sc.id %>" 
+          <%= (selectedFilters.lifestyleSubcategory||[]).map(String).includes(String(sc.id)) ? 'selected' : '' %>>
+          <%= sc.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+
+
+
+
+
+<% } %>
+
+
+
+      <div class="fi">
+        <label class="fi-label">
+          <%= t('filters.realestate.price','Preis') %>
+          <%= currency %>
+        </label>
+        <div class="fi-range">
+          <input type="number" name="priceMin" min="0" step="1"
+            value="<%= (selectedFilters.priceMin||[])[0] || '' %>"
+            placeholder="<%= t('labels.price.from','von') %>">
+          <span class="sep">–</span>
+          <input type="number" name="priceMax" min="0" step="1"
+            value="<%= (selectedFilters.priceMax||[])[0] || '' %>"
+            placeholder="<%= t('labels.price.to','bis') %>">
+        </div>
+      </div>
+
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.location_or_zip') %></label>
+        <div class="fi-input with-icon">
+          <input type="text" name="location" placeholder="<%= t('common.any') %>"
+                 value="<%= (selectedFilters.location||[])[0] || '' %>">
+          <i class="bi bi-geo-alt"></i>
+        </div> 
+      </div>
+      <div class="fi">
+        <label class="fi-label"><%= t('filter.country') %></label>
+        <div class="fi-select">
+          <select name="country" id="fCountry">
+            <option value=""><%= t('common.all_countries') %></option>
+            <% filters.countries.forEach(c => { %>
+              <option value="<%= c.id %>"><%= t('country.' + c.id) %></option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <% if (currentEntity.route === "lifestyles") { %>
+        <option value="" disabled selected class="placeholder-option"></option>
+        <option value="" disabled selected class="placeholder-option"></option>
+        <option value="" disabled selected class="placeholder-option"></option>
+        <option value="" disabled selected class="placeholder-option"></option>
+      <% } %>
+      
+
+      <div class="fi fi-row">
+        <% if (currentEntity.route === 'cars') { %>
+          <label class="fi-check"><input type="checkbox" id="onlyElectric"><span><%= t('cars.only_electric') %></span></label>
+          <label class="fi-check"><input type="checkbox" id="onlyOldtimer" name="onlyOldtimer" value="1"><span><%= t('cars.only_oldtimer','Oldtimer') %></span></label>
+        <% } %>
+      </div>
+
+      <div class="fi fi-actions">
+        <a href="?hp=1" class="btn btn-light border shadow-sm d-flex align-items-center"><i class="bi bi-arrow-counterclockwise me-1"></i><%= t('actions.reset') %></a>
+        <button type="submit" id="filterSubmitBtn" class="btn btn-search">
+          <i class="bi bi-search me-2"></i>
+          <%= t('actions.show_offers') %>
+        </button>
+        <button type="button" class="btn btn-light border shadow-sm d-flex align-items-center" id="openFilterPage"><i class="bi bi-sliders me-2"></i><%= t('actions.more_filters') %></button>
+            <div class="dropdown">
+        <button class="btn btn-light border shadow-sm d-flex align-items-center" 
+                type="button" id="sortingDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+          <i class="bi bi-funnel me-2"></i>
+          Sortieren
+        </button>
+
+        <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="sortingDropdown">
+          <li>
+          <a class="dropdown-item dropdown-items <%= sort === 'price_asc' ? 'active' : '' %>"
+            href="?<%= new URLSearchParams({...req.query, sort: 'price_asc'}).toString() %>">
+              <i class="bi bi-arrow-up me-2"></i> Preis aufsteigend
+            </a>
+          </li>
+          <li>
+          <a class="dropdown-item dropdown-items <%= sort === 'price_desc' ? 'active' : '' %>"
+            href="?<%= new URLSearchParams({...req.query, sort: 'price_desc'}).toString() %>">
+              <i class="bi bi-arrow-down me-2"></i> Preis absteigend
+            </a>
+          </li>
+          <li>
+            <a class="dropdown-item dropdown-items <%= sort === 'newest' ? 'active' : '' %>"
+              href="?<%= new URLSearchParams({...req.query, sort: 'newest'}).toString() %>">
+              <i class="bi bi-clock me-2"></i> Neueste
+            </a>
+          </li>
+          <li>
+              <a class="dropdown-item dropdown-items <%= sort === 'popularity' ? 'active' : '' %>"
+                href="?<%= new URLSearchParams({...req.query, sort: 'popularity'}).toString() %>">
+              <i class="bi bi-heart-fill me-2 text-danger"></i> Beliebtheit
+            </a>
+          </li>
+        </ul>
+
+
+
+      </div>
+      </div>
+
+
+
+
+
+      
+
+    </div>
+
+    <input type="hidden" name="fuel" id="hiddenFuel">
+  </form>
+</section>
+
+
+
+<section id="filterCase"></section>
+
+<div class="active-filters shell product-container"></div>

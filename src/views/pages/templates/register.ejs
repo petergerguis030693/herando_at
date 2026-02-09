@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title><%= headerTitle %> | Herando</title>
+  <meta name="description" content="<%= t('register.meta.description', 'Registrieren Sie sich kostenlos bei Herando und inserieren oder kaufen Sie Luxusgüter – Autos, Immobilien, Yachten & Uhren.') %>" />
+  <meta name="robots" content="index, follow" />
+  <link rel="canonical" href="https://www.herando.com/auth/register" />
+  <link rel="shortcut icon" href="/assets/herando-weblogo.svg" type="image/x-icon" />
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css" />
+<link rel="stylesheet" href="/css/style.css">
+<link rel="stylesheet" href="/css/magazin.css">
+<link rel="stylesheet" href="/css/footer.css">
+<link rel="stylesheet" href="/css/products.css">
+<link rel="stylesheet" href="/css/header.css">
+<link rel="stylesheet" href="/css/product-single.css">
+<link rel="stylesheet" href="/css/search.css">
+<link rel="stylesheet" href="/css/language-modal.css">
+<link rel="stylesheet" href="/css/navbar-clean.css">
+<link rel="stylesheet" href="/css/ui-components.css">
+<link rel="stylesheet" href="/css/mobile.css">
+</head>
+<style>
+.captcha-track {
+  width: 100%;
+  height: 45px;
+  background: #e1e5eb;
+  border-radius: 40px;
+  position: relative;
+  cursor: pointer;
+}
+
+.captcha-handle {
+  width: 45px;
+  height: 45px;
+  background: #c99b5d;
+  color: white;
+  line-height: 45px;
+  text-align: center;
+  border-radius: 40px;
+  position: absolute;
+  left: 0;
+  top: 0;
+  user-select: none;
+  cursor: grab;
+  font-size: 22px;
+  font-weight: bold;
+  transition: background 0.2s;
+}
+
+.captcha-handle.verified {
+  background: #198754 !important;
+}
+
+.form-select:focus {
+    border-color: #c99b5d;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+}
+
+.form-control:focus {
+    color: var(--bs-body-color);
+    border-color: #c99b5d;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+}
+
+.form-check-input:checked {
+    background-color: #c99b5d;
+    border-color: #c99b5d;
+}
+
+.form-check-input:focus {
+    border-color: #c99b5d;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+}
+</style>
+
+<body>
+<div class="container my-5">
+  <div class="row justify-content-center">
+    <div class="col-md-7 col-lg-6">
+      <div class="card shadow-sm border-0">
+        <div class="card-body p-4">
+
+          <div class="text-center mb-4">
+            <a href="/"><img 
+              src="/assets/herando-weblogo.png" 
+              alt="Logo" 
+              style="max-width: 200px; width: 100%; height: auto;">
+            </a>
+          </div>
+
+          <h1 class="h4 mb-4 text-center fw-bold"><%= t('register.title', 'Jetzt registrieren') %></h1>
+
+          <% if (error) { %>
+            <div class="alert alert-danger text-center" role="alert">
+              <%= error %>
+            </div>
+          <% } %>
+
+          <% if (typeof success !== 'undefined' && success) { %>
+            <div class="alert alert-success text-center" role="alert">
+              <%= success %>
+            </div>
+            <script>
+              setTimeout(() => {
+                window.location.href = '/buyer/sold?type=private';
+              }, 2500);
+            </script>
+          <% } %>
+
+          <!-- NEW CORRECTED FORM ACTION -->
+          <form action="/auth/register-basic" method="POST">
+
+          <div class="mb-3">
+            <label for="gender" class="form-label">
+              <%= t('register.gender', 'Anrede') %>*
+            </label>
+
+            <select class="form-select" id="gender" name="gender" required>
+              <option value="">
+                <%= t('register.gender_select', 'Bitte auswählen') %>
+              </option>
+              <option value="1"><%= t('gender.m', 'Herr') %></option>
+              <option value="2"><%= t('gender.f', 'Frau') %></option>
+              <option value="3"><%= t('gender.d', 'Divers') %></option>
+            </select>
+          </div>
+
+            <div class="mb-3">
+              <label for="firstname" class="form-label"><%= t('register.firstname', 'Vorname') %>*</label>
+              <input type="text" class="form-control" id="firstname" name="firstname" required>
+            </div>
+
+            <div class="mb-3">
+              <label for="lastname" class="form-label"><%= t('register.lastname', 'Nachname') %>*</label>
+              <input type="text" class="form-control" id="lastname" name="lastname" required>
+            </div>
+
+            <div class="row mb-3">
+              <div class="col-md-8">
+                <label for="street" class="form-label">
+                  <%= t('register.street', 'Straße') %>
+                </label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="street"
+                  name="street"
+                >
+              </div>
+
+              <div class="col-md-4">
+                <label for="housenumber" class="form-label">
+                  <%= t('register.housenumber', 'Nr.') %>
+                </label>
+                <input
+                  type="text"
+                  class="form-control"
+                  id="housenumber"
+                  name="housenumber"
+                >
+              </div>
+            </div>
+
+              <div class="row mb-3">
+                <div class="col-md-4">
+                  <label for="postcode" class="form-label">
+                    <%= t('register.postcode', 'PLZ') %>
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="postcode"
+                    name="postcode"
+                  >
+                </div>
+
+                <div class="col-md-8">
+                  <label for="city" class="form-label">
+                    <%= t('register.city', 'Ort') %>
+                  </label>
+                  <input
+                    type="text"
+                    class="form-control"
+                    id="city"
+                    name="city"
+                  >
+                </div>
+              </div>
+
+            <div class="mb-3">
+              <label for="country_id" class="form-label">
+                <%= t('register.country', 'Land') %>*
+              </label>
+                <select class="form-select" id="country_id" name="country_id" required>
+                  <option value="">
+                    <%= t('register.country_select', 'Land auswählen') %>
+                  </option>
+
+                  <% countries.forEach(c => { %>
+                    <option value="<%= c.id %>"><%= c.name %></option>
+                  <% }) %>
+                </select>
+
+            </div>
+
+            <!-- PROFILE TYPE SELECTION -->
+          <div class="mb-3">
+            <label class="form-label d-block fw-bold">  <%= t('register.profile_type', 'Art des Profils') %>*</label>
+
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="type" id="type_private" value="private" required>
+              <label class="form-check-label" for="type_private">
+                <%= t('register.profile_private', 'Privater Verkäufer') %>
+              </label>
+            </div>
+
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="type" id="type_commercial" value="commercial">
+              <label class="form-check-label" for="type_commercial">
+                <%= t('register.profile_commercial', 'Gewerblicher Verkäufer') %>
+              </label>
+            </div>
+          </div>
+
+            <div class="mb-3">
+              <label for="email" class="form-label"><%= t('register.email', 'E-Mail-Adresse') %>*</label>
+              <input type="email" class="form-control" id="email" name="email" required placeholder="name@beispiel.de">
+            </div>
+
+            <div class="mb-3">
+              <label for="password" class="form-label"><%= t('register.password', 'Passwort') %>*</label>
+              <input type="password" class="form-control" id="password" name="password" required placeholder="••••••••">
+            </div>
+
+            <div class="mb-3">
+              <label for="password_repeat" class="form-label"><%= t('register.password_repeat', 'Passwort wiederholen') %>*</label>
+              <input type="password" class="form-control" id="password_repeat" name="password_repeat" required placeholder="••••••••">
+            </div>
+            <span style="font-size: 9px;">*Die mit Stern makierten sind Pflichtfelder</span>
+
+            <div class="form-check mb-3">
+              <input class="form-check-input" type="checkbox" id="privacy_accepted" name="privacy_accepted" required>
+              <label class="form-check-label" for="privacy_accepted">
+                <%= t('register.privacy', 'Ich akzeptiere die Datenschutzbestimmungen') %>*
+              </label>
+            </div>
+
+            <div class="d-grid mb-3">
+              <button type="button" id="openCaptcha" class="btn btn-primary">
+                <%= t('register.submit', 'Registrieren') %>
+              </button>
+            </div>
+
+            <!-- CAPTCHA MODAL -->
+            <div class="modal fade" id="captchaModal" tabindex="-1" aria-hidden="true">
+              <div class="modal-dialog modal-dialog-centered">
+                <div class="modal-content p-4" style="border-radius: 12px;">                  
+                  <h5 class="text-center mb-3 fw-bold"><%= t('register.captcha.title', 'Bitte bestätigen Sie') %></h5>
+                  <p class="text-center mb-4">  <%= t('register.captcha.text', 'Schieben Sie den Regler ganz nach rechts.') %></p>
+
+                  <div class="captcha-slider">
+                    <div id="captchaTrack" class="captcha-track">
+                      <div id="captchaHandle" class="captcha-handle">»</div>
+                    </div>
+                  </div>
+
+                  <div id="captchaStatus" class="text-success text-center mt-3 fw-bold" style="display:none;">
+                    <%= t('register.captcha.verified', '✔ Verifiziert!') %>
+                  </div>
+
+                </div>
+              </div>
+            </div>
+
+
+
+
+            <p class="text-center small mb-0">
+              <%= t('register.already_user', 'Bereits registriert?') %>
+              <a href="/auth/login"><%= t('register.login_here', 'Hier einloggen') %></a>
+            </p>
+
+
+
+          </form>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+const submitBtn = document.querySelector("#openCaptcha");
+const form = document.querySelector("form");
+const modal = new bootstrap.Modal(document.getElementById("captchaModal"));
+
+submitBtn.addEventListener("click", () => {
+  if (!form.checkValidity()) {
+    form.reportValidity(); // Browser zeigt exakt das fehlende Feld
+    return;
+  }
+
+  // ✅ erst dann Captcha öffnen
+  modal.show();
+});
+
+
+let dragging = false;
+let offsetX = 0;
+
+const handle = document.getElementById("captchaHandle");
+const track = document.getElementById("captchaTrack");
+const status = document.getElementById("captchaStatus");
+
+handle.addEventListener("mousedown", (e) => {
+  dragging = true;
+  offsetX = e.clientX - handle.offsetLeft;
+});
+
+document.addEventListener("mousemove", (e) => {
+  if (!dragging) return;
+
+  let x = e.clientX - offsetX;
+
+  if (x < 0) x = 0;
+  if (x > track.clientWidth - handle.clientWidth) x = track.clientWidth - handle.clientWidth;
+
+  handle.style.left = x + "px";
+
+  // Check if completed
+  if (x >= track.clientWidth - handle.clientWidth) {
+    dragging = false;
+    handle.classList.add("verified");
+    status.style.display = "block";
+
+    setTimeout(() => {
+      modal.hide();
+      form.submit();
+    }, 700);
+  }
+});
+
+document.addEventListener("mouseup", () => dragging = false);
+</script>
+
+</body>
+</html>

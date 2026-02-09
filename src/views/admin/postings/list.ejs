@@ -1,0 +1,45 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role  }) %>
+  </aside>
+  <main class="flex-fill container py-4">
+    <h1>Postings verwalten</h1>
+    <% if (messages.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+    <a href="/admin/postings/new" class="btn btn-primary mb-3">
+      <i class="bi bi-plus-circle me-1"></i> Neues Posting
+    </a>
+    <table class="table table-striped">
+      <thead>
+        <tr>
+          <th>Titel</th>
+          <th>Kategorie</th>
+          <th>Autor</th>
+          <th>Ort</th>
+          <th>Erstellt</th>
+          <th>Aktionen</th>
+        </tr>
+      </thead>
+      <tbody>
+        <% postings.forEach(post => { %>
+          <tr>
+            <td><%= post.title %></td>
+            <td><%= post.category %></td>
+            <td><%= post.author %></td>
+            <td><%= post.location || '-' %></td>
+            <td><%= new Date(post.created).toLocaleDateString() %></td>
+            <td>
+              <a href="/admin/postings/<%= post.slug %>/edit" class="btn btn-sm btn-outline-secondary me-1">
+                <i class="bi bi-pencil"></i>
+              </a>
+              <form action="/admin/postings/<%= post.slug %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Posting wirklich löschen?');">
+                <button class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+  </main>
+</div>

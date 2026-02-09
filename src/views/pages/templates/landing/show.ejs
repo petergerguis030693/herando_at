@@ -1,0 +1,255 @@
+<!-- Hero-Section mit dynamischer Tagline -->
+<div style="
+  text-align: center;
+  background: #f8f9fa;
+  padding: 40px 20px;
+">
+  <!-- Logo -->
+  <img
+    src="https://herando.at/assets/herando-weblogo.svg"
+    alt="Herando Logo"
+    style="
+      max-width: 160px;
+      display: block;
+      margin: 0 auto 20px;
+    "
+  >
+
+  <!-- Dynamische Tagline -->
+  <% if (page.subtitle) { %>
+    <h2 style="
+      font-family: 'Georgia', serif;
+      color: #c8a24e;
+      font-size: 1.8rem;
+      font-weight: 400;
+      margin: 0 auto;
+      max-width: 700px;
+      line-height: 1.4;
+    ">
+      <%= page.subtitle.replace(/\r?\n/, '<br>') %>
+    </h2>
+  <% } %>
+</div>
+
+<!-- Dynamisches Hero-Bild -->
+<section style="
+  position: relative;
+  width: 80%;
+  height: 600px;
+  margin: 0 auto;
+  overflow: hidden;
+">
+  <img
+    src="/uploads/landing/<%= page.slug %>/<%= page.hero_image %>"
+    alt="Hero Image"
+    style="
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    "
+  >
+
+  <!-- Overlay-Box mit statischen Features -->
+  <div style="
+    position: absolute;
+    top: 50%;
+    right: 8%;
+    transform: translateY(-50%);
+    background: rgba(0,0,0,0.6);
+    padding: 30px;
+    border-radius: 6px;
+    max-width: 360px;
+  ">
+    <ul style="
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      font-size: 1.3rem;
+      line-height: 2;
+    ">
+      <li>✓ Erfahrene Berater</li>
+      <li>✓ Einfach, schnell und sicher</li>
+      <li>✓ Unbegrenzt Bilder hochladen</li>
+      <li>✓ Über 1 Mio. Seitenaufrufe pro Monat</li>
+      <li>✓ Über 300.000 potenzielle Käufer pro Monat</li>
+      <li>✓ Internationale Präsentation inklusive</li>
+      <li>✓ Übersetzungen inklusive</li>
+      <li>✓ Sofort kostengünstig online</li>
+    </ul>
+  </div>
+</section>
+<!-- XXL Preisinfo & CTA oben -->
+<section style="text-align:center; padding:80px 20px;">
+  <p style="font-size:1.8rem; color:#555; margin:0 0 30px;">
+    90 Tage online zum Festpreis von nur 
+    <strong style="font-size:2.2rem; color:#c8a24e;"><%= page.price_info %> €</strong>**
+  </p>
+  <% if (page.cta_text) { %>
+    <a href="#"
+       style="
+         display:inline-block;
+         padding:16px 42px;
+         border:3px solid #c8a24e;
+         color:#c8a24e;
+         text-decoration:none;
+         font-weight:600;
+         border-radius:30px;
+         transition: all 0.3s;
+         font-size:1.4rem;
+       "
+       onmouseover="this.style.background='#c8a24e'; this.style.color='#fff';"
+       onmouseout="this.style.background='transparent'; this.style.color='#c8a24e';"
+    >
+      <%= page.cta_text %>
+    </a>
+  <% } %>
+</section>
+
+<!-- XXL Leistungen-Box -->
+<section style="padding:0 20px 80px; display:flex; justify-content:center;">
+  <div style="
+    border:2px solid #ddd;
+    border-radius:6px;
+    padding:50px;
+    max-width:1500px;
+    width:100%;
+  ">
+    <p style="text-align:center; font-size:1.4rem; color:#555; margin-bottom:40px;">
+      Kein Abo. Keine automatische Verlängerung.
+    </p>
+    <div style="
+      display:grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap:40px;
+    ">
+      <ul style="list-style:none; margin:0; padding:0; color:#333; font-size:1.4rem;">
+        <li style="margin-bottom:16px;">✓ 90 Tage online</li>
+        <li style="margin-bottom:16px;">✓ Internationale Nachfrage</li>
+        <li style="margin-bottom:16px;">✓ E-Mail-Support</li>
+        <li style="margin-bottom:16px;">✓ Übersetzung</li>
+      </ul>
+      <ul style="list-style:none; margin:0; padding:0; color:#333; font-size:1.4rem;">
+        <li style="margin-bottom:16px;">✓ Unbegrenzt Bilder hochladen</li>
+        <li style="margin-bottom:16px;">✓ YouTube-Video integrieren</li>
+        <li style="margin-bottom:16px;">☐* TOP-Angebot in der Kategorie „Immobilie“</li>
+        <li style="margin-bottom:16px;">☐* Platzierung in der Slideshow Startseite</li>
+      </ul>
+    </div>
+    <p style="text-align:right; font-size:1.8rem; color:#c8a24e; margin:40px 0 0;">
+      nur <strong><%= page.price_info %> €</strong>**
+    </p>
+    <p style="font-size:1rem; color:#777; margin:12px 0 0;">
+      * Optionale Zubuchung möglich
+    </p>
+    <p style="font-size:0.9rem; color:#777; margin:16px 0 0; text-align:center;">
+      ** Diese Preise sind ab <%= new Date().getFullYear() %> gültig.  
+      Alle Preise verstehen sich ggf. zzgl. Mehrwertsteuer.
+    </p>
+  </div>
+</section>
+<!-- Galerie mit max. 3 Bilder -->
+<% if (page.gallery && page.gallery.length) { %>
+  <section style="
+    display: flex;
+    justify-content: center;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 60px 20px;
+    background: #f8f9fa;
+  ">
+    <% page.gallery.slice(0, 3).forEach(img => { %>
+      <div style="
+        overflow: hidden;
+        border-radius: 6px;
+        flex: 1 1 calc(33.333% - 20px);
+        max-width: calc(33.333% - 20px);
+      ">
+        <img
+          src="/uploads/landing/<%= page.slug %>/<%= img %>"
+          alt="Gallery Image"
+          style="
+            width: 100%;
+            height: auto;
+            display: block;
+            transition: transform 0.3s;
+          "
+          onmouseover="this.style.transform='scale(1.05)'"
+          onmouseout="this.style.transform='scale(1)'"
+        />
+      </div>
+    <% }) %>
+  </section>
+<% } %>
+
+<!-- Statischer Text darunter -->
+<!-- Statischer Text unter der Galerie, mittig ausgerichtet -->
+<section style="text-align:center; padding:40px 20px;">
+  <% const firstWord = String(page.title).split(' ')[0]; %>
+
+  <!-- Headline -->
+  <p style="
+    font-family: 'Georgia', serif;
+    color: #c8a24e;
+    font-size: 1.5rem;
+    margin: 0 auto 30px;
+    max-width: 800px;
+    line-height: 1.4;
+  ">
+    Verkaufen Sie mit Herando jetzt erfolgreich Ihr <strong><%= firstWord %></strong>!
+  </p>
+
+  <!-- Zentrierte Bullet-Liste -->
+  <ul style="
+    display: inline-block;
+    text-align: left;
+    list-style: none;
+    padding: 0;
+    margin: 0 auto;
+    max-width: 800px;
+  ">
+    <li style="font-size: 1.2rem; color: #555; margin-bottom: 12px;">
+      • Herando ist einer der größten Online-Marktplätze für exklusive Fahrzeuge
+    </li>
+    <li style="font-size: 1.2rem; color: #555; margin-bottom: 12px;">
+      • Herando hat monatlich über 1 Million Seitenaufrufe aus über 50 Ländern
+    </li>
+    <li style="font-size: 1.2rem; color: #555; margin-bottom: 12px;">
+      • Mit Herando erreichen Sie monatlich über 300 000 potenzielle Käufer
+    </li>
+    <li style="font-size: 1.2rem; color: #555; margin-bottom: 12px;">
+      • Auf Herando finden Sie ein attraktives Umfeld für Ihr <strong><%= firstWord %></strong>
+    </li>
+  </ul>
+</section>
+<!-- Dynamischer Beschreibungstext -->
+<% if (page.features) { %>
+  <section style="background: #fff; padding: 60px 20px;">
+    <div style="
+      max-width: 1500px;
+      margin: 0 auto;
+      font-family: Arial, sans-serif;
+      color: #333;
+      line-height: 1.6;
+    ">
+      <% 
+        // Beschreibung per Doppel-Return in Absätze aufteilen
+        const paras = String(page.features)
+          .split(/\r?\n\r?\n/)
+          .map(p => p.trim())
+          .filter(p => p);
+      %>
+      <% paras.forEach(p => { %>
+        <p style="margin-bottom: 24px;"><%- p %></p>
+      <% }) %>
+    </div>
+  </section>
+<% } %>
+
+
+
+
+
+

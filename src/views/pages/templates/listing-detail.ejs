@@ -1,0 +1,101 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/buyer.css">
+
+<body>
+
+  <!-- Shell mit Sidebar -->
+  <div class="account-shell d-flex gap-3">
+
+    <!-- Sidebar -->
+    <%- include('../../partials/asside') %>
+
+    <!-- MAIN -->
+    <main class="main">
+
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="m-0" style="margin-top: 120px; font-size: 24pt;">
+          <i class="bi bi-heart"></i> <%= t('buyer.sidebar.title_wishlist') %>
+        </h4>
+      </div>
+
+
+      <!-- CONTENT -->
+      <% const renderItem = (item) => { 
+            const pic = (item.pictures && item.pictures[0]) ? item.pictures[0].image : 'placeholder.jpg';
+            const url = `/${item.entityRoute}/${item.id}/${encodeURIComponent(item.title || '')}`;
+      %>
+
+      <div class="cardPeter mb-4 me-4">
+        <a href="<%= url %>" class="d-block text-decoration-none">
+          <div class="imageBild">
+            <div class="bild">
+              <img src="/images/<%= item.entityRoute %>/<%= item.id %>/<%= pic %>" alt="<%= item.title %>" loading="lazy">
+            </div>
+          </div>
+
+          <div class="informationSection pt-2">
+            <div class="productInfo">
+              <h5 class="mb-1" style="width: 400px;"><%= item.title %></h5>
+              <p class="productPrice mb-2"><%= item.priceFormatted || '' %></p>
+            </div>
+          </div>
+        </a>
+      </div>
+
+      <% } %>
+
+
+      <% if (currentPage === 'wishlist') { %>
+      <!-- WUNSCHLISTE -->
+      <section class="productWrapper container mb-5" id="wishlistSection" style="margin-top: 120px;">
+        <div class="productContainer">
+
+          <p id="wlEmpty" class="text-muted m-2" style="display:none">Noch nichts gespeichert.</p>
+
+          <div id="wishlistGrid" class="productGrid d-flex flex-wrap">
+            <% if (Array.isArray(sectionData) && sectionData.length) { %>
+              <% sectionData.forEach(item => renderItem(item)) %>
+            <% } %>
+          </div>
+
+        </div>
+      </section>
+
+      <% } else { %>
+
+      <!-- STANDARD LIST -->
+      <section class="productWrapper container mb-5">
+        <div class="productContainer">
+          <div id="<%= currentPage %>Grid" class="productGrid d-flex flex-wrap">
+            <% if (Array.isArray(sectionData) && sectionData.length) { %>
+              <% sectionData.forEach(item => renderItem(item)) %>
+            <% } else { %>
+              <p class="text-muted m-2">Keine Einträge gefunden.</p>
+            <% } %>
+          </div>
+        </div>
+      </section>
+
+      <% } %>
+
+    </main>
+  </div>
+
+
+  <!-- Bootstrap -->
+
+  <!-- Wishlist Empty Check -->
+  <script>
+    (function () {
+      const grid = document.getElementById('wishlistGrid');
+      const empty = document.getElementById('wlEmpty');
+      if (!grid || !empty) return;
+      const toggleEmpty = () => empty.style.display = grid.querySelectorAll('.cardPeter').length ? 'none' : '';
+      toggleEmpty();
+      new MutationObserver(toggleEmpty).observe(grid, { childList: true });
+    })();
+  </script>
+
+  <script src="/js/buyer.js"></script>
+
+<%- include('../../partials/footer') %>

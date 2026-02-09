@@ -1,0 +1,78 @@
+<!-- views/admin/entieties/attributes/list.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../../sidebar', { active: active, role: role  }) %>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-fill p-4">
+    <div class="container-fluid">
+      <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+          <li class="breadcrumb-item"><a href="/admin/entieties">Kategorien</a></li>
+          <li class="breadcrumb-item active" aria-current="page">Attribute für "<%= ent.route %>"</li>
+        </ol>
+      </nav>
+
+      <div class="card mb-4 shadow-sm rounded-2">
+        <div class="card-header d-flex justify-content-between align-items-center">
+          <h3 class="mb-0">Attribute für "<%= ent.route %>"</h3>
+          <a href="/admin/entieties/<%= ent.id %>/attributes/new" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg"></i> Neues Attribut
+          </a>
+        </div>
+        <div class="card-body">
+          <% if (flash?.success?.length) { %>
+            <div class="alert alert-success alert-dismissible fade show" role="alert">
+              <%= flash.success[0] %>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          <% } %>
+          <% if (flash?.error?.length) { %>
+            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+              <%= flash.error[0] %>
+              <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+          <% } %>
+
+          <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+              <thead class="table-light">
+                <tr>
+                  <th>ID</th>
+                  <th>Spaltenname</th>
+                  <th>Label</th>
+                  <th>Typ</th>
+                  <th class="text-end">Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% columns.forEach(col => { %>
+                  <tr>
+                    <td><%= col.id || '-' %></td>
+                    <td><code><%= col.column_name %></code></td>
+                    <td><%= col.label %></td>
+                    <td><span class="badge bg-secondary text-uppercase"><%= col.field_type %></span></td>
+                    <td class="text-end">
+                      <div class="btn-group" role="group">
+                        <a href="/admin/entieties/<%= ent.id %>/attributes/<%= col.column_name %>/edit" class="btn btn-outline-secondary btn-sm" title="Bearbeiten">
+                          <i class="bi bi-pencil"></i>
+                        </a>
+                        <form action="/admin/entieties/<%= ent.id %>/attributes/<%= col.column_name %>/delete" method="post" onsubmit="return confirm('Spalte <%= col.column_name %> wirklich löschen?')">
+                          <button class="btn btn-outline-danger btn-sm" title="Löschen">
+                            <i class="bi bi-trash"></i>
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

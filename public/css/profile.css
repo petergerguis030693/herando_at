@@ -1,0 +1,455 @@
+.profile-header {
+  margin-top: 20px;
+}
+
+.profile-photo-big{
+  width: 130px;
+  height: 130px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Nur Initialen = Kreis */
+.profile-photo-big span{
+  width: 130px;
+  height: 130px;
+  border-radius: 50%;
+  border: 2px dashed #ccc;
+  color: #777;
+  font-size: 42px;
+  font-weight: 600;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+}
+
+/* Logo = KEIN Kreis */
+.profile-photo-big img{
+  max-width:130px;
+  max-height:130px;
+  border:none;
+  border-radius:8px;
+}
+
+
+.profile-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.profile-name {
+  font-size: 32px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.customer-id {
+  font-size: 16px;
+  color: #555;
+  margin-top: 6px;
+}
+
+.customer-id span {
+  font-weight: 500;
+}
+
+
+    .pin-link {
+      color: #007bff;
+      font-size: 14px;
+      text-decoration: none;
+    }
+
+    .profile-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 25px;
+    }
+
+    .profile-box {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 20px;
+      background: #fff;
+    }
+
+    .box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+    }
+
+    .box-header h3 {
+      font-size: 20px;
+      font-weight: bold;
+      margin: 0;
+    }
+
+    .edit-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: #333;
+    }
+
+    .box-content p {
+      margin: 6px 0;
+      font-size: 15px;
+    }
+
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.4);
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+
+    .modal-overlay.open {
+      display: flex;
+    }
+
+    .modal-box {
+      background: #fff;
+      padding: 25px;
+      border-radius: 10px;
+      width: 400px;
+      max-width: 90%;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+    }
+
+    .modal-box input,
+    .modal-box textarea {
+      width: 100%;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      padding: 8px;
+      margin-top: 5px;
+      background: #f9f9f9;
+      color: #222;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .modal-actions button {
+      border: none;
+      border-radius: 5px;
+      padding: 8px 14px;
+      cursor: pointer;
+    }
+
+    .modal-actions button[type="submit"] {
+      background: #c48a3c;
+      color: #fff;
+    }
+
+    .modal-actions .close-modal {
+      background: #ddd;
+    }
+
+    .delete-section {
+      text-align: center;
+      margin-top: 40px;
+    }
+
+    .delete-section a {
+      color: #c0392b;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .custom-faq {
+      border-top: 1px solid #ddd;
+    }
+
+    .faq-item {
+      border-bottom: 1px solid #ddd;
+    }
+
+    .faq-question {
+      width: 100%;
+      background: none;
+      border: none;
+      padding: 18px 0;
+      font-size: 16pt;
+      font-weight: 500;
+      text-align: left;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      cursor: pointer;
+      color: #111;
+      transition: color 0.25s ease;
+    }
+
+    .faq-question:hover {
+      color: #000;
+    }
+
+    .faq-chevron {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border-right: 2px solid #000;
+      border-bottom: 2px solid #000;
+      transform: rotate(45deg);
+      transition: transform 0.25s ease;
+      margin-left: 10px;
+    }
+
+    .faq-item.active .faq-chevron {
+      transform: rotate(-135deg);
+    }
+
+    .faq-answer {
+      max-height: 0;
+      overflow: hidden;
+      opacity: 0;
+      color: #555;
+      line-height: 1.6;
+      text-align: left;
+      transition: all 0.35s ease;
+      font-size: 16pt;
+    }
+
+    .faq-item.active .faq-answer {
+      max-height: 500px;
+      opacity: 1;
+      margin-bottom: 15px;
+    }
+
+    /* 📱 Responsive Fix (nur für kleine Geräte, Desktop bleibt unverändert) */
+    @media (max-width: 992px) {
+
+      /* Hauptcontainer */
+      .profile-grid {
+        width: 100% !important;
+        margin-left: 0 !important;
+        padding: 0 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 20px;
+      }
+
+      /* Boxen passen sich der Bildschirmbreite an */
+      .profile-box {
+        width: 100% !important;
+        margin: 0 auto;
+      }
+
+      /* Tabellen machen horizontal scroll */
+      table {
+        display: block;
+        overflow-x: auto;
+        width: 100%;
+        font-size: 14px;
+      }
+
+      th,
+      td {
+        padding: 8px !important;
+        white-space: nowrap;
+      }
+
+      /* Modal wird kleiner */
+      .modal-box {
+        width: 90% !important;
+        max-width: 400px;
+        margin: 0 auto;
+      }
+
+      /* Eingabefelder im Modal */
+      .modal-box input {
+        width: 100%;
+        font-size: 15px;
+      }
+
+      /* Buttons nebeneinander auf Mobile */
+      .modal-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      /* Schriftgrößen leicht kleiner für Übersicht */
+      .box-header h3 {
+        font-size: 16px !important;
+        font-weight: bold !important;
+      }
+
+      .box-content p {
+        font-size: 14px;
+        line-height: 1.4;
+      }
+
+      /* Reduziere Abstände */
+      .profile-box {
+        padding: 15px;
+      }
+    }
+
+    .modal-backdrop{
+        width: 100% !important; 
+        height: 100% !important;
+    }
+
+    .address-grid p {
+      font-size: 14pt;
+  display: flex;
+  align-items: center;
+  margin: 6px 0;
+}
+
+.address-grid strong {
+  width: 140px; /* Abstand/Länge der Labels */
+  font-weight: 600;
+  display: inline-block;
+}
+
+.address-grid span {
+  margin-left: 10px; /* Abstand zwischen Label und Wert */
+  color: #333;
+  font-size: 14pt;
+}
+
+.privacy-info {
+  color: #c48a3c;
+  font-weight: 600;
+  margin-bottom: 20px;
+}
+
+/* 2-Spalten Grid */
+.privacy-grid {
+  display: grid;
+  grid-template-columns: 1fr 250px;
+  row-gap: 25px;
+  column-gap: 30px;
+}
+
+/* Linke Spalte */
+.privacy-left {
+  display: flex;
+  flex-direction: column;
+}
+
+.privacy-left input[type="checkbox"] {
+  transform: scale(1.3);
+  margin-bottom: 8px;
+  outline: none;
+  appearance: checkbox;
+  -webkit-appearance: checkbox;
+}
+
+.privacy-toggle {
+  appearance: checkbox;
+  -webkit-appearance: checkbox;
+  outline: none;
+}
+
+.privacy-toggle:focus,
+.privacy-toggle:focus-visible,
+.privacy-toggle:active {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Bootstrap Checkbox Farbe überschreiben */
+.privacy-toggle:checked {
+  background-color: #c99b5d !important;
+}
+
+
+.privacy-desc {
+  margin: 0;
+  color: #666;
+  font-size: 14px;
+}
+
+/* Rechte Spalte */
+.privacy-right {
+  display: flex;
+  align-items: center;
+  font-size: 15px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  z-index: 2000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-overlay.open {
+  display: flex;
+}
+
+.modal-box {
+  background: #fff;
+  width: 100%;
+  max-width: 720px;
+  max-height: 90vh;            /* 🔥 WICHTIG */
+  border-radius: 10px;
+  padding: 24px;
+  overflow: hidden;            /* verhindert Überlauf */
+  display: flex;
+  flex-direction: column;
+}
+
+/* Scrollbarer Inhalt */
+.modal-box form {
+  overflow-y: auto;            /* 🔥 Scroll IN MODAL */
+  padding-right: 6px;
+}
+
+.logo-box {
+  grid-column: 1 / -1;
+}
+
+.logo-dropzone {
+  border: 2px dashed #bbb;
+  border-radius: 12px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  transition: all .2s ease;
+  background: #fafafa;
+}
+
+.logo-dropzone:hover {
+  border-color: #000;
+  background: #f3f3f3;
+}
+
+.logo-dropzone.dragover {
+  border-color: #0d6efd;
+  background: #eef4ff;
+}
+
+.logo-preview {
+  max-width: 220px;
+  max-height: 120px;
+  object-fit: contain;
+  margin: 0 auto;
+}
+
+.erWerben{
+  font-size: 18px;
+}
+
+.erWerben:hover{
+  color: #c99b5d; 
+  text-decoration: underline;
+}

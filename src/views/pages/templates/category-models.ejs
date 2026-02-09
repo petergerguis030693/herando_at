@@ -1,0 +1,975 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/product.css">
+
+  <!-- Kategorie-Titel -->
+
+<style>
+  /* Wrapper um Section für absolute Pfeil-Positionierung */
+  .product-scroller {
+    position: relative;
+    margin: 2rem 0; /* optional: Abstand oben/unten */
+  }
+
+  /* Der Scroll-Container selbst */
+  .product-container {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overflow-y: hidden;
+    /* kein Padding hier, damit Items wirklich am Rand starten */
+    -webkit-overflow-scrolling: touch;
+  }
+  .product-container::-webkit-scrollbar { display: none; }
+  .product-container { -ms-overflow-style: none; scrollbar-width: none; }
+
+  .product-item {
+    flex: 0 0 auto;
+    width: 200px;
+    height: 200px;
+    margin-right: 1rem;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .product-item img {
+    width: 100%;
+    height: 100px;
+    object-fit: cover;
+  }
+  .product-item p,
+  .product-item h3 {
+    margin: 0;
+    padding: 2px;
+    font-size: 0.85rem;
+    text-align: left;
+    line-height: 1.2;
+  }
+  .product-item .price {
+    margin-top: auto;
+    font-weight: bold;
+  }
+
+  /* Pfeile außerhalb der Section */
+  .scroll-btn {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 30px;
+    height: 30px;
+    border: none;
+    background: rgb(1, 6, 29);
+    color: #fff;
+    font-size: 1.5rem;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 5px;
+  }
+  .scroll-btn.left  { top: 260px; right: 130px; }   /* Pfeil 20px links außerhalb */
+  .scroll-btn.right { top: 260px; right: 90px; }  /* Pfeil 20px rechts außerhalb */
+
+  .modal-content{
+    width: 1200px; 
+    height: 700px; 
+  }
+
+  .btn-primary {
+    --bs-btn-bg: #1A253C !important;
+        border:none;
+
+  }
+
+  .list-group-item.active {
+    background-color: #1A253C !important;
+        border:none;
+
+  }
+
+  .form-check-input:checked {
+      background-color: #1A253C;
+      border:none;
+  }
+
+
+  
+</style>
+
+<div class="product-scroller">
+  <!-- Linker Pfeil, außerhalb -->
+<button class="scroll-btn left d-none d-md-flex" aria-label="Scroll nach links">
+  <i class="bi bi-chevron-left"></i>
+</button>
+<button class="scroll-btn right d-none d-md-flex" aria-label="Scroll nach rechts">
+  <i class="bi bi-chevron-right"></i>
+</button>
+
+  <section class="product-container container-fluid py-4 mb-5">
+    <% const randomItems = items.slice().sort(() => Math.random() - 0.5).slice(0,12);
+       randomItems.forEach(item => {
+         const pic = item.pictures?.[0]?.image || 'placeholder.jpg';
+    %>
+      <div class="product-item">
+        <img src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= pic %>"
+             alt="<%= item.title %>">
+        <p><%= item.makeName || '' %></p>
+        <a href="<%= currentEntity.route %>/<%= item.id %>/<%= item.title %>"><h3><%= item.title %></h3></a>
+        <p class="price"><%= item.priceFormatted %> €</p>
+      </div>
+    <% }) %>
+  </section>
+
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const container = document.querySelector('.product-container');
+    const leftBtn  = document.querySelector('.scroll-btn.left');
+    const rightBtn = document.querySelector('.scroll-btn.right');
+    const scrollStep = 220; // etwas mehr als eine Item-Breite
+
+    leftBtn.addEventListener('click', () => {
+      container.scrollBy({ left: -scrollStep, behavior: 'smooth' });
+    });
+    rightBtn.addEventListener('click', () => {
+      container.scrollBy({ left:  scrollStep, behavior: 'smooth' });
+    });
+  });
+</script>
+
+
+
+
+
+
+ <!-- Filter-Leiste -->
+<section class="filters container mb-5">
+  <button
+    type="button"
+    class="filter-btn btn btn-outline-secondary me-2"
+    data-bs-toggle="modal"
+    data-bs-target="#filterModal"
+  >
+    Filter (<%= totalCount %>)
+  </button>
+
+  <%
+    // ─── 1) Erstelle je nach Kategorie eine kombinierte Liste ────────────
+    const combined = [];
+    if (currentEntity.route === 'properties') {
+      // Für Immobilien: nur Immobilientypen und Länder
+      if (filters.propertytypes && Array.isArray(filters.propertytypes)) {
+        filters.propertytypes.forEach(pt => {
+          combined.push({ type: 'propertytype', id: pt.id, name: pt.name });
+        });
+      }
+      if (filters.countries && Array.isArray(filters.countries)) {
+        filters.countries.forEach(c => {
+          combined.push({ type: 'countryId', id: c.id, name: c.name });
+        });
+      }
+    } else {
+      // Für alle anderen: Marken, Modelle und Länder
+      if (filters.brands && Array.isArray(filters.brands)) {
+        filters.brands.forEach(b => {
+          combined.push({ type: 'brand', id: b.id, name: b.name });
+        });
+      }
+      if (filters.models && Array.isArray(filters.models)) {
+        filters.models.forEach(m => {
+          combined.push({ type: 'model', id: m.id, name: m.name });
+        });
+      }
+      if (filters.countries && Array.isArray(filters.countries)) {
+        filters.countries.forEach(c => {
+          combined.push({ type: 'countryId', id: c.id, name: c.name });
+        });
+      }
+    }
+
+    // ─── 2) Mische die kombinierte Liste und wähle die ersten 8 Elemente ─
+    const randomBtns = combined.sort(() => Math.random() - 0.5).slice(0, 8);
+
+    // ─── 3) QS ohne alle "filter[...]"-Parameter für RESET ───────────────
+    const resetQS = new URLSearchParams(query);
+    for (const key of Object.keys(query)) {
+      if (key.startsWith('filter[')) {
+        resetQS.delete(key);
+      }
+    }
+    resetQS.set('hp', 1);
+  %>
+
+
+  <!-- RESET-Button -->
+  <button
+    type="button"
+    class="btn btn-outline-secondary me-1"
+    onclick="window.location.search = '<%= resetQS.toString() %>'"
+  >
+    RESET
+  </button>
+
+  <!-- Acht zufällige Filter-Buttons -->
+  <% randomBtns.forEach(btn => {
+       const qs = new URLSearchParams(query);
+       qs.set(`filter[${btn.type}]`, btn.id);
+       qs.set('hp', 1);
+  %>
+    <button
+      type="button"
+      class="btn btn-light me-1"
+      onclick="window.location.search = '<%= qs.toString() %>'"
+    >
+      <%= btn.name %>
+    </button>
+  <% }) %>
+</section>
+
+
+
+  <div
+    class="modal fade"
+    id="filterModal"
+    tabindex="-1"
+    aria-labelledby="filterModalLabel"
+    aria-hidden="true"
+  >
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content">
+        <!-- HEADER -->
+        <div class="modal-header bg-dark-blue text-white">
+          <h5 class="modal-title" id="filterModalLabel">Filter</h5>
+          <button
+            type="button"
+            class="btn-close btn-close-white"
+            data-bs-dismiss="modal"
+            aria-label="Schließen"
+          ></button>
+        </div>
+
+<!-- BODY -->
+<div class="modal-body">
+  <div class="row">
+    <!-- ──────────────────────────────────────────────────────────────────── -->
+    <!-- Linke Spalte: Kategorien -->
+    <!-- ──────────────────────────────────────────────────────────────────── -->
+    <div class="col-md-3 pe-0">
+      <nav class="list-group list-group-flush">
+        <% if (currentEntity.route !== 'properties') { %>
+          <button
+            class="list-group-item list-group-item-action active"
+            id="tab-brand"
+            data-bs-toggle="list"
+            data-bs-target="#pane-brand"
+            type="button"
+            role="tab"
+            aria-controls="pane-brand"
+          >
+            Marke
+          </button>
+          <button
+            class="list-group-item list-group-item-action"
+            id="tab-model"
+            data-bs-toggle="list"
+            data-bs-target="#pane-model"
+            type="button"
+            role="tab"
+            aria-controls="pane-model"
+          >
+            Modell
+          </button>
+        <% } %>
+        <button
+          class="list-group-item list-group-item-action <%= currentEntity.route === 'properties' ? 'active' : '' %>"
+          id="tab-price"
+          data-bs-toggle="list"
+          data-bs-target="#pane-price"
+          type="button"
+          role="tab"
+          aria-controls="pane-price"
+        >
+          Preis
+        </button>
+        <button
+          class="list-group-item list-group-item-action"
+          id="tab-year"
+          data-bs-toggle="list"
+          data-bs-target="#pane-year"
+          type="button"
+          role="tab"
+          aria-controls="pane-year"
+        >
+          Jahr
+        </button>
+        <% if (currentEntity.route === 'properties') { %>
+          <button
+            class="list-group-item list-group-item-action"
+            id="tab-propertytype"
+            data-bs-toggle="list"
+            data-bs-target="#pane-propertytype"
+            type="button"
+            role="tab"
+            aria-controls="pane-propertytype"
+          >
+            Immobilientyp
+          </button>
+        <% } %>
+        <button
+          class="list-group-item list-group-item-action"
+          id="tab-location"
+          data-bs-toggle="list"
+          data-bs-target="#pane-location"
+          type="button"
+          role="tab"
+          aria-controls="pane-location"
+        >
+          Standort
+        </button>
+      </nav>
+    </div>
+
+    <!-- ──────────────────────────────────────────────────────────────────── -->
+    <!-- Rechte Spalte: Tab-Panes -->
+    <!-- ──────────────────────────────────────────────────────────────────── -->
+    <div class="col-md-9">
+      <div class="tab-content">
+
+        <% if (currentEntity.route !== 'properties') { %>
+          <!-- ========================== -->
+          <!-- 1) MARKEN-PANE -->
+          <!-- ========================== -->
+          <div
+            class="tab-pane fade show active"
+            id="pane-brand"
+            role="tabpanel"
+            aria-labelledby="tab-brand"
+          >
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="searchBrand"
+                placeholder="Suche nach Marke"
+              />
+            </div>
+            <div
+              class="row row-cols-2 row-cols-md-3 g-2"
+              style="max-height: 400px; overflow-y: auto;"
+            >
+              <% filters.brands.forEach(brand => { %>
+                <div class="col">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      name="filter[brand]"
+                      id="brand-<%= brand.id %>"
+                      value="<%= brand.id %>"
+                      <%= selectedFilters.brandIds.includes(brand.id.toString()) ? 'checked' : '' %>
+                    />
+                    <label
+                      class="form-check-label"
+                      for="brand-<%= brand.id %>"
+                    >
+                      <%= brand.name %>
+                    </label>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+
+          <!-- ========================== -->
+          <!-- 2) MODELL-PANE -->
+          <!-- ========================== -->
+          <div
+            class="tab-pane fade"
+            id="pane-model"
+            role="tabpanel"
+            aria-labelledby="tab-model"
+          >
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="searchModel"
+                placeholder="Suche nach Modell"
+              />
+            </div>
+            <div
+              class="row row-cols-2 row-cols-md-3 g-2"
+              style="max-height: 400px; overflow-y: auto;"
+            >
+              <% filters.models.forEach(model => { %>
+                <div class="col">
+                  <div class="form-check">
+                    <input
+                      class="form-check-input"
+                      type="checkbox"
+                      name="filter[model]"
+                      id="model-<%= model.id %>"
+                      value="<%= model.id %>"
+                      <%= selectedFilters.modelIds.includes(model.id.toString()) ? 'checked' : '' %>
+                    />
+                    <label
+                      class="form-check-label"
+                      for="model-<%= model.id %>"
+                    >
+                      <%= model.name %>
+                    </label>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+
+        <!-- ========================== -->
+        <!-- 3) PREIS-PANE -->
+        <!-- ========================== -->
+        <div
+          class="tab-pane fade <%= currentEntity.route === 'properties' ? 'show active' : '' %>"
+          id="pane-price"
+          role="tabpanel"
+          aria-labelledby="tab-price"
+        >
+          <div class="row g-2">
+            <div class="col-6">
+              <label for="priceMin" class="form-label">Min €</label>
+              <input
+                type="number"
+                class="form-control"
+                id="priceMin"
+                name="filter[priceMin]"
+                placeholder="0"
+                value="<%= selectedFilters.priceMin !== null ? selectedFilters.priceMin : '' %>"
+              />
+            </div>
+            <div class="col-6">
+              <label for="priceMax" class="form-label">Max €</label>
+              <input
+                type="number"
+                class="form-control"
+                id="priceMax"
+                name="filter[priceMax]"
+                placeholder="10.000+"
+                value="<%= selectedFilters.priceMax !== null ? selectedFilters.priceMax : '' %>"
+              />
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================== -->
+        <!-- 4) JAHR-PANE -->
+        <!-- ========================== -->
+        <div
+          class="tab-pane fade"
+          id="pane-year"
+          role="tabpanel"
+          aria-labelledby="tab-year"
+        >
+          <div class="row g-2">
+            <div class="col-6">
+              <label for="yearMin" class="form-label">Min Jahr</label>
+              <select
+                class="form-select"
+                id="yearMin"
+                name="filter[yearMin]"
+              >
+                <option value="">Alle Jahre</option>
+                <% if (filters.years && Array.isArray(filters.years)) { %>
+                  <% filters.years.forEach(y => { %>
+                    <option
+                      value="<%= y.year %>"
+                      <%= String(y.year) === String(selectedFilters.yearMin) ? 'selected' : '' %>
+                    >
+                      <%= y.year %>
+                    </option>
+                  <% }) %>
+                <% } %>
+              </select>
+            </div>
+            <div class="col-6">
+              <label for="yearMax" class="form-label">Max Jahr</label>
+              <select
+                class="form-select"
+                id="yearMax"
+                name="filter[yearMax]"
+              >
+                <option value="">Alle Jahre</option>
+                <% if (filters.years && Array.isArray(filters.years)) { %>
+                  <% filters.years.forEach(y => { %>
+                    <option
+                      value="<%= y.year %>"
+                      <%= String(y.year) === String(selectedFilters.yearMax) ? 'selected' : '' %>
+                    >
+                      <%= y.year %>
+                    </option>
+                  <% }) %>
+                <% } %>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- ========================== -->
+        <!-- 5) IMMOBILIENTYP-PANE (nur wenn properties) -->
+        <!-- ========================== -->
+        <% if (currentEntity.route === 'properties') { %>
+          <div
+            class="tab-pane fade"
+            id="pane-propertytype"
+            role="tabpanel"
+            aria-labelledby="tab-propertytype"
+          >
+            <div class="mb-3">
+              <input
+                type="text"
+                class="form-control"
+                id="searchPropertytype"
+                placeholder="Suche nach Immobilientyp"
+              />
+            </div>
+            <div
+              class="row row-cols-2 row-cols-md-3 g-2"
+              style="max-height: 400px; overflow-y: auto;"
+            >
+              <% if (filters.propertytypes && Array.isArray(filters.propertytypes)) { %>
+                <% filters.propertytypes.forEach(pt => { %>
+                  <div class="col">
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        name="filter[propertytype]"
+                        id="propType-<%= pt.id %>"
+                        value="<%= pt.id %>"
+                        <%= Array.isArray(selectedFilters.propertytypes) && selectedFilters.propertytypes.includes(pt.id.toString()) ? 'checked' : '' %>
+                      />
+                      <label class="form-check-label" for="propType-<%= pt.id %>">
+                        <%= pt.name %>
+                      </label>
+                    </div>
+                  </div>
+                <% }) %>
+              <% } %>
+            </div>
+          </div>
+        <% } %>
+
+
+        <!-- ========================== -->
+        <!-- 6) STANDORT-PANE -->
+        <!-- ========================== -->
+        <div
+          class="tab-pane fade"
+          id="pane-location"
+          role="tabpanel"
+          aria-labelledby="tab-location"
+        >
+          <div class="mb-3">
+            <label for="searchLocation" class="form-label">Stadt oder Land</label>
+            <input
+              type="text"
+              class="form-control"
+              id="searchLocation"
+              name="filter[location]"
+              placeholder="z. B. Berlin"
+              value="<%= selectedFilters.location || '' %>"
+            />
+          </div>
+
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              name="filter[inEurope]"
+              id="inEurope"
+              value="true"
+              <%= selectedFilters.inEurope ? 'checked' : '' %>
+            />
+            <label class="form-check-label" for="inEurope">
+              Europa
+            </label>
+          </div>
+
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              name="filter[inEU]"
+              id="inEU"
+              value="true"
+              <%= selectedFilters.inEU ? 'checked' : '' %>
+            />
+            <label class="form-check-label" for="inEU">
+              Europäische Union
+            </label>
+          </div>
+
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              name="filter[inGermany]"
+              id="inGermany"
+              value="true"
+              <%= selectedFilters.inGermany ? 'checked' : '' %>
+            />
+            <label class="form-check-label" for="inGermany">
+              Deutschland
+            </label>
+          </div>
+
+          <hr />
+
+          <div class="mb-3">
+            <label for="countrySelect" class="form-label">Land (präzise)</label>
+            <select
+              class="form-select"
+              id="countrySelect"
+              name="filter[countryId]"
+            >
+              <option value="">Alle Länder</option>
+              <% filters.countries.forEach(c => { %>
+                <option
+                  value="<%= c.id %>"
+                  <%= String(c.id) === String(selectedFilters.countryId) ? 'selected' : '' %>
+                >
+                  <%= c.name %>
+                </option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+
+      </div> <!-- /.tab-content -->
+    </div> <!-- /.col-md-9 -->
+  </div> <!-- /.row -->
+</div>
+<!-- /.modal-body -->
+
+<!-- FOOTER -->
+<div class="modal-footer">
+  <button
+    type="button"
+    class="btn btn-secondary"
+    data-bs-dismiss="modal"
+  >
+    Abbrechen
+  </button>
+  <button type="button" class="btn btn-primary" id="applyFilters">
+    Filter anwenden
+  </button>
+</div>
+
+
+      </div> <!-- /.modal-content -->
+    </div> <!-- /.modal-dialog -->
+  </div>
+  <!-- ===================== -->
+  <!-- ENDE FILTER-MODAL -->
+  <!-- ===================== -->
+
+<%
+  // ─── Funktion: req.query → URL‐Query‐String ───────────────────────
+  function buildQS(queryObj) {
+    const parts = [];
+    for (const key in queryObj) {
+      const val = queryObj[key];
+      if (Array.isArray(val)) {
+        val.forEach(v => {
+          parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(v)}`);
+        });
+      } else if (val !== undefined && val !== null && val !== '') {
+        parts.push(`${encodeURIComponent(key)}=${encodeURIComponent(val)}`);
+      }
+    }
+    return parts.join('&');
+  }
+
+  // Basis‐Query, z. B. "filter[brand]=3&filter[yearMin]=2018&limit=60&hp=2"
+  const baseQS = buildQS(query);
+%>
+
+<section class="productWrapper container mb-5">
+  <div class="productContainer">
+    <div id="<%= currentEntity.route %>Grid" class="productGrid d-flex flex-wrap">
+      <% items.forEach(item => {
+           const pic = (item.pictures && item.pictures[0])
+             ? item.pictures[0].image
+             : 'placeholder.jpg';
+      %>
+      <div class="cardPeter mb-4 me-4">
+        <div class="imageBild">
+          <div class="bild">
+            <img
+              src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= pic %>"
+              alt="<%= item.title %>"
+              loading="lazy"
+            />
+          </div>
+        </div>
+        <div class="informationSection pt-2">
+          <div class="productInfo">
+            <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>">
+              <h5 class="mb-1"><%= item.title %></h5>
+            </a>
+            <p class="productPrice mb-2"><%= item.priceFormatted %></p>
+          </div>
+        </div>
+      </div>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<!-- Pagination mit Erhalt der Filter‐Parameter -->
+<section class="paginationWrapper container d-flex justify-content-between align-items-center mb-5">
+  <div class="paginationControls">
+    <label for="itemsPerPage" class="me-2">Produkte pro Seite:</label>
+    <select
+      id="itemsPerPage"
+      class="form-select w-auto"
+      style="width: 100px !important;"
+      onchange="
+        {
+          const newLimit = this.value;
+          const params = new URLSearchParams('<%= baseQS %>');
+          params.set('limit', newLimit);
+          params.set('hp', 1);
+          window.location.search = params.toString();
+        }
+      "
+    >
+      <option value="30" <%= limit === 30 ? 'selected' : '' %>>30</option>
+      <option value="60" <%= limit === 60 ? 'selected' : '' %>>60</option>
+      <option value="120" <%= limit === 120 ? 'selected' : '' %>>120</option>
+    </select>
+  </div>
+
+  <div class="pageNavigation">
+    <% if (currentPage > 1) { %>
+      <a
+        href="?<%= baseQS %>&hp=<%= currentPage - 1 %>&limit=<%= limit %>"
+        class="paginationButton btn btn-outline-primary me-2"
+      >❮</a>
+    <% } else { %>
+      <span class="paginationButton btn btn-outline-secondary disabled me-2">❮</span>
+    <% } %>
+
+    <span><%= currentPage %> / <%= totalPages %></span>
+
+    <% if (currentPage < totalPages) { %>
+      <a
+        href="?<%= baseQS %>&hp=<%= currentPage + 1 %>&limit=<%= limit %>"
+        class="paginationButton btn btn-outline-primary ms-2"
+      >❯</a>
+    <% } else { %>
+      <span class="paginationButton btn btn-outline-secondary disabled ms-2">❯</span>
+    <% } %>
+  </div>
+</section>
+
+
+  <!-- Magazin-Teaser -->
+    <section style="background-color: rgb(245, 245, 245); height: 700px; margin-bottom: 20px;">
+        <section class="magazin-container" style="padding: 40px;">
+          <h2>Chrono24 Magazin: Wissenswertes aus der Uhrenwelt</h2>
+    
+          <div class="magazin-grid-wrapper">
+            <div class="magazin-grid">
+              <!-- Artikel 1 -->
+              <div class="magazin-item">
+                <div class="magazin-images">
+                  <img src="/assets/herando-home-slider-luxusuhren.webp" alt="Uhren Artikel Bild">
+                </div>
+                <h3>Meine Top 10 der besten Uhren unter 6.000 EUR</h3>
+                <p>Stellen Sie sich vor, Sie würden 6.000 EUR für eine Uhr ausgeben. Was wäre Ihr Favorit? Es ist eine
+                  ziemliche Herausforderung, aber Sie werden überrascht sein...</p>
+                <div class="autor-info">
+                  <img src="/assets/benachrichtigung.png" alt="Autor">
+                  <a href="#">Jorg Weppelink</a>
+                </div>
+              </div>
+    
+              <!-- Artikel 2 -->
+              <div class="magazin-item">
+                <div class="magazin-images">
+                  <img src="/assets/herando-home-slider-luxusyachten.webp" alt="Uhren Artikel Bild">
+                </div>
+                <h3>Tickende Stereotypen: Fünf Uhrentypen von Flipper bis Sammler</h3>
+                <p>Uhrenträger ist nicht gleich Uhrenträger und eine Uhr kann auf verschiedene Art und Weise getragen
+                  werden. Wir zeigen Ihnen fünf Arten von Uhrentypen...</p>
+                <div class="autor-info">
+                  <img src="/assets/buyer-rating.svg" alt="Autor">
+                  <a href="#">Donato Emilio Andrioli</a>
+                </div>
+              </div>
+            </div>
+          </div>
+    
+          <button class="magazin-button">Zum Magazin</button>
+        </section>
+      </section>
+<style>
+  h2{
+    color: #b6864b;
+  }
+</style>
+<section class="container mb-5">
+  <div class="p-4">
+    <div class="entity-description">
+      <% if (brandDescription && brandDescription.trim().length > 0) { %>
+        <%- brandDescription %>
+      <% } else { %>
+        <%- currentEntity.description %>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+
+
+
+  <!-- Footer -->
+<%- include('../../partials/footer', { footerColumns }) %>
+
+
+   <script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"
+    integrity="sha384-…"
+    crossorigin="anonymous"
+  ></script>
+
+  <!-- ===================== -->
+  <!-- SCRIPT: Live-Suche + Filter anwenden -->
+  <!-- ===================== -->
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+  // 1) Live-Suche Marke
+  const inputBrand = document.getElementById("searchBrand");
+  const brandRows = document.querySelectorAll("#pane-brand .form-check");
+  if (inputBrand) {
+    inputBrand.addEventListener("input", () => {
+      const filterText = inputBrand.value.trim().toLowerCase();
+      brandRows.forEach(row => {
+        const lbl = row.querySelector("label").textContent.toLowerCase();
+        row.style.display = lbl.includes(filterText) ? "block" : "none";
+      });
+    });
+  }
+
+  // 2) Live-Suche Modell
+  const inputModel = document.getElementById("searchModel");
+  const modelRows = document.querySelectorAll("#pane-model .form-check");
+  if (inputModel) {
+    inputModel.addEventListener("input", () => {
+      const filterText = inputModel.value.trim().toLowerCase();
+      modelRows.forEach(row => {
+        const lbl = row.querySelector("label").textContent.toLowerCase();
+        row.style.display = lbl.includes(filterText) ? "block" : "none";
+      });
+    });
+  }
+
+  // 3) „Filter anwenden“
+  document.getElementById("applyFilters").addEventListener("click", () => {
+    const params = new URLSearchParams(window.location.search);
+
+    // ► Marken (Checkboxen)
+    const checkedBrands = Array.from(
+      document.querySelectorAll("#pane-brand .form-check-input:checked")
+    ).map(inp => inp.value);
+    params.delete("filter[brand]");
+    if (checkedBrands.length) {
+      checkedBrands.forEach(b => params.append("filter[brand]", b));
+    }
+
+    // ► Modelle (Checkboxen)
+    const checkedModels = Array.from(
+      document.querySelectorAll("#pane-model .form-check-input:checked")
+    ).map(inp => inp.value);
+    params.delete("filter[model]");
+    if (checkedModels.length) {
+      checkedModels.forEach(m => params.append("filter[model]", m));
+    }
+
+    // ► Preis
+    const priceMin = document.getElementById("priceMin").value;
+    const priceMax = document.getElementById("priceMax").value;
+    if (priceMin !== "") {
+      params.set("filter[priceMin]", priceMin);
+    } else {
+      params.delete("filter[priceMin]");
+    }
+    if (priceMax !== "") {
+      params.set("filter[priceMax]", priceMax);
+    } else {
+      params.delete("filter[priceMax]");
+    }
+
+    // ► Jahr
+    const yearMin = document.getElementById("yearMin").value;
+    const yearMax = document.getElementById("yearMax").value;
+    if (yearMin !== "") {
+      params.set("filter[yearMin]", yearMin);
+    } else {
+      params.delete("filter[yearMin]");
+    }
+    if (yearMax !== "") {
+      params.set("filter[yearMax]", yearMax);
+    } else {
+      params.delete("filter[yearMax]");
+    }
+
+    // ► Standort (Freitext)
+    const locationText = document.getElementById("searchLocation").value.trim();
+    if (locationText !== "") {
+      params.set("filter[location]", locationText);
+    } else {
+      params.delete("filter[location]");
+    }
+
+    // ► Europa/EU/Deutschland
+    ["inEurope", "inEU", "inGermany"].forEach(id => {
+      const chk = document.getElementById(id);
+      if (chk && chk.checked) {
+        params.set(`filter[${id}]`, "true");
+      } else {
+        params.delete(`filter[${id}]`);
+      }
+    });
+
+    // ► Exaktes Land (Dropdown)
+    const countrySelect = document.getElementById("countrySelect");
+    if (countrySelect) {
+      const val = countrySelect.value;
+      if (val) {
+        params.set("filter[countryId]", val);
+      } else {
+        params.delete("filter[countryId]");
+      }
+    }
+
+  const checkedPropTypes = Array.from(
+    document.querySelectorAll("#pane-propertytype .form-check-input:checked")
+  ).map(inp => inp.value);
+  params.delete("filter[propertytype]");
+  if (checkedPropTypes.length) {
+    checkedPropTypes.forEach(pt => params.append("filter[propertytype]", pt));
+  }
+
+    // ► Seite zurücksetzen
+    params.set("hp", 1);
+
+    window.location.search = params.toString();
+  });
+});
+
+  </script>
+</body>
+</html>

@@ -1,0 +1,497 @@
+     <%- include('../../partials/header') %>
+     <link rel="stylesheet" href="/css/buyer.css">
+
+</head>
+<body>
+  <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+  <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <!-- Topbar -->
+
+  <div class="account-shell d-flex gap-3">
+    <!-- Sidebar -->
+     <%- include('../../partials/asside') %>
+
+
+    <!-- MAIN -->
+<main class="main">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+<h4 class="m-0">
+  <%= t('buyer.dashboard.title') %>
+
+  <% if (user && user.role === 9) { %>
+    <span class="text-warning" >
+      <%= t('buyer.dashboard.role_admin') %>
+      <a href="/admin" class="text-decoration-underline">Adminpanel</a>
+    </span>
+
+  <% } else if (user && user.role === 1) { %>
+    <span class="text-info">
+      <%= t('buyer.dashboard.role_business') %>
+    </span>
+
+  <% } else { %>
+    <span>
+      <%= t('buyer.dashboard.role_private') %>
+    </span>
+  <% } %>
+</h4>
+
+
+
+  </div>
+
+  <!-- 🔹 Erste Reihe: Profil & Verkaufen -->
+  <div class="row g-3 mb-3">
+
+    <!-- 🧑 Profil -->
+<div class="col-12 col-lg-6">
+  <div class="card border rounded-3 p-4 h-100" style="border-color: #ddd;">
+    <h5 class="mb-3" style="font-weight: 600;">
+      <i class="bi bi-person me-2"></i><%= t('buyer.card.profile.title') %>
+    </h5>
+
+    <div class="d-flex align-items-center" style="gap: 16px;">
+
+      <% if (user.avatar) { %>
+        <a href="/buyer/profil">
+          <img src="<%= user.avatar %>" 
+               alt="Avatar" 
+               class="rounded-circle border" 
+               width="60" 
+               height="60"
+               style="border: 2px solid #c2a45f; object-fit: cover;">
+      <% } else { %>
+        <% const initials = (user.firstname?.[0] || '?') + (user.lastname?.[0] || ''); %>
+        <a href="/buyer/profil">
+          <div class="d-flex align-items-center justify-content-center rounded-circle border"
+               style="
+                 width: 60px;
+                 height: 60px;
+                 font-weight: 600;
+                 font-size: 18px;
+                 color: #c2a45f;
+                 border: 2px solid #c2a45f;
+                 background-color: #fafafa;
+               ">
+            <%= initials %>
+          </div>
+        </a>
+      <% } %>
+
+      <div style="line-height: 1.3;">
+        <div style="font-weight: 600; font-size: 15px; color: #111;">
+          <%= user.firstname %> <%= user.lastname %>
+        </div>
+        <div class="text-muted" style="font-size: 13px;">
+          <%= user.email %>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+
+
+<!-- 💼 Verkaufen -->
+<div class="col-12 col-lg-6">
+  <div class="card border rounded-3 p-3 h-100">
+    <h5 class="mb-3"><i class="bi bi-tag me-2"></i><%= t('buyer.card.sell.title') %></h5>
+    <div style="border-radius: 8px; margin-top: 8px;">
+      <h6 style="font-weight: 600;"><%= t('buyer.card.sell.headline') %></h6>
+      <p style="margin-bottom: 16px;">
+        <%= t('buyer.card.sell.text') %>
+      </p>
+      <a href="/buyer/sold" 
+         class="btn btn-dark" 
+         style="display: block; text-align: center; border-radius: 6px; font-weight: 600;">
+         <%= t('buyer.card.sell.link') %>
+      </a>
+    </div>
+  </div>
+</div>
+
+
+  </div>
+
+  <div class="row g-3">
+
+<!-- 📰 Newsletter -->
+<div class="col-12 col-lg-6">
+  <div class="card border rounded-3 p-4 h-100" style="border-color:#ddd" id="newsletterCard">
+
+    <% if (newsletterSubscribed) { %>
+
+      <!-- ✅ Schon angemeldet -->
+      <div class="text-center py-4">
+        <i class="bi bi-check-circle-fill text-success mb-3" style="font-size:42px;"></i>
+        <h5 class="fw-semibold mb-2"><%= t('buyer.card.newsletter.already') %></h5>
+        <p class="text-muted mb-3"><%= t('buyer.card.newsletter.text') %></p>
+        <a href="/" class="btn btn-outline-dark w-100">
+          <%= t('buyer.card.newsletter.home') %>
+        </a>
+      </div>
+
+    <% } else { %>
+
+      <!-- 📨 Newsletter Formular -->
+      <h5 class="mb-3">
+        <i class="bi bi-envelope-paper me-2"></i>
+        <%= t('buyer.card.newsletter.title') %>
+      </h5>
+
+      <p class="small text-muted mb-3">
+        <%= t('buyer.card.newsletter.form.text') %>
+      </p>
+
+      <form id="newsletterForm" novalidate>
+
+        <!-- E-Mail -->
+        <input
+          type="email"
+          id="newsletterEmail"
+          name="email"
+          class="form-control mb-3"
+          placeholder="name@beispiel.at"
+          value="<%= user?.email || '' %>"
+          required
+        >
+
+        <!-- Kategorien -->
+        <div class="mb-3">
+          <label class="form-label fw-semibold mb-2">
+            <%= t('buyer.card.newsletter.form.select') %>
+          </label>
+
+          <div class="d-flex flex-column gap-2">
+
+            <label class="form-check">
+              <input class="form-check-input nl-cat" type="checkbox" value="1">
+              🏠 <%= t('global.category.properties') %>
+            </label>
+
+            <label class="form-check">
+              <input class="form-check-input nl-cat" type="checkbox" value="2">
+              🚗 <%= t('global.category.cars') %>
+            </label>
+
+            <label class="form-check">
+              <input class="form-check-input nl-cat" type="checkbox" value="3">
+              🛥️ <%= t('global.category.yachts') %>
+            </label>
+
+            <label class="form-check">
+              <input class="form-check-input nl-cat" type="checkbox" value="4">
+              💎 <%= t('global.category.lifestyles') %>
+            </label>
+
+            <label class="form-check">
+              <input class="form-check-input nl-cat" type="checkbox" value="5">
+              ⌚ <%= t('global.category.watches') %>
+            </label>
+
+          </div>
+        </div>
+
+        <!-- Einwilligung -->
+        <div class="form-check mb-3">
+          <input
+            class="form-check-input"
+            type="checkbox"
+            id="newsletterAccepted"
+            name="accepted"
+            value="1"
+            required
+          >
+          <label class="form-check-label small" for="newsletterAccepted">
+            <%= t('buyer.card.newsletter.form.checkbox') %>
+          </label>
+        </div>
+
+        <button type="submit" class="btn btn-dark w-100">
+          <%= t('buyer.card.newsletter.form.btn') %>
+        </button>
+
+        <div id="newsletterMsg" class="small mt-3 text-center"></div>
+      </form>
+
+    <% } %>
+  </div>
+</div>
+
+<script>
+(async () => {
+  const form = document.getElementById('newsletterForm');
+  if (!form) return;
+
+  if (form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+
+  const msg = form.querySelector('#newsletterMsg');
+  const checkboxes = [...form.querySelectorAll('.nl-cat')];
+
+  // =========================
+  // 1️⃣ Vorhandene Auswahl laden
+  // =========================
+  try {
+    const res = await fetch('/api/newsletter/preferences');
+    if (res.ok) {
+      const data = await res.json();
+      const selectedIds = new Set(
+        (data.categories || []).map(c => String(c.id))
+      );
+
+      checkboxes.forEach(cb => {
+        cb.checked = selectedIds.has(cb.value);
+      });
+    }
+  } catch (_) {
+    // bewusst still
+  }
+
+  // =========================
+  // 2️⃣ Submit
+  // =========================
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+
+    msg.textContent = '';
+    msg.className = 'small mt-3 text-center';
+
+    const emailEl = form.querySelector('[name="email"]');
+    const acceptedEl = form.querySelector('[name="accepted"]');
+    const categories = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
+
+    if (!emailEl || !acceptedEl) {
+      msg.textContent = 'Formularfehler – bitte Seite neu laden.';
+      msg.classList.add('text-danger');
+      return;
+    }
+
+    const email = emailEl.value.trim();
+    const accepted = acceptedEl.checked;
+
+    if (!email) {
+      msg.textContent = 'Bitte E-Mail eingeben.';
+      msg.classList.add('text-danger');
+      return;
+    }
+
+    if (!categories.length) {
+      msg.textContent = 'Bitte mindestens eine Kategorie auswählen.';
+      msg.classList.add('text-danger');
+      return;
+    }
+
+    if (!accepted) {
+      msg.textContent = 'Bitte Einwilligung bestätigen.';
+      msg.classList.add('text-danger');
+      return;
+    }
+
+    const payload = {
+      email,
+      ententies_ids: categories,
+      accepted: '1'
+    };
+
+    try {
+      msg.textContent = 'Wird gespeichert …';
+      msg.classList.add('text-muted');
+
+      const res = await fetch('/newsletter/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Fehler');
+
+      msg.textContent = '✅ Auswahl gespeichert.';
+      msg.className = 'small mt-3 text-center text-success';
+
+      // 🔁 Reload → Backend entscheidet, ob jetzt ALLE gewählt sind
+      setTimeout(() => window.location.reload(), 800);
+
+    } catch (err) {
+      msg.textContent = err.message || '❌ Fehler beim Anmelden.';
+      msg.className = 'small mt-3 text-center text-danger';
+    }
+  });
+})();
+</script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="col-12 col-lg-6">
+          <div class="card border rounded-3 p-3 h-100">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="m-0"><i class="bi bi-heart me-2"></i><%= t('buyer.card.wishlist.title') %></h5>
+              <a href="/buyer/wishlist" class="tiny-link text-decoration-none"><%= t('buyer.card.wishlist.more') %></a>
+            </div>
+            <div id="wishlistPreview">
+              <div class="text-muted" id="wishlistEmpty"><%= t('buyer.card.wishlist.empty') %></div>
+              <div class="row g-3" id="wishlistGrid"></div>
+            </div>
+          </div>
+        </div>
+
+  </div>
+
+  <script>
+  document.addEventListener('DOMContentLoaded', async () => {
+    const wishlistGrid = document.getElementById('wishlistGrid');
+    const emptyMsg = document.getElementById('wishlistEmpty');
+    const raw = localStorage.getItem('herandoBookmarks');
+    if (!raw) { emptyMsg.style.display = 'block'; return; }
+
+    let wishlist;
+    try { wishlist = JSON.parse(raw); } catch { wishlist = []; }
+    if (!wishlist.length) { emptyMsg.style.display = 'block'; return; }
+    emptyMsg.style.display = 'none';
+
+    const items = wishlist.slice(0, 2);
+    for (const { route, id } of items) {
+      const res = await fetch(`/buyer/wishlist/${route}/${id}`);
+      if (!res.ok) continue;
+      const item = await res.json();
+      const col = document.createElement('div');
+      col.className = 'col-6';
+      col.innerHTML = `
+        <a href="/${route}/${id}/${encodeURIComponent(item.title)}" class="text-decoration-none text-dark">
+          <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
+            <div class="ratio ratio-4x3">
+              <img src="${item.mainpictureUrl || '/assets/default-placeholder.png'}"
+                   alt="${item.title}" class="w-100 h-100 object-fit-cover">
+            </div>
+            <div class="p-2">
+              <h6 class="fw-semibold mb-0 text-truncate">${item.title}</h6>
+              <small class="text-muted">${item.priceFormatted || ''}</small>
+            </div>
+          </div>
+        </a>`;
+      wishlistGrid.appendChild(col);
+    }
+  });
+  </script>
+</main>
+
+  </div>
+
+  <!-- Modal -->
+  <div class="modal fade" id="editModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered">
+      <div class="modal-content">
+        <form id="modalForm" method="POST" action="">
+          <div class="modal-header">
+            <h5 class="modal-title" id="modalTitle">Bearbeiten</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body" id="modalBody"></div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+            <button type="submit" class="btn btn-primary">Speichern</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script>
+    // Modal-Init
+    const editModal = document.getElementById('editModal');
+    const modalForm  = document.getElementById('modalForm');
+    const modalTitle = document.getElementById('modalTitle');
+    const modalBody  = document.getElementById('modalBody');
+
+    editModal.addEventListener('show.bs.modal', ev => {
+      const btn  = ev.relatedTarget;
+      const type = btn.dataset.modalType;
+      modalBody.innerHTML = '';
+
+      if (type === 'simple') {
+        const field     = btn.dataset.field;
+        const label     = btn.dataset.label;
+        const value     = btn.dataset.value || '';
+        const inputType = btn.dataset.inputType || 'text';
+
+        modalTitle.textContent = label;
+        modalForm.action      = '/buyer/edit-profile';
+        modalBody.innerHTML = `
+          <input type="hidden" name="field" value="${field}">
+          <div class="mb-3">
+            <label class="form-label">${label}</label>
+            <input type="${inputType}" name="value" class="form-control" value="${value}" required>
+          </div>`;
+      } else {
+        modalTitle.textContent = 'Passwort ändern';
+        modalForm.action      = '/buyer/change-password';
+        modalBody.innerHTML = `
+          <div class="mb-3">
+            <label class="form-label">Aktuelles Passwort</label>
+            <input type="password" name="oldPassword" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Neues Passwort</label>
+            <input type="password" name="newPassword" class="form-control" required>
+          </div>`;
+      }
+    });
+
+    // Smooth Scroll für In-Page-Links der Sidebar
+    document.querySelectorAll('.left-nav a[href^="#"]').forEach(a=>{
+      a.addEventListener('click', (e)=>{
+        const id = a.getAttribute('href').slice(1);
+        const el = document.getElementById(id);
+        if(el){
+          e.preventDefault();
+          el.scrollIntoView({behavior:'smooth', block:'start'});
+        }
+      });
+    });
+
+    // Clientseitige Suche + Entity-Filter
+    const searchInput = document.getElementById('searchInput');
+    const pills = document.querySelectorAll('.filter-pill');
+    function applyFilter(){
+      const q = (searchInput?.value || '').trim().toLowerCase();
+      const active = document.querySelector('.filter-pill.active')?.dataset.filter || 'all';
+      document.querySelectorAll('.listing-item').forEach(el=>{
+        const t = el.dataset.title || '';
+        const ent = el.dataset.entity || '';
+        const matchText = !q || t.includes(q);
+        const matchEnt = active==='all' || ent===active;
+        el.style.display = (matchText && matchEnt) ? '' : 'none';
+      });
+    }
+    if (searchInput) searchInput.addEventListener('input', applyFilter);
+    pills.forEach(p=>p.addEventListener('click', ()=>{
+      pills.forEach(x=>x.classList.remove('active'));
+      p.classList.add('active');
+      applyFilter();
+    }));
+  </script>
+
+
+<%- include('../../partials/footer', { footerColumns }) %>

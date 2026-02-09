@@ -1,0 +1,1005 @@
+<!-- views/admin/list.ejs -->
+     <%- include('../partials/header-admin') %>
+
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active }) %>
+  </aside>
+
+  <style>
+    .btn.active{
+      background-color: rgb(0, 0, 146);
+      color: white;
+    }
+    .nav-tabs .nav-link {
+      background-color: #fff !important;
+      color: #000 !important;
+      border: 1px solid transparent;
+      border-top-left-radius: 0.25rem;
+      border-top-right-radius: 0.25rem;
+    }
+    .nav-tabs .nav-link.active {
+      background-color: rgb(0, 0, 146) !important;
+      color: #fff !important;
+      border-color: rgb(0, 0, 146) rgb(0, 0, 146) #fff !important;
+    }
+    .nav-link{ color: black; }
+    .bg-secondary{
+      background-color: transparent !important;
+      color: black;
+    }
+  </style>
+
+  <main class="main-content flex-fill">
+    <header class="bg-herando text-white p-3 mb-4">
+      <h1 class="h4 mb-0">
+        Inserate: <%= category.charAt(0).toUpperCase() + category.slice(1) %>
+      </h1>
+    </header>
+
+    <div class="content">
+      <!-- Kategorien-Buttons -->
+      <div class="btn-group mb-3" role="group" aria-label="Kategorien">
+        <% entieties.forEach(e => { %>
+          <a
+            href="?category=<%= e.route %>&state=<%= state %><%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+            class="btn btn-herando <%= category === e.route ? 'active' : '' %>">
+            <%= e.name %>
+          </a>
+        <% }) %>
+      </div>
+
+      <!-- Ad-Filter -->
+      <div class="btn-group mb-3" role="group" aria-label="Ad-Filter">
+        <a
+          href="?category=<%= category %>&state=<%= state %><%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          class="btn btn-outline-primary <%= !adType ? 'active' : 'btn-outline-secondary' %>">
+          Alle Inserate
+        </a>
+        <a
+          href="?category=<%= category %>&state=<%= state %>&adType=catalog<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          class="btn btn-outline-primary <%= adType==='catalog' ? 'active' : 'btn-outline-secondary' %>">
+           Slidershow-Startseite
+        </a>
+        <a
+          href="?category=<%= category %>&state=<%= state %>&adType=inserat<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          class="btn btn-outline-primary <%= adType==='inserat' ? 'active' : 'btn-outline-secondary' %>">
+          Top-Slidershow
+        </a>
+        <a
+          href="?category=<%= category %>&state=<%= state %>&adType=slider<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          class="btn btn-outline-primary <%= adType==='slider' ? 'active' : 'btn-outline-secondary' %>">
+          Katalog
+        </a>
+        <a
+          href="?category=<%= category %>&state=<%= state %>&adType=katalog_slider<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          class="btn <%= adType === 'katalog_slider' ? 'btn-outline-primary active' : 'btn-outline-secondary' %>">
+          Katalog-Slider
+        </a>
+
+
+
+      </div>
+
+      <!-- Suche + Filter -->
+      <form method="GET" action="/admin/listings" class="d-flex align-items-end mb-3">
+        <input type="hidden" name="category" value="<%= category %>">
+        <input type="hidden" name="state"    value="<%= state %>">
+
+        <div class="input-group me-2">
+          <span class="input-group-text">Suche</span>
+          <input type="text" name="search" class="form-control"
+                 placeholder="Titel, ID oder beliebiges Feld"
+                 value="<%= search %>">
+        </div>
+        <div class="w-100" style="height:1rem;"></div>
+        <div class="input-group me-2" style="min-width:300px; max-width:500px;">
+          <span class="input-group-text">Preis</span>
+          <input type="number" name="priceMin" class="form-control" placeholder="von"
+                 value="<%= priceMin %>" min="0" step="0.1">
+          <input type="number" name="priceMax" class="form-control" placeholder="bis"
+                 value="<%= priceMax %>" min="0" step="0.1">
+        </div>
+        <div class="btn-group me-2" role="group" aria-label="Sortierung">
+          <button type="submit" name="sort" value="price_asc"
+                  class="btn btn-outline-primary <%= sort==='price_asc' ? 'active' : '' %>"
+                  title="Preis aufsteigend">Preis ↑</button>
+          <button type="submit" name="sort" value="price_desc"
+                  class="btn btn-outline-primary <%= sort==='price_desc' ? 'active' : '' %>"
+                  title="Preis absteigend">Preis ↓</button>
+        </div>
+        <button class="btn btn-primary me-2" type="submit">Filtern</button>
+        <a href="/admin/listings?category=<%= category %>&state=<%= state %>"
+           class="btn btn-outline-secondary">Zurücksetzen</a>
+      </form>
+
+      <!-- Status-Überschrift & Tabs -->
+      <h1 class="h4 mb-3"><%= stateLabels[state] %> Inserate</h1>
+<ul id="stateTabs" class="nav nav-tabs mb-3">
+  <% states.forEach(st => { 
+       const isActive = state === st;
+  %>
+    <li class="nav-item" data-state="<%= st %>">
+      <a class="nav-link <%= isActive ? 'active' : '' %>"
+         href="?category=<%= category %>&state=<%= st %><%= search ? '&search='+encodeURIComponent(search) : '' %>">
+        <%= stateLabels[st] %>
+        <% if (counts[st] > 0) { %>
+          <span class="badge ms-1 <%= isActive ? 'bg-white text-dark border' : 'bg-dark text-white' %>">
+            <%= counts[st] %>
+          </span>
+        <% } %>
+      </a>
+    </li>
+  <% }) %>
+</ul>
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const order = ["toapprove", "active", "pending", "all", "stopped", "ended", "deleted"];
+    const tabs = document.querySelector("#stateTabs");
+    if (tabs) {
+      const items = Array.from(tabs.querySelectorAll(".nav-item"));
+      // neu sortieren nach order
+      items.sort((a, b) => order.indexOf(a.dataset.state) - order.indexOf(b.dataset.state));
+      items.forEach(item => tabs.appendChild(item)); // neu anhängen = neue Reihenfolge
+    }
+  });
+</script>
+
+
+
+      <% if (!rows.length) { %>
+        <p class="text-muted">Keine Inserate in diesem Zustand.</p>
+      <% } else { %>
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+          <% rows.forEach(item => { %>
+            <div class="col">
+              <div class="card border-0 shadow-none position-relative h-100">
+                <!-- Bulk -->
+                <input type="checkbox" name="ids[]" value="<%= item.id %>" form="bulkForm"
+                       class="bulk-checkbox position-absolute"
+                       style="top:8px; left:8px; width:1.5rem; height:1.5rem;">
+
+                <!-- Thumb -->
+                <% if (item.thumbUrl) { %>
+                  <img src="<%= item.thumbUrl %>" alt="<%= item.name %>"
+                       class="card-img-top" style="object-fit:contain; max-height:350px;">
+                <% } else { %>
+                  <div class="bg-secondary text-white d-flex justify-content-center align-items-center"
+                       style="height:200px;">Kein Bild</div>
+                <% } %>
+
+                <div class="card-body d-flex flex-column">
+                  <h5 class="card-title mb-1"><%= item.name %></h5>
+                  <small class="text-muted mb-2">
+                    Inserat-ID:<%= item.id %><br>
+                    <% if (item.user_id) { %>
+                      User-ID: <a href="/admin/users?search=<%= item.user_id %>&status=active"><%= item.user_id %></a>
+                    <% } %>
+                  </small>
+                  <% if (item.company_name) { %>
+                    <p class="small text-muted mb-1">Firma: <%= item.company_name %></p>
+                  <% } else if (item.user_firstname || item.user_lastname) { %>
+                    <p class="small text-muted mb-1">
+                      Nutzer: <%= [item.user_firstname, item.user_lastname].filter(Boolean).join(' ') %>
+                    </p>
+                  <% } %>
+                  <p class="mb-2">
+                    <strong>
+                        <% const priceNum = Number(item.price); %>
+                        <% if (Number.isFinite(priceNum) && priceNum > 0) { %>
+                          <%= priceNum.toLocaleString() %> <%= item.currency %>
+                        <% } else { %>
+                          Preis auf Anfrage
+                        <% } %>
+                    </strong>
+                  </p>
+                  <p class="small text-muted mb-1">Erstellt: <%= new Date(item.created).toLocaleDateString('de-DE') %></p>
+                  <p class="small text-muted mb-3">Aktualisiert: <%= new Date(item.modified).toLocaleDateString('de-DE') %></p>
+
+                  <form method="POST" action="/admin/listings/<%= category %>/<%= item.id %>/action" class="mt-auto">
+                    <!-- Filter-Kontext mitschicken (für Redirects) -->
+                    <input type="hidden" name="state"  value="<%= state %>">
+                    <input type="hidden" name="search" value="<%= search %>">
+                    <input type="hidden" name="adType" value="<%= adType %>">
+
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                      <% if (state !== 'active') { %>
+                        <button type="submit" name="action" value="approve" class="btn btn-link p-0" title="Freigeben">
+                          <i class="bi bi-check-circle fs-2 text-success"></i>
+                        </button>
+                      <% } %>
+                      <% if (state !== 'pending') { %>
+                        <button type="submit" name="action" value="pend" class="btn btn-link p-0" title="Warten">
+                          <i class="bi bi-clock fs-2 text-secondary"></i>
+                        </button>
+                      <% } %>
+                      <% if (state !== 'stopped') { %>
+                        <button type="submit" name="action" value="stop" class="btn btn-link p-0" title="Stoppen">
+                          <i class="bi bi-stop-circle fs-2 text-secondary"></i>
+                        </button>
+                      <% } %>
+                      <% if (state !== 'deleted') { %>
+                        <button type="submit" name="action" value="delete" class="btn btn-link p-0" title="Löschen">
+                          <i class="bi bi-trash fs-2 text-danger"></i>
+                        </button>
+                      <% } %>
+                      <% if (state === 'deleted') { %>
+                        <button type="submit" name="action" value="restore" class="btn btn-link p-0" title="Wiederherstellen">
+                          <i class="bi bi-arrow-counterclockwise fs-2 text-primary"></i>
+                        </button>
+                      <% } %>
+
+                      <!-- Datum für created/modified/published auf 01.01.2010 setzen -->
+                      <button
+                        type="button"
+                        class="btn btn-link p-0"
+                        title="Alle Datumsfelder auf 01.01.2010 setzen"
+                        onclick="setAllDatesTo20100101(this)">
+                        <i class="bi bi-calendar fs-2 text-info"></i>
+                      </button>
+
+                      <!-- Vorschau -->
+                      <button type="button" class="btn btn-link p-0" title="Vorschau"
+                              onclick="window.open('/<%= category %>/<%= item.id %>/<%= encodeURIComponent(item.name) %>','_blank')">
+                        <i class="bi bi-eye fs-2 text-secondary"></i>
+                      </button>
+
+                      <!-- Bearbeiten -->
+                      <button
+                        type="button"
+                        class="btn btn-link p-0"
+                        title="Bearbeiten"
+                        onclick="window.open('/admin/listings/<%= category %>/<%= item.id %>/edit', '_blank')">
+                        <i class="bi bi-pencil fs-2 text-warning"></i>
+                      </button>
+
+                      <!-- Einfügen -->
+                      <button type="button" class="btn btn-link p-0 open-insert-modal"
+                              data-advert-id="<%= item.id %>"
+                              data-category="<%= category %>"
+                              title="zum Top-Angebot machen"
+                              data-bs-toggle="modal"
+                              data-bs-target="#insertAdModal">
+                        <i class="bi bi-star fs-2 text-info"></i>
+                      </button>
+
+                      <!-- Kategorie wechseln -->
+                      <button type="button"
+                              class="btn btn-link p-0 open-change-cat-modal"
+                              data-advert-id="<%= item.id %>"
+                              data-category="<%= category %>"
+                              title="Kategorie wechseln">
+                        <i class="bi bi-arrow-left-right fs-2 text-info"></i>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+
+        <!-- Bulk-Aktionen -->
+        <div class="d-flex flex-column mb-3 gap-3 mt-4">
+          <div class="d-flex gap-2">
+            <button type="button" id="selectAll"  class="btn btn-outline-secondary">alle auswählen</button>
+            <button type="button" id="selectNone" class="btn btn-outline-secondary">alle abwählen</button>
+          </div>
+
+          <form id="bulkForm" method="POST" action="/admin/listings/<%= category %>/bulk" class="d-flex gap-2 align-items-center">
+            <button type="submit" name="action" value="approve" class="btn btn-success">veröff.</button>
+            <button type="submit" name="action" value="pend"    class="btn btn-outline-secondary">warten</button>
+            <button type="submit" name="action" value="stop"    class="btn btn-secondary">stoppen</button>
+            <button type="submit" name="action" value="delete"  class="btn btn-danger">löschen</button>
+            <button type="submit" name="action" value="restore" class="btn btn-outline-primary">wiederherstellen</button>
+
+            <!-- Optionales Übersetzen bei Bulk-Approve -->
+            <label class="ms-3 small d-inline-flex align-items-center gap-2" title="Bei Freigabe automatisch übersetzen">
+              <input type="checkbox" id="bulkTranslateChk"> automatisch übersetzen
+            </label>
+
+            <input type="hidden" name="category" value="<%= category %>">
+            <input type="hidden" name="state"    value="<%= state %>">
+            <input type="hidden" name="search"   value="<%= search %>">
+            <input type="hidden" name="adType"   value="<%= adType %>">
+          </form>
+        </div>
+
+        <!-- Pagination -->
+        <%
+          const prevPage = currentPage - 1;
+          const nextPage = currentPage + 1;
+          const searchParam = search ? '&search=' + encodeURIComponent(search) : '';
+          const prevUrl = `?category=${category}&state=${state}&page=${prevPage}${searchParam}`;
+          const nextUrl = `?category=${category}&state=${state}&page=${nextPage}${searchParam}`;
+        %>
+        <div class="d-flex justify-content-between align-items-center mt-4">
+          <% if (currentPage > 1) { %>
+            <button class="btn btn-secondary" onclick="location.href='<%= prevUrl %>'">&laquo; Zurück</button>
+          <% } else { %><div></div><% } %>
+          <span class="text-muted">Seite <strong><%= currentPage %></strong> von <strong><%= totalPages %></strong></span>
+          <% if (currentPage < totalPages) { %>
+            <button class="btn btn-secondary" onclick="location.href='<%= nextUrl %>'">Weiter &raquo;</button>
+          <% } else { %><div></div><% } %>
+        </div>
+      <% } %>
+    </div>
+  </main>
+</div>
+
+<!-- Global „Insert Ad“-Modal -->
+<div class="modal fade" id="insertAdModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Art der Werbung wählen</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body d-grid gap-2"> 
+        <button type="button" class="btn btn-outline-primary modal-btn" data-ad-type="catalog">Slidershow Startseite</button>
+        <button type="button" class="btn btn-outline-primary modal-btn" data-ad-type="inserat">Top-Slider</button>
+        <button type="button" class="btn btn-outline-primary modal-btn" data-ad-type="slider">Katalog</button>
+        <button type="button" class="btn btn-outline-primary modal-btn" data-ad-type="katalog_slider">Slidshow-Kategorie</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Global „Change Category“-Modal -->
+<div class="modal fade" id="changeCategoryModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <!-- wird per AJAX gefüllt -->
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+
+<!-- Global: Funktion zum Datums-Setzen -->
+<script>
+function setAllDatesTo20100101(button) {
+  const form = button.closest('form');
+  if (!form) { console.error('Form nicht gefunden'); return; }
+  const oldAction = form.getAttribute('action') || '';
+  const newAction = oldAction.replace('/action', '/setAllDates');
+  form.setAttribute('action', newAction);
+
+  let hidden = form.querySelector('input[name="newDate"]');
+  if (!hidden) {
+    hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'newDate';
+    form.appendChild(hidden);
+  }
+  hidden.value = '2010-01-01';
+  form.submit();
+}
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // INSERT-MODAL
+  const insertModalEl = document.getElementById('insertAdModal');
+  if (insertModalEl) {
+    const insertModal = new bootstrap.Modal(insertModalEl);
+    let currentAdvertId, insertCategory;
+
+    document.querySelectorAll('.open-insert-modal').forEach(btn => {
+      btn.addEventListener('click', () => {
+        currentAdvertId = btn.dataset.advertId;
+        insertCategory  = btn.dataset.category;
+      });
+    });
+
+    insertModalEl.querySelectorAll('.modal-btn').forEach(mbtn => {
+      mbtn.addEventListener('click', async () => {
+        const adType = mbtn.dataset.adType;
+        try {
+          const res = await fetch(
+            `/admin/listings/${encodeURIComponent(insertCategory)}/${encodeURIComponent(currentAdvertId)}/insert`,
+            {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ adType })
+            }
+          );
+          if (!res.ok) throw new Error(await res.text() || res.statusText);
+          insertModal.hide();
+          alert('✓ Die Werbung wurde erfolgreich angelegt!');
+          window.location.reload();
+        } catch (err) {
+          alert('Fehler: ' + err.message);
+        }
+      });
+    });
+  }
+
+  // BULK-SELECTION
+  const btnAll  = document.getElementById('selectAll');
+  const btnNone = document.getElementById('selectNone');
+  if (btnAll) {
+    btnAll.addEventListener('click', () =>
+      document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.checked = true)
+    );
+  }
+  if (btnNone) {
+    btnNone.addEventListener('click', () =>
+      document.querySelectorAll('.bulk-checkbox').forEach(cb => cb.checked = false)
+    );
+  }
+
+  // CHANGE-CATEGORY-MODAL
+  const changeModalEl = document.getElementById('changeCategoryModal');
+  if (changeModalEl) {
+    const changeModal = new bootstrap.Modal(changeModalEl);
+
+    document.querySelectorAll('.open-change-cat-modal').forEach(btn => {
+      btn.addEventListener('click', async e => {
+        e.preventDefault();
+        const advertId = btn.dataset.advertId;
+        const category = btn.dataset.category;
+
+        const res = await fetch(
+          `/admin/listings/${encodeURIComponent(category)}/${encodeURIComponent(advertId)}/change-category`
+        );
+        if (!res.ok) {
+          const text = await res.text();
+          alert(text || res.statusText);
+          return;
+        }
+        const data = await res.json();
+
+        changeModalEl.querySelector('.modal-content').innerHTML = `
+          <form method="POST"
+                action="/admin/listings/${encodeURIComponent(category)}/${encodeURIComponent(advertId)}/change-category">
+            <div class="modal-header">
+              <h5 class="modal-title">Kategorie wechseln</h5>
+              <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+              <div class="mb-3">
+                <label for="newCategoryId" class="form-label">Neue Kategorie</label>
+                <select id="newCategoryId" name="newCategoryId" class="form-select">
+                  ${data.entieties.map(e =>
+                    `<option value="${e.id}" ${e.id === data.currentEnt.id ? 'selected' : ''}>${e.name}</option>`
+                  ).join('')}
+                </select>
+              </div>
+              <div id="extra-options-container"></div>
+            </div>
+            <div class="modal-footer">
+              <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+              <button type="submit" class="btn btn-primary">Speichern</button>
+            </div>
+          </form>
+        `;
+
+        changeModal.show();
+
+        const extraContainer = changeModalEl.querySelector('#extra-options-container');
+        const record         = data.record;
+        const entieties      = data.entieties;
+
+        function renderGeneric(entId) {
+          const route  = entieties.find(e => e.id === entId).route;
+          const opts   = data.extraOptions;
+          let html = '';
+
+          if (opts.brands) {
+            html += `
+              <div class="mb-3">
+                <label class="form-label">Marke</label>
+                <select name="newBrandId" class="form-select">
+                  <option value="">– wählen –</option>
+                  ${opts.brands.map(b =>
+                    `<option value="${b.id}" ${b.id === record.brand_id ? 'selected' : ''}>${b.name}</option>`
+                  ).join('')}
+                </select>
+              </div>`;
+          }
+
+          if (route === 'watches' && opts.watchTypes) {
+            html += `
+              <div class="mb-3">
+                <label class="form-label">Uhrentyp</label>
+                <select name="newWatchType" class="form-select">
+                  ${opts.watchTypes.map(wt =>
+                    `<option value="${wt.id}" ${wt.id === record.watchtype ? 'selected' : ''}>${wt.label}</option>`
+                  ).join('')}
+                </select>
+              </div>`;
+          }
+
+          extraContainer.innerHTML = html;
+        }
+
+        function renderProperties(mode) {
+          const list  = mode === 'propertytype'
+            ? data.extraOptions.propertyTypes
+            : data.extraOptions.investmentTypes;
+          const label = mode === 'propertytype'
+            ? 'Immobilienart'
+            : 'Rendite-Immobilie';
+          const name  = mode === 'propertytype'
+            ? 'newPropertyType'
+            : 'newInvestmentType';
+
+          extraContainer.innerHTML = `
+            <div class="mb-3">
+              <label class="form-label">Art der Immobilie</label>
+              <select id="modeSelect" class="form-select mb-3">
+                <option value="propertytype"${mode === 'propertytype' ? ' selected' : ''}>Immobilienart</option>
+                <option value="investmenttype"${mode === 'investmenttype' ? ' selected' : ''}>Rendite-Immobilie</option>
+              </select>
+            </div>
+            <div class="mb-3">
+              <label class="form-label">${label}</label>
+              <select name="${name}" class="form-select">
+                ${list.map(o =>
+                  `<option value="${o.id}" ${o.id === record[mode] ? 'selected' : ''}>${o.label || o.name}</option>`
+                ).join('')}
+              </select>
+            </div>
+          `;
+          const modeSel = extraContainer.querySelector('#modeSelect');
+          if (modeSel) modeSel.addEventListener('change', ev => renderProperties(ev.target.value));
+        }
+
+        function renderLifestyles() {
+          extraContainer.innerHTML = `
+            <div class="mb-3">
+              <label class="form-label">Lifestyle-Kategorie</label>
+              <select id="modeCategory" name="category" class="form-select mb-2">
+                <option value="4105">Accessoires</option>
+                <option value="4111">Events</option>
+                <option value="4113">Feinkost / Weine / Spirituosen</option>
+                <option value="4107">Gesundheit</option>
+                <option value="4110">Hotels &amp; Resorts</option>
+                <option value="4115">Inneneinrichtungen</option>
+                <option value="4114">Wohnmobile und Freizeitfahrzeuge</option>
+                <option value="4109">Vermietung</option>
+                <option value="4106">Dienstleistungen</option>
+                <option value="4112">Reisen</option>
+                <option value="4108">Wellness &amp; Spa</option>
+              </select>
+            </div>
+            <div id="subcat-wrapper" class="mb-3">
+              <label class="form-label">Unterkategorie</label>
+              <select id="modeSubcategory" name="subcategory" class="form-select">
+                <!-- Accessoires (4105) -->
+                <option data-parent="4105" value="6426">Kunst</option>
+                <option data-parent="4105" value="6419">Bekleidung und Schuhe</option>
+                <option data-parent="4105" value="6425">Kosmetik und Parfüm</option>
+                <option data-parent="4105" value="6424">Dekoration</option>
+                <option data-parent="4105" value="6421">Elektronik - Elektro Geräte</option>
+                <option data-parent="4105" value="6422">Fun- und Sportgeräte</option>
+                <option data-parent="4105" value="6420">Brillen</option>
+                <option data-parent="4105" value="6423">Handtaschen</option>
+                <option data-parent="4105" value="6427">Schmuck und Juwelen</option>
+                <option data-parent="4105" value="6428">Sonstige</option>
+                <!-- Gesundheit (4107) -->
+                <option data-parent="4107" value="6438">Zahnmedizin</option>
+                <option data-parent="4107" value="6433">Detox Clinics</option>
+                <option data-parent="4107" value="6434">Gesundheitszentren</option>
+                <option data-parent="4107" value="6435">Health Tech</option>
+                <option data-parent="4107" value="6437">Hotels</option>
+                <option data-parent="4107" value="6436">Longevity Clinics</option>
+                <!-- Vermietung (4109) -->
+                <option data-parent="4109" value="6430">Flugzeuge</option>
+                <option data-parent="4109" value="6429">Boote / Yachten</option>
+                <option data-parent="4109" value="6431">Autos</option>
+                <option data-parent="4109" value="6432">Wohnmobile und Freizeitfahrzeuge</option>
+                <!-- Reisen (4112) -->
+                <option data-parent="4112" value="6418">Aktivsport</option>
+              </select>
+            </div>
+          `;
+
+          const catSel     = extraContainer.querySelector('#modeCategory');
+          const subWrapper = extraContainer.querySelector('#subcat-wrapper');
+          const subSel     = extraContainer.querySelector('#modeSubcategory');
+
+          function filterSubcats() {
+            const parent = catSel.value;
+            Array.from(subSel.options).forEach(opt => {
+              opt.style.display = (opt.getAttribute('data-parent') === parent) ? '' : 'none';
+            });
+            const visibleCount = Array.from(subSel.options).filter(o => o.style.display === '').length;
+            subWrapper.style.display = visibleCount > 0 ? 'block' : 'none';
+            if (visibleCount > 0) {
+              const first = Array.from(subSel.options).find(o => o.style.display === '');
+              subSel.value = first.value;
+            }
+          }
+
+          if (catSel && subSel && subWrapper) {
+            catSel.addEventListener('change', filterSubcats);
+            filterSubcats();
+          }
+        }
+
+        const catSelect = changeModalEl.querySelector('#newCategoryId');
+        function updateExtra(entId) {
+          const route = entieties.find(e => e.id === entId).route;
+          if (route === 'properties') {
+            renderProperties('propertytype');
+          } else if (route === 'lifestyles') {
+            renderLifestyles();
+          } else {
+            renderGeneric(entId);
+          }
+        }
+
+        updateExtra(data.currentEnt.id);
+        if (catSelect) {
+          catSelect.addEventListener('change', ev => {
+            updateExtra(Number(ev.target.value));
+          });
+        }
+      });
+    });
+  }
+});
+</script>
+
+<script>
+(function(){
+  const params = new URLSearchParams(window.location.search);
+  const category = params.get('category');
+  const state    = params.get('state');
+  const valid    = ['cars','watches','properties','lifestyles','yachts'];
+
+  if (valid.includes(category) && state === 'active') {
+    document.querySelectorAll('.card.position-relative.h-100').forEach(card => {
+      const actions = card.querySelector('.card-body .d-flex.flex-wrap.align-items-center.gap-2');
+      if (!actions) return;
+      if (actions.querySelector('.btn-revert-approval')) return;
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'btn btn-link p-0 btn-revert-approval ms-2';
+      btn.title = 'Zurückstufen zur Freischaltung';
+      btn.innerHTML = '<i class="bi bi-shuffle text-warning fs-4"></i>';
+
+      btn.addEventListener('click', () => {
+        const form = card.querySelector('form.mt-auto');
+        if (!form) return console.error('Kein Aktions-Formular gefunden');
+        const old = form.getAttribute('action') || '';
+        const url = old.replace('/action', '/revert-approval');
+
+        const tmp = document.createElement('form');
+        tmp.method = 'POST';
+        tmp.action = url;
+        document.body.appendChild(tmp);
+        tmp.submit();
+      });
+
+      actions.appendChild(btn);
+    });
+  }
+})();
+</script>
+
+<script>
+(function () {
+  document.addEventListener('DOMContentLoaded', function () {
+    const wrap = document.querySelector('[aria-label="Ad-Filter"]');
+    if (!wrap) return;
+
+    const ALLOWED = new Set(['slider','catalog','inserat','katalog_slider']);
+    const SERVER_CATEGORY = '<%= category %>';
+    const SERVER_STATE    = '<%= state %>';
+
+    wrap.addEventListener('click', function (ev) {
+      const a = ev.target.closest('a');
+      if (!a) return;
+
+      ev.preventDefault();
+      ev.stopPropagation();
+      ev.stopImmediatePropagation();
+
+      let newAd = '';
+      try {
+        const href = new URL(a.href, location.origin);
+        newAd = href.searchParams.get('adType') || '';
+      } catch (_) {}
+
+      const u = new URL(location.href);
+      if (!u.searchParams.get('category')) u.searchParams.set('category', SERVER_CATEGORY);
+      if (!u.searchParams.get('state'))    u.searchParams.set('state',    SERVER_STATE);
+
+      if (newAd && ALLOWED.has(newAd)) {
+        u.searchParams.set('adType', newAd);
+      } else {
+        u.searchParams.delete('adType');
+      }
+
+      u.searchParams.set('page', '1');
+
+      ['priceMin','priceMax','search','sort'].forEach(k => {
+        const v = u.searchParams.get(k);
+        if (v === null || v === '') u.searchParams.delete(k);
+      });
+
+      location.href = u.toString();
+    });
+
+    const current = new URL(location.href);
+    const adType  = current.searchParams.get('adType');
+    if (adType) {
+      const tabs = document.querySelector('.nav.nav-tabs');
+      if (tabs) tabs.style.display = 'none';
+      const hdr = document.querySelector('h1.h4.mb-3');
+      const label = {
+        slider: 'Slider-Ads – Inserate',
+        catalog:'Katalog-Ads – Inserate',
+        inserat:'Inserat-Ads – Inserate',
+        katalog_slider:'Katalog-Slider – Inserate'
+      }[adType] || 'Top-Ads – Inserate';
+      if (hdr) hdr.textContent = label;
+
+      const actionGroups = document.querySelectorAll('.card .mt-auto .d-flex.flex-wrap.align-items-center.gap-2');
+
+      function getAdvertIdFromCard(card){
+        const cb = card.querySelector('input.bulk-checkbox');
+        if (cb && cb.value) return cb.value;
+        const form = card.querySelector('form.mt-auto');
+        if (form) {
+          const m = (form.getAttribute('action') || '').match(/\/(\d+)\/action$/);
+          if (m) return m[1];
+        }
+        const sm = card.querySelector('small.text-muted');
+        if (sm) {
+          const mm = (sm.textContent || '').match(/ID:\s*(\d+)/i);
+          if (mm) return mm[1];
+        }
+        return null;
+      }
+
+      function renderStarOnly(group){
+        while (group.firstChild) group.removeChild(group.firstChild);
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-link p-0 btn-ad-toggle';
+        btn.title = 'Werbung deaktivieren';
+        btn.innerHTML = '<i class="bi bi-star-fill fs-2 text-warning"></i>';
+
+        btn.addEventListener('click', async () => {
+          try {
+            btn.disabled = true;
+
+            const adTypeNow = new URL(location.href).searchParams.get('adType') || '';
+            if (!adTypeNow) { alert('Kein Ad-Typ aktiv.'); return; }
+
+            const card = btn.closest('.card');
+            const advertId = getAdvertIdFromCard(card);
+            if (!advertId) { alert('Inserat-ID nicht gefunden.'); return; }
+
+            const url = `/admin/listings/${encodeURIComponent('<%= category %>')}/${encodeURIComponent(advertId)}/ad/disable`;
+            const res = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ adType: adTypeNow })
+            });
+            if (!res.ok) throw new Error(await res.text() || res.statusText);
+            const data = await res.json();
+            if (!data.ok) throw new Error(data.message || 'Fehler beim Deaktivieren');
+
+            const col = card.closest('.col') || card;
+            col.remove();
+
+            const grid = document.querySelector('.row.row-cols-1.row-cols-sm-2.row-cols-md-3.g-4');
+            if (grid && !grid.querySelector('.col')) {
+              const p = document.createElement('p');
+              p.className = 'text-muted';
+              p.textContent = 'Keine Inserate in dieser Ansicht.';
+              grid.replaceWith(p);
+            }
+          } catch (e) {
+            alert('Fehler: ' + (e.message || 'Unbekannt'));
+          } finally {
+            btn.disabled = false;
+          }
+        });
+
+        group.appendChild(btn);
+
+        // --- Kalender Icon + Zeitraum Anzeige ---
+const wrapper = document.createElement('div');
+wrapper.className = 'd-flex align-items-center gap-2 mt-1';
+
+const calendarBtn = document.createElement('button');
+calendarBtn.type = 'button';
+calendarBtn.className = 'btn btn-sm btn-outline-secondary p-1';
+calendarBtn.innerHTML = '<i class="bi bi-calendar-event fs-5"></i>';
+
+const info = document.createElement('div');
+info.className = 'small text-muted';
+
+wrapper.append(calendarBtn, info);
+group.appendChild(wrapper);
+
+const advertId = getAdvertIdFromCard(btn.closest('.card'));
+const adTypeNow = new URL(location.href).searchParams.get('adType');
+
+// Zeitraum anzeigen
+fetch(`/admin/listings/<%= category %>/${advertId}/ad-period?adType=${adTypeNow}`)
+  .then(r => r.json())
+  .then(d => {
+    if (d.from && d.to) {
+      const f = d.from.split('T')[0];
+      const t = d.to.split('T')[0];
+      info.textContent = `Von ${f} bis ${t}`;
+    } else {
+      info.textContent = 'Kein Zeitraum gesetzt';
+    }
+  });
+
+// Modal öffnen bei Klick auf Kalender
+calendarBtn.onclick = async () => {
+  const modal = new bootstrap.Modal(document.getElementById('adPeriodModal'));
+  modal.show();
+
+  const fromInput = document.getElementById('adFrom');
+  const toInput   = document.getElementById('adTo');
+  const saveBtn   = document.getElementById('saveAdPeriod');
+
+  const res = await fetch(`/admin/listings/<%= category %>/${advertId}/ad-period?adType=${adTypeNow}`);
+  const data = await res.json();
+
+  fromInput.value = data.from ? data.from.split('T')[0] : '';
+  toInput.value   = data.to   ? data.to.split('T')[0] : '';
+
+  saveBtn.onclick = async () => {
+    await fetch(`/admin/listings/<%= category %>/${advertId}/ad-period`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: fromInput.value,
+        to: toInput.value,
+        adType: adTypeNow
+      })
+    });
+
+    info.textContent = `Von ${fromInput.value} bis ${toInput.value}`;
+    modal.hide();
+  };
+};
+
+      }
+
+      actionGroups.forEach(renderStarOnly);
+
+      const observer = new MutationObserver((muts) => {
+        muts.forEach(m => {
+          const group = m.target.closest('.d-flex.flex-wrap.align-items-center.gap-2');
+          if (!group) return;
+          group.querySelectorAll('button, a').forEach(el => {
+            if (!el.classList.contains('btn-ad-toggle')) el.remove();
+          });
+          if (!group.querySelector('.btn-ad-toggle')) renderStarOnly(group);
+        });
+      });
+      actionGroups.forEach(g => observer.observe(g, { childList: true }));
+    }
+  });
+})();
+</script>
+
+<div class="modal fade" id="adPeriodModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Werbezeitraum</h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body d-flex gap-2">
+        <input type="date" id="adFrom" class="form-control">
+        <input type="date" id="adTo" class="form-control">
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="saveAdPeriod">Speichern</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// Hilfsfunktion: Form zu x-www-form-urlencoded serialisieren
+function formToURLEncoded(form, extra = []) {
+  const fd = new FormData(form);
+  for (const [k,v] of extra) fd.set(k, v);
+  const usp = new URLSearchParams();
+  for (const [k,v] of fd.entries()) usp.append(k, v);
+  return usp.toString();
+}
+
+// Einzel-Approve: sofort verschieben, dann Übersetzung im Hintergrund
+document.addEventListener('submit', async function (ev) {
+  const form = ev.target.closest('form[action*="/action"]');
+  if (!form) return;
+
+  const btn = ev.submitter || document.activeElement;
+  if (!btn || btn.name !== 'action' || btn.value !== 'approve') return;
+
+  ev.preventDefault();
+
+  const actionUrl = form.getAttribute('action'); // WICHTIG: nicht form.action!
+  const body = formToURLEncoded(form, [['action','approve']]);
+
+  try {
+    // 1) Sofort freigeben (urlencoded!)
+    const res = await fetch(actionUrl + '?ajax=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    // 2) Karte direkt entfernen
+    const col = form.closest('.col');
+    if (col) col.remove();
+
+    // 3) Übersetzung im Hintergrund
+    const translateUrl = actionUrl.replace('/action', '/translate');
+    fetch(translateUrl, { method: 'POST' }).catch(() => {});
+  } catch (err) {
+    alert('Fehler beim Approve: ' + (err?.message || err));
+  }
+});
+</script>
+
+<script>
+// Bulk-Approve: sofort freigeben, dann je ID Background-Translate
+document.addEventListener('submit', async function (ev) {
+  const bulkForm = ev.target.closest('#bulkForm');
+  if (!bulkForm) return;
+
+  const btn = ev.submitter || document.activeElement;
+  if (!btn || btn.name !== 'action' || btn.value !== 'approve') return;
+
+  ev.preventDefault();
+
+  // IDs einsammeln
+  const checked = Array.from(document.querySelectorAll('.bulk-checkbox:checked'));
+  const ids = checked.map(cb => cb.value).filter(Boolean);
+  if (!ids.length) { alert('Bitte mindestens ein Inserat auswählen.'); return; }
+
+  const actionUrl = bulkForm.getAttribute('action');
+
+  // urlencoded Body bauen:
+  const fd = new FormData(bulkForm);
+  // Bereinige alte ids[] und setze neu
+  Array.from(fd.keys()).filter(k => k === 'ids[]').forEach(k => fd.delete(k));
+  ids.forEach(id => fd.append('ids[]', id));
+  fd.set('action','approve');
+
+  const usp = new URLSearchParams();
+  for (const [k,v] of fd.entries()) usp.append(k, v);
+
+  try {
+    // 1) Sofort freigeben
+    const res = await fetch(actionUrl + '?ajax=1', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: usp.toString()
+    });
+    if (!res.ok) throw new Error(await res.text());
+
+    // 2) Aus UI entfernen
+    checked.forEach(cb => { const col = cb.closest('.col'); if (col) col.remove(); });
+
+    // 3) Für jede ID Translation im Hintergrund
+    for (const id of ids) {
+      const translateUrl = `/admin/listings/<%= category %>/${encodeURIComponent(id)}/translate`;
+      fetch(translateUrl, { method: 'POST' }).catch(() => {});
+    }
+  } catch (err) {
+    alert('Fehler bei Bulk-Approve: ' + (err?.message || err));
+  }
+});
+</script>

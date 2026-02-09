@@ -1,0 +1,29 @@
+.slider-wrapper {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  padding: 10px 0;
+}
+
+.slider-track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  scroll-behavior: smooth;
+}
+
+.scroll-btn {
+  position: absolute;
+  top: 40%;
+  font-size: 30px;
+  background: white;
+  border: none;
+  cursor: pointer;
+  z-index: 5;
+  opacity: 0.7;
+}
+
+.scroll-btn.left { left: 0; }
+.scroll-btn.right { right: 0; }
+
+.scroll-btn:hover { opacity: 1; }

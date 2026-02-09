@@ -1,0 +1,25 @@
+<% if (currentEntity.route === 'cars') { %>
+
+  <%- include('product-card-cars', { item }) %>
+
+<% } else if (currentEntity.route === 'watches') { %>
+
+  <%- include('product-card-watches', { item }) %>
+
+<% } else if (currentEntity.route === 'properties') { %>
+
+  <%- include('product-card-properties', { item }) %>
+
+<% } else if (currentEntity.route === 'yachts') { %>
+
+  <%- include('product-card-yachts', { item }) %>
+
+<% } else if (currentEntity.route === 'lifestyles') { %>
+
+  <%- include('product-card-lifestyles', { item }) %>
+
+<% } else { %>
+
+  <div style="padding:20px; border:1px solid #ddd;">Unknown entity type</div>
+
+<% } %>

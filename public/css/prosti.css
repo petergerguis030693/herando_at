@@ -1,0 +1,95 @@
+/* CONTAINER FIX */
+.productWrapper,
+.productContainer {
+  width: 100% !important;
+  max-width: 1800px !important;
+  margin: 0 auto !important;
+}
+
+/* GRID */
+.productGrid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: space-between !important;
+  gap: 35px !important;
+  margin-top: 30px !important;
+}
+
+/* CARD NEU */
+.cardPeter {
+  width: 350px !important;
+  background: #fff !important;
+  border-radius: 20px !important;
+  overflow: hidden !important;
+  box-shadow: 0 6px 28px rgba(0,0,0,.10) !important;
+  transition: .25s ease !important;
+}
+
+.cardPeter:hover {
+  transform: translateY(-5px) !important;
+  box-shadow: 0 14px 40px rgba(0,0,0,.18) !important;
+}
+
+/* IMAGE BOX */
+.imageBild {
+  width: 100% !important;
+}
+
+.bild {
+  width: 100% !important;
+  aspect-ratio: 4/5 !important; /* UNIVERSAL UPSCALE FOR ALL ENTITIES */
+  overflow: hidden !important;
+  background: #f4f4f4 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 20px 20px 0 0 !important;
+}
+
+/* IMAGE FIX – SUPER WICHTIG */
+.bild img {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
+  object-position: center !important;
+  display: block !important;
+}
+
+/* INFO */
+.informationSection {
+  padding: 15px 15px 20px 15px !important;
+}
+
+.productInfo h5 {
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  min-height: 40px !important;
+  margin-bottom: 12px !important;
+}
+
+/* META */
+.cartype-box {
+  margin-bottom: 10px !important;
+}
+
+.info-item {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  font-size: 12px !important;
+  margin-right: 12px !important;
+  color: #666 !important;
+  white-space: nowrap !important;
+}
+
+.info-item i {
+  color: #222 !important;
+  font-size: 14px !important;
+}
+
+/* PRICE */
+.productPrice {
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  margin-top: 15px !important;
+}

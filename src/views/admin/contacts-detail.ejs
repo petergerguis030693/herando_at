@@ -1,0 +1,59 @@
+<%- include('../partials/header-admin') %>
+<div class="admin-page d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active }) %>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="admin-content flex-grow-1 p-4">
+    <h1>Anfrage #<%= contact.id %></h1>
+    <dl class="row">
+      <% if (contact.salutation) { %>
+        <dt class="col-sm-3">Anrede</dt>
+        <dd class="col-sm-9"><%= contact.salutation %></dd>
+      <% } %>
+
+      <% if (contact.title) { %>
+        <dt class="col-sm-3">Titel</dt>
+        <dd class="col-sm-9"><%= contact.title %></dd>
+      <% } %>
+
+      <dt class="col-sm-3">Name</dt>
+      <dd class="col-sm-9"><%= contact.first_name %> <%= contact.last_name %></dd>
+
+      <dt class="col-sm-3">Rolle</dt>
+      <dd class="col-sm-9"><%= contact.role %></dd>
+
+      <% if (contact.company) { %>
+        <dt class="col-sm-3">Firma</dt>
+        <dd class="col-sm-9"><%= contact.company %></dd>
+      <% } %>
+
+      <% if (contact.customer_number) { %>
+        <dt class="col-sm-3">Kundennummer</dt>
+        <dd class="col-sm-9"><%= contact.customer_number %></dd>
+      <% } %>
+
+      <dt class="col-sm-3">E‑Mail</dt>
+      <dd class="col-sm-9"><a href="mailto:<%= contact.email %>"><%= contact.email %></a></dd>
+
+      <% if (contact.phone) { %>
+        <dt class="col-sm-3">Telefon</dt>
+        <dd class="col-sm-9"><a href="tel:<%= contact.phone %>"><%= contact.phone %></a></dd>
+      <% } %>
+
+      <dt class="col-sm-3">Datum</dt>
+      <dd class="col-sm-9"><%= new Date(contact.created_at).toLocaleString('de-DE') %></dd>
+
+      <% if (contact.message) { %>
+        <dt class="col-sm-3">Nachricht</dt>
+        <dd class="col-sm-9"><pre class="border p-2 bg-light" style="white-space: pre-wrap;"><%= contact.message %></pre></dd>
+      <% } %>
+    </dl>
+
+    <a href="/admin/contacts" class="btn btn-secondary">
+      ← Zurück zur Liste
+    </a>
+  </main>
+</div>

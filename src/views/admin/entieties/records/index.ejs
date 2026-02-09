@@ -1,0 +1,48 @@
+<!-- views/admin/entieties/records/index.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../../sidebar', { active: active, role: role  }) %>
+  </aside>
+  <div class="flex-fill p-3">
+    <h1>Spaltenstruktur für „<%= entityRoute %>“</h1>
+
+    <table class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Field</th>
+          <th>Type</th>
+          <th>Null</th>
+          <th>Key</th>
+          <th>Default</th>
+          <th>Extra</th>
+          <th>Aktionen</th> <!-- neue Spalte -->
+        </tr>
+      </thead>
+      <tbody>
+        <% schema.forEach(col => { %>
+          <tr>
+            <td><%= col.Field   %></td>
+            <td><%= col.Type    %></td>
+            <td><%= col.Null    %></td>
+            <td><%= col.Key     %></td>
+            <td><%= col.Default %></td>
+            <td><%= col.Extra   %></td>
+            <td>
+              <a
+                href="/admin/entieties/<%= entityRoute %>/options/<%= col.Field %>"
+                class="btn btn-sm btn-primary"
+              >
+                Verwalten
+              </a>
+            </td>
+          </tr>
+        <% }) %>
+      </tbody>
+    </table>
+
+    <a href="/admin/entieties/" class="btn btn-secondary mt-3">
+      Zurück zur Entitäten-Übersicht
+    </a>
+  </div>
+</div>

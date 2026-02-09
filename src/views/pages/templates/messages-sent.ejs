@@ -1,0 +1,84 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/buyer.css">
+
+<body>
+  <% const _cp = (typeof currentPage !== 'undefined' ? currentPage : null); %>
+
+  <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+         role="alert" style="z-index:1050;min-width:300px;">
+      <%= errorMessage %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+         role="alert" style="z-index:1050;min-width:300px;">
+      <%= successMessage %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+  <div class="account-shell d-flex gap-3">
+    <%- include('../../partials/asside') %>
+
+    <main class="main">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="m-0">
+          <i class="bi bi-send me-2"></i>
+          <%= t('buyer.messages.sent_title','Gesendete Nachrichten') %>
+        </h4>
+
+        <div class="d-flex gap-2">
+          <a class="btn btn-outline-secondary btn-sm" href="/buyer/messages">
+            <%= t('buyer.messages.inbox','Posteingang') %>
+          </a>
+          <a class="btn btn-primary btn-sm" href="/buyer/messages/compose">
+            <i class="bi bi-pencil-square me-1"></i>
+            <%= t('buyer.messages.compose','Neue Nachricht') %>
+          </a>
+        </div>
+      </div>
+
+      <div class="card-clean">
+        <div class="card-header">
+          <%= t('buyer.messages.outbox','Postausgang') %>
+        </div>
+
+        <div class="card-body">
+          <% if (!items || !items.length) { %>
+            <div class="text-muted">
+              <%= t('buyer.messages.sent_empty','Noch nichts gesendet.') %>
+            </div>
+          <% } else { %>
+            <div class="list-group">
+              <% items.forEach(m => { %>
+                <div class="list-group-item d-flex justify-content-between align-items-start">
+                  <div class="me-auto">
+                    <div class="fw-semibold">
+                      <%= m.subject || t('buyer.messages.subject_empty','(ohne Betreff)') %>
+                    </div>
+
+                    <div class="text-muted small">
+                      <%= t('buyer.messages.to','An') %>:
+                      <%= m.receiver_firstname || '' %> <%= m.receiver_lastname || '' %>
+                      <%= m.receiver_email ? '(' + m.receiver_email + ')' : '' %>
+                    </div>
+                  </div>
+
+                  <small class="text-muted">
+                    <i class="bi bi-calendar3 me-1"></i>
+                    <%= m.sent_at ? new Date(m.sent_at).toLocaleString('de-DE') : '' %>
+                  </small>
+                </div>
+              <% }) %>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<%- include('../../partials/footer', { footerColumns }) %>

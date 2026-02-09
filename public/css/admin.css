@@ -1,0 +1,126 @@
+        :root {
+            --bs-primary: #080422;
+        }
+
+        body {
+            background-color: #f8f9fa;
+            zoom: 0.85;
+        }
+
+        .sidebar {
+            border-right: 1px solid #dee2e6;
+            min-height: 100vh;
+            width: 300px;
+        }
+
+        .sidebar .nav-link {
+            color: #333333;
+        }
+
+        .sidebar .nav-link.active {
+            background-color: #e9ecef;
+            font-weight: 500;
+        }
+
+        .main-content {
+            background-color: #ffffff;
+            padding: 0;
+            min-height: 100vh;
+        }
+
+        .content {
+            padding: 20px;
+        }
+
+        .bg-primary,
+        .btn-primary {
+            background-color: #080422 !important;
+
+        }
+
+        /* Herando-Dunkelblau */
+        .bg-herando {
+            background-color: #080422 !important;
+        }
+
+        /* Kleineres Card-Layout für das erste Chart */
+        .chart-card-sm {
+            max-width: 320px;
+            max-height: 280px;
+            margin: auto;
+        }
+
+        /* Body so beschränken, dass das Canvas nicht zu groß wird */
+        .chart-card-sm .card-body {
+            padding: 0.5rem;
+            height: calc(100% - 2.5rem);
+            /* Header abziehen */
+        }
+
+        .chart-card-sm canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+
+        /* CSS */
+        .welcome-banner {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1.5rem;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #1E2A38 0%, #434D5B 100%);
+            color: #fff;
+            /* optional: Schatten */
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .welcome-text h4 {
+            font-size: 1.5rem;
+            margin: 0;
+            font-weight: 600;
+        }
+
+        .welcome-text p {
+            margin: 0.25rem 0 0;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 1rem;
+        }
+
+        .welcome-icon svg {
+            width: 96px;
+            height: 96px;
+        }
+
+        /* CSS */
+        .card-hover {
+            border: none;
+            border-radius: 0.75rem;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .card-hover:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        /* Optional: etwas mehr Luft um die Icons */
+        .card-body p {
+            display: flex;
+            align-items: center;
+        }
+
+        .card-body i {
+            font-size: 1.25rem;
+        }
+
+        .listings-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 1rem;
+          }
+          
+          .listing-card {
+            flex: 0 0 300px; /* jede Karte genau 300px breit */
+          }
+          

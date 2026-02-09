@@ -1,0 +1,147 @@
+<%
+/* ──────────────── LANGUAGE CONFIG (EXACT old system) ──────────────── */
+const currentLang = (typeof lang !== 'undefined' && lang) ? lang : 'de';
+
+const LANGS = [
+  { code:'de', label:'Deutsch',   flag:'de' },
+  { code:'en', label:'English',   flag:'gb' },
+  { code:'fr', label:'Français',  flag:'fr' },
+  { code:'it', label:'Italiano',  flag:'it' },
+  { code:'es', label:'Español',   flag:'es' },
+  { code:'nl', label:'Nederlands',flag:'nl' },
+  { code:'tr', label:'Türkçe',    flag:'tr' },
+  { code:'cs', label:'Čeština',   flag:'cz' },
+  { code:'ru', label:'Русский',   flag:'ru' },
+  { code:'ja', label:'日本語',     flag:'jp' },
+  { code:'pl', label:'Polski',    flag:'pl' }
+];
+
+const cur = LANGS.find(l => l.code === currentLang) || LANGS[0];
+%>
+
+<!-- 🌍 Modal Overlay (EXACT OLD) -->
+<div id="settingsModal" class="custom-modal-overlay d-none">
+  <div class="custom-modal">
+    <div class="modal-header d-flex justify-content-between align-items-center mb-3">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-globe2 fs-4"></i>
+        <h5 class="modal-title mb-0 fw-bold"><%= t('settings.title') %></h5>
+      </div>
+      <button type="button" id="closeModal" class="btn-close"></button>
+    </div>
+
+    <div class="modal-body">
+
+      <!-- LAND -->
+      <div class="mb-3">
+        <label class="form-label fw-semibold"><%= t('settings.country') %></label>
+        <select id="countrySelect" class="form-select heightInput">
+          <!-- FULL LIST EXACT OLD -->
+          <option value="DE" <%= country === 'DE' ? 'selected' : '' %>>🇩🇪 Deutschland</option>
+          <option value="ES" <%= country === 'ES' ? 'selected' : '' %>>🇪🇸 España</option>
+          <option value="FR" <%= country === 'FR' ? 'selected' : '' %>>🇫🇷 France</option>
+          <option value="IT" <%= country === 'IT' ? 'selected' : '' %>>🇮🇹 Italia</option>
+          <option value="CH" <%= country === 'CH' ? 'selected' : '' %>>🇨🇭 Schweiz</option>
+          <option value="GB" <%= country === 'GB' ? 'selected' : '' %>>🇬🇧 United Kingdom</option>
+          <option value="US" <%= country === 'US' ? 'selected' : '' %>>🇺🇸 USA</option>
+          <option disabled>──────────</option>
+          
+          <% [
+            ["AR","🇦🇷 Argentina"], ["AU","🇦🇺 Australia"], ["CA","🇨🇦 Canada"],
+            ["CR","🇨🇷 Costa Rica"], ["CU","🇨🇺 Cuba"], ["CZ","🇨🇿 Česká republika"],
+            ["FI","🇫🇮 Finland"], ["HR","🇭🇷 Hrvatska"], ["IN","🇮🇳 India"],
+            ["ID","🇮🇩 Indonesia"], ["JP","🇯🇵 日本"], ["LU","🇱🇺 Luxembourg"],
+            ["MY","🇲🇾 Malaysia"], ["MX","🇲🇽 México"], ["NL","🇳🇱 Nederland"],
+            ["NZ","🇳🇿 New Zealand"], ["AT","🇦🇹 Österreich"], ["PA","🇵🇦 Panama"],
+            ["PH","🇵🇭 Philippines"], ["PL","🇵🇱 Polska"], ["RU","🇷🇺 Россия"],
+            ["CN","🇨🇳 中国"], ["DO","🇩🇴 República Dominicana"], ["SG","🇸🇬 Singapore"],
+            ["ZA","🇿🇦 South Africa"], ["TH","🇹🇭 Thailand"], ["TR","🇹🇷 Türkiye"],
+            ["AE","🇦🇪 UAE"]
+          ].forEach(([code, label]) => { %>
+            <option value="<%= code %>" <%= country === code ? 'selected' : '' %>><%= label %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- SPRACHE -->
+      <div class="mb-3">
+      <label class="form-label fw-semibold"><%= t('settings.language') %></label>
+        <select id="languageSelect" class="form-select heightInput">
+          <% LANGS.forEach(l => { %>
+            <option value="<%= l.code %>" <%= l.code === currentLang ? 'selected' : '' %>>
+              <%= l.label %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- WÄHRUNG (EXACT OLD) -->
+      <div class="mb-4">
+        <label class="form-label fw-semibold"><%= t('settings.currency') %></label>
+        <select id="currencySelect" class="form-select heightInput">
+          <% [
+            ["EUR","€"], ["USD","$"], ["GBP","£"], ["CHF","₣"], ["AED","د.إ"],
+            ["AUD","$"], ["BGN","лв"], ["BRL","R$"], ["CAD","$"], ["CNY","¥"],
+            ["CZK","Kč"], ["DKK","kr"], ["HKD","$"], ["HRK","kn"], ["HUF","Ft"],
+            ["IDR","Rp"], ["ILS","₪"], ["INR","₹"], ["ISK","kr"], ["JPY","¥"],
+            ["KRW","₩"], ["MXN","$"], ["MYR","RM"], ["NOK","kr"], ["NZD","$"],
+            ["PHP","₱"], ["PLN","zł"], ["RON","lei"], ["RUB","₽"], ["SEK","kr"],
+            ["SGD","$"], ["THB","฿"], ["TRY","₺"], ["ZAR","R"]
+          ].forEach(([code, symbol]) => { %>
+            <option value="<%= code %>" <%= currency === code ? 'selected' : '' %>>
+              <%= code %> (<%= symbol %>)
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- BUTTONS -->
+      <div class="d-flex justify-content-between">
+        <button id="cancelBtn" class="btn btn-outline-secondary w-50 me-2 heightInput"><%= t('settings.cancel') %></button>
+        <button id="saveBtn" class="btn btn-dark w-50 heightInput"><%= t('settings.save') %></button>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<style>
+.custom-modal-overlay {
+  position: fixed;
+  top:0;left:0;width:100%;height:100%;
+  background:rgba(0,0,0,.55);
+  display:flex;justify-content:center;align-items:center;
+  z-index:1050;
+}
+.custom-modal {
+  background:#fff;border-radius:14px;
+  width:750px;max-width:90%;
+  padding:28px 32px;
+  box-shadow:0 6px 40px rgba(0,0,0,.25);
+  animation:fadeIn .3s ease;
+}
+.heightInput { height:55px !important; }
+@keyframes fadeIn { from{opacity:0;transform:scale(.96);} to{opacity:1;transform:scale(1);} }
+</style>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const modal = document.getElementById("settingsModal");
+  const openBtn = document.getElementById("settingsButton");
+  const closeBtn = document.getElementById("closeModal");
+  const cancelBtn = document.getElementById("cancelBtn");
+  const saveBtn = document.getElementById("saveBtn");
+
+  openBtn.addEventListener("click", () => modal.classList.remove("d-none"));
+  closeBtn.addEventListener("click", () => modal.classList.add("d-none"));
+  cancelBtn.addEventListener("click", () => modal.classList.add("d-none"));
+  modal.addEventListener("click", e => { if(e.target===modal) modal.classList.add("d-none") });
+
+  saveBtn.addEventListener("click", () => {
+    const lang = document.getElementById("languageSelect").value;
+    const currency = document.getElementById("currencySelect").value;
+    const country = document.getElementById("countrySelect").value;
+    window.location.href = `/lang/${lang}?currency=${currency}&country=${country}`;
+  });
+});
+</script>

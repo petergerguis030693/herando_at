@@ -1,0 +1,19 @@
+<section class="category-search">
+  <form method="get" action="" class="search-form d-flex align-items-center gap-2">
+
+    <input
+      type="search"
+      name="q"
+      class="search-leiste filter-input"
+      placeholder="<%= t('header.search.placeholder') %>"
+      value="<%= selectedFilters.q || '' %>"
+      autocomplete="off"
+    >
+
+    <button type="submit" class="btn btn-primary">
+      <i class="bi bi-search"></i>
+      <span>Suchen</span>
+    </button>
+
+  </form>
+</section>

@@ -1,0 +1,32 @@
+ <%- include('../partials/header-admin') %>
+
+<%- include('./sidebar', { active: active }) %>
+
+<main class="main-content flex-fill">
+  <header class="bg-primary text-white p-3 mb-4">
+    <h1 class="h4 mb-0">
+      <%= isNew ? 'Neue Kategorie' : 'Kategorie bearbeiten' %>
+    </h1>
+  </header>
+
+  <div class="content">
+    <form action="<%= isNew ? '/admin/ententies/new' : `/admin/ententies/${entitie.id}/edit` %>" method="POST">
+      <div class="mb-3">
+        <label class="form-label">Name</label>
+        <input name="name" class="form-control" value="<%= entitie.name || '' %>" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Route</label>
+        <input name="route" class="form-control" value="<%= entitie.route || '' %>" required>
+      </div>
+      <div class="mb-3">
+        <label class="form-label">Tabellenname</label>
+        <input name="table_name" class="form-control" value="<%= entitie.table_name || '' %>" required>
+      </div>
+      <button type="submit" class="btn btn-primary">
+        <%= isNew ? 'Anlegen' : 'Speichern' %>
+      </button>
+      <a href="/admin/ententies" class="btn btn-secondary">Abbrechen</a>
+    </form>
+  </div>
+</main>

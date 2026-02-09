@@ -1,0 +1,181 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/category.css">
+<link rel="stylesheet" href="/css/product.css">
+<link rel="stylesheet" href="/css/product-cards/cars.css">
+<link rel="stylesheet" href="/css/product-cards/watches.css">
+<link rel="stylesheet" href="/css/product-cards/properties.css">
+<link rel="stylesheet" href="/css/product-cards/yachts.css">
+<link rel="stylesheet" href="/css/product-cards/lifestyles.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Prata&display=swap" rel="stylesheet">
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<link
+  href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
+  rel="stylesheet"
+/>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<section id="heroSection" class="hero-section">
+  <img id="heroImage" src="" alt="Luxury" class="hero-image">
+  <div id="heroCaption" class="hero-caption"></div>
+  <div id="heroText" class="hero-text"></div>
+</section>
+
+
+
+<%- include('../../components/product-slider') %>
+
+<%- include('../../components/category-search') %>
+
+
+<%- include('../../components/entity-search', { currency }) %>
+ 
+<%- include('../../components/product-list', { items, currentEntity }) %>
+
+
+  <% let baseQS='' ; if (selectedFilters.brand) baseQS +=`&brand=${encodeURIComponent(selectedFilters.brand)}`; if
+    (selectedFilters.model) baseQS +=`&model=${encodeURIComponent(selectedFilters.model)}`; if (selectedFilters.yearMin)
+    baseQS +=`&yearMin=${encodeURIComponent(selectedFilters.yearMin)}`; if (selectedFilters.mileageMax)baseQS
+    +=`&mileageMax=${encodeURIComponent(selectedFilters.mileageMax)}`; if (selectedFilters.paymentType) baseQS
+    +=`&paymentType=${encodeURIComponent(selectedFilters.paymentType)}`; if (selectedFilters.priceMax) baseQS
+    +=`&priceMax=${encodeURIComponent(selectedFilters.priceMax)}`; if (selectedFilters.location) baseQS
+    +=`&location=${encodeURIComponent(selectedFilters.location)}`; %>
+<section class="hernando-pagination">
+  <div class="hernando-pagination-container">
+
+    <div class="hernando-perpage-title">Inserate pro Seite</div>
+
+    <div class="hernando-pagination-row">
+
+      <!-- LINKS -->
+      <div class="hernando-perpage">
+        <select id="itemsPerPage"
+                class="form-select hernando-perpage-select"
+                onchange="updateLimit(this.value)">
+          <option value="32" <%=limit===32?'selected':''%>>32</option>
+          <option value="60" <%=limit===60?'selected':''%>>60</option>
+          <option value="120" <%=limit===120?'selected':''%>>120</option>
+        </select>
+      </div>
+
+      <!-- RECHTS -->
+      <% if (totalPages > 1) { %>
+        <%
+          const maxPages = 5;
+          let start = Math.max(1, currentPage - Math.floor(maxPages / 2));
+          let end   = start + maxPages - 1;
+          if (end > totalPages) {
+            end = totalPages;
+            start = Math.max(1, end - maxPages + 1);
+          }
+        %>
+
+        <nav class="hernando-pagination-nav">
+          <ul class="pagination">
+
+            <% if (currentPage > 1) { %>
+              <li class="page-item">
+                <a class="page-link" href="?<%= new URLSearchParams({ ...query, hp: 1 }).toString() %>">«</a>
+              </li>
+              <li class="page-item">
+                <a class="page-link" href="?<%= new URLSearchParams({ ...query, hp: currentPage - 1 }).toString() %>">‹</a>
+              </li>
+            <% } %>
+
+            <% for (let p = start; p <= end; p++) { %>
+              <li class="page-item <%= p === currentPage ? 'active' : '' %>">
+                <a class="page-link" href="?<%= new URLSearchParams({ ...query, hp: p }).toString() %>"><%= p %></a>
+              </li>
+            <% } %>
+
+            <% if (currentPage < totalPages) { %>
+              <li class="page-item">
+                <a class="page-link" href="?<%= new URLSearchParams({ ...query, hp: currentPage + 1 }).toString() %>">›</a>
+              </li>
+              <li class="page-item">
+                <a class="page-link" href="?<%= new URLSearchParams({ ...query, hp: totalPages }).toString() %>">»</a>
+              </li>
+            <% } %>
+
+          </ul>
+        </nav>
+      <% } %>
+
+    </div>
+  </div>
+</section>
+
+
+
+
+    
+<%
+  const route = (currentEntity && currentEntity.route ? String(currentEntity.route).toLowerCase() : '');
+  const keys  = [
+    `entity.${route}.description_html`,
+    `entity.${route}.description`
+  ];
+
+  const dbFallback = (currentEntity && typeof currentEntity.description === 'string')
+    ? currentEntity.description
+    : '';
+
+  function fromT(k){
+    try {
+      if (typeof t === 'function') {
+        const v = t(k, { fallback: '' });
+        return (typeof v === 'string') ? v : '';
+      }
+    } catch(e) {}
+    return '';
+  }
+
+  let descHtml = '';
+  for (const k of keys) {
+    const v = fromT(k);
+    if (v && v.trim()) { descHtml = v; break; }
+  }
+  if (!descHtml) descHtml = dbFallback;
+%>
+
+<% if (descHtml && descHtml.trim()) { %>
+<section class="container mb-5" style="max-width: 1800px !important;">
+  <div class="p-4">
+    <div class="entity-description"><%- descHtml %></div>
+  </div>
+</section>
+<% } %>
+
+
+<%- include('../../components/script') %>
+<script>
+(function () {
+  const saved = localStorage.getItem('itemsPerPage');
+  if (!saved) return;
+
+  const url = new URL(window.location.href);
+
+  // nur anwenden, wenn URL kein limit hat
+  if (!url.searchParams.has('limit')) {
+    url.searchParams.set('limit', saved);
+    window.location.replace(url.toString());
+  }
+})();
+</script>
+
+<script>
+function updateLimit(limit){
+  localStorage.setItem('itemsPerPage', limit);
+
+  const url = new URL(window.location.href);
+  url.searchParams.set('limit', limit);
+  url.searchParams.set('hp', '1');
+  window.location.href = url.toString();
+}
+</script>
+
+
+
+
+<%- include('../../partials/footer') %>

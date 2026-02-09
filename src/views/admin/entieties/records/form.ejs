@@ -1,0 +1,48 @@
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../../sidebar', { active: active, role: role  }) %>
+  </aside>
+
+  <div class="flex-fill p-3">
+
+    <h1>
+      <%= isNew ? 'Neue Option für' : 'Option bearbeiten in' %>
+      <%= entityRoute.replace(/^.*\/options\//, '') %>
+      (<%= entityRoute.split('/')[0] %>)
+    </h1>
+
+    <form method="post" action="">
+      <div class="row g-3">
+
+        <% filters.forEach(f => { %>
+          <div class="col-md-6 mb-3">
+            <label for="<%= f.name %>" class="form-label">
+              <%= f.label %>
+            </label>
+            <input
+              type="<%= f.type %>"
+              id="<%= f.name %>"
+              name="<%= f.name %>"
+              class="form-control"
+              value="<%= record[f.name] || '' %>"
+              required
+            />
+          </div>
+        <% }) %>
+
+      </div>
+
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary">
+          <%= isNew ? 'Hinzufügen' : 'Speichern' %>
+        </button>
+        <a href="/admin/entieties/<%= entityRoute %>"
+           class="btn btn-secondary">
+          Abbrechen
+        </a>
+      </div>
+    </form>
+
+  </div>
+</div>

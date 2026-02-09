@@ -1,0 +1,368 @@
+<%- include('../../partials/header') %>
+<%
+  const _langRaw = (typeof lang !== 'undefined' && lang) ? String(lang) : 'de';
+  const _lang = _langRaw.includes('-') ? _langRaw.split('-')[0] : _langRaw;
+  const _localeMap = {
+    de:'de-DE', en:'en-US', fr:'fr-FR', it:'it-IT', tr:'tr-TR', ja:'ja-JP',
+    cs:'cs-CZ', ru:'ru-RU', es:'es-ES', nl:'nl-NL', pl:'pl-PL'
+  };
+  const _locale = _localeMap[_lang] || 'de-DE';
+%>
+<link rel="stylesheet" href="/css/buyer.css">
+</head>
+<style>
+  .navi-links{
+    color: #1A253C !important; 
+  }
+
+  .btn-danger{
+  --bs-btn-border-color: transparent !important;
+  --bs-btn-border-color: transparent !important;
+  --bs-btn-hover-border-color: transparent !important;
+  --bs-btn-active-border-color: transparent !important;
+  --bs-btn-disabled-border-color: transparent !important;
+  }
+
+  .btn-primary:hover{
+    border-color: transparent !important;
+  }
+
+  .btn-outline-dark:hover{
+    border-color: transparent !important;
+  }
+
+</style>
+<body>
+
+<% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+  <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+
+<% if (typeof successMessage !== 'undefined' && successMessage) { %>
+  <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+    <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+<% } %>
+
+<div class="account-shell d-flex gap-3">
+
+  <!-- Sidebar -->
+  <%- include('../../partials/asside') %>
+
+  <main class="main py-5">
+    <div class="container">
+
+      <h2 class="mb-4 text-left fw-bold text-gold">
+        <i class="bi bi-clock-history"></i> <%= t('buyer.history.title') %>
+      </h2>
+
+
+        <p>
+          <%= t('buyer.history.welcome') %> <br>
+          <%= t('buyer.history.subtitle') %>
+        </p>
+
+
+
+<%
+  const f_q       = encodeURIComponent(q || "");
+  const f_pFrom   = encodeURIComponent(priceFrom || "");
+  const f_pTo     = encodeURIComponent(priceTo || "");
+  const f_entity  = encodeURIComponent(entity || "");
+%>
+
+<a href="/buyer/new-listing" class="btn btn-primary btn-lg mb-4">
+  <%= t('buyer.new.cta', 'Jetzt inserieren') %>
+</a>
+<% if (user.company && user.company.trim() !== "") { %>
+
+<style>
+  .filter-box {
+    background: #fff;
+    border: 1px solid #e1e1e1;
+    padding: 25px;
+    border-radius: 12px;
+  }
+  .filter-row {
+    margin-bottom: 25px;
+  }
+  .filter-label {
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: block;
+  }
+</style>
+
+
+
+<form method="GET" action="/buyer/historie" class="filter-box mb-4">
+
+  <input type="hidden" name="tab" value="<%= activeTab %>">
+  <input type="hidden" id="entityInput" name="entity" value="<%= entity || '' %>">
+
+  <!-- TEXT -->
+  <div class="filter-row">
+    <label class="filter-label"><%= t('buyer.history.filter.search') %></label>
+    <div class="input-group" style="max-width:450px;">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input 
+        type="text"
+        name="q"
+        class="form-control"
+        placeholder="<%= t('buyer.history.filter.placeholder',
+        'Text, Marke, Modell, ID, Farbe, Referenznummer …') %>"
+        value="<%= q || '' %>">
+    </div>
+  </div>
+
+<!-- ░░░ 2) KATEGORIEN ░░░ -->
+<div class="filter-row">
+  <label class="filter-label"><%= t('buyer.history.filter.category') %></label>
+
+  <div class="d-flex flex-wrap" style="gap:10px;">
+
+    <% if (entityCounts.properties > 0) { %>
+      <button type="button"
+              class="btn btn-outline-dark <%= entity === 'properties' ? 'active' : '' %>"
+              onclick="setEntity('properties')">
+        <%= t('global.category.properties', 'Immobilien') %>
+      </button>
+    <% } %>
+
+    <% if (entityCounts.cars > 0) { %>
+      <button type="button"
+              class="btn btn-outline-dark <%= entity === 'cars' ? 'active' : '' %>"
+              onclick="setEntity('cars')">
+        <%= t('global.category.cars', 'Autos') %>
+      </button>
+    <% } %>
+
+    <% if (entityCounts.watches > 0) { %>
+      <button type="button"
+              class="btn btn-outline-dark <%= entity === 'watches' ? 'active' : '' %>"
+              onclick="setEntity('watches')">
+        <%= t('global.category.watches', 'Uhren') %>
+      </button>
+    <% } %>
+
+    <% if (entityCounts.yachts > 0) { %>
+      <button type="button"
+              class="btn btn-outline-dark <%= entity === 'yachts' ? 'active' : '' %>"
+              onclick="setEntity('yachts')">
+        <%= t('global.category.yachts', 'Yachten') %>
+      </button>
+    <% } %>
+
+    <% if (entityCounts.lifestyles > 0) { %>
+      <button type="button"
+              class="btn btn-outline-dark <%= entity === 'lifestyles' ? 'active' : '' %>"
+              onclick="setEntity('lifestyles')">
+        <%= t('global.category.lifestyles', 'Lifestyle') %>
+      </button>
+    <% } %>
+
+  </div>
+</div>
+
+    <div class="filter-row d-flex flex-wrap align-items-end" style="gap:20px;">
+
+      <div>
+        <label class="filter-label"><%= t('buyer.history.filter.from') %></label>
+        <input type="number" name="price_from" class="form-control" style="width:150px;" value="<%= priceFrom || '' %>">
+      </div>
+
+      <div>
+        <label class="filter-label"><%= t('buyer.history.filter.to') %></label>
+        <input type="number" name="price_to" class="form-control" style="width:150px;" value="<%= priceTo || '' %>">
+      </div>
+
+      <div style="margin-top:8px;">
+        <button class="btn btn-dark px-4"><%= t('buyer.history.filter.apply') %></button>
+
+        <a href="/buyer/historie?tab=<%= activeTab %>" class="btn btn-outline-secondary">
+          <%= t('buyer.history.filter.reset') %>
+        </a>
+      </div>
+
+    </div>
+
+</form>
+
+<script>
+  function setEntity(ent) {
+    document.getElementById('entityInput').value = ent;
+    document.querySelector('form.filter-box').submit();
+  }
+</script>
+
+<% } %>
+
+<div class="listing-tabs d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3" style="margin-top:20px;">
+  <ul class="nav nav-tabs flex-grow-1">
+
+    <li class="nav-item">
+      <a href="/buyer/historie?tab=online&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
+         class="nav-link <%= activeTab === 'online' ? 'active' : '' %>" style="color: #1A253C">
+        <%= t('buyer.history.tab.online') %> (<%= onlineListings.length %>)
+      </a>
+    </li>
+
+    <li class="nav-item navi-links">
+      <a href="/buyer/historie?tab=drafts&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
+         class="nav-link <%= activeTab === 'drafts' ? 'active' : '' %>" style="color: #1A253C">
+        <%= t('buyer.history.tab.drafts') %> (<%= offlineListings.length %>)
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/buyer/historie?tab=review&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
+         class="nav-link <%= activeTab === 'review' ? 'active' : '' %>" style="color: #1A253C">
+        <%= t('buyer.history.tab.review') %> (<%= reviewListings.length %>)
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/buyer/historie?tab=paused&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
+         class="nav-link <%= activeTab === 'paused' ? 'active' : '' %>" style="color: #1A253C">
+        <%= t('buyer.history.tab.paused') %> (<%= pausedListings.length %>)
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/buyer/historie?tab=deleted&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
+         class="nav-link <%= activeTab === 'deleted' ? 'active' : '' %>" style="color: #1A253C">
+        <%= t('buyer.history.tab.deleted') %> (<%= deletedListings.length %>)
+      </a>
+    </li>
+
+    <li class="nav-item">
+      <a href="/buyer/historie?tab=expired&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
+         class="nav-link <%= activeTab === 'expired' ? 'active' : '' %>" style="color: #1A253C">
+        <%= t('buyer.history.tab.expired') %> (<%= expiredListings.length %>)
+      </a>
+    </li>
+
+  </ul>
+
+  <a href="/buyer/new-listing" class="btn btn-gold fw-semibold ms-auto">
+    <i class="bi bi-plus-circle me-1"></i> <%= t('buyer.history.btn.new') %>
+  </a>
+
+  <a href="/buyer/submit-online" class="btn btn-gold fw-semibold ms-auto">
+    <i class="bi bi-clipboard-check me-1"></i> <%= t('buyer.history.btn.submit') %>
+  </a>
+</div>
+
+
+
+
+
+
+<% const renderCards = (list) => { %>
+
+  <% if (!list.length) { %>
+      <%= t('buyer.history.noresults', 'Keine Inserate gefunden') %>
+    <% return; %>
+  <% } %>
+
+  <div class="listing-cards">
+    <div class="row g-4">
+
+    <% list.forEach(item => { %>
+
+      <div class="col-md-4 col-lg-3">
+        <div class="card h-100 shadow-sm border-0 position-relative">
+
+          <% if (item.hasPlacement) { %>
+            <div style="
+              position:absolute;top:10px;left:10px;
+              background:#1A253C;color:#fff;
+              padding:6px 12px;border-radius:12px;
+              font-weight:600;font-size:0.9rem;">
+              ⭐ <%= t('buyer.history.card.featured','Anzeige aktiv') %>
+            </div>
+          <% } %>
+
+          <img src="<%= item.imageUrl %>" class="card-img-top rounded-top img" alt="">
+
+          <div class="card-body">
+
+            <h6 class="card-title fw-semibold text-truncate">
+              <%= item.translatedTitle || item.name || item.title || t('buyer.history.card.unnamed', 'Unbenanntes Inserat') %>
+            </h6>
+
+            <p class="small mb-1 text-muted">
+              <%= item.entityRoute %> • <%= t('buyer.history.card.id', 'ID') %>: <%= item.id %>
+            </p>
+
+            <% if (item.placementEndDate) { %>
+              <p class="small text-success"> <%= t('buyer.history.card.until', 'Bis') %> <%= new Date(item.placementEndDate).toLocaleDateString(_locale) %></p>
+            <% } %>
+
+            <span><b><%= new Intl.NumberFormat(_locale, { 
+              minimumFractionDigits: 2, 
+              maximumFractionDigits: 2 
+            }).format(item.price) %> <%- item.currency %></b></span>
+
+            <div class="d-flex gap-2 mt-2">
+
+              <% if (activeTab !== 'review') { %>
+                <a href="/buyer/edit-listing/<%= item.id %>"
+                  class="btn btn-primary"
+                  style="background:#1A253C;">
+                  <i class="bi bi-pencil text-white"></i>
+                </a>
+
+                <form method="POST" action="/buyer/delete-listing/<%= item.id %>" style="display:inline"
+                      onsubmit="return confirm('<%= t('buyer.history.confirm.delete','Möchtest du dieses Inserat wirklich löschen?').replace(/'/g, '\\\'') %>')">
+                  <button type="submit"
+                      class="btn btn-primary"
+                          style="background:#1A253C;">
+                    <i class="bi bi-trash text-white"></i>
+                  </button>
+                </form>
+              <% } %>
+
+
+              <% if (item.status == 3 && item.visible == 1) { %>
+
+                <a href="/buyer/upgrade/<%= item.id %>"
+                  class="btn btn-primary"
+                  style="background:#1A253C;">
+                  <i class="bi bi-star text-white"></i>
+                </a>
+
+              <% } %>
+
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    <% }) %>
+
+    </div>
+  </div>
+
+<% } %>
+
+
+<div class="tab-content">
+
+  <div class="tab-pane fade show active">
+    <% if (activeTab === "online") renderCards(onlineListings) %>
+    <% if (activeTab === "drafts") renderCards(offlineListings) %>
+    <% if (activeTab === "review") renderCards(reviewListings) %>
+    <% if (activeTab === "paused") renderCards(pausedListings) %>
+    <% if (activeTab === "deleted") renderCards(deletedListings) %>
+    <% if (activeTab === "expired") renderCards(expiredListings) %>
+  </div>
+
+</div>
+    </div>
+  </div>
+
+<%- include('../../partials/footer') %>

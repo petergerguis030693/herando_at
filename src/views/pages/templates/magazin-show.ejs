@@ -1,0 +1,53 @@
+<%- include('../../partials/header') %>
+
+<div class="container my-4">
+  <!-- Breadcrumb -->
+  <nav aria-label="breadcrumb" class="mb-4">
+    <ol class="breadcrumb bg-transparent p-0 mb-0">
+      <li class="breadcrumb-item">
+        <a href="/" class="text-decoration-none">
+          <i class="bi bi-house-door-fill"></i>
+        </a>
+      </li>
+      <li class="breadcrumb-item">
+        <a href="/magazin" class="text-decoration-none">
+          <i class="bi bi-journal-text"></i> <%= t('magazin.breadcrumb', 'Magazin') %>
+        </a>
+      </li>
+      <li class="breadcrumb-item active" aria-current="page"><%= page.title %></li>
+    </ol>
+  </nav>
+
+  <!-- Titel & Meta -->
+  <h1 class="fw-bold mb-2" style="font-family:Georgia, serif; color:#111;">
+    <%= page.title %>
+  </h1>
+  <div class="text-muted mb-4" style="font-size:0.9rem;">
+    <%= t('magazin.by', 'Von') %> <strong><%= page.author %></strong> &bull;
+    <%= new Date(page.created).toLocaleDateString('de-DE', {
+          day:'2-digit', month:'long', year:'numeric'
+       }) %>
+  </div>
+
+  <!-- Cover Image -->
+  <% if (page.cover_image) { %>
+    <img 
+      src="/uploads/postings/<%= page.slug %>/<%= page.cover_image %>"
+      alt="<%= page.title %>"
+      class="img-fluid rounded mb-4 shadow-sm">
+  <% } %>
+
+  <!-- Content -->
+  <div style="font-family:Georgia, serif; color:#333; line-height:1.7; font-size:1rem;">
+    <%- page.content %>
+  </div>
+
+  <!-- Zurück-Button -->
+  <div class="mt-4">
+    <a href="/magazin" class="btn btn-primary">
+      <i class="bi bi-arrow-left-circle"></i> <%= t('magazin.back', 'Zurück') %>
+    </a>
+  </div>
+</div>
+
+<%- include('../../partials/footer', { footerColumns }) %>

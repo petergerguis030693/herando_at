@@ -1,0 +1,3155 @@
+<%- include('../../partials/header') %>
+<body class="route-<%= currentEntity.route %>">
+<link rel="stylesheet" href="/css/detail/detail-<%= currentEntity.route %>.css">
+<style>
+.product-single-images {
+  position: relative;
+  overflow: visible; /* NICHT hidden */
+}
+
+#magnifier {
+  position: absolute;
+  width: 350px;
+  height: 350px;
+  border-radius: 20px;
+  pointer-events: none;
+  z-index: 999;
+}
+
+tr {
+  font-size: 22px;
+}
+
+/* Mobile: 500px bis 200px */
+@media screen and (max-width: 500px) {
+  tr {
+    font-size: 14px;
+  }
+}
+
+</style>
+
+
+<%- include('../../components/detail/script.ejs') %>
+<%
+  const T = (key, fb) => {
+    try {
+      return typeof t === "function"
+        ? t(key, { fallback: fb })
+        : fb;
+    } catch {
+      return fb;
+    }
+  };
+%>
+
+
+<link rel="stylesheet" href="/css/detail.css">
+
+<body>
+
+
+<section class="container product-single-container">
+  <div style="margin-bottom: 30px">
+</div>
+  <div class="row">
+    <!-- Bilder-Spalte -->
+    <div class="col-md-6">
+      <div class="product-single-images">
+        <img id="mainImage"
+            src="<%= item.imageUrl %>"
+            data-zoom="<%= item.imageUrlOriginal || item.imageUrl %>"
+            alt="<%= item.title %>" />
+
+        <div id="magnifier"></div>
+      </div>
+
+      <div class="thumbnail-slider">
+        <button id="prevThumb" disabled>&#10094;</button>
+        <div class="product-single-thumbnails d-flex">
+          <% item.thumbnailUrls.forEach(url => { %>
+            <img src="<%= url %>"
+                 alt="Thumbnail von <%= item.title %>"
+                 onclick="thumbClick(this)" />
+          <% }) %>
+        </div>
+        <button id="nextThumb">&#10095;</button>
+      </div>
+      <a href="#reportModal"
+        data-bs-toggle="modal"
+        class="d-inline-flex align-items-center gap-2 mt-3 disPlayed"
+        style="cursor:pointer; font-size: 14pt; margin-top: 30px !important; color:#333;">
+        <i class="bi bi-slash-circle" style="font-size:18pt; color:#777;"></i>
+          <%= t('common.report_listing','Inserat melden') %>
+      </a>
+
+<script>
+(function () {
+  const img   = document.getElementById('mainImage');
+  const glass = document.getElementById('magnifier');
+  const ZOOM  = 2;
+
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+
+  function getContainMetrics() {
+    const rect = img.getBoundingClientRect();
+
+    const iw = img.naturalWidth;
+    const ih = img.naturalHeight;
+
+    const cw = rect.width;
+    const ch = rect.height;
+
+    const scale = Math.min(cw / iw, ch / ih);
+
+    const w = iw * scale;
+    const h = ih * scale;
+
+    const x = (cw - w) * 0.5;
+    const y = (ch - h) * 0.5;
+
+    return { rect, w, h, x, y };
+  }
+
+  img.addEventListener('mousemove', e => {
+    const zoomSrc = img.dataset.zoom || img.src;
+    const { rect, w, h, x, y } = getContainMetrics();
+
+    // Maus relativ zum echten Bild (contain!)
+    const mx = e.clientX - rect.left - x;
+    const my = e.clientY - rect.top  - y;
+
+    // Maus darf bis zum Rand
+    if (mx < 0 || my < 0 || mx > w || my > h) {
+      glass.style.display = 'none';
+      return;
+    }
+
+    glass.style.display = 'block';
+
+    const gw = glass.clientWidth;
+    const gh = glass.clientHeight;
+
+    /* =========================
+       LUPENPOSITION
+       Maus = Startpunkt
+       ========================= */
+    glass.style.left = (x + mx) + 'px';
+    glass.style.top  = (y + my) + 'px';
+
+    /* =========================
+       ZOOM – PIXELGENAU + CLAMP
+       ========================= */
+    const rx = mx / w * img.naturalWidth;
+    const ry = my / h * img.naturalHeight;
+
+    const maxBgX = img.naturalWidth  * ZOOM - gw;
+    const maxBgY = img.naturalHeight * ZOOM - gh;
+
+    const bgX = -clamp(rx * ZOOM, 0, maxBgX);
+    const bgY = -clamp(ry * ZOOM, 0, maxBgY);
+
+    glass.style.backgroundImage = `url(${zoomSrc})`;
+    glass.style.backgroundRepeat = 'no-repeat';
+    glass.style.backgroundSize =
+      (img.naturalWidth * ZOOM) + 'px ' +
+      (img.naturalHeight * ZOOM) + 'px';
+
+    glass.style.backgroundPosition = `${bgX}px ${bgY}px`;
+  });
+
+  img.addEventListener('mouseleave', () => {
+    glass.style.display = 'none';
+  });
+
+window.changeImage = function (el) {
+  const newSrc  = el.dataset.large || el.src;
+  const zoomSrc = el.dataset.full  || el.dataset.large || el.src;
+
+  imageReady = false;
+  glass.style.display = 'none';
+
+  const temp = new Image();
+  temp.src = newSrc;
+
+  temp.onload = () => {
+    img.src = newSrc;
+    img.dataset.zoom = zoomSrc;
+    imageReady = true;
+  };
+};
+
+})();
+</script>
+
+<script>
+(function () {
+  const img = document.getElementById('mainImage');
+  const thumbs = Array.from(document.querySelectorAll('.product-single-thumbnails img'));
+  const thumbWrap = document.querySelector('.product-single-thumbnails');
+
+  if (!img || thumbs.length === 0) return;
+
+  function currentIndex() {
+    const file = img.src.split('/').pop();
+    const i = thumbs.findIndex(t => t.src.split('/').pop() === file);
+    return i >= 0 ? i : 0;
+  }
+
+function show(i) {
+  if (i < 0) i = 0;
+  if (i >= thumbs.length) i = thumbs.length - 1;
+
+  const el = thumbs[i];
+  window.changeImage(el);
+
+  // 👉 Thumbnail automatisch mitscrollen
+  el.scrollIntoView({
+    behavior: 'smooth',
+    inline: 'center',
+    block: 'nearest'
+  });
+}
+
+
+  let startX = 0;
+  let startY = 0;
+
+  img.addEventListener('touchstart', e => {
+    const t = e.touches[0];
+    startX = t.clientX;
+    startY = t.clientY;
+  }, { passive: true });
+
+  img.addEventListener('touchend', e => {
+    const t = e.changedTouches[0];
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+
+    if (Math.abs(dx) < 50) return;
+    if (Math.abs(dy) > 70) return;
+
+    const i = currentIndex();
+
+    if (dx < 0) show(i + 1); // swipe left
+    else show(i - 1);        // swipe right
+  }, { passive: true });
+})();
+</script>
+
+
+
+
+
+
+
+
+      <!-- =======================
+     MODAL: INSERAT MELDEN
+======================= -->
+    <div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+      <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="max-width:800px; width:100%; margin:auto;">
+          <div class="modal-header">
+            <h5 class="modal-title" id="reportModalLabel"><%= t('common.report_listing','Inserat melden') %></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+          </div>
+
+          <div class="modal-body">
+            <form id="reportForm">
+
+              <!-- Honeypot -->
+              <input type="text" id="hp_report" name="hp_report" style="display:none">
+
+              <div class="row g-3">
+
+                <div class="col-md-6">
+                  <label class="form-label"><%= T('product.contact.first_name','Ihr Vorname *') %> *</label>
+                  <input type="text" id="reportFirstName" class="form-control" required>
+                </div>
+
+                <div class="col-md-6">
+                  <label class="form-label"><%= T('product.contact.last_name','Ihr Nachname *') %> *</label>
+                  <input type="text" id="reportLastName" class="form-control" required>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label"><%= T('product.contact.email','Ihre E-Mail-Adresse *') %></label>
+                  <input type="email" id="reportEmail" class="form-control" required>
+                </div>
+
+                <div class="col-12">
+                  <label class="form-label"><%= t('common.reason','Grund') %> *</label>
+                  <select id="reportReason" class="form-control" required>
+                    <option value=""><%= t('common.select_please','Bitte auswählen') %></option>
+                    <option value="Verdächtiger Verkäufer"><%= t('report.reason.suspicious_seller','Verdächtiger Verkäufer') %></option>
+                    <option value="Dieses Inserat ist eine Fälschung"><%= t('report.reason.fake_listing','Dieses Inserat ist eine Fälschung') %></option>
+                    <option value="Fehler im Inserat"><%= t('report.reason.incorrect_data','Fehler im Inserat') %></option>
+                    <option value="wurde verkauft"><%= t('report.reason.sold','Wurde verkauft') %></option>
+                    <option value="Ich habe keine Antwort erhalten"><%= t('report.reason.no_response','Ich habe keine Antwort erhalten') %></option>
+                    <option value="OTHER"><%= t('common.other','Sonstiges') %></option>
+                  </select>
+                </div>
+
+                <div class="col-12" id="otherReasonBox" style="display:none;">
+                  <label class="form-label"><%= t('common.your_message','Ihre Nachricht') %></label>
+                  <textarea id="reportMessage" class="form-control" rows="5"></textarea>
+                </div>
+
+              </div>
+
+            </form>
+          </div>
+
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" 
+                    data-bs-dismiss="modal" 
+                    style="background-color: rgb(100, 4, 4); border: none;">
+              <%= t('common.cancel','Abbrechen') %>
+            </button>
+
+            <button type="submit" form="reportForm" class="btn btn-primary"
+                    style="background-color:#9c7240; border:none;">
+              <%= t('common.report_send','Melden') %>
+            </button>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+
+
+
+    </div>
+
+    <div class="col-md-5">
+      <h1 class="product-single-title mb-2"><%= item.title %></h1>
+      <a href="/" class="text-decoration-none">
+        <i class="bi bi-house-door-fill breadcrumb-icon"></i>
+      </a>
+      <i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
+
+<a href="/<%= currentEntity.route %>">
+  <% if (currentEntity.route === "cars") { %>
+    <i class="bi bi-car-front-fill breadcrumb-icon"></i>
+  <% } else if (currentEntity.route === "watches") { %>
+    <i class="bi bi-watch breadcrumb-icon"></i>
+  <% } else if (currentEntity.route === "properties") { %>
+    <i class="bi bi-house-door-fill breadcrumb-icon"></i>
+  <% } else if (currentEntity.route === "yachts") { %>
+    <i class="bi bi-life-preserver breadcrumb-icon"></i> <!-- Ersatz für Yacht -->
+  <% } %>
+  <%= t("categories." + currentEntity.route) %>
+</a>
+
+<i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
+<span><%= (item.title || "").replace(/<\/?h1[^>]*>/gi, '').replace(/&lt;\/?h1[^&]*&gt;/gi, '').trim() %></span>
+
+      <p class="text-muted mb-3"><%- item.subtitle || '' %></p>
+      <p class="product-single-price fs-4 fw-bold mb-4">
+        <% if (item.price && Number(item.price) > 0) { %>
+          <%= convertPrice(item.price) %>
+        <% } else { %>
+              <%= t('common.price_on_request', 'Preis auf Anfrage') %>
+        <% } %>
+      </p>
+
+      <!-- Land -->
+      <div class="d-flex align-items-center mb-3">
+        <%
+          let country = item.specs.find(s => s.label==='Land')?.value || '';
+          const countryMap = {
+            'Österreich':'at','Austria':'at',
+            'Deutschland':'de','Germany':'de',
+            'Schweiz':'ch','Switzerland':'ch',
+            'Italien':'it','Italy':'it',
+            'Frankreich':'fr','France':'fr',
+            'Spanien':'es','Spain':'es',
+            'Portugal':'pt',
+            'Niederlande':'nl','Netherlands':'nl',
+            'Belgien':'be','Belgium':'be',
+            'Luxemburg':'lu','Luxembourg':'lu',
+            'Großbritannien':'gb','United Kingdom':'gb','UK':'gb',
+            'USA':'us','United States':'us',
+            'Tschechien':'cz','Czech Republic':'cz',
+            'Polen':'pl','Poland':'pl',
+            'Türkei':'tr','Turkey':'tr',
+            'Griechenland':'gr','Greece':'gr',
+            'Kroatien':'hr','Croatia':'hr',
+            'Monaco':'mc',
+            'Ägypten':'eg','Egypt':'eg',
+            'Brasilien':'br','Brazil':'br',
+            'Singapur':'sg','Singapore':'sg',
+            'Indien':'in','India':'in'
+          };
+          const countryCode = countryMap[country] || null;
+        %>
+
+        <% if (countryCode) { %>
+          <img src="https://flagcdn.com/h20/<%= countryCode %>.png" 
+               alt="<%= country %>" 
+               width="24" height="16" class="me-2" />
+        <% } %>
+        <span><%= country %></span>
+      </div>
+
+      <hr />
+
+      <!-- Verkäufer Card -->
+      <div class="product-single-seller-info card p-3 mb-4">
+          <% if (seller && seller.logo) { 
+            %> <div class="text-center mb-3"> 
+              <img src="/images/users/<%= seller.id %>/<%= seller.logo %>" alt="Logo von <%= seller.name || 'Verkäufer' %>"
+               class="img-fluid mb-2" style="min-height:180px; width:auto; object-fit:contain; border-radius: 5px;" /> 
+              </div>
+         <% } %>
+        <div class="seller-details text-start">
+          <% if (seller) { %>
+            
+            <% if (seller.company) { %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.company','ui_translations') %>:</strong>
+                <%= seller.company %>
+              </div>
+            <% } %>
+
+            <!--<% if (seller.street || seller.housenumber) { %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.street','ui_translations') %>:</strong>
+                <%= seller.street %> <%= seller.housenumber %>
+              </div>
+            <% } %>-->
+
+            <% if (seller.postcode || seller.city) { %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.city','ui_translations') %>:</strong>
+                <%= seller.postcode %> <%= seller.city %>
+              </div>
+            <% } %>
+
+            <% if (seller.country) { %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.country','ui_translations') %>:</strong>
+                <%= seller.country %>
+              </div>
+            <% } %>
+
+            <!--<% if (seller.website) { 
+                const w = seller.website.trim();
+                const safeUrl = (w.startsWith('http://') || w.startsWith('https://'))
+                    ? w
+                    : 'https://' + w;
+            %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.website','ui_translations') %>:</strong>
+                <a href="<%= safeUrl %>" target="_blank"><%= w %></a>
+              </div>
+            <% } %>
+            -->
+
+            <% if (seller.imprint) { %>
+            <div class="mb-2">
+              <a href="#"
+                data-bs-toggle="modal"
+                data-bs-target="#impressumModal"
+                class="seller-imprint-link">
+                <%= T('product.seller.imprint','ui_translations') %>
+              </a>
+            </div>
+
+
+              <!-- Modal für Impressum -->
+              <div class="modal fade" id="impressumModal" tabindex="-1" aria-labelledby="impressumModalLabel" aria-hidden="true">
+                <div class="modal-dialog modal-lg modal-dialog-centered">
+                  <div class="modal-content">
+                    <div class="modal-header">
+                      <h5 class="modal-title" id="impressumModalLabel" style="font-weight: bold;">
+                        <%= T('product.seller.imprint','ui_translations') %>
+                      </h5>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"
+                              aria-label="<%= T('product.seller.close','ui_translations') %>"></button>
+                    </div>
+                    <div class="modal-body">
+                      <%- seller.imprint %>
+                    </div>
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <%= T('product.seller.close','ui_translations') %>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            <% } %>
+<!--
+            <hr>
+
+            <% if (seller.firstname || seller.lastname) { %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.contact','ui_translations') %>:</strong>
+                <%= seller.firstname %> <%= seller.lastname %>
+              </div>
+            <% } %>
+
+            <% if (seller.phone) { %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.phone','ui_translations') %>:</strong>
+                <%= seller.phone %>
+              </div>
+            <% } %>
+
+            <% if (seller.email) { %>
+              <div class="mb-2">
+                <strong><%= T('product.seller.email','ui_translations') %>:</strong>
+                <a href="mailto:<%= seller.email %>"><%= seller.email %></a>
+              </div>
+            <% } %>
+-->
+
+          <% } %>
+        </div> 
+      </div>
+
+      <!-- Action Buttons UNTER den Seller-Details -->
+      <div class="row g-2 mt-2 mb-4">
+        <div class="col-6">
+          <button class="btn action-btn w-100" id="bookmarkBtn">
+            <%= T('common.bookmark','Merken') %>
+          </button>
+        </div>
+
+        <div class="col-6">
+
+          
+        <button id="shareBtn" class="btn action-btn w-100">
+          <%= t('offers.details.share.button', { fallback: 'Inserat teilen' }) %>
+        </button>
+
+
+<!-- Modal -->
+<div class="modal fade" id="shareModal" tabindex="-1" aria-labelledby="shareModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content p-3 text-center">
+      <!-- Schließen oben rechts -->
+      <button type="button" class="btn-close ms-auto" data-bs-dismiss="modal" aria-label="Close"></button>
+      
+      <!-- Titel -->
+      <h5 class="fw-bold mt-2">
+        <%= t('offers.details.share.title', { fallback: 'Inserat teilen' }) %>
+      </h5>
+      <p class="text-muted">
+        <%= t('offers.details.share.subtitle', { fallback: 'Teilen Sie dieses Inserat mit Familie und Freunden' }) %>
+      </p>
+
+      <!-- Haupt-Buttons -->
+      <div class="d-flex justify-content-center gap-4 my-3">
+        <div>
+          <a href="#" id="copyLinkBtn" class="share-circle">
+            <i class="bi bi-link-45deg"></i>
+          </a>
+          <div class="mt-2 small">
+            <%= t('offers.details.share.copy_link', { fallback: 'Link kopieren' }) %>
+          </div>
+        </div>
+        <div>
+          <a href="#" id="shareWhatsApp" class="share-circle">
+            <i class="bi bi-whatsapp"></i>
+          </a>
+          <div class="mt-2 small">WhatsApp</div>
+        </div>
+        <div>
+          <a href="mailto:?subject=Inserat&body=Schau dir dieses Inserat an: " id="shareEmail" class="share-circle">
+            <i class="bi bi-envelope"></i>
+          </a>
+          <div class="mt-2 small">E-Mail</div>
+        </div>
+      </div>
+
+      <hr>
+
+      <!-- Social Icons unten -->
+      <div class="d-flex justify-content-center gap-4 mb-2">
+        <a href="#" id="shareFacebook" class="social-icon"><i class="bi bi-facebook"></i></a>
+        <a href="#" id="shareTwitter" class="social-icon"><i class="bi bi-twitter-x"></i></a>
+        <a href="#" id="sharePinterest" class="social-icon"><i class="bi bi-pinterest"></i></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+        </div>
+        <div class="col">
+          <button class="btn action-btn w-100" data-bs-toggle="modal" data-bs-target="#contactModal">
+            <%= T('product.actions.contact_seller','Verkäufer kontaktieren') %>
+          </button>
+        </div>
+      </div>
+
+            <a href="#reportModal"
+        data-bs-toggle="modal"
+        class="d-inline-flex align-items-center gap-2 mt-3 markED"
+        style="cursor:pointer; font-size: 14pt; margin-top: 30px !important; color:#333;">
+        <i class="bi bi-slash-circle" style="font-size:18pt; color:#777;"></i>
+          <%= t('common.report_listing','Inserat melden') %>
+      </a>
+
+    </div><!-- /.col-md-5 -->
+  </div><!-- /.row -->
+
+  <!-- Bootstrap JS -->
+</section>
+
+
+
+
+<%
+function slugifyLocal(str) {
+  return str
+    .toString()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Umlaute entfernen
+    .replace(/[^a-z0-9]+/g, '-')   // alles außer Buchstaben/Zahlen → -
+    .replace(/^-+|-+$/g, '')       // Trim
+    .replace(/--+/g, '-');         // Doppelte -
+}
+const detailSlug = slugifyLocal(item.name);
+%>
+
+                            <% 
+  const cleanName = (item.name || '')
+    .replace(/<\/?h1>/gi, '')  // Falls echte HTML-Tags noch drin wären
+    .replace(/\bh1\b/gi, '')   // entfernt das Wort "h1" alleine
+    .replace(/-h1$/i, '')      // entfernt "-h1" am Ende
+    .replace(/h1$/i, '')       // entfernt "h1" am Ende ohne Bindestrich
+    .replace(/\s{2,}/g, ' ')   // doppelte Spaces
+    .trim();
+%>
+<%
+  const cleanSlug = (detailSlug || '')
+    // Falls doch noch HTML drin wäre
+    .replace(/<\/?h1>/gi, '')
+    // Am Ende ein "-h1" entfernen
+    .replace(/-h1$/i, '')
+    // Am Ende nur "h1" ohne Bindestrich entfernen (zur Sicherheit)
+    .replace(/h1$/i, '')
+    // Doppelte Bindestriche aufräumen
+    .replace(/--+/g, '-')
+    // Bindestriche am Anfang/Ende weg
+    .replace(/^-|-$/g, '');
+%>
+
+
+
+<div class="modal fade" id="contactModal" tabindex="-1" aria-labelledby="contactModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="max-width:800px; width:100%; margin:auto;">
+            <div class="modal-header">
+                <h5 class="modal-title" id="contactModalLabel">
+                    <%= T('product.contact.title','Anfrage senden') %>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+            </div>
+
+            <div class="modal-body">
+                <form id="sellerContactForm" method="POST" action="/send-contact">
+
+                    <!-- Honeypot (Anti-Spam) -->
+                    <input type="text" id="hp_field" name="hp_field" style="display:none">
+                    <input type="hidden" name="listingUrl" id="listingUrl"
+       value="https://www.herando.at/<%= currentEntity.route %>/<%= item.id %>/<%- cleanSlug %>">
+                    <input type="hidden" name="phone" id="modalPhoneFull">
+
+
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="modalFirstName" class="form-label">
+                                <%= T('product.contact.first_name','Ihr Vorname *') %>
+                            </label>
+                            <input type="text" class="form-control" id="modalFirstName" name="firstName" required>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label for="modalLastName" class="form-label">
+                                <%= T('product.contact.last_name','Ihr Nachname *') %>
+                            </label>
+                            <input type="text" class="form-control" id="modalLastName" name="lastName" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="modalEmail" class="form-label">
+                                <%= T('product.contact.email','Ihre E-Mail-Adresse *') %>
+                            </label>
+                            <input type="email" class="form-control" id="modalEmail" name="email" required>
+                        </div>
+
+                        <div class="col-12">
+                            <label for="modalPhone" class="form-label">
+                                <%= T('product.contact.phone','Ihre Telefonnummer') %>
+                            </label>
+
+                            <div class="input-group">
+                                <!-- Flaggen + Ländervorwahl -->
+                                <select class="form-select" id="modalPhoneCode" style="max-width:150px;">
+
+                                    <option value="+43">🇦🇹 +43</option>
+                                    <option value="+49">🇩🇪 +49</option>
+                                    <option value="+41">🇨🇭 +41</option>
+                                    <option value="+39">🇮🇹 +39</option>
+                                    <option value="+34">🇪🇸 +34</option>
+                                    <option value="+33">🇫🇷 +33</option>
+                                    <option value="+44">🇬🇧 +44</option>
+                                    <option value="+1">🇺🇸 +1</option>
+                                    <option value="+971">🇦🇪 +971</option>
+                                    <option value="+966">🇸🇦 +966</option>
+                                    <option value="+961">🇱🇧 +961</option>
+                                    <option value="+20">🇪🇬 +20</option>
+
+                                    <!-- Falls du mehr Länder willst: sag Bescheid, ich gebe dir 240 Länder -->
+                                </select>
+
+                                <!-- Nummer -->
+                                <input type="tel"
+                                      class="form-control"
+                                      id="modalPhone"
+                                      placeholder="<%= t('product.contact.phone_placeholder','Ihre Nummer') %>"
+                                >
+                            </div>
+                        </div>
+
+
+
+                        <div class="col-12">
+                              <label for="modalMessage" class="form-label">
+                                <%= t('product.contact.message_label','Ihre Nachricht') %>
+                              </label>
+
+                            <textarea class="form-control" id="modalMessage" name="message" rows="6"></textarea>
+
+
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary"
+                        data-bs-dismiss="modal"
+                        style="background-color: rgb(100, 4, 4); border: none;">
+                    <%= T('common.cancel','Abbrechen') %>
+                </button>
+
+                <button type="submit"
+                        form="sellerContactForm"
+                        class="btn btn-primary"
+                        style="background-color: #9c7240; border: none;">
+                    <%= T('common.send','Senden') %>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function fillTemplate(str, vars) {
+  return str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] ?? `{${k}}`));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const raw = `<%- t('contact.modal.message') %>`;
+
+  const msg = fillTemplate(raw, {
+    NAME: "<%- cleanName %>",
+    ROUTE: "<%- currentEntity.route %>",
+    ID: "<%- item.id %>",
+    SLUG: "<%- cleanSlug %>"
+  });
+
+  document.getElementById('modalMessage').value = msg;
+
+  const form = document.getElementById('sellerContactForm');
+  if (form) {
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const code = document.getElementById('modalPhoneCode')?.value || '';
+      const num  = document.getElementById('modalPhone')?.value || '';
+      const full = (code + ' ' + num).trim();
+      const phoneHidden = document.getElementById('modalPhoneFull');
+      if (phoneHidden) phoneHidden.value = full;
+
+      try {
+        const res = await fetch(form.action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams(new FormData(form)).toString()
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.success) {
+          alert('Danke! Ihre Anfrage wurde gesendet.');
+          form.reset();
+          const modalEl = document.getElementById('contactModal');
+          if (modalEl && window.bootstrap) {
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+          }
+        } else {
+          alert(data.error || 'Fehler beim Senden. Bitte später erneut versuchen.');
+        }
+      } catch (err) {
+        alert('Fehler beim Senden. Bitte später erneut versuchen.');
+      }
+    });
+  }
+});
+</script>
+
+<div id="iconsSection"></div>
+
+
+<div class="container product-details">
+  <!--<h2><%= T('product.details.more_info','Weitere Infos zum Inserat') %></h2>-->
+
+<% if (currentEntity.route === 'cars') { %>
+
+<%
+  // === Mappings für IDs → Text ===
+  const gearboxMap = { 
+    1: t('cars.gearbox.manual', 'Schalter'), 
+    2: t('cars.gearbox.semiauto', 'Halbautomatik'), 
+    3: t('cars.gearbox.automatic', 'Automatik'), 
+    4: t('cars.gearbox.f1', 'F1'), 
+    255: t('cars.gearbox.other', 'Sonstige')
+  };
+
+  const fuelMap = { 
+    1: t('cars.fuel.petrol', 'Benzin'), 
+    2: t('cars.fuel.diesel', 'Diesel'), 
+    3: t('cars.fuel.ethanol', 'Ethanol'), 
+    4: t('cars.fuel.hybrid', 'Hybrid'), 
+    5: t('cars.fuel.electric', 'Elektro'), 
+    255: t('cars.fuel.other', 'Sonstige')
+  };
+
+  const badgeMap = { 
+    1: t('cars.environmental_badge.none', 'keine'), 
+    2: t('cars.environmental_badge.red', 'rot'), 
+    3: t('cars.environmental_badge.yellow', 'gelb'), 
+    4: t('cars.environmental_badge.green', 'grün')
+  };
+
+  const emissionMap = { 
+    8: "A+", 7: "A", 6: "B", 5: "C", 4: "D", 3: "E", 2: "F", 1: "G" 
+  };
+
+  const engineMap = { 
+    1: t('engine.electric','elektrisch'),
+    4: t('engine.cylinders_4','4 Zylinder'),
+    5: t('engine.cylinders_5','5 Zylinder'),
+    6: t('engine.cylinders_6','6 Zylinder'),
+    7: t('engine.cylinders_8','8 Zylinder'),
+    10: t('engine.cylinders_10','10 Zylinder'),
+    12: t('engine.cylinders_12','12 Zylinder'),
+    16: t('engine.cylinders_16','16 Zylinder'),
+    255: t('engine.other','Sonstige')
+  };
+
+  const drivetrainMap = { 
+    1: t('cars.drivetrain.front', 'Frontantrieb'), 
+    2: t('cars.drivetrain.rear', 'Heckantrieb'), 
+    3: t('cars.drivetrain.all', 'Allradantrieb')
+  };
+
+  const colorMap = { 
+    1: t('cars.color.black', 'schwarz'), 2: t('cars.color.white', 'weiß'), 
+    3: t('cars.color.red', 'rot'), 4: t('cars.color.gray', 'grau'), 
+    5: t('cars.color.blue', 'blau'), 6: t('cars.color.silver', 'silber'), 
+    7: t('cars.color.orange', 'orange'), 8: t('cars.color.green', 'grün'), 
+    9: t('cars.color.beige', 'beige'), 10: t('cars.color.brown', 'braun'), 
+    11: t('cars.color.yellow', 'gelb'), 12: t('cars.color.gold', 'gold'), 
+    13: t('cars.color.violet', 'violett'), 14: t('cars.color.bronze', 'bronze'), 
+    15: t('cars.color.pearl_white', 'perlweiß'), 16: t('cars.color.transparent', 'transparent'), 
+    17: t('cars.color.bordeaux', 'bordeaux'), 18: t('cars.color.champagne', 'champagnerfarben'),
+    19: t('cars.color.pink', 'pink'), 20: t('cars.color.rose', 'rosé'), 
+    22: t('cars.color.pearl', 'perlmutt'), 23: t('cars.color.creme', 'cremefarben'),
+    255: t('cars.color.other', 'Sonstige')
+  };
+
+  const interiorColorMap = colorMap;
+
+  const climatisationMap = {
+    1: t('cars.climatisation.none', 'Keine Klimaanlage'),
+    2: t('cars.climatisation.basic', 'Klimaanlage'),
+    3: t('cars.climatisation.two_zone', '2-Zonen-Klimaautomatik'),
+    4: t('cars.climatisation.three_zone', '3-Zonen-Klimaautomatik'),
+    5: t('cars.climatisation.four_zone', '4-Zonen-Klimaautomatik'),
+    255: t('cars.climatisation.other', 'Sonstige')
+  };
+
+  const cartypeMap = {
+    1: t('cars.category.coupe', 'Coupé'),
+    2: t('cars.category.cabrio', 'Cabrio'),
+    3: t('cars.category.sedan', 'Limousine'),
+    4: t('cars.category.stretch', 'Stretch'),
+    5: t('cars.category.combi', 'Kombi'),
+    6: t('cars.category.pickup', 'Pickup')
+  };
+
+  const pollutionClassMap = {
+    1: "Euro1", 2: "Euro2", 3: "Euro3", 4: "Euro4",
+    5: "Euro5", 6: "Euro6", 7: "Euro6c", 8: "Euro6d-TEMP", 9: "Euro6d"
+  };
+
+  const interiorMapping = {
+    1: t('cars.interior.fabric', 'Stoff'),
+    2: t('cars.interior.leather', 'Leder'),
+    3: t('cars.interior.part_leather', 'Teilleder'),
+    4: t('cars.interior.alcantara', 'Alcantara')
+  };
+%>
+
+<div class="p-3 mb-4">
+  <h4 class="mb-3 fw-bold"><%= t('cars.technical_data', 'Technische Daten') %></h4>
+  <table class="table table-borderless align-middle table-striped custom-striped">
+    <tbody>
+
+      <% if (item.used !== null) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-check-circle custom-icon"></i> <%= t('cars.state', 'Fahrzeugzustand') %></td>
+          <td>
+            <% if (item.used === 0) { %><%= t('cars.state.new', 'Neu') %><% } %>
+            <% if (item.used === 1) { %><%= t('cars.state.used', 'Gebraucht') %><% } %>
+            <% if (item.used === 2) { %><%= t('cars.state.demo', 'Vorführwagen') %><% } %>
+            <% if (item.used === 3) { %><%= t('cars.state.company', 'Dienstwagen') %><% } %>
+            <% if (![0,1,2,3].includes(item.used)) { %><%= item.used %><% } %>
+          </td>
+        </tr>
+      <% } %>
+
+      <% if (item.cartype) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-car-front custom-icon"></i> <%= t('cars.category', 'Kategorie') %></td>
+          <td><%= cartypeMap[item.cartype] %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.mileage) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-speedometer2 custom-icon"></i> <%= t('cars.mileage', 'Kilometerstand') %></td>
+          <td><%= new Intl.NumberFormat('de-DE').format(item.mileage) %> km</td>
+        </tr>
+      <% } %>
+
+      <% if (item.gearbox) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-gear custom-icon"></i> <%= t('cars.gearbox', 'Getriebe') %></td>
+          <td><%= gearboxMap[item.gearbox] || item.gearbox %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.fuel) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-fuel-pump custom-icon"></i> <%= t('cars.fuel', 'Kraftstoffart') %></td>
+          <td><%= fuelMap[item.fuel] || item.fuel %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.capacity) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-cpu custom-icon"></i> <%= t('cars.capacity', 'Hubraum') %></td>
+          <td><%= item.capacity %> cm³</td>
+        </tr>
+      <% } %>
+
+      <% if (item.power || item.horsepower) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-lightning-charge custom-icon"></i> <%= t('cars.power', 'Leistung') %></td>
+          <td>
+            <% if (item.power) { %><%= item.power %> kW<% } %>
+            <% if (item.horsepower) { %> (<%= item.horsepower %> PS)<% } %>
+          </td>
+        </tr>
+      <% } %>
+
+      <% if (item.emission_class) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-cloud custom-icon"></i> <%= t('cars.emission_class', 'Schadstoffklasse') %></td>
+          <td><%= emissionMap[item.emission_class] || item.emission_class %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.pollution_class) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-tree custom-icon"></i> <%= t('cars.pollution_class', 'Abgasnorm') %></td>
+          <td><%= pollutionClassMap[item.pollution_class] || item.pollution_class %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.environmental_badge) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-patch-check custom-icon"></i> <%= t('cars.environmental_badge', 'Umweltplakette') %></td>
+          <td><%= badgeMap[item.environmental_badge] || item.environmental_badge %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.color) { %>
+        <tr>
+          <td class="fw-semibold text-muted">
+            <i class="bi bi-palette custom-icon"></i> 
+            <%= t('cars.color', 'Farbe') %>
+          </td>
+          <td><%= colorMap[item.color] || item.color %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.metallic) { %>
+        <tr>
+          <td class="fw-semibold text-muted">
+            <i class="bi bi-stars custom-icon"></i> 
+            <%= t('cars.metallic', 'Metallic-Lackierung') %>
+          </td>
+          <td><%= t('common.yes', 'Ja') %></td>
+        </tr>
+      <% } %>
+
+
+      <% if (item.interior) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-house-heart custom-icon"></i> <%= t('cars.interior', 'Innenausstattung') %></td>
+          <td><%= interiorMapping[item.interior] || item.interior %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.interior_color) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-brush custom-icon"></i> <%= t('cars.interior_color', 'Innenfarbe') %></td>
+          <td><%= interiorColorMap[item.interior_color] || item.interior_color %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.airbags) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-shield-check custom-icon"></i> <%= t('cars.airbags', 'Airbags') %></td>
+          <td><%= item.airbags %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.doors) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-door-closed custom-icon"></i> <%= t('cars.doors', 'Türen') %></td>
+          <td><%= item.doors %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.cylinders) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-cpu custom-icon"></i> <%= t('engine.cylinders','Zylinder') %></td>
+          <td><%= item.cylinders %></td>
+        </tr>
+      <% } %>
+
+      <% if (item.climatisation) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-snow custom-icon"></i> <%= t('cars.climatisation', 'Klimatisierung') %></td>
+          <td><%= climatisationMap[item.climatisation] || item.climatisation %></td>
+        </tr>
+      <% } %>
+
+<% if (item.firstregistration || item.year) { %>
+  <tr>
+    <td class="fw-semibold text-muted">
+      <i class="bi bi-calendar-date custom-icon"></i>
+      <%= t('cars.first_registration', 'Erstzulassung') %>
+    </td>
+    <td>
+      <% if (item.firstregistration && item.firstregistration_month) { %>
+        <%= String(item.firstregistration_month).padStart(2, "0") %>/<%= item.firstregistration %>
+      <% } else if (item.firstregistration) { %>
+        <%= item.firstregistration %>
+      <% } else { %>
+        <%= item.year %>
+      <% } %>
+    </td>
+  </tr>
+<% } %>
+
+
+      <% if (item.maininspection || item.maininspection_month) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-wrench custom-icon"></i> <%= t('cars.inspection', 'HU / TÜV') %></td>
+          <td>
+            <% if (item.maininspection_month) { %>
+              <%= String(item.maininspection_month).padStart(2,"0") %>/<%= item.maininspection %>
+            <% } else { %>
+              <%= item.maininspection %>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+
+    </tbody>
+  </table>
+</div>
+
+
+
+
+<%
+const equipmentMap = {
+  abs: t('cars.equipment.abs', 'ABS'),
+  esp: t('cars.equipment.esp', 'ESP'),
+  asr: t('cars.equipment.asr', 'ASR (Antischlupfregelung)'),
+  airbags: t('cars.equipment.airbags', 'Airbags'),
+  isofix: t('cars.equipment.isofix', 'Isofix'),
+  xenon: t('cars.equipment.xenon', 'Xenon-Scheinwerfer'),
+  bixenon: t('cars.equipment.bixenon', 'Bi-Xenon-Scheinwerfer'),
+  led: t('cars.equipment.led', 'LED-Scheinwerfer'),
+  laser: t('cars.equipment.laser', 'Laser-Scheinwerfer'),
+  foglamp: t('cars.equipment.foglamp', 'Nebelscheinwerfer'),
+  daytime_lights: t('cars.equipment.daytime_lights', 'Tagfahrlicht'),
+  adaptive_lights: t('cars.equipment.adaptive_lights', 'Adaptives Kurvenlicht'),
+  glare_free: t('cars.equipment.glare_free', 'Blendfreies Fernlicht'),
+  highbeam_assistant: t('cars.equipment.highbeam_assistant', 'Fernlichtassistent'),
+  headlight_washer: t('cars.equipment.headlight_washer', 'Scheinwerferreinigung'),
+  immobilizer: t('cars.equipment.immobilizer', 'Wegfahrsperre'),
+  electric_windows: t('cars.equipment.electric_windows', 'Elektr. Fensterheber'),
+  electric_adjusted_seats: t('cars.equipment.electric_adjusted_seats', 'Elektr. Sitzeinstellung'),
+  electric_heated_seats: t('cars.equipment.electric_heated_seats', 'Sitzheizung'),
+  ventilated_seats: t('cars.equipment.ventilated_seats', 'Sitzbelüftung'),
+  massage_seats: t('cars.equipment.massage_seats', 'Massagesitze'),
+  fold_flat_passenger_seat: t('cars.equipment.fold_flat_passenger_seat', 'Beifahrersitz umklappbar'),
+  electric_mirrors: t('cars.equipment.electric_mirrors', 'Elektr. Außenspiegel'),
+  electric_tailgate: t('cars.equipment.electric_tailgate', 'Elektr. Heckklappe'),
+  assisted_steering: t('cars.equipment.assisted_steering', 'Servolenkung'),
+  light_sensor: t('cars.equipment.light_sensor', 'Lichtsensor'),
+  rain_sensor: t('cars.equipment.rain_sensor', 'Regensensor'),
+  cruise_control: t('cars.equipment.cruise_control', 'Tempomat'),
+  adaptive_cruise_control: t('cars.equipment.adaptive_cruise_control', 'Abstandsregeltempomat'),
+  speed_limiter: t('cars.equipment.speed_limiter', 'Geschwindigkeitsbegrenzer'),
+  collision_avoidance: t('cars.equipment.collision_avoidance', 'Kollisionswarnsystem'),
+  blind_spot_monitor: t('cars.equipment.blind_spot_monitor', 'Totwinkelassistent'),
+  lane_departure_warning: t('cars.equipment.lane_departure_warning', 'Spurhalteassistent'),
+  distance_warning: t('cars.equipment.distance_warning', 'Abstandswarner'),
+  fatigue: t('cars.equipment.fatigue', 'Müdigkeitswarner'),
+  aux_heating: t('cars.equipment.aux_heating', 'Standheizung'),
+  heated_windshield: t('cars.equipment.heated_windshield', 'Frontscheibenheizung'),
+  heated_steering_wheel: t('cars.equipment.heated_steering_wheel', 'Lenkradheizung'),
+  air_suspension: t('cars.equipment.air_suspension', 'Luftfederung'),
+  sports_suspension: t('cars.equipment.sports_suspension', 'Sportfahrwerk'),
+  central_locking: t('cars.equipment.central_locking', 'Zentralverriegelung'),
+  keyless_central_locking: t('cars.equipment.keyless_central_locking', 'Keyless Entry'),
+  head_up_display: t('cars.equipment.head_up_display', 'Head-Up Display'),
+  climatisation: t('cars.equipment.climatisation', 'Klimatisierung'),
+  parking_front: t('cars.equipment.parking_front', 'Einparkhilfe vorne'),
+  parking_rear: t('cars.equipment.parking_rear', 'Einparkhilfe hinten'),
+  parking_camera: t('cars.equipment.parking_camera', 'Rückfahrkamera'),
+  parking_self: t('cars.equipment.parking_self', 'Selbstlenkende Einparkhilfe'),
+  tuner_radio: t('cars.equipment.tuner_radio', 'Radio'),
+  radio_dab: t('cars.equipment.radio_dab', 'DAB-Radio'),
+  mp3interface: t('cars.equipment.mp3interface', 'MP3-Schnittstelle'),
+  navigation: t('cars.equipment.navigation', 'Navigationssystem'),
+  tv: t('cars.equipment.tv', 'TV'),
+  soundsystem: t('cars.equipment.soundsystem', 'Soundsystem'),
+  touchscreen: t('cars.equipment.touchscreen', 'Touchscreen'),
+  voice_control: t('cars.equipment.voice_control', 'Sprachsteuerung'),
+  usb: t('cars.equipment.usb', 'USB'),
+  apple_car_play: t('cars.equipment.apple_car_play', 'Apple CarPlay'),
+  android_auto: t('cars.equipment.android_auto', 'Android Auto'),
+  wifi_hotspot: t('cars.equipment.wifi_hotspot', 'WLAN-Hotspot'),
+  music_streaming: t('cars.equipment.music_streaming', 'Musikstreaming'),
+  inductive_charging: t('cars.equipment.inductive_charging', 'Induktives Laden'),
+  digital_cockpit: t('cars.equipment.digital_cockpit', 'Digitales Kombiinstrument'),
+  multifunction_steeringwheel: t('cars.equipment.multifunction_steeringwheel', 'Multifunktionslenkrad'),
+  cdplayer: t('cars.equipment.cdplayer', 'CD-Player'),
+  bluetooth: t('cars.equipment.bluetooth', 'Bluetooth'),
+  onboard_computer: t('cars.equipment.onboard_computer', 'Bordcomputer'),
+  handsfree_kit: t('cars.equipment.handsfree_kit', 'Freisprecheinrichtung'),
+  alloy_wheels: t('cars.equipment.alloy_wheels', 'Leichtmetallfelgen'),
+  sports_package: t('cars.equipment.sports_package', 'Sportpaket'),
+  sports_seats: t('cars.equipment.sports_seats', 'Sportsitze'),
+  trailer_coupling: t('cars.equipment.trailer_coupling', 'Anhängerkupplung'),
+  sunroof: t('cars.equipment.sunroof', 'Schiebedach'),
+  panoramic_roof: t('cars.equipment.panoramic_roof', 'Panoramadach'),
+  roof_rack: t('cars.equipment.roof_rack', 'Dachreling'),
+  skibag: t('cars.equipment.skibag', 'Skisack'),
+  disabled_accessible: t('cars.equipment.disabled_accessible', 'Behindertengerecht'),
+  taxi: t('cars.equipment.taxi', 'Taxi-Ausstattung'),
+  summer_tires: t('cars.equipment.summer_tires', 'Sommerreifen'),
+  winter_tires: t('cars.equipment.winter_tires', 'Winterreifen'),
+  all_season_tires: t('cars.equipment.all_season_tires', 'Allwetterreifen'),
+  tire_pressure_monitoring: t('cars.equipment.tire_pressure_monitoring', 'Reifendruckkontrolle'),
+  winter_package: t('cars.equipment.winter_package', 'Winterpaket'),
+  smokers_package: t('cars.equipment.smokers_package', 'Nichtraucher-Paket'),
+  startstop_system: t('cars.equipment.startstop_system', 'Start/Stopp-Automatik'),
+  hill_climb: t('cars.equipment.hill_climb', 'Berganfahrassistent'),
+  dimming_mirror: t('cars.equipment.dimming_mirror', 'Innenspiegel autom. abblendend'),
+  nightvision: t('cars.equipment.nightvision', 'Nachtsicht-Assistent'),
+  emergency_call: t('cars.equipment.emergency_call', 'Notrufsystem'),
+  traffic_signs: t('cars.equipment.traffic_signs', 'Verkehrszeichenerkennung'),
+  arm_rest: t('cars.equipment.arm_rest', 'Armlehne'),
+  lumbar_support: t('cars.equipment.lumbar_support', 'Lordosenstütze'),
+  ambient_lighting: t('cars.equipment.ambient_lighting', 'Ambiente-Beleuchtung'),
+  leather_steering_wheel: t('cars.equipment.leather_steering_wheel', 'Lederlenkrad')
+};
+%>
+
+
+<% 
+const equipmentIcons = {
+  abs: "shield-check",
+  esp: "shield-lock",
+  asr: "slash-circle",
+  airbags: "shield-plus",
+  isofix: "person-arms-up",
+  xenon: "brightness-high",
+  bixenon: "brightness-alt-high",
+  led: "sun",
+  laser: "bullseye",
+  foglamp: "cloud-fog2",
+  daytime_lights: "brightness-alt-low",
+  adaptive_lights: "arrows-move",
+  glare_free: "eye-slash",
+  highbeam_assistant: "lightning",
+  headlight_washer: "droplet",
+  immobilizer: "lock",
+  electric_windows: "window",
+  electric_adjusted_seats: "person-vcard",
+  electric_heated_seats: "fire",
+  ventilated_seats: "wind",
+  massage_seats: "emoji-smile",
+  fold_flat_passenger_seat: "arrow-bar-down",
+  electric_mirrors: "mirror",
+  electric_tailgate: "truck",
+  assisted_steering: "life-preserver",
+  light_sensor: "sunrise",
+  rain_sensor: "cloud-rain",
+  cruise_control: "speedometer2",
+  adaptive_cruise_control: "speedometer",
+  speed_limiter: "dash-circle",
+  collision_avoidance: "exclamation-triangle",
+  blind_spot_monitor: "eye",
+  lane_departure_warning: "arrows-angle-contract",
+  distance_warning: "rulers",
+  fatigue: "emoji-dizzy",
+  aux_heating: "thermometer-sun",
+  heated_windshield: "wind",
+  heated_steering_wheel: "circle-half",
+  air_suspension: "circle",
+  sports_suspension: "activity",
+  central_locking: "key",
+  keyless_central_locking: "key-fill",
+  head_up_display: "display",
+  climatisation: "snow",
+  parking_front: "signpost-2",
+  parking_rear: "signpost",
+  parking_camera: "camera-video",
+  parking_self: "arrow-repeat",
+  tuner_radio: "radio",
+  radio_dab: "broadcast",
+  mp3interface: "music-note",
+  navigation: "map",
+  tv: "tv",
+  soundsystem: "speaker",
+  touchscreen: "tablet",
+  voice_control: "mic",
+  usb: "usb-symbol",
+  apple_car_play: "apple",
+  android_auto: "android",
+  wifi_hotspot: "wifi",
+  music_streaming: "music-player",
+  inductive_charging: "battery-charging",
+  digital_cockpit: "speedometer",
+  multifunction_steeringwheel: "steering-wheel",
+  cdplayer: "disc",
+  bluetooth: "bluetooth",
+  onboard_computer: "pc-display",
+  handsfree_kit: "headset",
+  alloy_wheels: "circle-half",
+  sports_package: "award",
+  sports_seats: "person-standing",
+  trailer_coupling: "truck-front",
+  sunroof: "sun",
+  panoramic_roof: "columns-gap",
+  roof_rack: "signpost-split",
+  skibag: "snow2",
+  disabled_accessible: "universal-access",
+  taxi: "taxi-front",
+  summer_tires: "sun-fill",
+  winter_tires: "snow",
+  all_season_tires: "cloud-sun",
+  tire_pressure_monitoring: "circle-square",
+  winter_package: "snow3",
+  smokers_package: "slash-circle",
+  startstop_system: "power",
+  hill_climb: "triangle",
+  dimming_mirror: "brightness-low",
+  nightvision: "moon-stars",
+  emergency_call: "telephone-inbound",
+  traffic_signs: "sign-stop",
+  arm_rest: "person-lines-fill",
+  lumbar_support: "activity",
+  ambient_lighting: "lightbulb",
+  leather_steering_wheel: "circle-fill",
+  electric_mirrors: "arrow-left-right", 
+  sports_seats: "person-seat", 
+
+
+};
+%>
+
+<div class="p-3 mb-4">
+  <h4 class="mb-3 fw-bold"><%= t('cars.equipment.title', 'Ausstattung') %></h4>
+
+  <% 
+    const selectedEquipment = Object.keys(equipmentMap).filter(key => item[key] == 1);
+  %>
+
+  <div class="equipment-grid">
+    <% selectedEquipment.forEach(field => { %>
+      <div class="equipment-item d-flex align-items-center mb-2">
+        <i class="bi bi-<%= equipmentIcons[field] || 'check-circle' %> custom-icon"></i>
+        <span class="custom-text"><%= t(`cars.equipment.${field}`, equipmentMap[field]) %></span>
+      </div>
+    <% }) %>
+  </div>
+</div>
+
+<% if (item.description) { %>
+  <div class="p-3 mb-4 ">
+    <h4 class="mb-3 fw-bold border-bottom pb-2"><%= t('cars.description.title', 'Fahrzeugbeschreibung laut Anbieter') %></h4>
+
+    <div class="description-container position-relative">
+      <div id="descriptionShort" class="description-text collapsed-text">
+        <%- item.description
+            .replace(/(?:^|\n)[\-\•]\s*(.+)/g, '<li>$1</li>')
+            .replace(/(<li>.*<\/li>)/gs, '<ul class="mb-2 ps-3">$1</ul>')
+        %>
+      </div>
+
+      <div id="fadeOverlay" class="fade-overlay border-bottom"></div>
+
+      <div class="text-center mt-3">
+        <a href="javascript:void(0)" id="toggleDescription" class="btn btn-link fw-semibold text-decoration-none">
+          <%= t('cars.description.more', 'Mehr anzeigen') %>
+        </a>
+      </div>
+    </div>
+  </div>
+<% } %>
+
+<% if (similarItems && similarItems.length > 0) { %>
+  <div class="p-3 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="fw-bold">
+        <%= t('listing.similar.vehicles','Diese Fahrzeuge könnten Sie auch interessieren') %>
+      </h4>
+    </div>
+
+    <div id="carousel-similar" class="carousel slide custom-carousel">
+      <div class="carousel-inner">
+        <% for (let i = 0; i < similarItems.length; i += 4) { %>
+          <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+            <div class="row g-3">
+              <% similarItems.slice(i, i + 4).forEach(item => { %>
+                <div class="col-md-3">
+                  <div class="card h-100 shadow-sm border-0">
+                    <div class="position-relative">
+                      <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= item.slug %>">
+                        <img src="<%= item.imageUrl %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= item.title %>">
+                      </a>
+                    </div>
+
+                    <div class="card-body">
+                      <h6 class="fw-bold text-truncate mb-1"><%= item.title %></h6>
+
+                        <p class="fs-6 fw-bold text-success mb-2">
+                          <%= (!item.price || item.price <= 0)
+                                ? t('common.price_on_request','Preis auf Anfrage')
+                                : item.priceFormatted %>
+                        </p>
+                    </div>
+
+                    <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                      <i class="bi bi-star me-1"></i> <%= t('common.recommendation','Empfehlung für Sie') %>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (similarItems.length > 4) { %>
+        <!-- Custom Pfeile im gleichen Design wie meine my-carousel-Buttons -->
+        <button class="my-carousel-prev"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="prev">
+          ‹
+          <span class="visually-hidden">Vorherige</span>
+        </button>
+
+        <button class="my-carousel-next"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="next">
+          ›
+          <span class="visually-hidden">Nächste</span>
+        </button>
+
+        <div class="carousel-indicators mt-3 d-none d-md-flex">
+          <% for (let i = 0; i < Math.ceil(similarItems.length / 4); i++) { %>
+            <button type="button"
+                    data-bs-target="#carousel-similar"
+                    data-bs-slide-to="<%= i %>"
+                    class="line-indicator <%= i === 0 ? 'active' : '' %>">
+            </button>
+          <% } %>
+        </div>
+      <% } %>
+
+
+    </div>
+  </div>
+<% } %>
+
+
+<% if (moreItems.length > 0) { %>
+  <% moreItems.forEach(group => { %>
+    <div class="p-3 mb-5">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold"><%= t('cars.more_items.title', 'Weitere') %></h4>
+        <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+          <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+        </a>
+      </div>
+
+      <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">
+        <div class="carousel-inner">
+          <% for (let i = 0; i < group.items.length; i += 4) { %>
+            <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+              <div class="row g-3">
+                <% group.items.slice(i, i + 4).forEach(prod => { %>
+                  <div class="col-md-3">
+                    <div class="card h-100 shadow-sm border-0">
+                      <div class="position-relative">
+                        <a href="/<%= group.route %>/<%= prod.id %>/<%= prod.name %>">
+                          <img src="<%= prod.mainpicture %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= prod.name %>">
+                        </a>
+                        <% if (prod.created && new Date(prod.created) > new Date(Date.now() - 14*24*60*60*1000)) { %>
+                          <span class="position-absolute top-0 start-0 m-2 badge bg-danger"><%= t('cars.more_items.new', 'Neu') %></span>
+                        <% } %>
+                      </div>
+
+                      <div class="card-body">
+                        <h6 class="fw-bold text-truncate mb-1"><%= prod.name %></h6>
+                        <% if (prod.model) { %>
+                          <p class="small text-muted text-truncate"><%= prod.model %></p>
+                        <% } %>
+                        <% if (prod.price) { %>
+                          <p class="fs-6 fw-bold text-success mb-2">
+                            <%= convertPrice(prod.price) %>
+                          </p>
+                        <% } %>
+                        <div class="d-flex flex-wrap small text-dark">
+                          <% if (prod.transmission) { %>
+                            <span class="me-3"><i class="bi bi-gear me-1"></i> <%= prod.transmission %></span>
+                          <% } %>
+                          <% if (prod.mileage) { %>
+                            <span class="me-3"><i class="bi bi-speedometer2 me-1"></i> 
+                              <%= new Intl.NumberFormat('de-DE').format(prod.mileage) %> km
+                            </span>
+                          <% } %>
+                          <% if (prod.fuel) { %>
+                            <span class="me-3"><i class="bi bi-fuel-pump me-1"></i> <%= fuelMap[prod.fuel] || prod.fuel %></span>
+                          <% } %>
+                          <% if (prod.firstregistration && prod.firstregistration_month) { %>
+                            <span><i class="bi bi-calendar-event me-1"></i> 
+                              EZ <%= String(prod.firstregistration_month).padStart(2,"0") %>/<%= prod.firstregistration %>
+                            </span>
+                          <% } %>
+                        </div>
+                      </div>
+
+                      <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                        <i class="bi bi-geo-alt me-1"></i> 
+                        <%= prod.city || t('cars.location.unknown', 'Standort auf Anfrage') %>
+                      </div>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (group.items.length > 1) { %>
+
+          <button class="my-carousel-prev"
+                  type="button"
+                  data-bs-target="#carousel-<%= group.route %>"
+                  data-bs-slide="prev">
+            ‹
+            <span class="visually-hidden">Vorherige</span>
+          </button>
+
+          <button class="my-carousel-next"
+                  type="button"
+                  data-bs-target="#carousel-<%= group.route %>"
+                  data-bs-slide="next">
+            ›
+            <span class="visually-hidden">Nächste</span>
+          </button>
+
+          <div class="carousel-indicators mt-3 d-none d-md-flex">
+            <% for (let i = 0; i < Math.ceil(group.items.length / 4); i++) { %>
+              <button type="button"
+                      data-bs-target="#carousel-<%= group.route %>"
+                      data-bs-slide-to="<%= i %>"
+                      class="line-indicator <%= i === 0 ? 'active' : '' %>">
+              </button>
+            <% } %>
+          </div>
+
+        <% } %>
+
+      </div>
+    </div>
+  <% }) %>
+<% } %>
+
+
+
+
+
+
+<% } else if (currentEntity.route === 'watches') { %>
+<%
+  // ===== MAPPINGS =====
+  const waterproofMap = {
+    1: 'nicht wasserdicht',  2: '1 ATM',   3: '2 ATM',   4: '2.5 ATM', 5: '3 ATM',
+    6: '4 ATM', 7: '5 ATM', 8: '6 ATM', 9: '7 ATM', 10: '8 ATM', 11: '9 ATM',
+    12: '10 ATM', 13: '15 ATM', 14: '20 ATM', 15: '30 ATM', 16: '40 ATM',
+    17: '50 ATM', 18: '60 ATM', 19: '70 ATM', 20: '80 ATM', 21: '90 ATM',
+    22: '100 ATM', 23: '110 ATM', 24: '120 ATM', 25: 'über 123 ATM'
+  };
+
+  const genderMap = {     
+    1: t('watch.gender.men','Herren'),
+    2: t('watch.gender.women','Damen'),
+    3: t('watch.gender.unisex','Unisex')
+   };
+
+  const watchtypeMap = {
+    1: t('watch.type.wristwatch','Armbanduhr'),
+    2: t('watch.type.pocketwatch','Taschenuhr'),
+    3: t('watch.type.smartwatch','Smartwatch')
+  };
+
+const caseMaterialMap = {
+  2:   t('watch.case.gold_steel','Gold/Stahl'),
+  3:   t('watch.case.white_gold','Weißgold'),
+  4:   t('watch.case.yellow_gold','Gelbgold'),
+  5:   t('watch.case.platinum','Platin'),
+  6:   t('watch.case.red_gold','Rotgold'),
+  1:   t('watch.case.rose_gold','Roségold'),
+  7:   t('watch.case.titanium','Titan'),
+  8:   t('watch.case.gold_steel','Gold/Stahl'),
+  9:   t('watch.case.ceramic','Keramik'),
+  10:  t('watch.case.palladium','Palladium'),
+  11:  t('watch.case.silver','Silber'),
+  12:  t('watch.case.aluminium','Aluminium'),
+  13:  t('watch.case.pvd','PVD-beschichtet'),
+  14:  t('watch.case.plastic','Kunststoff'),
+  15:  t('watch.case.bronze','Bronze'),
+  16:  t('watch.case.carbon','Carbon'),
+  17:  t('watch.case.tantalum','Tantal'),
+  18:  t('watch.case.tungsten','Wolfram'),
+  255: t('common.other','Sonstige')
+};
+
+
+
+const strapMaterialMap = {
+  1:   t('watch.strap.crocodile','Krokodilleder'),
+  2:   t('watch.strap.leather','Leder'),
+  3:   t('watch.strap.steel','Stahl'),
+  4:   t('watch.strap.rubber','Kautschuk'),
+  5:   t('watch.strap.yellow_gold','Gelbgold'),
+  7:   t('watch.strap.white_gold','Weißgold'),
+  8:   t('watch.strap.gold_steel','Gold/Stahl'),
+  9:   t('watch.strap.platinum','Platin'),
+  10:  t('watch.strap.textile','Textil'),
+  11:  t('watch.strap.red_gold','Rotgold'),
+  6:   t('watch.strap.rose_gold','Roségold'),
+  12:  t('watch.strap.titanium','Titan'),
+  13:  t('watch.strap.plastic','Kunststoff'),
+  14:  t('watch.strap.diamonds','Diamanten'),
+  15:  t('watch.strap.aluminium','Aluminium'),
+  16:  t('watch.strap.silver','Silber'),
+  17:  t('watch.strap.pvd','PVD-beschichtet'),
+  18:  t('watch.strap.snake','Schlangenleder'),
+  19:  t('watch.strap.ceramic','Keramik'),
+  20:  t('watch.strap.lizard','Eidechsenleder'),
+  21:  t('watch.strap.shark','Haifischleder'),
+  22:  t('watch.strap.cow','Rindsleder'),
+  23:  t('watch.strap.satin','Satin'),
+  24:  t('watch.strap.silicone','Silikon'),
+  25:  t('watch.strap.ostrich','Straußenleder'),
+  255: t('common.other','Sonstige')
+};
+
+
+const strapColorMap = {
+  21:  t('strap.color.steel','stahlfarben'),
+  24:  t('strap.color.gold_steel','Gold/Stahl'),
+  1:   t('strap.color.black','schwarz'),
+  2:   t('strap.color.white','weiß'),
+  3:   t('strap.color.red','rot'),
+  4:   t('strap.color.gray','grau'),
+  5:   t('strap.color.blue','blau'),
+  6:   t('strap.color.silver','silber'),
+  8:   t('strap.color.green','grün'),
+  7:   t('strap.color.orange','orange'),
+  11:  t('strap.color.yellow','gelb'),
+  9:   t('strap.color.beige','beige'),
+  10:  t('strap.color.brown','braun'),
+  12:  t('strap.color.gold','gold'),
+  13:  t('strap.color.violet','violett'),
+  14:  t('strap.color.bronze','bronze'),
+  15:  t('strap.color.pearl_white','perlweiß'),
+  16:  t('strap.color.transparent','transparent'),
+  17:  t('strap.color.bordeaux','bordeaux'),
+  18:  t('strap.color.champagne','champagnerfarben'),
+  19:  t('strap.color.pink','pink'),
+  20:  t('strap.color.rose','rosé'),
+  22:  t('strap.color.mother_of_pearl','perlmutt'),
+  23:  t('strap.color.cream','cremefarben'),
+  255: t('common.other','Sonstige')
+};
+
+
+const dialColorMap = {
+  1:   t('color.black','Schwarz'),
+  2:   t('color.white','Weiß'),
+  3:   t('color.silver','Silber'),
+  4:   t('color.gold','Gold'),
+  5:   t('color.blue','Blau'),
+  6:   t('color.gray','Grau'),
+  7:   t('color.brown','Braun'),
+  8:   t('color.green','Grün'),
+  9:   t('color.red','Rot'),
+  10:  t('color.beige','Beige'),
+  11:  t('color.violet','Violett'),
+  12:  t('color.champagne','Champagner'),
+  13:  t('color.mother_of_pearl','Perlmutt'),
+  14:  t('color.rose','Rosé'),
+  15:  t('color.transparent','Transparent'),
+  255: t('common.other','Sonstige')
+};
+
+
+  const shapeMap = 
+  { 
+    1:   t('watch.shape.round','Rund'),
+    2:   t('watch.shape.square','Quadratisch'),
+    3:   t('watch.shape.rectangle','Rechteckig'),
+    4:   t('watch.shape.tonneau','Tonneau'),
+    255: t('common.other','Sonstige')
+  };
+
+const dialNumbersMap = {
+  1: t('watch.dial.arabic','Arabisch'),
+  2: t('watch.dial.roman','Römisch'),
+  3: t('watch.dial.index','Striche'),
+  4: t('watch.dial.none','Keine')
+};
+const movementMap = {
+  1: t('watch.movement.quartz','Quarz'),
+  2: t('watch.movement.automatic','Automatik'),
+  3: t('watch.movement.manual','Handaufzug')
+};
+
+const crystalMap = {
+  1: t('watch.crystal.sapphire','Saphir'),
+  2: t('watch.crystal.mineral','Mineral'),
+  3: t('watch.crystal.plexi','Plexiglas')
+};
+
+const claspTypeMap = {
+  1: t('watch.clasp.fold','Faltschließe'),
+  2: t('watch.clasp.pin','Dornschließe'),
+  3: t('watch.clasp.butterfly','Butterfly')
+};
+
+const colorMap = {
+  1: t('color.black','Schwarz'),
+  2: t('color.silver','Silber'),
+  3: t('color.gold','Gold'),
+  4: t('color.white','Weiß'),
+  5: t('color.blue','Blau'),
+  6: t('color.brown','Braun'),
+  7: t('color.green','Grün'),
+  8: t('color.gray','Grau'),
+  9: t('color.red','Rot'),
+  10: t('color.beige','Beige'),
+  255: t('common.other','Sonstige')
+};
+
+  // ===== HELFER =====
+  function mapValue(value, map) {
+    if (value === null || value === undefined || value === '') return '';
+    const keyNum = Number(value);
+    return map[value] ?? map[keyNum] ?? String(value);
+  }
+
+  function mapList(values, map) {
+    if (values === null || values === undefined || values === '') return '';
+    const s = values.toString();
+    if (!s.includes(',')) return mapValue(s.trim(), map);
+    return s.split(',').map(v => mapValue(v.trim(), map)).join(', ');
+  }
+
+  // Einheitliche Ja/Nein-Ausgabe (akzeptiert 1/0, '1'/'0', true/false, 'Yes'/'No')
+  function yesNo(v) {
+    if (v === 1 || v === '1' || v === true)  return t('common.present','Vorhanden');
+    if (v === 0 || v === '0' || v === false)  return t('common.not_present','Nicht vorhanden');
+    if (typeof v === 'string') {
+      const s = v.toLowerCase();
+      if (s === 'yes')  return t('common.present','Vorhanden');
+      if (s === 'no')   return t('common.not_present','Nicht vorhanden');
+    }
+    return 'Keine Angabe';
+  }
+
+  // Fallbacks für Box/Papiere aus deiner DB-Feldern (authenticity_*)
+  const boxVal    = (item.box    !== undefined && item.box    !== null) ? item.box    : item.authenticity_box;
+  const papersVal = (item.papers !== undefined && item.papers !== null) ? item.papers : item.authenticity_papers;
+%>
+
+<div class="p-3 mb-4">
+  <h4 class="mb-3 fw-bold"><%= t('cars.technical_data', 'Technische Daten') %></h4>
+  <table class="table table-borderless align-middle table-striped custom-striped">
+<tbody>
+  <% if (item.brandName) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.brand','Marke') %></td>
+      <td><%= item.brandName %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.modelName) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.model','Modell') %></td>
+      <td><%= item.modelName %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.gender) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.gender','Geschlecht') %></td>
+      <td><%= mapValue(item.gender, genderMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.watchtype) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.type','Typ') %></td>
+      <td><%= mapValue(item.watchtype, watchtypeMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.case_material) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.case_material','Gehäusematerial') %></td>
+      <td><%= mapValue(item.case_material, caseMaterialMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.strap_material) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.strap_material','Armbandmaterial') %></td>
+      <td><%= mapList(item.strap_material, strapMaterialMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.strap_color) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.strap_color','Armbandfarbe') %></td>
+      <td><%= mapValue(item.strap_color, strapColorMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.dial_color) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.dial_color','Zifferblattfarbe') %></td>
+      <td><%= mapValue(item.dial_color, dialColorMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.dial_shape) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.dial_shape','Zifferblatt-Form') %></td>
+      <td><%= mapValue(item.dial_shape, shapeMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.dial_numbers) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.dial_numbers','Ziffern') %></td>
+      <td><%= mapValue(item.dial_numbers, dialNumbersMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.movement) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.movement','Werk') %></td>
+      <td><%= mapValue(item.movement, movementMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.caliber) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.caliber','Kaliber') %></td>
+      <td><%= item.caliber %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.power_reserve) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.power_reserve','Gangreserve') %></td>
+      <td><%= item.power_reserve %> h</td>
+    </tr>
+  <% } %>
+
+  <% if (item.jewels_number) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.jewels_number','Steine') %></td>
+      <td><%= item.jewels_number %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.frequency) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.frequency','Frequenz') %></td>
+      <td><%= item.frequency %> Hz</td>
+    </tr>
+  <% } %>
+
+  <% if (item.crystal) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.crystal','Glas') %></td>
+      <td><%= mapValue(item.crystal, crystalMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.diameter) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.diameter','Durchmesser') %></td>
+      <td><%= item.diameter %> mm</td>
+    </tr>
+  <% } %>
+
+  <% if (item.height) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.height','Höhe') %></td>
+      <td><%= item.height %> mm</td>
+    </tr>
+  <% } %>
+
+  <% if (item.clasp_type) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.clasp','Schließe') %></td>
+      <td><%= mapValue(item.clasp_type, claspTypeMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.waterproof) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.waterproof','Wasserdicht') %></td>
+      <td><%= mapValue(item.waterproof, waterproofMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (boxVal !== undefined && boxVal !== null) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.box','Box') %></td>
+      <td><%= yesNo(boxVal) %></td>
+    </tr>
+  <% } %>
+
+  <% if (papersVal !== undefined && papersVal !== null) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.certificate','Echtheitszertifikat') %></td>
+      <td><%= yesNo(papersVal) %></td>
+    </tr>
+  <% } %>
+</tbody>
+
+  </table>
+</div>
+
+<%
+  // ===== FEATURE-BADGES =====
+  const watchFeaturesMap = {
+    function_chronograph: t('watches.feature.chronograph', 'Chronograph'),
+    function_date: t('watches.feature.date', 'Datum'),
+    function_day: t('watches.feature.day', 'Wochentag'),
+    function_month: t('watches.feature.month', 'Monat'),
+    function_year: t('watches.feature.year', 'Jahresanzeige'),
+    function_moonphase: t('watches.feature.moonphase', 'Mondphase'),
+    function_gmt: t('watches.feature.gmt', 'GMT / Zweite Zeitzone'),
+    function_alarm: t('watches.feature.alarm', 'Alarm'),
+    function_minuterepeater: t('watches.feature.minuterepeater', 'Minutenrepetition'),
+    feature_tourbillon: t('watches.feature.tourbillon', 'Tourbillon'),
+    feature_diamondsbezel: t('watches.feature.diamondsbezel', 'Diamantlünette'),
+    feature_chronometer: t('watches.feature.chronometer', 'Chronometer-Zertifikat'),
+    feature_limited_edition: t('watches.feature.limited_edition', 'Limitierte Edition'),
+    feature_skeletonized: t('watches.feature.skeletonized', 'Skelettiert'),
+    feature_solar: t('watches.feature.solar', 'Solar'),
+    feature_smartwatch: t('watches.feature.smartwatch', 'Smartwatch'),
+    feature_waterresistant: t('watches.feature.waterresistant', 'Wasserdicht'),
+    feature_luminescenthands: t('watches.feature.luminescenthands', 'Leuchtzeiger'),
+    feature_luminescentnumerals: t('watches.feature.luminescentnumerals', 'Leuchtziffern')
+  };
+  const selectedWatchFeatures = Object.keys(watchFeaturesMap).filter(k => item[k] == 1);
+%>
+
+<% if (selectedWatchFeatures.length) { %>
+<div class="p-3 mb-4">
+  <h4 class="mb-3 fw-bold"><%= t('watches.features.title', 'Ausstattung & Funktionen') %></h4>
+  <div class="equipment-grid">
+    <% selectedWatchFeatures.forEach(field => { %>
+      <div class="equipment-item d-flex align-items-center mb-2">
+        <i class="bi bi-check-circle custom-icon"></i>
+        <span class="custom-text"><%= watchFeaturesMap[field] %></span>
+      </div>
+    <% }) %>
+  </div>
+</div>
+<% } %>
+
+<%
+  // ===== BESCHREIBUNG (nur wenn sinnvoller Inhalt) =====
+  let desc = item.description ? item.description.trim() : '';
+  const descPlain = desc.replace(/<[^>]*>/g, '').trim();
+  if (descPlain && descPlain !== '&nbsp;') {
+%>
+  <div class="p-3 mb-4">
+    <h4 class="mb-3 fw-bold border-bottom pb-2">
+      <%= t('watches.description.title', 'Beschreibung laut Anbieter') %>
+    </h4>
+
+    <div class="description-container position-relative">
+      <div id="descriptionShort" class="description-text collapsed-text">
+        <%- item.description
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p>\s*<p>/gi, '\n')
+            .replace(/<\/?p[^>]*>/gi, '')
+            .replace(/\r/g, '')
+            .replace(/(?:^|\n)[\-\•]\s*(.+)/g, '<li>$1</li>')
+            .replace(/(<li>.*<\/li>)/gs, '<ul class="mb-2 ps-3">$1</ul>')
+            .replace(/\n{2,}/g, '</p><p>')
+            .replace(/\n/g, '<br>')
+        %>
+      </div>
+
+      <div id="fadeOverlay" class="fade-overlay border-bottom"></div>
+
+      <div class="text-center mt-3">
+        <a href="javascript:void(0)" id="toggleDescription" class="btn btn-link fw-semibold text-decoration-none">
+          <%= t('watches.description.more', 'Mehr anzeigen') %>
+        </a>
+      </div>
+    </div>
+  </div>
+<% } %>
+
+<% if (similarItems && similarItems.length > 0) { %>
+  <div class="p-3 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="fw-bold">
+        <%= t('watches.similar.title','Diese Uhren könnten Sie auch interessieren') %>
+      </h4>
+    </div>
+
+    <div id="carousel-similar" class="carousel slide custom-carousel">
+      <div class="carousel-inner">
+        <% for (let i = 0; i < similarItems.length; i += 4) { %>
+          <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+            <div class="row g-3">
+              <% similarItems.slice(i, i + 4).forEach(item => { %>
+                <div class="col-md-3">
+                  <div class="card h-100 shadow-sm border-0">
+                    <div class="position-relative">
+                      <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= item.slug %>">
+                        <img src="<%= item.imageUrl %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= item.title %>">
+                      </a>
+                    </div>
+
+                    <div class="card-body">
+                      <h6 class="fw-bold text-truncate mb-1"><%= item.title %></h6>
+
+                        <p class="fs-6 fw-bold text-success mb-2">
+                          <%= (!item.price || item.price <= 0)
+                                ? t('common.price_on_request','Preis auf Anfrage')
+                                : item.priceFormatted %>
+                        </p>
+                    </div>
+
+                    <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                      <i class="bi bi-star me-1"></i> <%= t('common.recommendation','Empfehlung für Sie') %>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (similarItems.length > 4) { %>
+        <!-- Custom Pfeile im gleichen Design wie meine my-carousel-Buttons -->
+        <button class="my-carousel-prev"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="prev">
+          ‹
+          <span class="visually-hidden">Vorherige</span>
+        </button>
+
+        <button class="my-carousel-next"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="next">
+          ›
+          <span class="visually-hidden">Nächste</span>
+        </button>
+
+        <div class="carousel-indicators mt-3 d-none d-md-flex">
+          <% for (let i = 0; i < Math.ceil(similarItems.length / 4); i++) { %>
+            <button type="button"
+                    data-bs-target="#carousel-similar"
+                    data-bs-slide-to="<%= i %>"
+                    class="line-indicator <%= i === 0 ? 'active' : '' %>">
+            </button>
+          <% } %>
+        </div>
+      <% } %>
+
+    </div>
+  </div>
+<% } %>
+
+
+
+<% if (moreItems.length > 0) { %>
+  <% moreItems.forEach(group => { %>
+    <div class="p-3 mb-5">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold">
+          <%= t('watches.more_items.title', 'Weitere') %> <%= group.entity %> <%= t('watches.more_items.from_dealer', 'dieses Händlers') %>
+        </h4>
+        <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+          <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+        </a>
+      </div>
+
+      <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">
+        <div class="carousel-inner">
+          <% for (let i = 0; i < group.items.length; i += 4) { %>
+            <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+              <div class="row g-3">
+                <% group.items.slice(i, i + 4).forEach(prod => { %>
+                  <div class="col-md-3">
+                    <div class="card h-100 shadow-sm border-0">
+                      <div class="position-relative">
+                        <a href="/<%= group.route %>/<%= prod.id %>/<%= encodeURIComponent(prod.name) %>">
+                          <img src="<%= prod.mainpicture %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= prod.name %>">
+                        </a>
+                        <% if (prod.created && new Date(prod.created) > new Date(Date.now() - 14*24*60*60*1000)) { %>
+                          <span class="position-absolute top-0 start-0 m-2 badge bg-danger">
+                            <%= t('watches.more_items.new', 'Neu') %>
+                          </span>
+                        <% } %>
+                      </div>
+
+                      <div class="card-body">
+                        <h6 class="fw-bold text-truncate mb-1"><%= prod.name %></h6>
+                        <% if (prod.model) { %>
+                          <p class="small text-muted text-truncate"><%= prod.model %></p>
+                        <% } %>
+                        <% if (prod.price) { %>
+                          <p class="fs-6 fw-bold text-success mb-2">
+                            <%= new Intl.NumberFormat('de-DE').format(prod.price) %> €
+                          </p>
+                        <% } %>
+                      </div>
+
+                      <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                        <i class="bi bi-geo-alt me-1"></i>
+                        <%= prod.city || t('watches.location.unknown', 'Standort auf Anfrage') %>
+                      </div>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+
+        <% if (group.items.length > 1) { %>
+          <button class="my-carousel-prev"
+                  type="button"
+                  data-bs-target="#carousel-<%= group.route %>"
+                  data-bs-slide="prev">
+            ‹
+            <span class="visually-hidden">Vorherige</span>
+          </button>
+
+          <button class="my-carousel-next"
+                  type="button"
+                  data-bs-target="#carousel-<%= group.route %>"
+                  data-bs-slide="next">
+            ›
+            <span class="visually-hidden">Nächste</span>
+          </button>
+          <div class="carousel-indicators mt-3 d-none d-md-flex">
+            <% for (let i = 0; i < Math.ceil(group.items.length / 4); i++) { %>
+              <button type="button"
+                      data-bs-target="#carousel-<%= group.route %>"
+                      data-bs-slide-to="<%= i %>"
+                      class="line-indicator <%= i === 0 ? 'active' : '' %>">
+              </button>
+            <% } %>
+          </div>
+
+        <% } %>
+
+      </div>
+    </div>
+  <% }) %>
+<% } %>
+<% /* END watches */ %>
+
+
+
+<% } else if (currentEntity.route === 'properties') { %>
+
+<%
+  const propertyTypeMap = {
+    4: t('properties.apartment', 'Wohnung'),
+    5: t('properties.penthouse', 'Penthouse'),
+    6: t('properties.villa', 'Villa/Haus'),
+    8: t('properties.maisonette', 'Maisonette'),
+    10: t('properties.finca', 'Finca'),
+    11: t('properties.private_island', 'Privatinsel'),
+    12: t('properties.castle', 'Schloss/Herrenhaus'),
+    255: t('common.other', 'Sonstige')
+  };
+
+  const conditionMap = {
+    1: t('condition.new', 'Neu'),
+    2: t('condition.as_new', 'Neuwertig'),
+    3: t('condition.renovated', 'Renoviert'),
+    4: t('condition.maintained', 'Gepflegt'),
+    5: t('condition.needs_renovation', 'Sanierungsbedürftig'),
+    255: t('common.other', 'Sonstige')
+  };
+
+  const heatingMap = {
+    1: t('heating.gas', 'Gasheizung'),
+    2: t('heating.oil', 'Ölheizung'),
+    3: t('heating.district', 'Fernwärme'),
+    4: t('heating.heatpump', 'Wärmepumpe'),
+    5: t('heating.solar', 'Solar'),
+    6: t('heating.pellets', 'Pellets'),
+    7: t('heating.electric', 'Elektro'),
+    255: t('common.other', 'Sonstige')
+  };
+
+  const energyClassMap = {
+    1: "A+", 2: "A", 3: "B", 4: "C", 5: "D", 6: "E", 7: "F", 8: "G"
+  };
+%>
+
+<div class="p-3 mb-4">
+  <h4 class="mb-3 fw-bold"><%= t('properties.data', 'Immobiliendaten') %></h4>
+  <table class="table table-borderless align-middle table-striped custom-striped">
+    <tbody>
+      <% if (item.propertytype) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.type', 'Immobilienart') %></td><td><%= propertyTypeMap[item.propertytype] || item.propertytype %></td></tr>
+      <% } %>
+
+      <% if (item.investmenttype) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.investment_type', 'Investment-Typ') %></td><td><%= investmentTypeMap[item.investmenttype] || item.investmenttype %></td></tr>
+      <% } %>
+
+      <% if (item.livingarea) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.living_area', 'Wohnfläche') %></td><td><%= new Intl.NumberFormat('de-DE').format(item.livingarea) %> m²</td></tr>
+      <% } %>
+
+      <% if (item.landarea) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.land_area', 'Grundstücksfläche') %></td><td><%= new Intl.NumberFormat('de-DE').format(item.landarea) %> m²</td></tr>
+      <% } %>
+
+      <% if (item.floors) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.floors', 'Etagen') %></td><td><%= item.floors %></td></tr>
+      <% } %>
+
+      <% if (item.bedrooms) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.bedrooms', 'Schlafzimmer') %></td><td><%= parseInt(item.bedrooms) %></td></tr>
+      <% } %>
+
+      <% if (item.bathrooms) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.bathrooms', 'Badezimmer') %></td><td><%= parseInt(item.bathrooms) %></td></tr>
+      <% } %>
+
+<%
+const qualityMap = {
+  1: t('quality.first_use','Erstbezug'),
+  2: t('quality.first_use_after_renovation','Erstbezug nach Sanierung'),
+  3: t('quality.like_new','Neuwertig'),
+  4: t('quality.renovated','Saniert'),
+  5: t('quality.modernized','Modernisiert'),
+  6: t('quality.refurbished','Renoviert'),
+  7: t('quality.well_maintained','Gepflegt')
+};
+%>
+
+
+      <% if (item.quality) { %>
+        <tr>
+          <td class="fw-semibold text-muted">
+            <%= t('properties.quality', 'Zustand') %>
+          </td>
+          <td><%= qualityMap[item.quality] || item.quality %></td>
+        </tr>
+      <% } %>
+
+
+      <%
+      const propertyShapeMap = {
+        1: "Erstbezug",
+        2: "Erstbezug nach Sanierung",
+        3: "Wie neu",
+        4: "Renoviert",
+        5: "Modernisiert",
+        6: "Saniert",
+        7: "Gepflegt"
+      };
+      %>
+
+      <% if (item.propertyshape) { %>
+        <tr>
+          <td class="fw-semibold text-muted">
+            <%= t('properties.shape', 'Objektform') %>
+          </td>
+          <td><%= propertyShapeMap[item.propertyshape] || item.propertyshape %></td>
+        </tr>
+      <% } %>
+
+
+      <% if (item.year) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.year_built', 'Baujahr') %></td><td><%= item.year %></td></tr>
+      <% } %>
+
+      <% if (item.monument_protection) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.monument', 'Denkmalschutz') %></td><td><%= item.monument_protection === 1 ? t('common.yes', 'Ja') : t('common.no', 'Nein') %></td></tr>
+      <% } %>
+
+      <% if (item.stage) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.stage', 'Bauphase') %></td><td><%= stageMap[item.stage] || item.stage %></td></tr>
+      <% } %>
+
+      <% if (item.heating) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.heating', 'Heizung') %></td><td><%= heatingMap[item.heating] || item.heating %></td></tr>
+      <% } %>
+
+      <% if (item.energysource) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_source', 'Energiequelle') %></td><td><%= energySourceMap[item.energysource] || item.energysource %></td></tr>
+      <% } %>
+
+      <% if (item.energypass) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_certificate', 'Energieausweis') %></td><td><%= energyPassMap[item.energypass] || item.energypass %></td></tr>
+      <% } %>
+
+      <% if (item.energypass_type) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_certificate_type', 'Energieausweis Typ') %></td><td><%= energyPassTypeMap[item.energypass_type] || item.energypass_type %></td></tr>
+      <% } %>
+
+      <% if (item.energypass_value) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_consumption', 'Energieverbrauch') %></td><td><%= item.energypass_value %> kWh/(m²·a)</td></tr>
+      <% } %>
+
+      <% if (item.base_price !== null) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><%= t('properties.base_price', 'Basispreis') %></td>
+          <td>
+            <% if (item.base_price > 0) { %>
+              <%= new Intl.NumberFormat('de-DE').format(item.base_price) %> <%= item.currency %>
+            <% } else { %>
+              <%= t('common.price_on_request', 'Preis auf Anfrage') %>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+
+      <% if (item.price !== null) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><%= t('properties.price', 'Preis') %></td>
+          <td>
+            <% if (item.price > 0) { %>
+              <%= new Intl.NumberFormat('de-DE').format(item.price) %> <%= item.currency %>
+            <% } else { %>
+              <%= t('common.price_on_request', 'Preis auf Anfrage') %>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+
+      <% if (item.vat !== null) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.vat', 'MwSt.') %></td><td><%= item.vat === 1 ? t('properties.incl', 'inklusive') : t('properties.plus', 'zuzüglich') %></td></tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<% if (item.description) { %>
+  <div class="p-3 mb-4">
+    <h4 class="mb-3 fw-bold border-bottom pb-2"><%= t('properties.description', 'Beschreibung laut Anbieter') %></h4>
+    <div class="description-container position-relative">
+      <div id="descriptionShort" class="description-text collapsed-text">
+        <%- item.description
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p>\s*<p>/gi, '\n')
+            .replace(/<\/?p[^>]*>/gi, '')
+            .replace(/(?:^|\n)[\-\•]\s*(.+)/g, '<li>$1</li>')
+            .replace(/(<li>.*<\/li>)/gs, '<ul class="mb-2 ps-3">$1</ul>')
+            .replace(/\n{2,}/g, '</p><p>')
+            .replace(/\n/g, '<br>')
+            .replace(/^(?!<ul>)([\s\S]+)$/, '<p>$1</p>') %>
+      </div>
+      <div id="fadeOverlay" class="fade-overlay border-bottom"></div>
+      <div class="text-center mt-3">
+        <a href="javascript:void(0)" id="toggleDescription" class="btn btn-link fw-semibold text-decoration-none">
+          <%= t('common.show_more', 'Mehr anzeigen') %>
+        </a>
+      </div>
+    </div>
+  </div>
+<% } %>
+
+<% if (similarItems && similarItems.length > 0) { %>
+  <div class="p-3 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="fw-bold">
+        <%= t('listing.similar.properties','Diese Immobilien könnten Sie auch interessieren') %>
+      </h4>
+    </div>
+
+    <div id="carousel-similar" class="carousel slide custom-carousel">
+      <div class="carousel-inner">
+        <% for (let i = 0; i < similarItems.length; i += 4) { %>
+          <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+            <div class="row g-3">
+              <% similarItems.slice(i, i + 4).forEach(item => { %>
+                <div class="col-md-3">
+                  <div class="card h-100 shadow-sm border-0">
+                    <div class="position-relative">
+                      <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= item.slug %>">
+                        <img src="<%= item.imageUrl %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= item.title %>">
+                      </a>
+                    </div>
+
+                    <div class="card-body">
+                      <h6 class="fw-bold text-truncate mb-1"><%= item.title %></h6>
+
+                          <p class="fs-6 fw-bold text-success mb-2">
+                            <%= (!item.price || item.price <= 0)
+                                  ? t('common.price_on_request','Preis auf Anfrage')
+                                  : item.priceFormatted %>
+                          </p>
+
+                    </div>
+
+                    <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                      <i class="bi bi-star me-1"></i> <%= t('common.recommendation','Empfehlung für Sie') %>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (similarItems.length > 4) { %>
+        <!-- Custom Pfeile im gleichen Design wie meine my-carousel-Buttons -->
+        <button class="my-carousel-prev"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="prev">
+          ‹
+          <span class="visually-hidden">Vorherige</span>
+        </button>
+
+        <button class="my-carousel-next"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="next">
+          ›
+          <span class="visually-hidden">Nächste</span>
+        </button>
+
+        <div class="carousel-indicators mt-3 d-none d-md-flex">
+          <% for (let i = 0; i < Math.ceil(similarItems.length / 4); i++) { %>
+            <button type="button"
+                    data-bs-target="#carousel-similar"
+                    data-bs-slide-to="<%= i %>"
+                    class="line-indicator <%= i === 0 ? 'active' : '' %>">
+            </button>
+          <% } %>
+        </div>
+      <% } %>
+
+
+    </div>
+  </div>
+<% } %>
+
+<% if (moreItems.length > 0) { %>
+  <% moreItems.forEach(group => { %>
+    <% if (group.route === 'properties') { %>
+      <div class="p-3 mb-5">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h4 class="fw-bold"><%= t('properties.more_from_seller', 'Weitere Immobilien dieses Händlers') %></h4>
+          <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+            <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+          </a>
+        </div>
+
+        <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">
+          <div class="carousel-inner">
+            <% for (let i = 0; i < group.items.length; i += 4) { %>
+              <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+                <div class="row g-3">
+                  <% group.items.slice(i, i + 4).forEach(prod => { %>
+                    <div class="col-md-3">
+                      <div class="card h-100 shadow-sm border-0">
+                        <div class="position-relative">
+                          <a href="/<%= group.route %>/<%= prod.id %>/<%= prod.name %>">
+                            <img src="<%= prod.mainpicture %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= prod.name %>">
+                          </a>
+                          <% if (prod.created && new Date(prod.created) > new Date(Date.now() - 14*24*60*60*1000)) { %>
+                            <span class="position-absolute top-0 start-0 m-2 badge bg-danger">
+                              <%= t('common.new', 'Neu') %>
+                            </span>
+                          <% } %>
+                        </div>
+
+                        <div class="card-body">
+                          <h6 class="fw-bold text-truncate mb-1"><%= prod.name %></h6>
+                          <p class="fs-6 fw-bold text-success mb-2">
+                            <%= (prod.price && prod.price > 0)
+                                  ? new Intl.NumberFormat('de-DE').format(prod.price) + ' €'
+                                  : t('common.price_on_request','Preis auf Anfrage') %>
+                          </p>
+
+                          <div class="d-flex flex-wrap gap-3 small text-dark mt-2">
+                            <% if (prod.livingarea && prod.livingarea > 0) { %>
+                              <span>
+                                <i class="bi bi-aspect-ratio me-1 text-muted"></i>
+                                <%= new Intl.NumberFormat('de-DE').format(prod.livingarea) %> m²
+                              </span>
+                            <% } %>
+
+                            <% if (prod.bedrooms && prod.bedrooms > 0) { %>
+                              <span>
+                                <i class="bi bi-door-closed me-1 text-muted"></i>
+                                <%= parseInt(prod.bedrooms) %> <%= t('properties.bedrooms_short', 'SZ') %>
+                              </span>
+                            <% } %>
+
+                            <% if (prod.year && prod.year > 0) { %>
+                              <span>
+                                <i class="bi bi-calendar me-1 text-muted"></i>
+                                <%= prod.year %>
+                              </span>
+                            <% } %>
+                          </div>
+                        </div>
+
+                        <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                          <i class="bi bi-geo-alt me-1"></i>
+                          <%= prod.city || t('common.location_on_request', 'Standort auf Anfrage') %>
+                        </div>
+                      </div>
+                    </div>
+                  <% }) %>
+                </div>
+              </div>
+            <% } %>
+          </div>
+
+          <% if (group.items.length > 1) { %>
+            <button class="my-carousel-prev"
+                    type="button"
+                    data-bs-target="#carousel-<%= group.route %>"
+                    data-bs-slide="prev">
+              ‹
+              <span class="visually-hidden">Vorherige</span>
+            </button>
+
+            <button class="my-carousel-next"
+                    type="button"
+                    data-bs-target="#carousel-<%= group.route %>"
+                    data-bs-slide="next">
+              ›
+              <span class="visually-hidden">Nächste</span>
+            </button>
+
+            <div class="carousel-indicators mt-3 d-none d-md-flex">
+              <% for (let i = 0; i < Math.ceil(group.items.length / 4); i++) { %>
+                <button type="button"
+                        data-bs-target="#carousel-<%= group.route %>"
+                        data-bs-slide-to="<%= i %>"
+                        class="line-indicator <%= i === 0 ? 'active' : '' %>">
+                </button>
+              <% } %>
+            </div>
+
+          <% } %>
+
+        </div>
+      </div>
+    <% } %>
+  <% }) %>
+<% } %>
+
+
+<% } else if (currentEntity.route === 'yachts') { %>
+
+<div class="p-3 mb-4">
+  <h4 class="mb-3 fw-bold"><%= t('yachts.tech_data', 'Technische Daten') %></h4>
+  <table class="table table-borderless align-middle table-striped custom-striped">
+      <tr>
+        <td class="fw-semibold text-muted"><%= t('yachts.brand', 'Marke') %></td>
+        <td><%= item.brandName || '-' %></td>
+      </tr>
+
+      <tr>
+        <td class="fw-semibold text-muted"><%= t('yachts.model', 'Modell') %></td>
+        <td><%= item.model || '-' %></td>
+      </tr>
+      <% if (item.yachttype) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.type', 'Yachttyp') %></td><td><%= yachtTypeMap[item.yachttype] || item.yachttype %></td></tr>
+      <% } %>
+      <% if (item.category) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.category', 'Kategorie') %></td><td><%= categoryMap[item.category] || item.category %></td></tr>
+      <% } %>
+      <% if (item.length) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.length', 'Länge') %></td><td><%= item.length %> m</td></tr>
+      <% } %>
+      <% if (item.beam) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.beam', 'Breite') %></td><td><%= item.beam %> m</td></tr>
+      <% } %>
+      <% if (item.draft) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.draft', 'Tiefgang') %></td><td><%= item.draft %> m</td></tr>
+      <% } %>
+      <% if (item.displacement) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.displacement', 'Verdrängung') %></td><td><%= item.displacement %> t</td></tr>
+      <% } %>
+      <% if (item.berths) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.berths', 'Kabinen') %></td><td><%= item.berths %></td></tr>
+      <% } %>
+      <% if (item.engines) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.engines', 'Motoren') %></td><td><%= item.engines %></td></tr>
+      <% } %>
+      <% if (item.horsepower) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.power', 'Leistung') %></td><td><%= item.horsepower %> PS</td></tr>
+      <% } %>
+      <% if (item.fuel) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.fuel', 'Treibstoff') %></td><td><%= fuelMap[item.fuel] || item.fuel %></td></tr>
+      <% } %>
+      <% if (item.fuel_tankage) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.fuel_tank', 'Treibstofftank') %></td><td><%= item.fuel_tankage %> L</td></tr>
+      <% } %>
+      <% if (item.water_tankage) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.water_tank', 'Wassertank') %></td><td><%= item.water_tankage %> L</td></tr>
+      <% } %>
+      <% if (item.hull) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.hull', 'Rumpf') %></td><td><%= hullMap[item.hull] || item.hull %></td></tr>
+      <% } %>
+      <% if (item.shape) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.condition', 'Zustand') %></td><td><%= shapeMap[item.shape] || item.shape %></td></tr>
+      <% } %>
+      <% if (item.max_speed) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.max_speed', 'Max. Geschwindigkeit') %></td>
+          <td><%= item.max_speed %> km/h (<%= item.max_speed_kn %> kn)</td>
+        </tr>
+      <% } %>
+      <% if (item.cruising_speed) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.cruising_speed', 'Reisegeschwindigkeit') %></td>
+          <td><%= item.cruising_speed %> km/h (<%= item.cruising_speed_kn %> kn)</td>
+        </tr>
+      <% } %>
+      <% if (item.year) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.year', 'Baujahr') %></td><td><%= item.year %></td></tr>
+      <% } %>
+      <% if (item.splashdown) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.splashdown', 'Stapellauf') %></td><td><%= item.splashdown %></td></tr>
+      <% } %>
+      <% if (item.naval_architect) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.architect', 'Architekt') %></td><td><%= item.naval_architect %></td></tr>
+      <% } %>
+      <% if (item.interior_designer) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.interior_designer', 'Innendesign') %></td><td><%= item.interior_designer %></td></tr>
+      <% } %>
+      <% if (item.price !== null) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.price', 'Preis') %></td>
+          <td>
+            <% if (item.price > 0) { %>
+              <%= new Intl.NumberFormat('de-DE').format(item.price) %> <%= item.currency %>
+            <% } else { %>
+              <%= t('yachts.price_on_request', 'Preis auf Anfrage') %>
+            <% } %>
+          </td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+</div>
+
+<% if (item.description) { %>
+  <div class="p-3 mb-4">
+    <h4 class="mb-3 fw-bold border-bottom pb-2"><%= t('properties.description', 'Beschreibung laut Anbieter') %></h4>
+    <div class="description-container position-relative">
+      <div id="descriptionShort" class="description-text collapsed-text">
+        <%- item.description %>
+      </div>
+      <div id="fadeOverlay" class="fade-overlay border-bottom"></div>
+      <div class="text-center mt-3">
+        <a href="javascript:void(0)" id="toggleDescription" class="btn btn-link fw-semibold text-decoration-none">
+            <%= t('common.show_more', 'Mehr anzeigen') %>
+        </a>
+      </div>
+    </div>
+  </div>
+<% } %>
+
+<% if (similarItems && similarItems.length > 0) { %>
+  <div class="p-3 mb-5">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <h4 class="fw-bold">
+        <%= t('listing.similar.yachts','Diese Yachten könnten Sie auch interessieren') %>
+      </h4>
+    </div>
+
+    <div id="carousel-similar" class="carousel slide custom-carousel">
+      <div class="carousel-inner">
+        <% for (let i = 0; i < similarItems.length; i += 4) { %>
+          <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+            <div class="row g-3">
+              <% similarItems.slice(i, i + 4).forEach(item => { %>
+                <div class="col-md-3">
+                  <div class="card h-100 shadow-sm border-0">
+                    <div class="position-relative">
+                      <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= item.slug %>">
+                        <img src="<%= item.imageUrl %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= item.title %>">
+                      </a>
+                    </div>
+
+                    <div class="card-body">
+                      <h6 class="fw-bold text-truncate mb-1"><%= item.title %></h6>
+
+                        <p class="fs-6 fw-bold text-success mb-2">
+                          <%= (!item.price || item.price <= 0)
+                                ? t('common.price_on_request','Preis auf Anfrage')
+                                : item.priceFormatted %>
+                        </p>
+
+                    </div>
+
+                    <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                      <i class="bi bi-star me-1"></i><%= t('common.recommendation','Empfehlung für Sie') %>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+            </div>
+          </div>
+        <% } %>
+      </div>
+
+      <% if (similarItems.length > 4) { %>
+        <!-- Custom Pfeile im gleichen Design wie meine my-carousel-Buttons -->
+        <button class="my-carousel-prev"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="prev">
+          ‹
+          <span class="visually-hidden">Vorherige</span>
+        </button>
+
+        <button class="my-carousel-next"
+                type="button"
+                data-bs-target="#carousel-similar"
+                data-bs-slide="next">
+          ›
+          <span class="visually-hidden">Nächste</span>
+        </button>
+
+        <div class="carousel-indicators mt-3 d-none d-md-flex">
+          <% for (let i = 0; i < Math.ceil(similarItems.length / 4); i++) { %>
+            <button type="button"
+                    data-bs-target="#carousel-similar"
+                    data-bs-slide-to="<%= i %>"
+                    class="line-indicator <%= i === 0 ? 'active' : '' %>">
+            </button>
+          <% } %>
+        </div>
+      <% } %>
+
+
+    </div>
+  </div>
+<% } %>
+
+<% if (moreItems.length > 0) { %>
+<% moreItems.forEach(group => { %>
+  <% if (group.route === 'yachts') { %>
+    <div class="p-3 mb-5">
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="fw-bold"><%= t('yachts.more_from_seller', 'Weitere Yachten dieses Händlers') %></h4>
+        <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+          <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+        </a>
+      </div>
+
+      <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">
+        <div class="carousel-inner">
+          <% for (let i = 0; i < group.items.length; i += 4) { %>
+            <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+              <div class="row g-3">
+                <% group.items.slice(i, i + 4).forEach(prod => { %>
+                  <div class="col-md-3">
+                    <div class="card h-100 shadow-sm border-0">
+                      <div class="position-relative">
+                        <a href="/<%= group.route %>/<%= prod.id %>/<%= prod.name %>">
+                          <img src="<%= prod.mainpicture %>" class="card-img-top rounded-top fixed-img heIght" alt="<%= prod.name %>">
+                        </a>
+                        <% if (prod.created && new Date(prod.created) > new Date(Date.now() - 14*24*60*60*1000)) { %>
+                          <span class="position-absolute top-0 start-0 m-2 badge bg-danger">
+                            <%= t('common.new', 'Neu') %>
+                          </span>
+                        <% } %>
+                      </div>
+
+                      <div class="card-body">
+                        <h6 class="fw-bold text-truncate mb-1"><%= prod.name %></h6>
+
+                          <p class="fs-6 fw-bold text-success mb-2">
+                            <%= (prod.price && prod.price > 0)
+                                  ? new Intl.NumberFormat('de-DE').format(prod.price) + ' €'
+                                  : t('common.price_on_request','Preis auf Anfrage') %>
+                          </p>
+
+
+                        <!-- Kurzinformationen -->
+                        <div class="d-flex flex-wrap gap-3 small text-dark mt-2">
+                          <% if (prod.length && prod.length > 0) { %>
+                            <span><i class="bi bi-rulers me-1 text-muted"></i>
+                              <%= parseFloat(prod.length).toFixed(2) %> m
+                            </span>
+                          <% } %>
+
+                          <% if (prod.berths && prod.berths > 0) { %>
+                            <span><i class="bi bi-door-open me-1 text-muted"></i>
+                              <%= prod.berths %> <%= t('yachts.cabins', 'Kabinen') %>
+                            </span>
+                          <% } %>
+
+                          <% if (prod.year && prod.year > 0) { %>
+                            <span><i class="bi bi-calendar me-1 text-muted"></i>
+                              <%= prod.year %>
+                            </span>
+                          <% } %>
+                        </div>
+                      </div>
+
+                      <div class="card-footer bg-white small text-muted d-flex align-items-center">
+                        <i class="bi bi-geo-alt me-1"></i>
+                        <%= prod.city || t('common.location_on_request', 'Standort auf Anfrage') %>
+                      </div>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            </div>
+          <% } %>
+        </div>
+
+          <% if (group.items.length > 1) { %>
+
+            <!-- Custom Pfeile wie bei myUniqueProducts -->
+            <button class="my-carousel-prev"
+                    type="button"
+                    data-bs-target="#carousel-<%= group.route %>"
+                    data-bs-slide="prev">
+              ‹
+              <span class="visually-hidden">Vorherige</span>
+            </button>
+
+            <button class="my-carousel-next"
+                    type="button"
+                    data-bs-target="#carousel-<%= group.route %>"
+                    data-bs-slide="next">
+              ›
+              <span class="visually-hidden">Nächste</span>
+            </button>
+
+            <!-- Indikatoren -->
+            <div class="carousel-indicators mt-3 d-none d-md-flex">
+              <% for (let i = 0; i < Math.ceil(group.items.length / 4); i++) { %>
+                <button type="button"
+                        data-bs-target="#carousel-<%= group.route %>"
+                        data-bs-slide-to="<%= i %>"
+                        class="line-indicator <%= i === 0 ? 'active' : '' %>">
+                </button>
+              <% } %>
+            </div>
+
+          <% } %>
+
+      </div>
+
+    </div>
+  <% } %>
+<% }) %>
+
+
+<% } %>
+
+
+<% } else { %>
+
+    <!-- 🔹 Standard-Layout für alle anderen Kategorien -->
+    <ul class="nav nav-tabs" id="infoTabs" role="tablist">
+      <li class="nav-item" role="presentation">
+        <a
+          class="nav-link active"
+          id="details-tab"
+          data-bs-toggle="tab"
+          href="#details"
+          role="tab"
+          aria-controls="details"
+          aria-selected="true"
+        >
+          <%= T('product.tabs.details','Details') %>
+        </a>
+      </li>
+      <li class="nav-item" role="presentation">
+        <a
+          class="nav-link"
+          id="sicherheit-tab"
+          data-bs-toggle="tab"
+          href="#sicherheit"
+          role="tab"
+          aria-controls="sicherheit"
+          aria-selected="false"
+        >
+        <%= T('product.tabs.security','Sicherheit') %>
+        </a>
+      </li>
+    </ul>
+
+    <div class="tab-content mt-3" id="infoTabsContent">
+      <div
+        id="details"
+        class="tab-pane fade show active"
+        role="tabpanel"
+        aria-labelledby="details-tab"
+      >
+        <div class="row">
+          <div class="col-md-6">
+            <h4><%= T('product.tabs.description','Beschreibung') %></h4>
+            <p><%- item.description %></p>
+          </div>
+          <div class="col-md-6">
+            <h4><%= T('product.tabs.base','Basisdaten') %></h4>
+            <table class="table table-striped">
+              <% item.specs.forEach(spec => { %>
+                <tr>
+                  <td><%= spec.label %></td>
+                  <td><%= spec.value %></td>
+                </tr>
+              <% }); %>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div
+        id="sicherheit"
+        class="tab-pane fade"
+        role="tabpanel"
+        aria-labelledby="sicherheit-tab"
+      >
+        <h4><%= T('product.tabs.sec_coming','Sicherheitsdetails folgen hier...') %></h4>
+      </div>
+    </div>
+  <% } %>
+</div>
+
+<% if (currentEntity.route === 'lifestyles' && similarItems && similarItems.length > 0) { %>
+  <div class="p-3 mb-5" style="max-width: 1520px; margin: 100px auto;">
+
+    <!-- Title -->
+    <div class="d-flex mb-3 justify-content-center">
+      <h4 class="fw-bold text-center">
+        <%= t('listing.similar.lifestyle','Lifestyle – ähnliche Artikel') %>
+      </h4>
+    </div>
+
+    <div id="carousel-similar-lifestyle" class="carousel slide custom-carousel">
+      <div class="carousel-inner">
+
+        <% for (let i = 0; i < similarItems.length; i += 4) { %>
+          <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
+            <div class="row g-3 justify-content-center">
+
+              <% similarItems.slice(i, i + 4).forEach(item => { %>
+                <div class="col-md-3">
+                  <div class="card h-100 shadow-sm border-0">
+                    <div class="position-relative">
+                      <a href="/lifestyles/<%= item.id %>/<%= item.slug %>">
+                        <img src="<%= item.imageUrl %>"
+                             class="card-img-top rounded-top fixed-img heIght"
+                             alt="<%= item.title %>">
+                      </a>
+                    </div>
+
+                    <div class="card-body text-center">
+                      <h6 class="fw-bold text-truncate mb-1"><%= item.title %></h6>
+
+                        <p class="fs-6 fw-bold text-success mb-2">
+                          <%= (!item.price || item.price <= 0)
+                                ? t('common.price_on_request','Preis auf Anfrage')
+                                : item.priceFormatted %>
+                        </p>
+                    </div>
+
+                    <div class="card-footer bg-white small text-muted d-flex align-items-center justify-content-center">
+                      <i class="bi bi-star me-1"></i> <%= t('common.recommendation','Empfehlung für Sie') %>
+                    </div>
+                  </div>
+                </div>
+              <% }) %>
+
+            </div>
+          </div>
+        <% } %>
+
+      </div>
+
+        <% if (similarItems.length > 4) { %>
+          <!-- Custom Pfeile im gleichen Design wie meine my-carousel-Buttons -->
+          <button class="my-carousel-prev"
+                  type="button"
+                  data-bs-target="#carousel-similar"
+                  data-bs-slide="prev">
+            ‹
+            <span class="visually-hidden">Vorherige</span>
+          </button>
+
+          <button class="my-carousel-next"
+                  type="button"
+                  data-bs-target="#carousel-similar"
+                  data-bs-slide="next">
+            ›
+            <span class="visually-hidden">Nächste</span>
+          </button>
+
+          <div class="carousel-indicators mt-3 d-none d-md-flex">
+            <% for (let i = 0; i < Math.ceil(similarItems.length / 4); i++) { %>
+              <button type="button"
+                      data-bs-target="#carousel-similar"
+                      data-bs-slide-to="<%= i %>"
+                      class="line-indicator <%= i === 0 ? 'active' : '' %>">
+              </button>
+            <% } %>
+          </div>
+        <% } %>
+
+
+    </div>
+  </div>
+<% } %>
+
+
+
+
+
+
+
+
+<%- include('../../partials/footer', { footerColumns }) %>
+
+
+
+<div id="lightboxOverlay" style="
+     display:none;
+     position:fixed;
+     top:0; left:0;
+     width:100%; height:100%;
+     background:rgba(0,0,0,0.8);
+     align-items:center;
+     justify-content:center;
+     z-index:10000;">
+  <div id="lightboxContainer" style="
+       position:relative;
+       width:100%; height:100%;
+       background:#000;
+       display:flex;
+       align-items:center;
+       justify-content:center;">
+    <span id="lightboxClose" style="
+          position:absolute;
+          top:10px; right:10px;
+          font-size:2rem;
+          color:#fff;
+          cursor:pointer;
+          user-select:none;">×</span>
+    <span id="lightboxPrev" style="
+          position:absolute;
+          top:50%;
+          left:10px;
+          transform:translateY(-50%);
+          font-size:2rem;
+          color:#fff;
+          cursor:pointer;
+          user-select:none;">❮</span>
+    <img id="lightboxImage" src="" style="
+         max-width:100%;
+         max-height:100%;
+         object-fit:contain;" />
+    <span id="lightboxNext" style="
+          position:absolute;
+          top:50%;
+          right:10px;
+          transform:translateY(-50%);
+          font-size:2rem;
+          color:#fff;
+          cursor:pointer;
+          user-select:none;">❯</span>
+  </div>
+</div>
+<script>
+(function(){
+  // 1) Bild-URLs sammeln
+  const pics = Array.from(
+    document.querySelectorAll('.product-single-thumbnails img')
+  ).map(img => img.src);
+
+  // Fallback: Hauptbild, falls keine Thumbnails
+  const mainImg = document.getElementById('mainImage');
+  if (!pics.length && mainImg) {
+    pics.push(mainImg.src);
+  }
+
+  let currentIndex = 0;
+  const overlay  = document.getElementById('lightboxOverlay');
+  const imgEl    = document.getElementById('lightboxImage');
+  const btnPrev  = document.getElementById('lightboxPrev');
+  const btnNext  = document.getElementById('lightboxNext');
+  const btnClose = document.getElementById('lightboxClose');
+
+  function showLightbox(idx) {
+    currentIndex = idx;
+    imgEl.src = pics[currentIndex];
+    overlay.style.display = 'flex';
+  }
+  function hideLightbox()    { overlay.style.display = 'none'; }
+  function showPrev()        { showLightbox((currentIndex - 1 + pics.length) % pics.length); }
+  function showNext()        { showLightbox((currentIndex + 1) % pics.length); }
+
+  // 2) Klick auf Hauptbild: öffne an der aktuell angezeigten Stelle
+  if (mainImg) {
+    mainImg.style.cursor = 'zoom-in';
+    mainImg.addEventListener('click', () => {
+      const idx = pics.findIndex(src => src === mainImg.src);
+      showLightbox(idx >= 0 ? idx : 0);
+    });
+  }
+
+  // 3) Overlay-Klick schließt, Pfeile und X wie gehabt
+  overlay.addEventListener('click', e => e.target === overlay && hideLightbox());
+  btnPrev.addEventListener('click', e => { e.stopPropagation(); showPrev(); });
+  btnNext.addEventListener('click', e => { e.stopPropagation(); showNext(); });
+  btnClose.addEventListener('click', hideLightbox);
+
+  // 4) Tastatur-Navigation
+  document.addEventListener('keydown', e => {
+    if (overlay.style.display === 'flex') {
+      if (e.key === 'Escape') hideLightbox();
+      if (e.key === 'ArrowLeft') showPrev();
+      if (e.key === 'ArrowRight') showNext();
+    }
+  });
+})();
+</script>
+
+<script>
+// Sonstiges zeigt Textbox
+document.getElementById("reportReason").addEventListener("change", function() {
+  document.getElementById("otherReasonBox").style.display =
+    this.value === "OTHER" ? "block" : "none";
+});
+
+// Senden
+document.getElementById("reportForm").addEventListener("submit", async function(e) {
+  e.preventDefault();
+
+  const payload = {
+    firstName: document.getElementById("reportFirstName").value,
+    lastName: document.getElementById("reportLastName").value,
+    email: document.getElementById("reportEmail").value,
+    reason: document.getElementById("reportReason").value,
+    message: document.getElementById("reportMessage").value,
+    hp_report: document.getElementById("hp_report").value,
+
+    itemTitle: `<%= item.title %>`,
+    itemId: `<%= item.id %>`,
+    itemUrl: `https://herando.at/<%= currentEntity.route %>/<%= item.id %>/<%= item.slug %>`
+  };
+
+  const res = await fetch("/report-listing", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const out = await res.json();
+
+  if (out.success) {
+    bootstrap.Modal.getInstance(document.getElementById("reportModal")).hide();
+    alert("<%= t('common.report_success','Danke! Ihre Meldung wurde gesendet.') %>");
+    e.target.reset();
+  } else {
+    alert(out.error || "<%= t('common.report_error','Fehler beim Senden.') %>");
+  }
+});
+</script>
+
+
+</body>
+
+</html>

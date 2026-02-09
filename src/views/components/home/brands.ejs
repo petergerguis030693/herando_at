@@ -1,0 +1,22 @@
+<!--Beliebte Marken-->
+<section class="brands-section" id="popularBrands" style="margin-top: 50px;">
+  <div class="container">
+    <h3 class="section-title mb-3"><%= t('popular_brands_title','Beliebte Marken') %></h3>
+
+    <div class="bcar">
+      <div class="bcar-slides"><!-- Slides werden via JS befüllt --></div>
+
+      <!-- optionale Pfeile (werden per CSS nur bei Hover/Viewport sichtbar) 
+      <button class="bcar-prev" type="button" aria-label="<%= t('back_button','Zurück') %>">‹</button>
+      <button class="bcar-next" type="button" aria-label="<%= t('forward_button','Weiter') %>">›</button>-->
+    </div>
+
+    <div class="bcar-dots mt-2"><!-- Dots via JS --></div>
+
+    <div class="text-center mt-3">
+      <a href="/hersteller-marken" class="btn btn-outline-dark rounded-pill px-4">
+        <%= t('all_brands_button','Alle Marken anzeigen') %>
+      </a>
+    </div>
+  </div>
+</section>

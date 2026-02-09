@@ -1,0 +1,436 @@
+/* === Produkt-Layout === */
+.product-container {
+  width: 90%;
+  max-width: 1800px;
+  margin: 0 auto;
+  font-family: Arial, sans-serif;
+  text-align: left;
+}
+
+h2 {
+  text-align: left;
+  font-size: 2rem;
+  margin-bottom: 20px;
+}
+
+.product-grid {
+  display: flex;
+  gap: 20px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.product-item {
+  width: 450px;
+  height: 250px;
+  /*max-width: 220px;*/
+  flex-grow: 1;
+  /* background: #f8f8f8; */
+  padding: 15px;
+  border-radius: 10px;
+  text-align: center;
+}
+
+.prItem {
+  height: 420px !important;
+}
+
+.product-item img {
+  width: 100%;
+  height: 180px;
+  border-radius: 10px;
+}
+
+.product-item h3 {
+  font-size: 16px;
+  margin: 10px 0;
+}
+
+.price {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+/* === Filterbuttons === */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+  justify-content: center;
+}
+
+.filters button {
+  background: #fff;
+  border: 1px solid #ccc;
+  padding: 10px 15px;
+  border-radius: 5px;
+  cursor: pointer;
+}
+
+.filters .filter-btn {
+  background: #1a253c;
+  color: white;
+  font-weight: bold;
+}
+
+/* === Responsive Anpassungen === */
+@media (max-width: 1024px) {
+  .product-grid {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .product-item {
+    width: 90%;
+  }
+}
+
+.productContainer {
+  max-width: 1800px;
+  margin: 0 auto;
+  padding: 20px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.cardPeter {
+  width: 400px;
+  height: auto;
+  background: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  /*margin: 0 auto;*/
+  display: flex;
+  flex-direction: column;
+}
+
+/* Bildbereich */
+.imageBild {
+  position: relative;
+  width: 300px;
+  height: auto;
+}
+
+.bild img {
+  width: 400px;
+  height: 340px;
+  object-fit: fill;
+  border-radius: 10px;
+  display: block;
+  border-radius: 20px;
+  object-position: bottom;
+}
+
+/* Badge ("BELIEBT") */
+.badgeHeight {
+  height: 40px;
+  width: 78px;
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background-color: #1A253C;
+  color: white !important;
+  border-radius: 10px;
+  font-size: 12pt;
+  padding-top: 8px;
+  padding-left: 10px;
+}
+
+/* Informationen */
+.informationSection {
+  padding: 10px;
+  width: 100%;
+  flex-grow: 1;
+}
+
+.productInfo h5 {
+  font-size: 1rem;
+  font-weight: bold;
+  margin-bottom: 5px;
+}
+
+.productInfo p {
+  margin: 2px 0;
+}
+
+.productPrice {
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: black;
+}
+
+.productSellerType {
+  font-size: 0.9rem;
+  color: green;
+}
+
+.productGrid {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: space-between;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .productGrid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
+
+/* Pagination Styling */
+.paginationWrapper {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin: 30px auto;
+  max-width: 1800px !important;
+}
+
+.paginationControls select {
+  padding: 5px;
+  font-size: 1rem;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  cursor: pointer;
+}
+
+.pageNavigation {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.paginationButton {
+  background: #1A253C;
+  color: white;
+  border: none;
+  padding: 5px 15px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  border-radius: 5px;
+}
+
+.paginationButton:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
+/* Responsive Anpassungen */
+@media (max-width: 768px) {
+  .paginationWrapper {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .cardPeter {
+    margin-left: 25px;
+  }
+}
+
+/* Wrapper um Section für absolute Pfeil-Positionierung */
+.product-scroller {
+  position: relative;
+  margin: 2rem 0;
+}
+
+.product-container {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+}
+
+.product-container::-webkit-scrollbar {
+  display: none;
+}
+
+.product-container {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.product-item {
+  flex: 0 0 auto;
+  width: 350px;
+  height: 320px;
+  margin-right: 1rem;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.product-item img {
+  width: 100%;
+  height: 250px;
+  object-fit: cover;
+}
+
+.product-item p,
+.product-item h3 {
+  margin: 0;
+  padding: 2px;
+  font-size: 0.85rem;
+  text-align: left;
+  line-height: 1.2;
+}
+
+.product-item .price {
+  margin-top: auto;
+  font-weight: bold;
+}
+
+.scroll-controls {
+  display: flex;
+  justify-content: flex-end;
+  /* nach rechts */
+  gap: 15px;
+  margin-top: 15px;
+  max-width: 1800px;
+  padding-right: 10px !important;
+  /* gleiche Breite wie dein Produktbereich */
+  width: 90%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Buttons optisch identisch zu den Carousel-Pfeilen */
+.scroll-controls .scroll-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 20px;
+  border: 0;
+  background: #fff;
+  color: #000;
+  font-size: 22px;
+  line-height: 1;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  transition: transform .2s ease, color .15s ease, box-shadow .15s ease, background .2s ease;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Hover wie bei Carousel */
+.scroll-controls .scroll-btn:hover {
+  transform: scale(1.05);
+  color: #1A253C;
+  box-shadow: 0 8px 22px rgba(2, 19, 44, 0.18);
+}
+
+
+.filter-bar {
+  border: 1px solid #ddd;
+  border-radius: 20px;
+  padding: 0.5rem 1rem;
+  background: #fff;
+}
+
+.filter-select,
+.filter-input,
+.filter-pills,
+.filter-btn,
+.filter-more-btn {
+  border-radius: 5px !important;
+}
+
+.filter-select,
+.filter-input {
+  min-width: 150px;
+}
+
+.filter-pills {
+  padding: 0.4rem 1rem;
+}
+
+.filter-btn {
+  white-space: nowrap;
+}
+
+/* Brand/Model-Logik: disable Modell wenn keine Marke ausgewählt */
+#brandFilter:invalid~#modelFilter {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+
+/* ================================================
+   🔥 Neues Produkt-Grid – responsive wie gewünscht
+   ================================================= */
+
+
+
+/* Tablet – 3 Cards */
+@media (max-width: 1199px) and (min-width: 768px) {
+  .productGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+
+/* Mobile groß – 2 Cards */
+@media (max-width: 767px) and (min-width: 576px) {
+  .productGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+
+/* Mobile klein – 1 Card */
+@media (max-width: 575px) {
+  .productGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.product-card {
+  display: block;
+  width: 450px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.product-item {
+  /* background: #f8f8f8;*/
+  border-radius: 10px;
+  padding: 15px;
+}
+
+.product-thumb {
+  width: 100%;
+  height: 180px;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
+.product-title {
+  font-size: 14pt;
+  margin-top: 12px;
+  font-weight: 600;
+}
+
+.meta-row {
+  margin-top: 8px;
+  font-size: 12pt;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.meta-row span i {
+  margin-right: 4px;
+}
+
+.product-price {
+  font-size: 14pt;
+  margin-top: 12px;
+  font-weight: bold;
+}

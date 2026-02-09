@@ -1,0 +1,256 @@
+.categorien {
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  height: auto;
+  margin-bottom: 40px;
+  padding: 50px 100px 0px 0px;
+}
+
+.advertisingBig {
+  width: 400px;
+  height: 380px;
+  background-color: rgb(231, 230, 230);
+  border-radius: 20px;
+  display: flex;
+  justify-content: center; /* Bild horizontal zentrieren */
+  align-items: center; /* Bild vertikal zentrieren */
+  overflow: hidden; /* Überstehende Bildteile abschneiden */
+  position: relative;
+}
+
+.advertisingBig img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Passt das Bild proportional an */
+  transition: transform 0.5s ease; /* Sanfter Übergang beim Hover */
+}
+
+.advertisingBig img:hover {
+  transform: scale(1.1); /* Vergrößert das Bild von der Mitte aus */
+}
+
+.abschnitt {
+  text-align: left; /* Zentriert den Text horizontal */
+  padding: 20px 20px;
+  position: absolute;
+  bottom: 0; /* Platziert den Text am unteren Rand des Containers */
+  width: 100%; /* Füllt die Breite des Containers */
+  box-sizing: border-box; /* Verhindert, dass Padding die Breite überschreitet */
+}
+
+.abschnitt h3 {
+  margin: 0; /* Entfernt Standard-Margin */
+  font-family: "Gill Sans", "Gill Sans MT", Calibri, "Trebuchet MS", sans-serif;
+  font-size: 24px;
+}
+
+.abschnitt a {
+  text-decoration: none;
+  color: black;
+}
+
+.advertisingNormal {
+  position: relative;
+  width: 1100px;
+  height: auto;
+  bottom: 84%;
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.advertisingNormal .div {
+  width: 300px;
+  height: 250px;
+}
+
+.advertisingNormal img {
+  width: 300px;
+  height: 250px;
+  border-radius: 10px;
+  object-fit: fill;
+}
+
+.advertisingNormal span {
+  margin-left: 10px;
+}
+
+.span {
+  margin-top: 30px;
+  margin-left: 200px !important;
+  font-size: 18px;
+}
+
+.containerSection{
+  margin-top: 400px;
+  margin-left: 0px;
+  top: 100px;
+  padding-left: 100px;
+}
+
+.productSlider {
+  width: 100%;
+  max-width: 1900px;
+  margin: 0 auto;
+  overflow: hidden; /* Überstehende Inhalte ausblenden */
+  position: relative;
+  transform: scale(0.75); /* Skaliert auf 75% */
+  transform-origin: top left; /* Skaliert von oben links */
+}
+
+.sliderContainer {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding: 0 10px; /* Platz für die Sliderpfeile */
+
+}
+
+.sliderTrack {
+  display: flex;
+  transition: transform 0.5s ease; /* Animation für das Sliden */
+  width: calc(400px * 5); /* Breite für alle Produkte (5 Stück) */
+}
+
+.productCard {
+  flex: 0 0 400px; /* Fixe Breite von 400px pro Produkt */
+  margin-right: 20px; /* Abstand zwischen den Karten */
+  background-color: #fff;
+  border-radius: 10px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  text-align: left;
+  overflow: hidden;
+}
+
+.productCard img {
+  width: 100%;
+  height: 500px;
+  object-fit: cover;
+}
+
+.productDetails {
+  padding: 15px;
+}
+
+.productDetails h3 {
+  font-size: 18px;
+  font-weight: bold;
+  margin: 10px 0;
+}
+
+.productDetails .price {
+  font-size: 20px;
+  font-weight: bold;
+  color: #000;
+}
+
+/* Pfeile */
+.sliderArrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  background-color: rgba(0, 0, 0, 0.5);
+  color: white;
+  border: none;
+  font-size: 24px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 100;
+}
+
+.sliderArrow.left {
+  left: 10px;
+}
+
+.sliderArrow.right {
+  right: 10px;
+}
+
+.sliderArrow:hover {
+  background-color: rgba(0, 0, 0, 0.8);
+}
+
+.infoSection {
+  margin-top: 100px;
+  padding-left: 100px;
+  padding-right: 100px;
+  width: 100%;
+  height: 500px;
+  display: flex;
+  flex-direction: row;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.infoContainer {
+  width: 800px;
+  height: 500px;
+  background-color: rgb(237, 236, 236);
+  border-radius: 10px;
+}
+
+.info {
+  position: relative;
+  top: 10%;
+  left: 0%;
+}
+
+.info p {
+  font-size: 18pt;
+  text-align: center;
+}
+
+.infoContainer h1 {
+  text-align: center;
+}
+
+.infoContainer img {
+  position: relative;
+  margin-left: 50%;
+}
+
+.info button{
+  margin-left: 35%;
+  width: 250px;
+  height: 50px; 
+  background-color: rgb(238, 237, 237); 
+  border-radius: 10px;
+  margin-top: 10px;
+}
+
+.containerAds{
+  width: 23.5%;
+  height: 370px;
+  background-color: rgb(237, 236, 236);
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.containerAds span{
+  text-align: center;
+}
+
+.containerAds h3{
+  text-align: center;
+}
+
+.containerAds p{
+  margin-top: 20px;
+  text-align: justify;
+  font-size: 14pt;
+}
+
+.containerAds button{
+  width: 250px;
+  height: 50px; 
+  background-color: rgb(238, 237, 237); 
+  border-radius: 10px;
+  margin-top: 10px;
+  margin-left: 15%;
+}
+
+

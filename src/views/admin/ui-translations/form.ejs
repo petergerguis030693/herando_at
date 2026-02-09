@@ -1,0 +1,91 @@
+<!-- views/admin/ui-translations/form.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+
+  <!-- Content -->
+  <main class="flex-grow-1 p-3">
+    <h1 class="h4 mb-3"><%= headerTitle %></h1>
+
+    <form method="post" action="<%= mode==='create' ? '/admin/ui' : '/admin/ui/edit/'+item.id %>" onsubmit="return validateForm();">
+      <div class="mb-3">
+        <label class="form-label">Key</label>
+        <input class="form-control" name="key" value="<%= item.key %>" required>
+      </div>
+
+      <div class="row g-3">
+        <div class="col-md-4">
+          <label class="form-label">Deutsch (de)</label>
+          <textarea class="form-control" name="de" rows="3"><%= item.de || '' %></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">English (en)</label>
+          <textarea class="form-control" name="en" rows="3"><%= item.en || '' %></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Français (fr)</label>
+          <textarea class="form-control" name="fr" rows="3"><%= item.fr || '' %></textarea>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Italiano (it)</label>
+          <textarea class="form-control" name="it" rows="3"><%= item.it || '' %></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Türkçe (tr)</label>
+          <textarea class="form-control" name="tr" rows="3"><%= item.tr || '' %></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">日本語 (ja)</label>
+          <textarea class="form-control" name="ja" rows="3"><%= item.ja || '' %></textarea>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Čeština (cs)</label>
+          <textarea class="form-control" name="cs" rows="3"><%= item.cs || '' %></textarea>
+        </div>
+        <div class="col-md-4">
+           <label class="form-label">Русский (ru)</label>
+           <textarea class="form-control" name="ru" rows="3"><%= item.ru || '' %></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Español (es)</label>
+          <textarea class="form-control" name="es" rows="3"><%= item.es || '' %></textarea>
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label">Nederlands (nl)</label>
+          <textarea class="form-control" name="nl" rows="3"><%= item.nl || '' %></textarea>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Polski (pl)</label>
+          <textarea class="form-control" name="pl" rows="3"><%= item.pl || '' %></textarea>
+        </div>
+      </div>
+
+      <div class="d-flex gap-2 align-items-center mt-3 flex-wrap">
+        <button class="btn btn-primary" type="submit"><%= mode==='create' ? 'Anlegen' : 'Speichern' %></button>
+        <a class="btn btn-outline-secondary" href="/admin/ui">Zurück</a>
+        <button class="btn btn-outline-dark" type="button" id="copyDeBtn">DE → leere Felder kopieren</button>
+      </div>
+    </form>
+
+    <script>
+      function validateForm() {
+        const key = document.querySelector('input[name="key"]').value.trim();
+        if (!key) { alert('Key ist erforderlich.'); return false; }
+        return true;
+      }
+      document.getElementById('copyDeBtn')?.addEventListener('click', () => {
+        const de = document.querySelector('textarea[name="de"]')?.value || '';
+        ['en','fr','it','tr','ja','cs','ru','es','nl','pl'].forEach(code => {
+          const ta = document.querySelector('textarea[name="'+code+'"]');
+          if (ta && !ta.value.trim()) ta.value = de;
+        });
+        alert('DE-Text in leere Felder kopiert.');
+      });
+    </script>
+  </main>
+</div>

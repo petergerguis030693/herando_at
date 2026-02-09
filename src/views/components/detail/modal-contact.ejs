@@ -1,0 +1,130 @@
+<%
+function slugifyLocal(str) {
+  return str
+    .toString()
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/--+/g, '-');
+}
+const detailSlug = slugifyLocal(item.name);
+
+const cleanName = (item.name || '')
+  .replace(/<\/?h1>/gi, '')
+  .replace(/\bh1\b/gi, '')
+  .replace(/-h1$/i, '')
+  .replace(/h1$/i, '')
+  .replace(/\s{2,}/g, ' ')
+  .trim();
+
+const cleanSlug = (detailSlug || '')
+  .replace(/<\/?h1>/gi, '')
+  .replace(/-h1$/i, '')
+  .replace(/h1$/i, '')
+  .replace(/--+/g, '-')
+  .replace(/^-|-$/g, '');
+%>
+
+<div class="modal fade" id="contactModal" tabindex="-1"
+     aria-labelledby="contactModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="max-width:800px; width:100%; margin:auto;">
+      <div class="modal-header">
+        <h5 class="modal-title" id="contactModalLabel">
+          <%= T('product.contact.title','Anfrage senden') %>
+        </h5>
+        <button type="button" class="btn-close"
+                data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+
+      <div class="modal-body">
+        <form id="sellerContactForm">
+
+          <!-- Honeypot -->
+          <input type="text" id="hp_field" name="hp_field" style="display:none">
+
+          <input type="hidden" name="listingUrl" id="listingUrl"
+                 value="https://www.herando.at/<%= currentEntity.route %>/<%= item.id %>/<%- cleanSlug %>">
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label for="modalFirstName" class="form-label">
+                <%= T('product.contact.first_name','Ihr Vorname *') %>
+              </label>
+              <input type="text" class="form-control" id="modalFirstName" required>
+            </div>
+
+            <div class="col-md-6">
+              <label for="modalLastName" class="form-label">
+                <%= T('product.contact.last_name','Ihr Nachname *') %>
+              </label>
+              <input type="text" class="form-control" id="modalLastName" required>
+            </div>
+
+            <div class="col-12">
+              <label for="modalEmail" class="form-label">
+                <%= T('product.contact.email','Ihre E-Mail-Adresse *') %>
+              </label>
+              <input type="email" class="form-control" id="modalEmail" required>
+            </div>
+
+            <div class="col-12">
+              <label for="modalPhone" class="form-label">
+                <%= T('product.contact.phone','Ihre Telefonnummer') %>
+              </label>
+
+              <div class="input-group">
+                <select class="form-select" id="modalPhoneCode" style="max-width:150px;">
+                  <option value="+43">🇦🇹 +43</option>
+                  <option value="+49">🇩🇪 +49</option>
+                  <option value="+41">🇨🇭 +41</option>
+                  <option value="+39">🇮🇹 +39</option>
+                  <option value="+34">🇪🇸 +34</option>
+                  <option value="+33">🇫🇷 +33</option>
+                  <option value="+44">🇬🇧 +44</option>
+                  <option value="+1">🇺🇸 +1</option>
+                  <option value="+971">🇦🇪 +971</option>
+                  <option value="+966">🇸🇦 +966</option>
+                  <option value="+961">🇱🇧 +961</option>
+                  <option value="+20">🇪🇬 +20</option>
+                </select>
+                <input type="tel" class="form-control"
+                       id="modalPhone" placeholder="Ihre Nummer">
+              </div>
+            </div>
+
+            <div class="col-12">
+              <label for="modalMessage" class="form-label">Ihre Nachricht</label>
+              <textarea class="form-control" id="modalMessage" rows="6">Guten Tag,
+
+ich interessiere mich für Ihr Angebot <%= cleanName %>.
+https://www.herando.at/<%= currentEntity.route %>/<%= item.id %>/<%- cleanSlug %>
+
+Bitte kontaktieren Sie mich.
+
+Mit freundlichen Grüßen
+</textarea>
+            </div>
+          </div>
+
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary"
+                data-bs-dismiss="modal"
+                style="background-color: rgb(100, 4, 4); border: none;">
+          <%= T('common.cancel','Abbrechen') %>
+        </button>
+
+        <button type="submit"
+                form="sellerContactForm"
+                class="btn btn-primary"
+                style="background-color: #9c7240; border: none;">
+          <%= T('common.send','Senden') %>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,65 @@
+<%- include('../../partials/header') %>
+
+
+<%
+  const T = (key, fb) => {
+    try {
+      return typeof t === "function"
+        ? t(key, { fallback: fb })
+        : fb;
+    } catch {
+      return fb;
+    }
+  };
+%>
+
+<link rel="stylesheet" href="/css/detail.css">
+
+<body>
+
+<section class="container product-single-container">
+  <div style="margin-bottom: 30px"></div>
+
+  <div class="row">
+    <!-- Bilder-Spalte -->
+    <div class="col-md-6">
+      <%- include('../../components/detail/gallery', { item }) %>
+      <%- include('../../components/detail/thumbnails', { item }) %>
+      <%- include('../../components/detail/modal-report') %>
+    </div>
+
+    <!-- Rechte Spalte -->
+    <div class="col-md-5">
+      <%- include('../../components/detail/breadcrumb', { item, currentEntity, convertPrice, t, T }) %>
+      <%- include('../../components/detail/seller-info', { seller, t, T }) %>
+      <%- include('../../components/detail/action-buttons', { t, T }) %>
+      <%- include('../../components/detail/modal-contact', { item, currentEntity, T, t }) %>
+    </div>
+  </div>
+</section>
+
+<!-- Route-spezifische Inhalte (Technische Daten, Beschreibung, ähnliche Angebote, weitere vom Händler) -->
+<% if (currentEntity.route === 'cars') { %>
+  <%- include('../../components/detail/specs-cars', { item, similarItems, moreItems, seller, currentEntity, t, T, convertPrice }) %>
+
+<% } else if (currentEntity.route === 'watches') { %>
+  <%- include('../../components/detail/specs-watches', { item, similarItems, moreItems, seller, currentEntity, t, T, convertPrice }) %>
+
+<% } else if (currentEntity.route === 'properties') { %>
+  <%- include('../../components/detail/specs-properties', { item, similarItems, moreItems, seller, currentEntity, t, T, convertPrice }) %>
+
+<% } else if (currentEntity.route === 'yachts') { %>
+  <%- include('../../components/detail/specs-yachts', { item, similarItems, moreItems, seller, currentEntity, t, T, convertPrice }) %>
+
+<% } else { %>
+  <%- include('../../components/detail/specs-default', { item, similarItems, moreItems, seller, currentEntity, t, T, convertPrice }) %>
+<% } %>
+
+<%- include('../../components/detail/lightbox') %>
+
+<%- include('../../components/detail/script.ejs') %>
+
+<%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!-- views/admin/ui-translations/index.ejs -->
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+
+  <!-- Content -->
+  <main class="flex-grow-1 p-3">
+    <h1 class="h4 mb-3"><%= headerTitle %></h1>
+
+    <form method="get" class="d-flex gap-2 align-items-center mb-3">
+      <input class="form-control" type="text" name="q" value="<%= q %>" placeholder="Key suchen…">
+      <label class="mb-0">Vorschau:</label>
+      <select name="preview" class="form-select" style="max-width:120px;">
+        <% SUPPORTED.forEach(c => { %>
+          <option value="<%= c %>" <%= preview===c ? 'selected' : '' %>><%= c.toUpperCase() %></option>
+        <% }) %>
+      </select>
+      <button class="btn btn-primary" type="submit">Filtern</button>
+      <a class="btn btn-outline-secondary ms-auto" href="/admin/ui/new">+ Neu</a>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-bordered table-striped align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:35%;">Key</th>
+            <th>Text (<%= preview.toUpperCase() %>)</th>
+            <th style="width:110px;">Bearbeiten</th>
+            <th style="width:80px;">Löschen</th>
+          </tr>
+        </thead>
+        <tbody>
+        <% if (!items.length) { %>
+          <tr><td colspan="4" class="text-center py-4">Keine Einträge gefunden.</td></tr>
+        <% } %>
+        <% items.forEach(i => { %>
+          <tr>
+            <td><code><%= i.key %></code></td>
+            <td><%= (i.preview_text || '').slice(0,240) %></td>
+            <td><a class="btn btn-sm btn-primary" href="/admin/ui/edit/<%= i.id %>">Edit</a></td>
+            <td>
+              <form method="post" action="/admin/ui/delete/<%= i.id %>"
+                    onsubmit="return confirm('Wirklich löschen?');">
+                <button class="btn btn-sm btn-danger" type="submit">✕</button>
+              </form>
+            </td>
+          </tr>
+        <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <% if (totalPages > 1) { %>
+      <div class="d-flex align-items-center mt-2">
+        <span>Seite <%= page %> / <%= totalPages %></span>
+        <div class="ms-auto">
+          <% if (page > 1) { %>
+            <a class="btn btn-sm btn-outline-secondary"
+               href="?q=<%= encodeURIComponent(q) %>&preview=<%= preview %>&page=<%= page-1 %>">« Zurück</a>
+          <% } %>
+          <% if (page < totalPages) { %>
+            <a class="btn btn-sm btn-outline-secondary ms-2"
+               href="?q=<%= encodeURIComponent(q) %>&preview=<%= preview %>&page=<%= page+1 %>">Weiter »</a>
+          <% } %>
+        </div>
+      </div>
+    <% } %>
+  </main>
+</div>

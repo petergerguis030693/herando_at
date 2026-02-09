@@ -1,0 +1,642 @@
+/* Footer Grundstruktur */
+.herando-footer {
+  background-color: #1A253C;
+  color: white;
+  padding: 3rem 0;
+  font-size: 0.9rem;
+}
+
+.herando-footer .container {
+  max-width: 1200px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+/* Newsletter */
+.herando-newsletter h3 {
+  font-size: 1.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.herando-newsletter p {
+  color: #D1D1D1;
+  margin-bottom: 1rem;
+}
+
+.herando-newsletter-form {
+  display: flex;
+  justify-content: center;
+  max-width: 400px;
+  margin: 0 auto;
+  /*background: white;*/
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.herando-newsletter-form input {
+  flex: 1;
+  border: none;
+  padding: 10px;
+}
+
+.herando-newsletter-form button {
+  background: #FFA500;
+  border: none;
+  padding: 10px 15px;
+  color: white;
+  cursor: pointer;
+}
+
+.herando-newsletter-privacy {
+  font-size: 0.8rem;
+  margin-top: 10px;
+}
+
+.herando-newsletter-privacy a {
+  color: #FFA500;
+}
+
+/* Footer Links */
+.herando-footer-links {
+  display: flex;
+  justify-content: center;
+  gap: 8rem;
+  margin-top: 3rem;
+  text-align: left;
+}
+
+.herando-footer-links div {
+  max-width: 200px;
+}
+
+.herando-footer-links h4 {
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.herando-footer-links ul {
+  list-style: none;
+  padding: 0;
+}
+
+.herando-footer-links ul li {
+  margin-bottom: 5px;
+}
+
+.herando-footer-links ul li a {
+  color: #D1D1D1;
+  text-decoration: none;
+}
+
+/* Support */
+.herando-support p {
+  font-size: 1.2rem;
+  font-weight: bold;
+  margin-top: 10px;
+}
+
+.herando-support i {
+  margin-right: 5px;
+}
+
+/* Social Media */
+.herando-social {
+  margin-top: 3rem;
+}
+
+.herando-social-icons {
+  display: flex;
+  justify-content: center;
+  gap: 15px;
+  font-size: 1.5rem;
+}
+
+.herando-social-icons a {
+  color: white;
+  text-decoration: none;
+}
+
+/* Zahlungsmethoden */
+.herando-payment {
+  margin-top: 3rem;
+}
+
+.herando-payment img {
+  height: 40px;
+  margin: 0 5px;
+}
+
+/* Länder */
+.herando-countries {
+  margin-top: 3rem;
+}
+
+.herando-countries ul {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 15px;
+  list-style: none;
+  padding: 0;
+}
+
+.herando-countries li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* Copyright */
+.herando-copyright {
+  margin-top: 3rem;
+  font-size: 0.8rem;
+  color: #D1D1D1;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .herando-footer-links {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .herando-countries ul {
+    flex-direction: column;
+    align-items: center;
+  }
+}
+
+.herando-footer {
+  background: #172237;
+  color: #dfe6f3;
+  font-family: system-ui, Arial, sans-serif;
+  padding: 32px 0 20px;
+  border-top: 1px solid rgba(255, 255, 255, .06);
+}
+
+.herando-footer h5,
+.herando-footer h6 {
+  color: #aeb8cc;
+  margin: 0 0 8px;
+}
+
+.herando-footer .gold {
+  color: #c8a24e;
+}
+
+.herando-footer .container {
+  max-width: 1350px;
+  margin: 0 auto;
+  padding: 0 16px 0 48px;
+  /* weiter rechts starten */
+}
+
+/* Alles linksbündig halten */
+.herando-footer,
+.herando-footer * {
+  text-align: left !important;
+}
+
+/* --- ROWS -------------------------------------------------- */
+.hf-row {
+  display: grid;
+  gap: 24px;
+  align-items: start;
+}
+
+/* Row 1: Newsletter + Einstellungen */
+.hf-row.top {
+  grid-template-columns: 1fr;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  padding-bottom: 18px;
+  margin-bottom: 22px;
+}
+
+@media (min-width:768px) {
+  .hf-row.top {
+    grid-template-columns: 1fr auto;
+  }
+}
+
+.hf-select {
+  background: #0f182a;
+  color: #dfe6f3;
+  border: 1px solid rgba(255, 255, 255, .18);
+  border-radius: 6px;
+  padding: .45rem .6rem;
+}
+
+.hf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+  padding: .55rem .9rem;
+  border-radius: 6px;
+  border: 2px solid white;
+  color: #dfe6f3;
+  background: transparent;
+  cursor: pointer
+}
+
+.hf-btn:hover {
+  background-color: #c8a24e;
+  color: #fff; 
+  border-color: transparent;
+}
+
+/* Row 2: Link-Spalten */
+.hf-row.links {
+  grid-template-columns: repeat(1, minmax(0, 1fr));
+  gap: 32px;
+  padding: 12px 0 24px;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+@media (min-width:768px) {
+  .hf-row.links {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.hf-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+}
+
+.hf-list li {
+  margin: .45rem 0;
+}
+
+.hf-list a {
+  color: #dfe6f3;
+  text-decoration: none;
+}
+
+.hf-list a:hover {
+  color: #c8a24e; 
+}
+
+.hf-list .a {
+  color: #dfe6f3;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.hf-list .a:hover {
+  color: #c8a24e; 
+}
+
+
+.hf-list i {
+  margin-right: 6px;
+  opacity: .85;
+}
+
+/* Row 3: Support + Zahlungsarten (in EINER Linie) */
+.hf-row.misc {
+  grid-template-columns: 1fr;
+  gap: 24px;
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+}
+
+@media (min-width:992px) {
+  .hf-row.misc {
+    grid-template-columns: 2fr 1fr;
+  }
+
+  /* Support | Zahlarten */
+}
+
+.hf-row.misc [style*="display:flex"] {
+  justify-content: flex-start !important;
+}
+
+/* Row 4: Länder – Version mit flag-icon CSS */
+.hf-countries {
+  padding: 18px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, .08);
+  max-width: 1500px;
+}
+
+/* Grid für die UL-Spalten */
+#flags {
+  display: grid;
+  gap: 10px 40px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width:576px) {
+  #flags {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width:992px) {
+  #flags {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* UL + LI Styling */
+#flags .flags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+#flags .flags li {
+  display: flex;
+}
+
+#flags .flags a {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #dfe6f3;
+  text-decoration: none;
+  font-size: .95rem;
+  white-space: nowrap;
+}
+
+#flags .flags a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* Flaggen (flag-icon-css) etwas „Badge“-Look geben */
+#flags .flag-icon {
+  width: 18px;
+  height: 12px;
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .15) inset;
+}
+
+/* Row 5: Bottom bar */
+.hf-bottom {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 18px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0 4px;
+}
+
+.hf-legal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  font-size: .9rem;
+}
+
+.hf-legal a {
+  color: #98a6c3;
+  text-decoration: none;
+}
+
+.hf-legal a:hover {
+  color: #c8a24e;  
+}
+
+.hf-legal .a {
+  color: #98a6c3;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.hf-legal .a:hover {
+  color: #c8a24e;  
+}
+
+.herando-social-icons {
+  display: flex;
+  gap: 14px;
+}
+
+.herando-social-icons a i {
+  color: #ffffff;
+  font-size: 1.35rem;
+  transition: color .2s;
+}
+
+.herando-social-icons a:hover i {
+  color: #c8a24e;
+}
+
+/* --- Modal Layout --- */
+.hf-modal {
+  position: fixed;
+  inset: 0;
+  display: none;
+  z-index: 9999;
+}
+
+.hf-modal.open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hf-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, .6);
+}
+
+.hf-modal-dialog {
+  position: relative;
+  background: #0f172a;
+  color: #e5e7eb;
+  width: min(92vw, 560px);
+  border-radius: 16px;
+  padding: 24px 22px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .45);
+}
+
+.hf-modal-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  color: #e5e7eb;
+  cursor: pointer;
+}
+
+.hf-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 10px
+}
+
+/* --- Form Basics --- */
+label {
+  display: block;
+  margin: .6rem 0 .3rem;
+  font-weight: 600;
+  padding: 5px;
+}
+
+input,
+select {
+  padding: .65rem .75rem;
+  border: 1px solid #334155;
+  background: #0b1220;
+  color: #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+}
+
+input:focus,
+select:focus {
+  border-color: #64748b;
+  box-shadow: 0 0 0 2px rgba(100, 116, 139, .25)
+}
+
+.consent {
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  margin-top: .7rem;
+  font-weight: 500
+}
+
+.hf-btn {
+  display: inline-block;
+  padding: .6rem 1rem;
+  border: 1px solid white;
+  background: transparent;
+  color: #e5e7eb;
+  border-radius: 10px;
+  cursor: pointer
+}
+
+.hf-btn.primary {
+  background: #1e293b;
+  border-color: #1e293b
+}
+
+.nl-feedback {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: .95rem
+}
+
+.nl-checkbox-list {
+  display: grid;
+  gap: 8px;
+}
+
+.nl-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.nl-checkbox input[type="checkbox"] {
+  cursor: default;
+  /* ❗ keine Hand */
+}
+
+.nl-label {
+  cursor: default;
+  user-select: none;
+  margin: 15px 0;
+}
+
+.hf-modal-dialog * {
+  cursor: default;
+}
+
+.hf-modal-dialog button,
+.hf-modal-dialog input {
+  cursor: pointer;
+}
+
+
+/* Body scroll lock wenn Modal offen */
+body.modal-open {
+  overflow: hidden
+}
+
+.payments-row {
+  border-top: 1px solid rgba(255,255,255,0.1);
+  margin-top: 24px;
+  padding-top: 16px;
+  text-align: center;
+}
+
+.payments {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.payments img {
+  height: 26px;
+  opacity: 0.85;
+}
+
+.consent input[type="checkbox"] {
+  accent-color: #c8a24e;
+  cursor: pointer;
+}
+
+.consent input[type="checkbox"]:hover {
+  filter: brightness(1.05);
+}
+
+.hf-payments-social{
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-start;
+  gap:40px;
+  padding:20px 0;
+  max-width: 1330px !important;
+}
+
+.hf-payments-logos{
+  display:flex;
+  gap:14px;
+  align-items:center;
+  margin-top:8px;
+}
+
+.hf-payments-logos img{
+  height:26px;
+  opacity:.9;
+}
+
+.hf-social .herando-social-icons{
+  margin-top:8px;
+  justify-content:flex-start;
+}
+
+.hf-legal-center{
+  width:100%;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  text-align:center;
+  font-size: 16px;
+}
+
+.btn-border{
+  border: 1px solid #fff !important;
+  color: white;
+}
+
+.btn-border:hover{
+  border: 1px solid transparent !important;
+}
+
+

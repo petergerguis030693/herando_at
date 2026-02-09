@@ -1,0 +1,107 @@
+  <!-- Header -->
+  <%- include('../../partials/header', { entieties, active: 'magazin' }) %>
+  <link rel="stylesheet" href="/css/magazin.css">
+
+  <div class="container my-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+      <ol class="breadcrumb bg-transparent p-0 mb-0">
+        <li class="breadcrumb-item"><a href="/" class="text-decoration-none"><%= t('magazin.home', 'Home') %></a></li>
+        <li class="breadcrumb-item active" aria-current="page"><%= t('magazin.breadcrumb', 'Magazin') %></li>
+      </ol>
+    </nav>
+
+
+    <% if (magazinPosts.length) { 
+         const featured = magazinPosts[0];
+         const others   = magazinPosts.slice(1);
+    %>
+
+      <!-- Featured Article -->
+      <section class="featured">
+        <a href="/magazin/<%= featured.slug %>">
+          <img src="<%= featured.image %>" alt="<%= featured.title %>">
+        </a>
+        <div class="featured-content">
+          <h1>
+            <a href="/magazin/<%= featured.slug %>" class="text-decoration-none text-dark">
+              <%= featured.title %>
+            </a>
+          </h1>
+          <p><%= featured.excerpt %></p>
+        </div>
+      </section>
+
+      <!-- Aktuelle Artikel -->
+      <section>
+        <h2 class="mb-3" style="font-family:Georgia, serif; color:#111;">
+          <%= t('magazin.latest_articles', 'Aktuelle Artikel') %>
+        </h2>
+        <div class="mag-grid">
+          <% others.slice(0,4).forEach(post => { %>
+            <div class="mag-item shadow-sm">
+              <a href="/magazin/<%= post.slug %>">
+                <img src="<%= post.image %>" alt="<%= post.title %>">
+              </a>
+              <div class="info">
+                <h3>
+                  <a href="/magazin/<%= post.slug %>" class="text-decoration-none text-dark">
+                    <%= post.title %>
+                  </a>
+                </h3>
+                <p><%= post.excerpt %></p>
+              </div>
+            </div>
+          <% }) %>
+        </div>
+      </section>
+
+      <!-- Weitere Artikel -->
+      <% if (others.length > 4) { %>
+        <section id="more-articles" style="display:none;">
+          <div class="mag-grid">
+            <% others.slice(4).forEach(post => { %>
+              <div class="mag-item shadow-sm">
+                <a href="/magazin/<%= post.slug %>">
+                  <img src="<%= post.image %>" alt="<%= post.title %>">
+                </a>
+                <div class="info">
+                  <h3>
+                    <a href="/magazin/<%= post.slug %>" class="text-decoration-none text-dark">
+                      <%= post.title %>
+                    </a>
+                  </h3>
+                  <p><%= post.excerpt %></p>
+                </div>
+              </div>
+            <% }) %>
+          </div>
+        </section>
+
+        <!-- Load More Button -->
+        <div class="load-more-wrapper">
+          <button id="load-more" class="load-more-btn">
+            <%= t('magazin.load_more', 'Mehr anzeigen') %>
+          </button>
+        </div>
+      <% } %>
+    <% } %>
+
+    <!-- JS: "Mehr anzeigen" Funktion -->
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('load-more');
+        const more = document.getElementById('more-articles');
+        if (btn && more) {
+          btn.addEventListener('click', () => {
+            more.style.display = 'block';
+            btn.style.display = 'none';
+          });
+        }
+      });
+    </script>
+  </div>
+
+  <%- include('../../partials/footer', { footerColumns }) %>
+</body>
+</html>

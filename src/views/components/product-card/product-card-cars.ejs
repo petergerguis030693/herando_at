@@ -1,0 +1,107 @@
+<%
+  const cartypeLabels = {
+    1: t('car.transmission.manual', 'Schaltgetriebe'),
+    2: t('car.transmission.automatic', 'Automatik'),
+    6: t('car.transmission.automatic', 'Automatik'),
+    255: t('car.transmission.manual', 'Schaltgetriebe')
+  };
+
+  const fuelLabels = {
+    1: t('car.fuel.petrol', 'Benzin'),
+    2: t('car.fuel.diesel', 'Diesel'),
+    3: t('car.fuel.electric', 'Elektro'),
+    4: t('car.fuel.hybrid', 'Hybrid')
+  };
+
+  let firstReg = null;
+  if (item.firstregistration) {
+    const m = item.firstregistration_month
+      ? String(item.firstregistration_month).padStart(2, "0")
+      : "01";
+    firstReg = `${m}/${item.firstregistration}`;
+  }
+
+  const priceLabel = t('car.price.request','Preis auf Anfrage');
+%>
+
+<a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>" 
+   class="lux-card">
+
+    <!-- IMAGE -->
+    <div class="lux-card-img">
+      <img 
+        src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= item.mainPic %>"
+        alt="<%= item.title %>"
+        loading="lazy"
+        onerror="this.onerror=null;this.src='/assets/herando-weblogo.png';this.classList.add('is-placeholder');">
+    </div>
+
+    <!-- CONTENT -->
+    <div class="lux-card-body">
+
+        <!-- TITLE -->
+      <h3 class="lux-card-title">
+        <%= (item.title || '').toString().length > 30
+              ? (item.title || '').toString().substring(0, 30) + "…"
+              : (item.title || '') %>
+      </h3> 
+
+
+
+        <!-- SPECS (auto detection) -->
+<p class="cartype-box" style="font-size:12pt; margin-top:8px;">
+<% 
+let gearboxLabel = '';
+switch (Number(item.gearbox)) {
+  case 1: gearboxLabel = t('attribute.cars.gearbox.1', 'Schaltgetriebe'); break;
+  case 2: gearboxLabel = t('attribute.cars.gearbox.2', 'Halbautomatik'); break;
+  case 3: gearboxLabel = t('attribute.cars.gearbox.3', 'Automatik'); break;
+  case 4: gearboxLabel = t('attribute.cars.gearbox.4', 'F1-Getriebe'); break;
+  default: gearboxLabel = '';
+}
+%>
+  <% if (item.cartype) { %>
+    <span class="info-item">
+      <i class="bi bi-gear-fill"></i>
+        <%= gearboxLabel %>
+    </span>
+  <% } %>
+
+  <% if (item.mileage) { %>
+    <span class="info-item">
+      <i class="bi bi-speedometer2"></i>
+      <%= new Intl.NumberFormat('de-DE').format(item.mileage) %> km
+    </span>
+  <% } %>
+
+  <% if (item.fuel) { %>
+    <span class="info-item">
+      <i class="bi bi-fuel-pump"></i>
+      <%= fuelLabels[item.fuel] %>
+    </span>
+  <% } %>
+
+  <% if (item.firstregistration) { %>
+    <span class="info-item">
+      <i class="bi bi-calendar-event"></i>
+      <%= firstReg %>
+    </span>
+  <% } %>
+
+</p>
+
+
+        <!-- PRICE -->
+        <div class="lux-card-price">
+            <%= item.priceFormatted || 'Preis auf Anfrage' %>
+        </div>
+
+      <% if (item.countryCode) { %>
+        <div class="lux-card-country">
+          <i class="bi bi-geo-alt"></i>
+          <%= item.countryCode %>
+        </div>
+      <% } %>
+
+    </div>
+</a>

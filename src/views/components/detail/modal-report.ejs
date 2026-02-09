@@ -1,0 +1,73 @@
+<a href="#reportModal"
+   data-bs-toggle="modal"
+   class="d-inline-flex align-items-center gap-2 mt-3"
+   style="cursor:pointer; font-size: 14pt; margin-top: 30px !important; color:#333;">
+  <i class="bi bi-slash-circle" style="font-size:18pt; color:#777;"></i>
+  Inserat melden
+</a>
+
+<div class="modal fade" id="reportModal" tabindex="-1" aria-labelledby="reportModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content" style="max-width:800px; width:100%; margin:auto;">
+      <div class="modal-header">
+        <h5 class="modal-title" id="reportModalLabel">Inserat melden</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+
+      <div class="modal-body">
+        <form id="reportForm">
+          <!-- Honeypot -->
+          <input type="text" id="hp_report" name="hp_report" style="display:none">
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label">Vorname *</label>
+              <input type="text" id="reportFirstName" class="form-control" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label">Nachname *</label>
+              <input type="text" id="reportLastName" class="form-control" required>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Ihre E-Mail-Adresse *</label>
+              <input type="email" id="reportEmail" class="form-control" required>
+            </div>
+
+            <div class="col-12">
+              <label class="form-label">Grund *</label>
+              <select id="reportReason" class="form-control" required>
+                <option value="">Bitte auswählen</option>
+                <option value="Verdächtiger Verkäufer">Verdächtiger Verkäufer</option>
+                <option value="Dieses Inserat ist eine Fälschung">Dieses Inserat ist eine Fälschung</option>
+                <option value="Fehler im Inserat">Fehler im Inserat</option>
+                <option value="wurde verkauft">Wurde verkauft</option>
+                <option value="Ich habe keine Antwort erhalten">Ich habe keine Antwort erhalten</option>
+                <option value="OTHER">Sonstiges</option>
+              </select>
+            </div>
+
+            <div class="col-12" id="otherReasonBox" style="display:none;">
+              <label class="form-label">Ihre Nachricht</label>
+              <textarea id="reportMessage" class="form-control" rows="5"></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary"
+                data-bs-dismiss="modal"
+                style="background-color: rgb(100, 4, 4); border: none;">
+          Abbrechen
+        </button>
+
+        <button type="submit" form="reportForm" class="btn btn-primary"
+                style="background-color:#9c7240; border:none;">
+          Melden
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,42 @@
+/* ============================================= */
+/*              DETAIL – PROPERTIES              */
+/* ============================================= */
+
+/* MAIN IMAGE */
+
+/* THUMBNAILS */
+.product-single-thumbnails img {
+    width: 110px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+/* TABLE */
+.product-details table.table th {
+    width: 30%;
+    font-weight: 600;
+}
+
+.product-details table.table td {
+    font-size: 16px;
+}
+
+/* DESCRIPTION */
+.product-details .description {
+    line-height: 1.9;
+    font-size: 17px;
+}
+
+/* MOBILE */
+@media (max-width: 768px) {
+    .product-single-images img#mainImage {
+        height: 320px;
+    }
+
+    .product-single-thumbnails img {
+        width: 80px;
+        height: 65px;
+    }
+}

@@ -1,0 +1,80 @@
+<%- include('../../partials/header') %>
+
+  <link rel="stylesheet" href="/css/product.css">
+  <link rel="stylesheet" href="/css/footer.css">
+</div>
+
+<section class="productWrapper container mb-5">
+  <div class="productContainer">
+    <div class="productGrid d-flex flex-wrap">
+      <% items.forEach(item => { 
+           const pic = (item.pictures && item.pictures[0]) 
+                       ? item.pictures[0].image 
+                       : 'placeholder.jpg';
+      %>
+        <div class="cardPeter mb-4 me-4">
+          <div class="imageBild">
+            <a href="/<%= item.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>">
+            <div class="bild">
+              <img 
+                src="/images/<%= item.route %>/<%= item.id %>/<%= pic %>" 
+                alt="<%= item.title %>" 
+                loading="lazy"
+              >
+            </div>
+          </div>
+          <div class="informationSection pt-2">
+            <div class="productInfo">
+                <h5 class="mb-1">
+                  <%= (item.title || "").replace(/<\/?h1[^>]*>/gi, '').replace(/&lt;\/?h1[^&]*&gt;/gi, '').trim() %>
+                </h5>
+              </a>
+              <p class="productPrice mb-2"><%= item.priceFormatted %></p>
+            </div>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </div>
+</section>
+
+<section class="paginationWrapper container d-flex justify-content-between align-items-center mb-5">
+  <div class="paginationControls">
+    <label for="itemsPerPage" class="me-2">Produkte pro Seite:</label>
+    <select id="itemsPerPage"
+            class="form-select w-auto"
+            style="width: 100px !important;"
+            onchange="location.search = 'q=<%= encodeURIComponent(searchTerm) %>&hp=1&limit=' + this.value">
+      <option value="30" <%= limit === 30 ? 'selected' : '' %>>30</option>
+      <option value="60" <%= limit === 60 ? 'selected' : '' %>>60</option>
+      <option value="120" <%= limit === 120 ? 'selected' : '' %>>120</option>
+    </select>
+  </div>
+  <% 
+    const baseParams = `q=${encodeURIComponent(searchTerm)}&limit=${limit}`; 
+  %>
+  <div class="pageNavigation">
+    <% if (currentPage > 1) { %>
+      <a href="?<%= baseParams %>&hp=<%= currentPage - 1 %>" class="paginationButton btn btn-outline-primary me-2">❮</a>
+    <% } else { %>
+      <span class="paginationButton btn btn-outline-secondary disabled me-2">❮</span>
+    <% } %>
+
+    <span><%= currentPage %> / <%= totalPages %></span>
+
+    <% if (currentPage < totalPages) { %>
+      <a href="?<%= baseParams %>&hp=<%= currentPage + 1 %>" class="paginationButton btn btn-outline-primary ms-2">❯</a>
+    <% } else { %>
+      <span class="paginationButton btn btn-outline-secondary disabled ms-2">❯</span>
+    <% } %>
+  </div>
+</section>
+
+<style>
+  h2{
+    color: #b6864b;
+  }
+</style>
+
+  <!-- Footer -->
+<%- include('../../partials/footer') %>

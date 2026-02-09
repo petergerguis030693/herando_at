@@ -1,0 +1,116 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role  }) %>
+  </aside>
+  
+<div class="container py-4">
+  <h1>Footer-Verwaltung</h1>
+  <% if (messages.success) { %>
+    <div class="alert alert-success"><%= messages.success %></div>
+  <% } %>
+
+  <!-- Spalten und Links anzeigen -->
+  <% footerColumns.forEach(col => { %>
+    <div class="card mb-4">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <form class="d-flex" method="POST" action="/admin/footer/columns/<%= col.id %>/edit">
+          <input type="text" name="title" value="<%= col.title %>" class="form-control me-2" required>
+          <input type="number" name="sort_order" value="<%= col.sort_order %>" class="form-control me-2" style="width:80px;">
+          <button class="btn btn-primary btn-sm">Speichern</button>
+        </form>
+        <form method="POST" action="/admin/footer/columns/<%= col.id %>/delete" onsubmit="return confirm('Spalte wirklich löschen?')">
+          <button class="btn btn-danger btn-sm">Löschen</button>
+        </form>
+      </div>
+      <div class="card-body">
+        <h5>Links in „<%= col.title %>“</h5>
+        <% if (col.links.length) { %>
+          <table class="table table-sm">
+            <thead>
+              <tr>
+                <th>Text</th>
+                <th>URL</th>
+                <th>Tel?</th>
+                <th>Phone</th>
+                <th>Sort.</th>
+                <th>Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% col.links.forEach(link => { %>
+                <tr>
+                  <form method="POST" action="/admin/footer/links/<%= link.id %>/edit">
+                    <td><input type="text" name="link_text" value="<%= link.link_text %>" class="form-control form-control-sm"></td>
+                    <td><input type="text" name="link_url" value="<%= link.link_url %>" class="form-control form-control-sm"></td>
+                    <td class="text-center">
+                      <input type="checkbox" name="is_phone" <%= link.is_phone ? 'checked' : '' %> >
+                    </td>
+                    <td><input type="text" name="phone_number" value="<%= link.phone_number||'' %>" class="form-control form-control-sm"></td>
+                    <td><input type="number" name="sort_order" value="<%= link.sort_order %>" class="form-control form-control-sm" style="width:60px;"></td>
+                    <td class="d-flex">
+                      <button class="btn btn-primary btn-sm me-1">OK</button>
+                  </form>
+                  <form method="POST" action="/admin/footer/links/<%= link.id %>/delete" onsubmit="return confirm('Link löschen?')">
+                      <button class="btn btn-danger btn-sm">✕</button>
+                  </form>
+                    </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        <% } else { %>
+          <p class="text-muted">Keine Links vorhanden.</p>
+        <% } %>
+
+        <!-- Neues Link-Formular -->
+        <form class="row g-2 align-items-end" method="POST" action="/admin/footer/links/new">
+          <input type="hidden" name="column_id" value="<%= col.id %>">
+          <div class="col-auto">
+            <label class="form-label">Text</label>
+            <input type="text" name="link_text" class="form-control" required>
+          </div>
+          <div class="col-auto">
+            <label class="form-label">URL</label>
+            <input type="text" name="link_url" class="form-control" required>
+          </div>
+          <div class="col-auto form-check col-form-check">
+            <input class="form-check-input" type="checkbox" name="is_phone" id="ph<%= col.id %>">
+            <label class="form-check-label" for="ph<%= col.id %>">Tel?</label>
+          </div>
+          <div class="col-auto">
+            <label class="form-label">Phone</label>
+            <input type="text" name="phone_number" class="form-control">
+          </div>
+          <div class="col-auto">
+            <label class="form-label">Sort.</label>
+            <input type="number" name="sort_order" class="form-control" style="width:60px;" value="0">
+          </div>
+          <div class="col-auto">
+            <button class="btn btn-success">+</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  <% }) %>
+
+  <!-- Neue Spalte anlegen -->
+  <div class="card">
+    <div class="card-header">Neue Spalte erstellen</div>
+    <div class="card-body">
+      <form class="row g-2 align-items-end" method="POST" action="/admin/footer/columns/new">
+        <div class="col-auto">
+          <label class="form-label">Titel</label>
+          <input type="text" name="title" class="form-control" required>
+        </div>
+        <div class="col-auto">
+          <label class="form-label">Sort.</label>
+          <input type="number" name="sort_order" class="form-control" style="width:80px;" value="0">
+        </div>
+        <div class="col-auto">
+          <button class="btn btn-primary">Erstellen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+</div>

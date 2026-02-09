@@ -1,0 +1,140 @@
+.product-single-container {
+    max-width: 1500px;
+    margin: 20px auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+.product-single-images img {
+    width: 100%;
+    height: auto;
+    border-radius: 10px;
+    display: block;
+}
+
+
+.product-single-thumbnails {
+    display: flex;
+    overflow-x: auto;
+    gap: 5px;
+}
+
+.product-single-thumbnails img {
+    width: 100px;
+    height: 100px;
+    object-fit: cover;
+    cursor: pointer;
+    border: 1px solid transparent;
+}
+
+.product-single-thumbnails img:hover {
+    border: 1px solid #b6864b;
+}
+
+.product-single-title {
+    font-size: 24px;
+    font-weight: bold;
+}
+
+.product-single-price {
+    font-size: 28px;
+    font-weight: bold;
+}
+
+.btn-buy {
+    background-color: #000;
+    color: white;
+    padding: 10px 20px;
+    font-size: 18px;
+    border-radius: 5px;
+    width: 100%;
+}
+
+.btn-buy:hover {
+    background-color: #333;
+}
+
+.product-single-seller-info {
+    display: flex;
+    /*align-items: center;*/
+    gap: 10px;
+}
+
+.product-single-seller-info img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.thumbnail-slider {
+    display: flex;
+    align-items: center;
+    margin-top: 20px;
+}
+
+.thumbnail-slider button {
+    background: none;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+.thumbnail-slider button:disabled {
+    color: #ccc;
+}
+
+@media (max-width:1200px) {
+    .product-single-images img {
+        width: 100%; 
+        height: 300px;
+        border-radius: 10px;
+    }
+
+    .col-md-5{
+        margin-top: 10px !important;
+    }
+}
+
+
+    .action-buttons {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin: 0 auto;
+    }
+
+    .action-btn {
+        background-color: #b6864b;
+        color: #fff;
+        border: none;
+        padding: 0.75rem 1rem;
+        font-size: 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        transition: background-color .2s;
+    }
+
+    .action-btn:hover {
+        background-color: #9c7240;
+    }
+
+.product-single-thumbnails img { cursor: pointer; }
+
+.img-magnifier-container {
+  position: relative;
+}
+
+/* Lupe */
+.img-magnifier-glass {
+  display: none;             
+  position: absolute;
+  border-radius: 10px;
+  cursor: none;
+  width: 300px;              
+  height: 50%;
+  box-shadow: 0 0 5px rgba(0,0,0,0.5);
+  background-repeat: no-repeat;
+  pointer-events: none;      
+  z-index: 999;
+}

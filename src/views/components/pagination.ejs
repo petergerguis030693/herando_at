@@ -1,0 +1,96 @@
+<%
+// Aktuelle Seite aus query (hp = Herando Page)
+const currentPage = parseInt((selectedFilters.hp || [1])[0], 10) || 1;
+
+// Query-String neu aufbauen (ohne hp)
+const params = new URLSearchParams();
+
+Object.entries(selectedFilters).forEach(([key, val]) => {
+  if (key === 'hp') return; // hp ignorieren, kommt unten rein
+  if (!val) return;
+
+  // Unterstützt Auch Arrays
+  const values = Array.isArray(val) ? val : [val];
+  values.forEach(v => params.append(key, v));
+});
+
+// Limit beibehalten
+params.set('limit', limit);
+%>
+
+<section class="paginationWrapper container d-flex justify-content-center mb-5">
+  <div class="pagination">
+
+    <% if (totalPages > 1) { %>
+
+      <!-- Zurück -->
+      <% if (currentPage > 1) { %>
+        <% params.set('hp', currentPage - 1); %>
+        <a class="page-btn prev" href="?<%= params.toString() %>">‹</a>
+      <% } else { %>
+        <span class="page-btn disabled">‹</span>
+      <% } %>
+
+
+      <!-- Seitennummern -->
+      <% for (let p = 1; p <= totalPages; p++) { %>
+        <% params.set('hp', p); %>
+        <a class="page-btn <%= p === currentPage ? 'active' : '' %>" 
+           href="?<%= params.toString() %>">
+          <%= p %>
+        </a>
+      <% } %>
+
+
+      <!-- Weiter -->
+      <% if (currentPage < totalPages) { %>
+        <% params.set('hp', currentPage + 1); %>
+        <a class="page-btn next" href="?<%= params.toString() %>">›</a>
+      <% } else { %>
+        <span class="page-btn disabled">›</span>
+      <% } %>
+
+    <% } %>
+
+  </div>
+</section>
+
+<style>
+.pagination {
+  display: flex;
+  gap: 8px;
+}
+
+.page-btn {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 36px;
+  height: 36px;
+  padding: 0 12px;
+  border-radius: 6px;
+  background: #f4f4f4;
+  color: #1d2a44;
+  border: 1px solid #1d2a44;
+  text-decoration: none;
+  font-size: 14pt;
+  transition: .2s ease;
+}
+
+.page-btn:hover:not(.disabled):not(.active) {
+  background: #1d2a44;
+  color: #fff;
+}
+
+.page-btn.active {
+  background: #1d2a44;
+  color: white;
+  border-color: #1d2a44;
+  pointer-events: none;
+}
+
+.page-btn.disabled {
+  opacity: .4;
+  pointer-events: none;
+}
+</style>

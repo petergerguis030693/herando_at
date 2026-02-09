@@ -1,0 +1,56 @@
+<%- include('../../partials/header') %>
+          <link rel="stylesheet" href="/css/buyer.css">
+
+</head>
+<body>
+  <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= errorMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+  <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle" role="alert" style="z-index:1050;min-width:300px;">
+      <%= successMessage %><button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+  <% } %>
+
+
+
+  <div class="account-shell d-flex gap-3">
+    <!-- Sidebar -->
+     <%- include('../../partials/asside') %>
+
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <div class="d-flex align-items-center">
+          <a href="/buyer/newsletters" class="btn btn-link px-0 me-2"><i class="bi bi-arrow-left"></i></a>
+          <h4 class="m-0"><i class="bi bi-envelope-open me-2"></i><%= newsletter.title || 'Newsletter' %></h4>
+        </div>
+      </div>
+
+      <div class="card-clean">
+        <div class="card-header">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold"><%= newsletter.subject || newsletter.title || 'Newsletter' %></div>
+              <% if (typeof sent_at !== 'undefined' && sent_at) { %>
+                <div class="text-muted small"><i class="bi bi-calendar3 me-1"></i><%= new Date(sent_at).toLocaleString('de-DE') %></div>
+              <% } %>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <!-- HTML-Inhalt aus dem Template -->
+          <div><%- newsletter.html %></div>
+          <% if (openPixelUrl) { %>
+            <img src="<%= openPixelUrl %>" alt="" width="1" height="1" style="display:none" />
+          <% } %>
+        </div>
+      </div>
+    </main>
+  </div>
+
+</body>
+</html>

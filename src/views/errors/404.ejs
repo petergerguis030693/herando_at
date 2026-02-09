@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title><%= seo?.title || '404 – Seite nicht gefunden | Herando' %></title>
+
+  <meta name="robots" content="<%= seo?.robots || 'noindex,follow' %>">
+  <meta name="description" content="<%= seo?.meta_description || 'Diese Seite existiert nicht.' %>">
+
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Bootstrap Icons (falls noch nicht global geladen) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+
+<link rel="stylesheet" href="/css/404.css">
+</head>
+
+<body>
+
+<div class="error-wrapper">
+  <div class="error-box">
+    <h1>404</h1>
+
+    <h2>Diese Seite existiert nicht</h2>
+
+    <p>
+      Die aufgerufene Kategorie oder Seite wurde nicht gefunden
+      oder ist nicht mehr verfügbar.
+    </p>
+
+    <div class="error-actions">
+      <a href="/" class="btn btn-primary">
+        <i class="bi bi-house"></i>
+        Zur Startseite
+      </a>
+
+      <a href="/cars" class="btn btn-outline">
+        <i class="bi bi-car-front"></i>
+        Fahrzeuge
+      </a>
+
+      <a href="/watches" class="btn btn-outline">
+        <i class="bi bi-watch"></i>
+        Uhren
+      </a>
+    </div>
+
+    <% if (currentUrl) { %>
+      <div class="error-url">
+        URL: <%= currentUrl %>
+      </div>
+    <% } %>
+  </div>
+</div>
+
+</body>
+</html>

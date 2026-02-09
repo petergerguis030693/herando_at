@@ -1,0 +1,1103 @@
+<% const T = (key, fb) => (typeof t === 'function') ? t(key, { fallback: fb }) : fb; %>
+<%
+  // aktive Sprache robust bestimmen
+  function getLang(){
+    if (typeof activeLang === 'string' && activeLang) return activeLang;
+    if (typeof locale === 'string' && locale) return locale;
+    if (typeof res !== 'undefined' && res.locals) {
+      if (typeof res.locals.lang === 'string' && res.locals.lang) return res.locals.lang;
+      if (typeof res.locals.locale === 'string' && res.locals.locale) return res.locals.locale;
+    }
+    return 'de';
+  }
+  const LANG = getLang();
+
+  // WICHTIG: Sprache an t() durchreichen (i18next: "lng"; ggf. bei dir "lang" o.ä.)
+%>
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    if (/^\/watches(\/|$)/i.test(location.pathname)) {
+      const detailCol = document.querySelector('.product-single-container .row > .col-md-5');
+      if (detailCol) detailCol.style.marginTop = '30px';
+    }
+  });
+</script>
+
+
+
+<!-- ==== SCRIPT ==== -->
+<script>
+document.getElementById("sellerContactForm").addEventListener("submit", async function (e) {
+    e.preventDefault();
+
+    // Daten sammeln
+    const payload = {
+        firstName: document.getElementById("modalFirstName").value,
+        lastName:  document.getElementById("modalLastName").value,
+        email:     document.getElementById("modalEmail").value,
+        phone: document.getElementById("modalPhoneCode").value + " " + document.getElementById("modalPhone").value,
+        message:   document.getElementById("modalMessage").value,
+        hp_field:  document.getElementById("hp_field").value, // Honeypot
+        listingUrl: document.getElementById("listingUrl").value,
+    };
+
+    try {
+        // Anfrage senden
+        const res = await fetch("/send-contact", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload)
+        });
+
+        const result = await res.json();
+
+        if (result.success) {
+            // Modal schließen
+            const modalEl = document.getElementById("contactModal");
+            const bsModal = bootstrap.Modal.getInstance(modalEl);
+            bsModal.hide();
+
+            alert('<%= t("common.message_sent", "Ihre Nachricht wurde gesendet!") %>');
+            e.target.reset();
+        } else {
+          alert(result.error || '<%= t("common.error_send", "Fehler beim Senden.") %>');
+        }
+
+    } catch (err) {
+        console.error("Kontaktformular Fehler:", err);
+        alert('<%= t("common.error_generic", "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.") %>');
+    }
+});
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const shareBtn = document.getElementById("shareBtn");
+  const shareModal = new bootstrap.Modal(document.getElementById("shareModal"));
+  const copyBtn = document.getElementById("copyLinkBtn");
+
+  const url = window.location.href;
+  const text = document.title;
+
+  // Button → Modal öffnen
+  shareBtn.addEventListener("click", () => {
+    shareModal.show();
+  });
+ 
+  // Copy-Link
+  copyBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    try {
+      await navigator.clipboard.writeText(url);
+      copyBtn.innerHTML = '<i class="bi bi-check2"></i>';
+      setTimeout(() => {
+        copyBtn.innerHTML = '<i class="bi bi-link-45deg"></i>';
+      }, 2000);
+    } catch {
+      alert('<%= t("common.copy_fallback", "Bitte den Link manuell kopieren:") %> ' + url);
+    }
+  });
+
+  // Social Media Links dynamisch setzen
+  document.getElementById("shareFacebook").href = 
+    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`;
+  document.getElementById("shareTwitter").href = 
+    `https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`;
+  document.getElementById("sharePinterest").href = 
+    `https://pinterest.com/pin/create/button/?url=${encodeURIComponent(url)}&description=${encodeURIComponent(text)}`;
+  document.getElementById("shareWhatsApp").href = 
+    `https://api.whatsapp.com/send?text=${encodeURIComponent(text + " " + url)}`;
+});
+</script>
+
+
+
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const BOOKMARK_KEY = 'herandoBookmarks';
+    const btn          = document.getElementById('bookmarkBtn');
+    const itemId       = '<%= item.id %>';  // bleibt so
+    // FALLBACK: Entity-Route entweder aus EJS, oder aus der URL ziehen
+    let entityRoute = '<%= item.entityRoute || "" %>';
+    if (!entityRoute) {
+      // window.location.pathname → "/cars/123/...". Zerlegen:
+      const segments = window.location.pathname.split('/').filter(Boolean);
+      // segments[0] == "cars"
+      entityRoute = segments[0] || '';
+    }
+
+    // Hilfsfunktionen
+    const getBookmarks = () => {
+      try {
+        return JSON.parse(localStorage.getItem(BOOKMARK_KEY)) || [];
+      } catch {
+        return [];
+      }
+    };
+    const saveBookmarks = arr => {
+      localStorage.setItem(BOOKMARK_KEY, JSON.stringify(arr));
+    };
+    const isBookmarked = (route, id) =>
+      getBookmarks().some(b => b.route === route && b.id === id);
+
+    // Button initialisieren
+    const i18n = (window.I18N && window.I18N.common) || {};
+    const savedTxt  = i18n.saved   || 'Gespeichert ✓';
+    const markTxt   = i18n.bookmark|| 'Merken';
+
+    const updateButton = () => {
+      if (isBookmarked(entityRoute, itemId)) {
+        btn.textContent = savedTxt;
+        btn.classList.add('active');
+      } else {
+        btn.textContent = markTxt;
+        btn.classList.remove('active');
+      }
+    };
+
+    btn.addEventListener('click', () => {
+      let list = getBookmarks();
+      if (isBookmarked(entityRoute, itemId)) {
+        list = list.filter(b => !(b.route === entityRoute && b.id === itemId));
+      } else {
+        list.push({ route: entityRoute, id: itemId });
+      }
+      saveBookmarks(list);
+      updateButton();
+      console.log('Bookmarks now:', list);
+    });
+
+    updateButton();
+  });
+</script>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  document.querySelectorAll(".custom-carousel").forEach(carousel => {
+    const inner = carousel.querySelector(".carousel-inner");
+    if (!inner) return;
+
+    // Mobile: jedes Item einzeln
+    if (window.innerWidth < 768) {
+      const cards = inner.querySelectorAll(".col-md-3");
+      const slides = [];
+
+      cards.forEach((card, idx) => {
+        const item = document.createElement("div");
+        item.classList.add("carousel-item");
+        if (idx === 0) item.classList.add("active");
+
+        const row = document.createElement("div");
+        row.classList.add("row", "g-3");
+
+        card.classList.remove("col-md-3");
+        card.classList.add("col-12");
+
+        row.appendChild(card);
+        item.appendChild(row);
+        slides.push(item);
+      });
+
+      inner.innerHTML = "";
+      slides.forEach(slide => inner.appendChild(slide));
+
+      // Indikatoren auf Mobile entfernen
+      const indicators = carousel.querySelector(".carousel-indicators");
+      if (indicators) indicators.remove();
+    }
+
+    // Initialisieren
+    new bootstrap.Carousel(carousel, {
+      interval: false,
+      wrap: true,
+      touch: true
+    });
+  });
+});
+</script>
+
+<script>
+  console.log("📦 similarItems (LIFESTYLES):", <%- JSON.stringify(similarItems || []) %>);
+</script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            var tabTriggerList = [].slice.call(document.querySelectorAll('#infoTabs a'));
+            tabTriggerList.forEach(function (tab) {
+                tab.addEventListener("click", function (event) {
+                    event.preventDefault();
+                    var target = this.getAttribute("href").replace("#", "");
+                    document.querySelectorAll(".tab-pane").forEach(pane => pane.classList.remove("show", "active"));
+                    document.getElementById(target).classList.add("show", "active");
+                });
+            });
+        });
+    </script>
+
+    <script>
+  function magnify(imgID, zoom) {
+    const img   = document.getElementById(imgID);
+    const glass = img.parentElement.querySelector('.img-magnifier-glass');
+
+    // Hintergrund neu setzen (wird auch nach src-Change korrekt)
+    function setGlassBG() {
+      glass.style.backgroundImage = `url('${img.src}')`;
+      glass.style.backgroundSize  = (img.width * zoom) + 'px ' + (img.height * zoom) + 'px';
+    }
+
+    function moveGlass(e) {
+      const rect = img.getBoundingClientRect();
+      let x = e.clientX - rect.left;
+      let y = e.clientY - rect.top;
+
+      const w = glass.offsetWidth  / 2;
+      const h = glass.offsetHeight / 2;
+
+      x = Math.max(w, Math.min(x, img.width - w));
+      y = Math.max(h, Math.min(y, img.height - h));
+
+      glass.style.left = (x - w) + 'px';
+      glass.style.top  = (y - h) + 'px';
+
+      // Hintergrundposition
+      const bgX = -((x * zoom) - w);
+      const bgY = -((y * zoom) - h);
+      glass.style.backgroundPosition = `${bgX}px ${bgY}px`;
+    }
+
+    // Eventlistener
+    img.addEventListener('mouseenter', e => {
+      setGlassBG();
+      glass.style.display = 'block';
+    });
+    img.addEventListener('mousemove', moveGlass);
+    img.addEventListener('mouseleave', () => {
+      glass.style.display = 'none';
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    magnify('mainImage', 1.3); // Zoom-Faktor nach Belieben anpassen
+  });
+
+  // Beispiel changeImage-Funktion, um Hauptbild zu tauschen
+  function changeImage(thumb) {
+    const main = document.getElementById('mainImage');
+    main.src = thumb.src;
+    // Hintergrund der Lupe frisch setzen
+    const event = new Event('mouseenter');
+    main.dispatchEvent(event);
+  }
+</script>
+
+<script>
+(function(){
+  // 1) Bild-URLs sammeln
+  const pics = Array.from(
+    document.querySelectorAll('.product-single-thumbnails img')
+  ).map(img => img.src);
+
+  // Fallback: Hauptbild, falls keine Thumbnails
+  const mainImg = document.getElementById('mainImage');
+  if (!pics.length && mainImg) {
+    pics.push(mainImg.src);
+  }
+
+  let currentIndex = 0;
+  const overlay  = document.getElementById('lightboxOverlay');
+  const imgEl    = document.getElementById('lightboxImage');
+  const btnPrev  = document.getElementById('lightboxPrev');
+  const btnNext  = document.getElementById('lightboxNext');
+  const btnClose = document.getElementById('lightboxClose');
+
+  function showLightbox(idx) {
+    currentIndex = idx;
+    imgEl.src = pics[currentIndex];
+    overlay.style.display = 'flex';
+  }
+  function hideLightbox()    { overlay.style.display = 'none'; }
+  function showPrev()        { showLightbox((currentIndex - 1 + pics.length) % pics.length); }
+  function showNext()        { showLightbox((currentIndex + 1) % pics.length); }
+
+  // 2) Klick auf Hauptbild: öffne an der aktuell angezeigten Stelle
+  if (mainImg) {
+    mainImg.style.cursor = 'zoom-in';
+    mainImg.addEventListener('click', () => {
+      const idx = pics.findIndex(src => src === mainImg.src);
+      showLightbox(idx >= 0 ? idx : 0);
+    });
+  }
+
+  // 3) Overlay-Klick schließt, Pfeile und X wie gehabt
+  overlay.addEventListener('click', e => e.target === overlay && hideLightbox());
+  btnPrev.addEventListener('click', e => { e.stopPropagation(); showPrev(); });
+  btnNext.addEventListener('click', e => { e.stopPropagation(); showNext(); });
+  btnClose.addEventListener('click', hideLightbox);
+
+  // 4) Tastatur-Navigation
+  document.addEventListener('keydown', e => {
+    if (overlay.style.display === 'flex') {
+      if (e.key === 'Escape') hideLightbox();
+      if (e.key === 'ArrowLeft') showPrev();
+      if (e.key === 'ArrowRight') showNext();
+    }
+  });
+})();
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const mainImg   = document.getElementById("mainImage");
+  const thumbsCtn = document.querySelector(".product-single-thumbnails");
+  const thumbs    = Array.from(thumbsCtn.querySelectorAll("img"));
+  const prevBtn   = document.getElementById("prevThumb");
+  const nextBtn   = document.getElementById("nextThumb");
+  let currentIdx  = 0;
+
+  // 1) Scrollbar per JS ausblenden
+  thumbsCtn.style.overflowX = "auto";
+  thumbsCtn.style.overflowY = "hidden";
+  thumbsCtn.style.scrollbarWidth = "none";        // Firefox
+  thumbsCtn.style.msOverflowStyle = "none";        // IE 10+
+  // Webkit:
+  const style = document.createElement("style");
+  style.textContent = `
+    .product-single-thumbnails::-webkit-scrollbar { display: none; }
+  `;
+  document.head.appendChild(style);
+
+  // 2) Highlight-Funktion
+  function highlightActive() {
+    thumbs.forEach((thumb, i) => {
+      if (i === currentIdx) {
+        thumb.style.borderRadius = "4px";
+        thumb.style.opacity      = "0.8";
+        thumb.style.transform    = "scale(1.05)";
+        thumb.style.transition   = "transform .2s, opacity .2s";
+      } else {
+        thumb.style.border       =
+        thumb.style.borderRadius =
+        thumb.style.opacity      =
+        thumb.style.transform    =
+        thumb.style.transition   = "";
+      }
+    });
+  }
+
+  // 3) Pfeil-Buttons aktiv/deaktiv
+  function updateButtons() {
+    prevBtn.disabled = currentIdx === 0;
+    nextBtn.disabled = currentIdx === thumbs.length - 1;
+  }
+
+  // 4) Thumbnail-Anzeige + zentrieren
+  function showThumbnail(i) {
+    if (i < 0 || i >= thumbs.length) return;
+    currentIdx = i;
+    // Hauptbild tauschen
+    changeImage(thumbs[i]);   
+    const thumb = thumbs[i];
+    const offset = thumb.offsetLeft - (thumbsCtn.clientWidth - thumb.clientWidth) / 2;
+    thumbsCtn.scrollTo({ left: offset, behavior: "smooth" });
+    highlightActive();
+    updateButtons();
+  }
+
+  // 5) Event-Listener
+  thumbs.forEach((thumb, i) => {
+    thumb.style.cursor = "pointer";
+    thumb.addEventListener("click", () => showThumbnail(i));
+  });
+  prevBtn.addEventListener("click", () => showThumbnail(currentIdx - 1));
+  nextBtn.addEventListener("click", () => showThumbnail(currentIdx + 1));
+
+  // 6) Initialisierung
+  // Finde den Index des Main-Bildes
+let startIndex = thumbs.findIndex(t => t.src === mainImg.src);
+if (startIndex < 0) startIndex = 0;
+
+// Starte mit dem richtigen Bild
+showThumbnail(startIndex);
+});
+</script>
+
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const marker = '</h1>';
+    document.querySelectorAll('h1').forEach(h1 => {
+      const text = h1.textContent;
+      if (text.includes(marker)) {
+        // Alles vor dem Marker extrahieren
+        const cleaned = text.split(marker)[0].trim();
+        // In der Konsole ausgeben
+        console.log('Bereinigte Überschrift:', cleaned);
+        // H1 im DOM aktualisieren
+        h1.textContent = cleaned;
+      }
+    });
+  });
+</script>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const data = <%- JSON.stringify({
+    id: item.id,
+    title: item.title,
+    price: item.price ?? null,
+    imageUrl: item.imageUrl,
+    route: currentEntity.route
+  }) %>;
+
+  const slug = String(data.title).toLowerCase().replace(/\s+/g,"-").replace(/[^\w-]/g,"");
+  const viewedItem = {
+    id: data.id,
+    title: data.title,
+    price: data.price,
+    imageUrl: data.imageUrl,
+    route: data.route,
+    url: `/${data.route}/${data.id}/${slug}`
+  };
+
+  let list = [];
+  try { list = JSON.parse(localStorage.getItem("recentlyViewed")) || []; } catch {}
+  list = list.filter(x => String(x.id) !== String(viewedItem.id) || x.route !== viewedItem.route);
+  list.unshift(viewedItem);
+  if (list.length > 10) list = list.slice(0, 10);
+  localStorage.setItem("recentlyViewed", JSON.stringify(list));
+});
+</script>
+
+
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const route = (location.pathname.split('/').filter(Boolean)[0] || '').toLowerCase();
+  const ITEM  = <%- JSON.stringify(item || {}) %>;
+
+  // ===== i18n helpers =====
+  const I18N = window.I18N || {};
+  const C  = I18N.common          || {};
+  const LW = I18N.watchLabels     || {};
+  const LC = I18N.carLabels       || {};
+  const LP = I18N.propertyLabels  || {};
+  const LY = I18N.yachtLabels     || {};
+
+const YES = (C.yes || (I18N?.translations?.common?.yes) || 'Yes');
+const NO  = (C.no  || (I18N?.translations?.common?.no)  || 'No');
+
+  // ===== tiny utils =====
+  const norm = s => (s ?? '').toString().trim().toLowerCase();
+  const toSlug = s => s ? s.replace(/\s+/g,'-').replace(/[^A-Za-z0-9-]/g,'').replace(/-+/g,'-').replace(/^-|-$/g,'') : null;
+
+  // Aus einer Specliste ein sprachunabhängiges Index-Objekt bauen
+  // dict: { canonicalKey: i18nLabelString } + deutsche Fallbacks darunter
+  function makeSpecIndex(specs, dict, deFallback) {
+    const byLabel = {};
+    (specs || []).forEach(s => {
+      if (!s || !s.label) return;
+      byLabel[norm(s.label)] = (s.value ?? '').toString().trim();
+    });
+
+    const index = {};
+    // zuerst aktuelle Sprache
+    Object.entries(dict || {}).forEach(([key, lbl]) => {
+      const v = byLabel[norm(lbl)];
+      if (v != null && v !== '' && index[key] == null) index[key] = v;
+    });
+    // dann deutsche Fallbacks
+    Object.entries(deFallback || {}).forEach(([key, lbl]) => {
+      const v = byLabel[norm(lbl)];
+      if (v != null && v !== '' && index[key] == null) index[key] = v;
+    });
+    return index;
+  }
+
+  // HTML-Helfer
+  const iconCol = (icon, label, value) => {
+    if (!value && value !== 0) return '';
+    const val = String(value).trim();
+    if (!val || val === '–') return '';
+    return `
+      <div class="col">
+        <div class="d-flex align-items-start gap-3">
+          <i class="bi bi-${icon} icon-xl text-muted"></i>
+          <div>
+            <div class="small text-muted">${label}</div>
+            <div class="fw-semibold">${val}</div>
+          </div>
+        </div>
+      </div>`;
+  };
+  const brandTile = (brand, label) => {
+    if (!brand) return '';
+    const slug = toSlug(brand);
+    const logo = slug ? `https://herando.com/images/cms/brands/${slug}.jpg` : null;
+    return `
+      <div class="col">
+        <div class="d-flex align-items-center">
+          ${logo ? `<img src="${logo}" alt="${brand}" onerror="this.style.display='none'"
+                 style="height:38px;width:auto;object-fit:contain;margin-right:.6rem;">` : ''}
+          <div>
+            <div class="small text-muted">${label}</div>
+            <div class="fw-semibold">${brand}</div>
+          </div>
+        </div>
+      </div>`;
+  };
+
+const renderGrid = (htmlCols) => {
+  const cols = htmlCols.filter(Boolean).join('');
+  if (!cols) return;
+
+  const html = `
+    <div class="${route}-specs card border-0 mb-4">
+      <div class="container py-3" style="max-width:1500px; margin:0 auto;">
+        <div class="row g-3 row-cols-2 row-cols-sm-3 row-cols-md-4 row-cols-lg-6" style="justify-content: left;">
+          ${cols}
+        </div>
+      </div>
+    </div>`;
+
+  const target = document.getElementById('iconsSection');
+  if (target) target.innerHTML = html;
+
+  // responsive Icon-Größe
+const s = document.createElement('style');
+s.textContent = `
+  .icon-xl { font-size: 1.5rem; }          
+  @media (min-width: 576px) { .icon-xl { font-size: 2rem; } }
+  @media (min-width: 992px) { .icon-xl { font-size: 2.5rem; } }
+
+  /* 📌 Force padding py-3 to 3rem */
+  .${route}-specs .py-3 {
+    padding-left: 3rem !important; 
+  }
+
+  /* 📱 Mobile Tabellen-/Listen-Ansicht */
+  @media (max-width: 575px) {
+    .${route}-specs .row {
+      display: block !important;
+    }
+    .${route}-specs .row > div {
+      width: 100% !important;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 0;
+      border-bottom: 1px solid #eee;
+      font-size: 14px;
+    }
+    .${route}-specs .row > div:last-child {
+      border-bottom: none;
+    }
+    .${route}-specs .icon-xl {
+      font-size: 1.3rem !important;
+      margin-right: 12px;
+    }
+  }
+`;
+document.head.appendChild(s);
+
+};
+
+
+if (route === 'watches') {
+
+  // ===== MAPPINGS =====
+const movementMap = {
+  1: '<%= t("watch.movement.automatic", "Automatik") %>',
+  2: '<%= t("watch.movement.manual", "Handaufzug") %>',
+  3: '<%= t("watch.movement.quartz", "Quarz") %>',
+  4: '<%= t("watch.movement.solar", "Solar") %>',
+  5: '<%= t("watch.movement.smartwatch", "Smartwatch") %>',
+  255: '<%= t("watch.movement.other", "Sonstige") %>'
+};
+
+const caseMaterialMap = {
+  1:   '<%= t("watch.case.rose_gold",   "Roségold") %>',
+  2:   '<%= t("watch.case.steel",       "Edelstahl") %>',
+  3:   '<%= t("watch.case.white_gold",  "Weißgold") %>',
+  4:   '<%= t("watch.case.yellow_gold", "Gelbgold") %>',
+  5:   '<%= t("watch.case.platinum",    "Platin") %>',
+  6:   '<%= t("watch.case.red_gold",    "Rotgold") %>',
+  7:   '<%= t("watch.case.titanium",    "Titan") %>',
+  8:   '<%= t("watch.case.gold_steel",  "Gold/Stahl") %>',
+  9:   '<%= t("watch.case.ceramic",     "Keramik") %>',
+  10:  '<%= t("watch.case.palladium",   "Palladium") %>',
+  11:  '<%= t("watch.case.silver",      "Silber") %>',
+  12:  '<%= t("watch.case.aluminium",   "Aluminium") %>',
+  13:  '<%= t("watch.case.pvd",          "PVD-beschichtet") %>',
+  14:  '<%= t("watch.case.plastic",     "Kunststoff") %>',
+  15:  '<%= t("watch.case.bronze",      "Bronze") %>',
+  16:  '<%= t("watch.case.carbon",      "Carbon") %>',
+  17:  '<%= t("watch.case.tantalum",    "Tantal") %>',
+  18:  '<%= t("watch.case.tungsten",    "Wolfram") %>',
+  255: '<%= t("watch.case.other",       "Sonstige") %>'
+};
+
+const colorMap = {
+  1:   '<%= t("color.black",            "Schwarz") %>',
+  2:   '<%= t("color.white",            "Weiß") %>',
+  3:   '<%= t("color.red",              "Rot") %>',
+  4:   '<%= t("color.grey",             "Grau") %>',
+  5:   '<%= t("color.blue",             "Blau") %>',
+  6:   '<%= t("color.silver",           "Silber") %>',
+  7:   '<%= t("color.orange",           "Orange") %>',
+  8:   '<%= t("color.green",            "Grün") %>',
+  9:   '<%= t("color.beige",            "Beige") %>',
+  10:  '<%= t("color.brown",            "Braun") %>',
+  11:  '<%= t("color.yellow",           "Gelb") %>',
+  12:  '<%= t("color.gold",             "Gold") %>',
+  13:  '<%= t("color.violet",           "Violett") %>',
+  14:  '<%= t("color.bronze",           "Bronze") %>',
+  15:  '<%= t("color.pearl_white",      "Perlweiß") %>',
+  16:  '<%= t("color.transparent",      "Transparent") %>',
+  17:  '<%= t("color.bordeaux",         "Bordeaux") %>',
+  18:  '<%= t("color.champagne",        "Champagnerfarben") %>',
+  19:  '<%= t("color.pink",             "Pink") %>',
+  20:  '<%= t("color.rose",             "Rosé") %>',
+  21:  '<%= t("color.steel",            "Stahlfarben") %>',
+  22:  '<%= t("color.mother_of_pearl",  "Perlmutt") %>',
+  23:  '<%= t("color.cream",            "Cremefarben") %>',
+  24:  '<%= t("color.gold_steel",       "Gold/Stahl") %>',
+  255: '<%= t("color.other",            "Sonstige") %>'
+};
+
+
+  // ===== HELFER =====
+  function mapValue(value, map) {
+    if (value === null || value === undefined || value === '') return '';
+    const keyNum = Number(value);
+    return map[value] ?? map[keyNum] ?? String(value);
+  }
+
+  const yesNo = v =>
+(v === 1 || v === true || v === '1')
+  ? '<%= t("common.yes", "Ja") %>'
+  : (v === 0 || v === false || v === '0')
+    ? '<%= t("common.no", "Nein") %>'
+    : '';
+
+
+  // ===== WATCH DATEN =====
+  const W = {
+    brandName:  ITEM.brandName || null,
+    modelName:  ITEM.modelName || null,
+    reference:  ITEM.reference || null,
+    movement:   ITEM.movement || null,
+    caliber:    ITEM.movement_caliber || ITEM.caliber || null,
+    diameter:   ITEM.diameter || null,
+    waterproof: ITEM.waterproof || null,
+    case_material:  ITEM.case_material || null,
+    strap_material: ITEM.strap_material || null,
+    strap_color:    ITEM.strap_color || null,
+    dial_color:     ITEM.dial_color || null,
+    year:       ITEM.year || null,
+    hasBox:     ITEM.authenticity_box ?? null,
+    hasPapers:  ITEM.authenticity_papers ?? null,
+    warranty:   ITEM.authenticity_warranty ?? null
+  };
+
+  // ===== GRID SPALTEN =====
+  const cols = [
+    brandTile(W.brandName, LW.brand || 'Marke'),
+    iconCol('watch',            LW.model      || 'Modell',      W.modelName),
+    iconCol('hash',             LW.reference  || 'Referenz',    W.reference),
+    iconCol('cpu',              LW.movement   || 'Werk',        mapValue(W.movement, movementMap)),
+    iconCol('sliders',          LW.caliber    || 'Kaliber',     W.caliber),
+    iconCol('rulers',           LW.diameter   || 'Durchmesser', W.diameter ? (W.diameter + ' mm') : ''),
+    iconCol('droplet',          LW.waterproof || 'Wasserdicht', W.waterproof ? (W.waterproof + ' ATM') : ''),
+    iconCol('box',              LW.case       || 'Gehäuse',     mapValue(W.case_material, caseMaterialMap)),
+    iconCol('palette',          LW.dial       || 'Zifferblatt', mapValue(W.dial_color, colorMap)),
+    iconCol('brush',            LW.strap      || 'Armband',     [mapValue(W.strap_material, caseMaterialMap), mapValue(W.strap_color, colorMap)].filter(Boolean).join(', ')),
+    iconCol('archive',          LW.box        || 'Box',         yesNo(W.hasBox)),
+    iconCol('file-earmark-text',LW.papers     || 'Papiere',     yesNo(W.hasPapers)),
+    iconCol('shield-check',     LW.warranty   || 'Garantie',    yesNo(W.warranty)),
+    iconCol('calendar3',        LW.year       || 'Baujahr',     W.year)
+  ];
+
+  return renderGrid(cols);
+}
+
+
+  // -------- CARS --------
+  if (route === 'cars') {
+    // i18n Wörterbuch + deutsche Fallbacks für die gespeicherten Speclabels
+    const dict = {
+      model:        LC.model,
+      mileage:      LC.mileage,
+      transmission: LC.transmission,
+      firstReg:     LC.firstReg,
+      fuel:         LC.fuel,
+      power:        LC.power,
+      color:        LC.color
+    };
+    const deFB = {
+      model:        'modell',
+      mileage:      'kilometerstand',
+      transmission: 'getriebe',
+      firstReg:     'erstzulassung',
+      fuel:         'kraftstoff',
+      power:        'leistung',
+      color:        'farbe'
+    };
+    const IDX = makeSpecIndex(ITEM.specs, dict, deFB);
+
+    const brand = ITEM.brandName || '';
+    const model = ITEM.modelName || IDX.model || '';
+
+    const cols = [
+      brandTile(brand, LW.brand || 'Marke'),
+      iconCol('badge-ad',     LC.model        || 'Modell',         model),
+      iconCol('speedometer',  LC.mileage      || 'Kilometerstand', IDX.mileage),
+      iconCol('gear',         LC.transmission || 'Getriebe',       IDX.transmission),
+      iconCol('calendar',     LC.firstReg     || 'Erstzulassung',  IDX.firstReg),
+      iconCol('fuel-pump',    LC.fuel         || 'Kraftstoff',     IDX.fuel),
+      iconCol('tachometer',   LC.power        || 'Leistung',       IDX.power),
+    ];
+    return renderGrid(cols);
+  }
+
+  // -------- PROPERTIES --------
+  if (route === 'properties') {
+    const dict = {
+      location:  LP.location,
+      type:      LP.type,
+      living:    LP.living,
+      lot:       LP.lot,
+      rooms:     LP.rooms,
+      bedrooms:  LP.bedrooms,
+      baths:     LP.baths,
+      built:     LP.built,
+      country:   LP.country,
+      price:     LP.price
+    };
+    const deFB = {
+      location:  'ort',
+      type:      'immobilientyp',
+      living:    'wohnfläche (m²)',
+      lot:       'grundstück',
+      rooms:     'zimmer',
+      bedrooms:  'schlafzimmer',
+      baths:     'badezimmer',
+      built:     'baujahr',
+      country:   'land',
+      price:     'preis'
+    };
+    const IDX = makeSpecIndex(ITEM.specs, dict, deFB);
+
+    // Flagge
+    const iso2 = (name='') => {
+      const n = norm(name);
+      const map = {
+        'österreich':'at','austria':'at',
+        'deutschland':'de','germany':'de',
+        'schweiz':'ch','switzerland':'ch',
+        'italien':'it','italy':'it',
+        'frankreich':'fr','france':'fr',
+        'spanien':'es','spain':'es',
+        'portugal':'pt','niederlande':'nl','netherlands':'nl',
+        'belgien':'be','luxemburg':'lu',
+        'vereinigtes königreich':'gb','großbritannien':'gb','united kingdom':'gb','uk':'gb',
+        'irland':'ie','ireland':'ie',
+        'usa':'us','vereinigte staaten':'us','united states':'us',
+        'vereinigte arabische emirate':'ae','uae':'ae',
+        'monaco':'mc','kroatien':'hr','griechenland':'gr',
+        'polen':'pl','tschechien':'cz','ungarn':'hu','türkei':'tr'
+      };
+      return map[n] || null;
+    };
+
+    const country = IDX.country || '';
+    const flag = country && iso2(country)
+      ? `<img src="https://flagcdn.com/h20/${iso2(country)}.png" alt="${country}" width="24" height="16" class="me-2" />`
+      : '';
+
+    const price = ITEM.priceFormatted || IDX.price || '';
+
+    const cols = [
+      iconCol('geo-alt',      LP.location || 'Ort',            IDX.location),
+      iconCol('house',        LP.type     || 'Immobilientyp',  IDX.type),
+      iconCol('aspect-ratio', LP.living   || 'Wohnfläche',     IDX.living),
+      iconCol('rulers',       LP.lot      || 'Grundstück',     IDX.lot),
+      iconCol('grid-3x3-gap', LP.rooms    || 'Zimmer',         IDX.rooms),
+      iconCol('door-closed',  LP.bedrooms || 'Schlafzimmer', IDX.bedrooms),   // statt bed
+      iconCol('droplet-fill', LP.baths    || 'Badezimmer',   IDX.baths),
+
+      iconCol('calendar3',    LP.built    || 'Baujahr',        IDX.built),
+      // Land mit Flagge als HTML
+      country ? `
+        <div class="col">
+          <div class="d-flex align-items-start gap-3">
+            ${flag}
+            <div>
+              <div class="small text-muted">${LP.country || 'Land'}</div>
+              <div class="fw-semibold">${country}</div>
+            </div>
+          </div>
+        </div>` : '',
+      iconCol('cash-coin',    LP.price    || 'Preis',          price)
+    ];
+    return renderGrid(cols);
+  }
+
+  // -------- YACHTS --------
+  if (route === 'yachts') {
+    const dict = {
+      type:    LY.type,
+      length:  LY.length,
+      beam:    LY.beam,
+      draft:   LY.draft,
+      engines: LY.engines,
+      power:   LY.power,
+      fuel:    LY.fuel,
+      cabins:  LY.cabins,
+      berths:  LY.berths,
+      year:    LY.year,
+      country: LY.country,
+      price:   LY.price
+    };
+    const deFB = {
+      type:    'typ',
+      length:  'länge',
+      beam:    'breite',
+      draft:   'tiefgang',
+      engines: 'motor',
+      power:   'leistung',
+      fuel:    'kraftstoff',
+      cabins:  'kabinen',
+      berths:  'kojen',
+      year:    'baujahr',
+      country: 'land',
+      price:   'preis'
+    };
+    const IDX = makeSpecIndex(ITEM.specs, dict, deFB);
+
+    const iso2 = (name='') => {
+      const n = norm(name);
+      const map = {
+        'österreich':'at','austria':'at','deutschland':'de','germany':'de','schweiz':'ch','switzerland':'ch',
+        'italien':'it','italy':'it','frankreich':'fr','france':'fr','spanien':'es','spain':'es','portugal':'pt',
+        'niederlande':'nl','netherlands':'nl','vereinigtes königreich':'gb','großbritannien':'gb','united kingdom':'gb','uk':'gb',
+        'irland':'ie','usa':'us','vereinigte staaten':'us','united states':'us','vereinigte arabische emirate':'ae','uae':'ae',
+        'kroatien':'hr','griechenland':'gr','monaco':'mc','polen':'pl','tschechien':'cz','ungarn':'hu','türkei':'tr'
+      };
+      return map[n] || null;
+    };
+
+    const brand = IDX.brand || IDX.manufacturer || ''; // falls als Spec vorhanden
+    const country = IDX.country || '';
+    const flag = country && iso2(country)
+      ? `<img src="https://flagcdn.com/h20/${iso2(country)}.png" alt="${country}" width="24" height="16" class="me-2" />`
+      : '';
+    const price = ITEM.priceFormatted || IDX.price || '';
+
+    const cols = [
+      brand ? `
+        <div class="col">
+          <div class="d-flex align-items-start gap-3">
+            <i class="bi bi-circle-half icon-xl text-muted"></i>
+            <div>
+              <div class="small text-muted">${LW.brand || 'Marke'}</div>
+              <div class="fw-semibold">${brand}</div>
+            </div>
+          </div>
+        </div>` : '',
+      iconCol('compass',        LY.type   || 'Typ',       IDX.type),
+      iconCol('rulers',         LY.length || 'Länge',     IDX.length),
+      iconCol('arrows-expand',  LY.beam   || 'Breite',    IDX.beam),
+      iconCol('water',          LY.draft  || 'Tiefgang',  IDX.draft),
+      iconCol('gear-wide',      LY.engines|| 'Motor',     IDX.engines),
+      iconCol('speedometer',    LY.power  || 'Leistung',  IDX.power),
+      iconCol('fuel-pump',      LY.fuel   || 'Kraftstoff',IDX.fuel),
+      iconCol('door-closed',    LY.cabins || 'Kabinen',   IDX.cabins),
+      iconCol('person',         LY.berths || 'Kojen',     IDX.berths),
+      iconCol('calendar3',      LY.year   || 'Baujahr',   IDX.year),
+      country ? `
+        <div class="col">
+          <div class="d-flex align-items-start gap-3">
+            ${flag}
+            <div>
+              <div class="small text-muted">${LY.country || 'Land'}</div>
+              <div class="fw-semibold">${country}</div>
+            </div>
+          </div>
+        </div>` : '',
+      iconCol('cash-coin',      LY.price  || 'Preis',     price)
+    ];
+    return renderGrid(cols);
+  }
+});
+</script>
+
+<script>
+  window.I18N = {
+    common: {
+      saved:        <%- JSON.stringify(T('common.saved',        'Gespeichert ✓')) %>,
+      bookmark:     <%- JSON.stringify(T('common.bookmark',     'Merken')) %>,
+      share:        <%- JSON.stringify(T('common.share',        'Teilen')) %>,
+      share_intro:  <%- JSON.stringify(T('common.share_intro',  'Schau dir dieses Angebot an:')) %>,
+      copy_ok:      <%- JSON.stringify(T('common.copy_ok',      'Link kopiert! Du kannst ihn jetzt einfügen.')) %>,
+      copy_fallback:<%- JSON.stringify(T('common.copy_fallback','Kopiere die URL manuell:')) %>,
+      cancel:       <%- JSON.stringify(T('common.cancel',       'Abbrechen')) %>,
+      send:         <%- JSON.stringify(T('common.send',         'Senden')) %>,
+      message_sent: <%- JSON.stringify(T('common.message_sent', 'Ihre Nachricht wurde gesendet!')) %>
+    },
+    product: {
+      seller_listings: <%- JSON.stringify(T('product.actions.seller_listings', 'Inserate des Händlers anzeigen')) %>,
+      contact_seller:  <%- JSON.stringify(T('product.actions.contact_seller',  'Verkäufer kontaktieren')) %>,
+      more_info:       <%- JSON.stringify(T('product.details.more_info',       'Weitere Infos zum Inserat')) %>,
+      tabs: {
+        details:    <%- JSON.stringify(T('product.tabs.details',    'Details')) %>,
+        security:   <%- JSON.stringify(T('product.tabs.security',   'Sicherheit')) %>,
+        description:<%- JSON.stringify(T('product.tabs.description','Beschreibung')) %>,
+        base:       <%- JSON.stringify(T('product.tabs.base',       'Basisdaten')) %>,
+        sec_coming: <%- JSON.stringify(T('product.tabs.sec_coming', 'Sicherheitsdetails folgen hier...')) %>
+      },
+      modal: {
+        title:      <%- JSON.stringify(T('product.contact.title',      'Anfrage senden')) %>,
+        fn_label:   <%- JSON.stringify(T('product.contact.first_name', 'Ihr Vorname *')) %>,
+        ln_label:   <%- JSON.stringify(T('product.contact.last_name',  'Ihr Nachname *')) %>,
+        email_label:<%- JSON.stringify(T('product.contact.email',      'Ihre E-Mail-Adresse *')) %>,
+        phone_label:<%- JSON.stringify(T('product.contact.phone',      'Ihre Telefonnummer')) %>,
+        msg_label:  <%- JSON.stringify(T('product.contact.message',    'Ihre Nachricht')) %>,
+        cancel:     <%- JSON.stringify(T('product.contact.cancel',     'Abbrechen')) %>,
+        send:       <%- JSON.stringify(T('product.contact.send',       'Senden')) %>
+      },
+      seller: {
+        name:    <%- JSON.stringify(T('product.seller.name',    'Name')) %>,
+        company: <%- JSON.stringify(T('product.seller.company', 'Firma')) %>,
+        address: <%- JSON.stringify(T('product.seller.address', 'Adresse')) %>,
+        email:   <%- JSON.stringify(T('product.seller.email',   'E-Mail')) %>
+      }
+    },
+    watchLabels: {
+      brand:      <%- JSON.stringify(T('labels.watch.brand',      'Marke')) %>,
+      model:      <%- JSON.stringify(T('labels.watch.model',      'Modell')) %>,
+      reference:  <%- JSON.stringify(T('labels.watch.reference',  'Referenz')) %>,
+      movement:   <%- JSON.stringify(T('labels.watch.movement',   'Werk')) %>,
+      caliber:    <%- JSON.stringify(T('labels.watch.caliber',    'Kaliber')) %>,
+      diameter:   <%- JSON.stringify(T('labels.watch.diameter',   'Durchmesser')) %>,
+      waterproof: <%- JSON.stringify(T('labels.watch.waterproof', 'Wasserdicht')) %>,
+      case:       <%- JSON.stringify(T('labels.watch.case',       'Gehäuse')) %>,
+      dial:       <%- JSON.stringify(T('labels.watch.dial',       'Zifferblatt')) %>,
+      strap:      <%- JSON.stringify(T('labels.watch.strap',      'Armband')) %>,
+      box:        <%- JSON.stringify(T('labels.watch.box',        'Box')) %>,
+      papers:     <%- JSON.stringify(T('labels.watch.papers',     'Papiere')) %>,
+      warranty:   <%- JSON.stringify(T('labels.watch.warranty',   'Garantie')) %>,
+      year:       <%- JSON.stringify(T('labels.watch.year',       'Baujahr')) %>
+    },
+    carLabels: {
+      model:       <%- JSON.stringify(T('labels.car.model',       'Modell')) %>,
+      mileage:     <%- JSON.stringify(T('labels.car.mileage',     'Kilometerstand')) %>,
+      transmission:<%- JSON.stringify(T('labels.car.transmission','Getriebe')) %>,
+      firstReg:    <%- JSON.stringify(T('labels.car.firstReg',    'Erstzulassung')) %>,
+      fuel:        <%- JSON.stringify(T('labels.car.fuel',        'Kraftstoff')) %>,
+      power:       <%- JSON.stringify(T('labels.car.power',       'Leistung')) %>,
+      color:       <%- JSON.stringify(T('labels.car.color',       'Farbe')) %>
+    },
+    propertyLabels: {
+      location:  <%- JSON.stringify(T('labels.property.location',  'Ort')) %>,
+      type:      <%- JSON.stringify(T('labels.property.type',      'Immobilientyp')) %>,
+      living:    <%- JSON.stringify(T('labels.property.living',    'Wohnfläche')) %>,
+      lot:       <%- JSON.stringify(T('labels.property.lot',       'Grundstück')) %>,
+      rooms:     <%- JSON.stringify(T('labels.property.rooms',     'Zimmer')) %>,
+      bedrooms:  <%- JSON.stringify(T('labels.property.bedrooms',  'Schlafzimmer')) %>,
+      baths:     <%- JSON.stringify(T('labels.property.baths',     'Badezimmer')) %>,
+      built:     <%- JSON.stringify(T('labels.property.built',     'Baujahr')) %>,
+      country:   <%- JSON.stringify(T('labels.property.country',   'Land')) %>,
+      price:     <%- JSON.stringify(T('labels.property.price',     'Preis')) %>
+    },
+    yachtLabels: {
+      brand:   <%- JSON.stringify(T('labels.yacht.brand',   'Marke')) %>,
+      type:    <%- JSON.stringify(T('labels.yacht.type',    'Typ')) %>,
+      length:  <%- JSON.stringify(T('labels.yacht.length',  'Länge')) %>,
+      beam:    <%- JSON.stringify(T('labels.yacht.beam',    'Breite')) %>,
+      draft:   <%- JSON.stringify(T('labels.yacht.draft',   'Tiefgang')) %>,
+      engines: <%- JSON.stringify(T('labels.yacht.engines', 'Motor')) %>,
+      power:   <%- JSON.stringify(T('labels.yacht.power',   'Leistung')) %>,
+      fuel:    <%- JSON.stringify(T('labels.yacht.fuel',    'Kraftstoff')) %>,
+      cabins:  <%- JSON.stringify(T('labels.yacht.cabins',  'Kabinen')) %>,
+      berths:  <%- JSON.stringify(T('labels.yacht.berths',  'Kojen')) %>,
+      year:    <%- JSON.stringify(T('labels.yacht.year',    'Baujahr')) %>,
+      country: <%- JSON.stringify(T('labels.yacht.country', 'Land')) %>,
+      price:   <%- JSON.stringify(T('labels.yacht.price',   'Preis')) %>
+    }
+  };
+</script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function() {
+    const toggleBtn = document.getElementById("toggleDescription");
+    const descShort = document.getElementById("descriptionShort");
+    const fadeOverlay = document.getElementById("fadeOverlay");
+
+    let expanded = false;
+
+    // 🔸 Texte aus Übersetzungen holen
+    const showMoreText = "<%= t('offers.details.show_more', { fallback: 'Mehr anzeigen' }) %>";
+    const showLessText = "<%= t('offers.details.show_less', { fallback: 'Weniger anzeigen' }) %>";
+
+    toggleBtn.addEventListener("click", function() {
+      expanded = !expanded;
+
+      if (expanded) {
+        descShort.classList.remove("collapsed-text");
+        fadeOverlay.style.display = "none";
+        toggleBtn.textContent = showLessText;
+      } else {
+        descShort.classList.add("collapsed-text");
+        fadeOverlay.style.display = "block";
+        toggleBtn.textContent = showMoreText;
+      }
+    });
+  });
+</script>
+
+<script>
+/**
+ * Berechnet die vertikale Mitte der Produktbilder in den Carousels 
+ * und positioniert die Navigationspfeile dort.
+ */
+function centerCarouselArrowsDynamically() {
+    
+    // Zielt auf alle Carousels (similar, moreItems) ab
+    document.querySelectorAll('[id^="carousel-"]').forEach(carousel => {
+        
+        // Sucht die erste Karte im Carousel, um die Bildhöhe zu messen
+        const firstCardImageWrapper = carousel.querySelector('.card .position-relative');
+        const prevBtn = carousel.querySelector('.my-carousel-prev');
+        const nextBtn = carousel.querySelector('.my-carousel-next');
+
+        if (!firstCardImageWrapper || !prevBtn || !nextBtn) return;
+
+        // 1. Höhe des Bild-Wrappers messen (das ist der Bereich, den wir zentrieren wollen)
+        const imageHeight = firstCardImageWrapper.offsetHeight;
+        
+        // 2. Vertikale Mitte berechnen (Hälfte der Bildhöhe)
+        // Wir verwenden diesen Wert für 'top', da der Pfeil selbst 
+        // bereits mit transform: translateY(-50%) auf seine eigene Höhe korrigiert wird.
+        const verticalCenterPx = imageHeight / 2;
+
+        // 3. Position anwenden
+        if (verticalCenterPx > 30) { // Nur anwenden, wenn das Bild gerendert ist (Höhe > 0)
+            prevBtn.style.top = `${verticalCenterPx}px`;
+            nextBtn.style.top = `${verticalCenterPx}px`;
+            
+            // Stellen Sie sicher, dass die absolute Positionierung korrekt ist
+            prevBtn.style.position = 'absolute';
+            nextBtn.style.position = 'absolute';
+            prevBtn.style.transform = 'translateY(-50%)'; // Erneut anwenden
+            nextBtn.style.transform = 'translateY(-50%)'; // Erneut anwenden
+        }
+    });
+}
+
+// 4. Events für Laden, Resize und nach dem Laden von Bildern auslösen
+document.addEventListener("DOMContentLoaded", centerCarouselArrowsDynamically);
+window.addEventListener("resize", centerCarouselArrowsDynamically);
+// Fügen Sie window.addEventListener("load", ...) hinzu, um sicherzustellen, dass alle Bilder geladen sind
+window.addEventListener("load", centerCarouselArrowsDynamically); 
+</script>

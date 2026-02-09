@@ -1,0 +1,74 @@
+.custom-modal-overlay {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1050;
+}
+
+.custom-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 750px;
+  max-width: 90%;
+  padding: 28px 32px;
+  box-shadow: 0 6px 40px rgba(0,0,0,0.25);
+  animation: fadeIn .3s ease;
+}
+
+.heightInput {
+  height: 55px !important;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+
+/* Dark Button */
+.btn-dark {
+  background-color: #111A2C;
+  border: none;
+  transition: .2s ease;
+}
+.btn-dark:hover {
+  background-color: #1e2a47;
+}
+
+/* Outline Button */
+.btn-outline-secondary {
+  border: 1px solid #bbb;
+  transition: .2s ease;
+}
+.btn-outline-secondary:hover {
+  background-color: #f4f4f4;
+}
+
+/* Flags, Icons, Inputs */
+.custom-modal .form-select {
+  border-radius: 10px;
+  font-size: 0.95rem;
+}
+
+.custom-modal label {
+  font-weight: 600;
+}
+
+/* Close Button */
+.btn-close {
+  filter: brightness(0);
+}
+
+/* Mobile Anpassungen */
+@media (max-width: 480px) {
+  .custom-modal {
+    padding: 22px 24px;
+  }
+  .heightInput {
+    height: 48px !important;
+  }
+}

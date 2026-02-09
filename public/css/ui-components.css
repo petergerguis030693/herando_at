@@ -1,0 +1,145 @@
+button {
+    border-radius: 5px;
+}
+
+select {
+    border-radius: 5px !important;
+}
+
+input {
+ border-radius: 5px !important;
+}
+
+label {
+    border-radius: 5px !important;
+}
+
+img {
+    border-radius: 5px !important;
+}
+
+.btn {
+  border-radius: 5px !important;
+  padding: 10px 14px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.btn-search {
+  background: #1A253C;
+  color: #fff !important;
+}
+
+.btn-search:hover {
+  filter: brightness(0.95);
+}
+
+.btn-reset {
+  background: #eef2f7;
+  color: var(--f-accent-2) !important;
+  text-decoration: none;
+}
+
+.btn-more {
+  background: #f3f4f6;
+  color: var(--f-accent-2);
+}
+
+.btn-primary {
+  box-sizing: border-box;
+  border: 2px solid #1A253C;
+  padding: 10px 14px; /* fixiert Höhe */
+}
+
+.btn-primary:hover,
+.btn-primary:focus,
+.btn-primary:active {
+  border-color: #c39052; /* Gold */
+  background-color: #1A253C;
+}
+
+.btn-primary {
+  --bs-btn-bg: #1A253C;
+  --bs-btn-border-color: #1A253C;
+}
+
+.btn-outline-light:hover {
+  border-color: transparent;
+  color: white;
+}
+
+.btn-outline-primary{
+  border-color: transparent !important;
+  color: white;
+}
+
+.btn-outline-primary:hover{
+  border-color: transparent !important;
+  color: white;
+}
+
+.modal-backdrop {
+    width: 100% !important;
+    height: 100% !important;
+}
+
+.search-leiste {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search-leiste .input-group,
+.search-leiste .input-group:focus-within,
+.search-leiste .form-control,
+.search-leiste .form-control:focus,
+.search-leiste .input-group-text {
+  border-color: rgb(229, 226, 226);
+  box-shadow: none !important;
+  outline: none !important;
+}
+
+.form-check-input:focus {
+    border-color: #c39052;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(200, 148, 6, 0.25);
+}
+
+#privacyGrid input[type="checkbox"]{
+  all: unset;             
+  box-sizing: border-box;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #adb5bd;
+  border-radius: 3px;
+  background: #fff;
+  display: inline-block;
+  vertical-align: middle;
+  cursor: pointer;
+}
+
+/* Checked */
+#privacyGrid input[type="checkbox"]:checked{
+  background: #c9a24d;
+  border-color: #c9a24d;
+
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 16 16' fill='white' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M13.485 1.929l1.414 1.414L5.657 12.586 1.1 8.03l1.414-1.414 3.143 3.143z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 70%;
+}
+
+.filter-input {
+  border-radius: 5px !important;
+}
+
+.form-select:focus {
+    border-color: #c39052;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(220, 220, 221, 0.25);
+}
+
+.btn-check:checked+.btn, .btn.active, .btn.show, .btn:first-child:active, :not(.btn-check)+.btn:active {
+    color: white;
+    background-color: #c39052;;
+    border-color: transparent;
+}
