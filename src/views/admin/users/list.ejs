@@ -44,28 +44,60 @@
       </div>
     <% } %>
 
+    <%
+      const buildQuery = (patch = {}) => {
+        const merged = {
+          search: search || '',
+          status: status || 'all',
+          package: packageFilter || '',
+          entity: entityFilter || '',
+          ...patch
+        };
+        const params = new URLSearchParams();
+        Object.entries(merged).forEach(([key, value]) => {
+          if (value === null || value === undefined || value === '') return;
+          params.set(key, String(value));
+        });
+        const query = params.toString();
+        return query ? `?${query}` : '?';
+      };
+    %>
+
     <!-- Status-Filter Buttons -->
     <div class="mb-3">
-      <a href="?search=<%= encodeURIComponent(search) %>&status=all" class="btn <%= status==='all' ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+      <a href="<%= buildQuery({ status: 'all', page: null }) %>" class="btn <%= status==='all' ? 'btn-primary' : 'btn-outline-primary' %> me-2">
         Alle
       </a>
-      <a href="?search=<%= encodeURIComponent(search) %>&status=active" class="btn <%= status==='active' ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+      <a href="<%= buildQuery({ status: 'active', page: null }) %>" class="btn <%= status==='active' ? 'btn-primary' : 'btn-outline-primary' %> me-2">
         Aktive
       </a>
-      <a href="?search=<%= encodeURIComponent(search) %>&status=expired" class="btn <%= status==='expired' ? 'btn-primary' : 'btn-outline-primary' %>">
+      <a href="<%= buildQuery({ status: 'expired', page: null }) %>" class="btn <%= status==='expired' ? 'btn-primary' : 'btn-outline-primary' %>">
         Abgelaufen
       </a>
     </div>
 
     <div class="mb-3">
-      <a href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&package=" 
+      <a href="<%= buildQuery({ package: null, page: null }) %>"
         class="btn <%= !packageFilter ? 'btn-primary' : 'btn-outline-primary' %> me-2">
         Alle Pakete
       </a>
       <% allPackages.forEach(pkg => { %>
-        <a href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&package=<%= encodeURIComponent(pkg.package_id) %>" 
-          class="btn <%= packageFilter === pkg.package_id ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+        <a href="<%= buildQuery({ package: pkg.package_id, page: null }) %>"
+          class="btn <%= packageFilter === String(pkg.package_id) ? 'btn-primary' : 'btn-outline-primary' %> me-2">
           <%= pkg.package_id %>
+        </a>
+      <% }) %>
+    </div>
+
+    <div class="mb-3">
+      <a href="<%= buildQuery({ entity: null, page: null }) %>"
+        class="btn <%= !entityFilter ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+        Alle Entitäten
+      </a>
+      <% allEntities.forEach(ent => { %>
+        <a href="<%= buildQuery({ entity: ent.id, page: null }) %>"
+          class="btn <%= entityFilter === String(ent.id) ? 'btn-primary' : 'btn-outline-primary' %> me-2">
+          <%= ent.name %>
         </a>
       <% }) %>
     </div>
@@ -79,6 +111,16 @@
         type="hidden"
         name="status"
         value="<%= status %>"
+      >
+      <input
+        type="hidden"
+        name="package"
+        value="<%= packageFilter || '' %>"
+      >
+      <input
+        type="hidden"
+        name="entity"
+        value="<%= entityFilter || '' %>"
       >
       <input
         type="text"
@@ -109,7 +151,7 @@
 
           <p>
             <span class="badge <%= isactive ? 'bg-success' : 'bg-secondary' %> mb-2">
-              <%= isactive ? 'aufrecht' : 'abgelaufen' %>
+              <%= isactive ? 'aktiv' : 'abgelaufen' %>
             </span>
           </p>
 
@@ -140,6 +182,12 @@
               </span>
             <% } %>
           </p>
+          <% if (u.fax) { %>
+            <p class="mb-0">
+              <i class="bi bi-printer-fill me-2 text-muted"></i>
+              <%= u.fax %>
+            </p>
+          <% } %>
           <p class="mb-2">
             <i class="bi bi-house-fill me-2 text-info"></i>
             <%= u.street || '–' %> <%= u.housenumber || '' %>
@@ -152,12 +200,23 @@
             <i class="bi bi-envelope-fill me-2 text-danger"></i>
             <%= u.email %>
           </p>
-          <% if (u.fax) { %>
-            <p class="mb-0">
-              <i class="bi bi-printer-fill me-2 text-muted"></i>
-              <%= u.fax %>
-            </p>
-          <% } %>
+          <p class="mb-2">
+            <i class="bi bi-box-seam me-2 text-primary"></i>
+            Pakete (<%= u.ordered_packages_count || 0 %>): <%= u.package_names || '–' %>
+          </p>
+          <p class="mb-2">
+            <i class="bi bi-diagram-3-fill me-2 text-success"></i>
+            Entitäten bestellt: <%= u.ordered_entities_count || 0 %>
+            <% if (u.ordered_entity_names) { %>
+              <br><small class="text-muted"><%= u.ordered_entity_names %></small>
+            <% } %>
+          </p>
+          <div class="small border rounded p-2 mb-2 bg-light">
+            <div>Entwürfe: <strong><%= u.listings_drafts || 0 %></strong> (visible 0 / status 0)</div>
+            <div>Online: <strong><%= u.listings_online || 0 %></strong> (status 3 / visible 1)</div>
+            <div>Pausiert: <strong><%= u.listings_paused || 0 %></strong> (status 4 / visible 0)</div>
+          </div>
+
 
           <div class="mt-auto">
             <% if (u.has_flatrate) { %>
@@ -249,10 +308,10 @@ document.addEventListener('DOMContentLoaded', () => {
       <nav aria-label="Seiten-Navigation" class="mt-4">
         <ul class="pagination justify-content-center">
           <li class="page-item <%= page===1?'disabled':'' %>">
-            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=1">« Erste</a>
+            <a class="page-link" href="<%= buildQuery({ page: 1 }) %>">« Erste</a>
           </li>
           <li class="page-item <%= page===1?'disabled':'' %>">
-            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= page-1 %>">‹ Zurück</a>
+            <a class="page-link" href="<%= buildQuery({ page: page - 1 }) %>">‹ Zurück</a>
           </li>
 
           <% if (start>1) { %>
@@ -261,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
           <% for (let p=start; p<=end; p++) { %>
             <li class="page-item <%= p===page?'active':'' %>">
-              <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= p %>"><%= p %></a>
+              <a class="page-link" href="<%= buildQuery({ page: p }) %>"><%= p %></a>
             </li>
           <% } %>
 
@@ -270,10 +329,10 @@ document.addEventListener('DOMContentLoaded', () => {
           <% } %>
 
           <li class="page-item <%= page===totalPages?'disabled':'' %>">
-            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= page+1 %>">Weiter ›</a>
+            <a class="page-link" href="<%= buildQuery({ page: page + 1 }) %>">Weiter ›</a>
           </li>
           <li class="page-item <%= page===totalPages?'disabled':'' %>">
-            <a class="page-link" href="?search=<%= encodeURIComponent(search) %>&status=<%= status %>&page=<%= totalPages %>">Letzte »</a>
+            <a class="page-link" href="<%= buildQuery({ page: totalPages }) %>">Letzte »</a>
           </li>
         </ul>
       </nav>

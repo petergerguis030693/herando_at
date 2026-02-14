@@ -4,52 +4,52 @@
 <%
   // Getriebe (gearbox)
   const gearboxMap = {
-    1: "Schaltgetriebe",
-    2: "Halbautomatik",
-    3: "Automatik",
-    4: "F1-Getriebe"
+    1: t('attribute.cars.gearbox.1', 'Schaltgetriebe'),
+    2: t('attribute.cars.gearbox.2', 'Halbautomatik'),
+    3: t('attribute.cars.gearbox.3', 'Automatik'),
+    4: t('attribute.cars.gearbox.4', 'F1-Getriebe')
   };
 
   // Kraftstoff (fuel)
   const fuelMap = {
-    1: "Benzin",
-    2: "Diesel",
-    3: "Ethanol",
-    4: "Hybrid",
-    5: "Elektro"
+    1: t('attribute.cars.fuel.1', 'Benzin'),
+    2: t('attribute.cars.fuel.2', 'Diesel'),
+    3: t('attribute.cars.fuel.3', 'Ethanol'),
+    4: t('attribute.cars.fuel.4', 'Hybrid'),
+    5: t('attribute.cars.fuel.5', 'Elektro')
   };
 
   // Fahrzeugtyp (cartype)
   const cartypeMap = {
-    1: "Coupé",
-    2: "Cabrio",
-    3: "Limousine",
-    4: "Stretch",
-    5: "Kombi",
-    6: "Pickup"
+    1: t('attribute.cars.cartype.1', 'Coupé'),
+    2: t('attribute.cars.cartype.2', 'Cabrio'),
+    3: t('attribute.cars.cartype.3', 'Limousine'),
+    4: t('attribute.cars.cartype.4', 'Stretch'),
+    5: t('attribute.cars.cartype.5', 'Kombi'),
+    6: t('attribute.cars.cartype.6', 'Pickup')
   };
 %>
 
 <%
   const propertyTypeMap = {
-    4: "Wohnung",
-    5: "Penthouse",
-    6: "Villa / Haus",
-    8: "Maisonette",
-    10: "Finca",
-    11: "Privatinsel",
-    12: "Schloss / Herrenhaus",
-    255: "Sonstige"
+    4: t('attribute.properties.propertytype.4', 'Wohnung'),
+    5: t('attribute.properties.propertytype.5', 'Penthouse'),
+    6: t('attribute.properties.propertytype.6', 'Villa / Haus'),
+    8: t('attribute.properties.propertytype.8', 'Maisonette'),
+    10: t('attribute.properties.propertytype.10', 'Finca'),
+    11: t('attribute.properties.propertytype.11', 'Privatinsel'),
+    12: t('attribute.properties.propertytype.12', 'Schloss / Herrenhaus'),
+    255: t('attribute.properties.propertytype.255', 'Sonstige')
   };
 
   const propertyShapeMap = {
-    1: "Erstbezug",
-    2: "Erstbezug nach Sanierung",
-    3: "Wie neu",
-    4: "Renoviert",
-    5: "Modernisiert",
-    6: "Saniert",
-    7: "Gepflegt"
+    1: t('attribute.properties.quality.1', 'Erstbezug'),
+    2: t('attribute.properties.quality.2', 'Erstbezug nach Sanierung'),
+    3: t('attribute.properties.quality.3', 'Wie neu'),
+    4: t('attribute.properties.quality.4', 'Saniert'),
+    5: t('attribute.properties.quality.5', 'Modernisiert'),
+    6: t('attribute.properties.quality.6', 'Renoviert'),
+    7: t('attribute.properties.quality.7', 'Gepflegt')
   };
 %>
 
@@ -145,7 +145,7 @@
                     <% if (item.firstregistration) { %>
                       <span class="info-item">
                         <i class="bi bi-calendar-event"></i>
-                        Erstzulassung <%= item.firstregistration %>
+                        <%= t('cars.first_registration', 'Erstzulassung') %> <%= item.firstregistration %>
                       </span>
                     <% } %>
 
@@ -174,7 +174,7 @@
       <% if (item.rooms) { %>
         <span class="info-item">
           <i class="bi bi-door-closed"></i>
-          <%= item.rooms %> Zimmer
+          <%= item.rooms %> <%= t('properties.rooms', 'Zimmer') %>
         </span>
       <% } %>
 
@@ -191,37 +191,37 @@
 
 <%
   const yachtTypeMap = {
-    1: "Motoryacht",
-    2: "Sportkreuzer",
-    3: "Kajütkreuzer",
-    4: "Kreuzer",
-    5: "Runabout",
-    6: "Daycruiser",
-    7: "Sportfischer",
-    8: "Dutchman",
-    9: "Motor Cabin Boat",
-    10: "Flybridge",
-    11: "Hausboot",
-    12: "See-Erlaubnis",
-    13: "Elektroboot",
-    14: "Kajütboot",
-    15: "Katamaran",
-    16: "Offshore-Boot",
-    17: "Trawler",
-    18: "Solarboot",
-    19: "Wasserski-Boot",
-    20: "Sportboot"
+    1: t('attribute.yachts.yachttype.1', 'Motoryacht'),
+    2: t('attribute.yachts.yachttype.2', 'Sportkreuzer'),
+    3: t('attribute.yachts.yachttype.3', 'Kajütkreuzer'),
+    4: t('attribute.yachts.yachttype.4', 'Kreuzer'),
+    5: t('attribute.yachts.yachttype.5', 'Runabout'),
+    6: t('attribute.yachts.yachttype.6', 'Daycruiser'),
+    7: t('attribute.yachts.yachttype.7', 'Sportfischer'),
+    8: t('attribute.yachts.yachttype.8', 'Dutchman'),
+    9: t('attribute.yachts.yachttype.9', 'Motor Cabin Boat'),
+    10: t('attribute.yachts.yachttype.10', 'Flybridge'),
+    11: t('attribute.yachts.yachttype.11', 'Hausboot'),
+    12: t('attribute.yachts.yachttype.12', 'See-Erlaubnis'),
+    13: t('attribute.yachts.yachttype.13', 'Elektroboot'),
+    14: t('attribute.yachts.yachttype.14', 'Kajütboot'),
+    15: t('attribute.yachts.yachttype.15', 'Katamaran'),
+    16: t('attribute.yachts.yachttype.16', 'Offshore-Boot'),
+    17: t('attribute.yachts.yachttype.17', 'Trawler'),
+    18: t('attribute.yachts.yachttype.18', 'Solarboot'),
+    19: t('attribute.yachts.yachttype.19', 'Wasserski-Boot'),
+    20: t('attribute.yachts.yachttype.20', 'Sportboot')
   };
 
   const yachtFuelMap = {
-    1: "Benzin",
-    2: "Diesel",
-    3: "Ethanol",
-    4: "Hybrid",
-    5: "Elektrisch",
-    6: "Wasserstoff",
-    7: "Solar",
-    8: "Sonstige"
+    1: t('attribute.yachts.fuel.1', 'Benzin'),
+    2: t('attribute.yachts.fuel.2', 'Diesel'),
+    3: t('attribute.yachts.fuel.3', 'Ethanol'),
+    4: t('attribute.yachts.fuel.4', 'Hybrid'),
+    5: t('attribute.yachts.fuel.5', 'Elektrisch'),
+    6: t('attribute.yachts.fuel.6', 'Wasserstoff'),
+    7: t('attribute.yachts.fuel.7', 'Solar'),
+    8: t('attribute.yachts.fuel.8', 'Sonstige')
   };
 %>
 
@@ -253,7 +253,7 @@
       <% if (item.year) { %>
         <span class="info-item">
           <i class="bi bi-calendar-event"></i>
-          Baujahr <%= item.year %>
+          <%= t('yachts.year', 'Baujahr') %> <%= item.year %>
         </span>
       <% } %>
 
@@ -263,29 +263,35 @@
 
 <%
   const watchTypeMap = {
-    1: "Armbanduhr",
-    2: "Taschenuhr",
-    3: "Tischuhr"
+    1: t('attribute.watch.watchtype.1', 'Armbanduhr'),
+    2: t('attribute.watch.watchtype.2', 'Taschenuhr'),
+    3: t('attribute.watch.watchtype.3', 'Tischuhr')
   };
 
   const watchMovementMap = {
-    1: "Automatikwerk",
-    2: "Handaufzugswerk",
-    3: "Quarzwerk"
+    1: t('watch.movement.automatic', 'Automatikwerk'),
+    2: t('watch.movement.manual', 'Handaufzugswerk'),
+    3: t('watch.movement.quartz', 'Quarzwerk')
   };
 
   const watchCaseMap = {
-    1: "Roségold",
-    2: "Edelstahl",
-    3: "Weißgold",
-    4: "Gelbgold",
-    5: "Platin",
-    6: "Rotgold",
-    7: "Titan",
-    8: "Gold & Stahl",
-    9: "Keramik",
-    10: "Palladium",
-    11: "Silber"
+    1: t('watch.case.rose_gold', 'Roségold'),
+    2: t('watch.case.steel', 'Edelstahl'),
+    3: t('watch.case.white_gold', 'Weißgold'),
+    4: t('watch.case.yellow_gold', 'Gelbgold'),
+    5: t('watch.case.platinum', 'Platin'),
+    6: t('watch.case.red_gold', 'Rotgold'),
+    7: t('watch.case.titanium', 'Titan'),
+    8: t('watch.case.gold_steel', 'Gold & Stahl'),
+    9: t('watch.case.ceramic', 'Keramik'),
+    10: t('watch.case.palladium', 'Palladium'),
+    11: t('watch.case.silver', 'Silber')
+  };
+
+  const watchGenderMap = {
+    1: t('attribute.watch.gender.1', 'Herren'),
+    2: t('attribute.watch.gender.2', 'Damen'),
+    3: t('attribute.watch.gender.3', 'Unisex')
   };
 %>
 
@@ -317,7 +323,7 @@
       <% if (item.gender) { %>
         <span class="info-item">
           <i class="bi bi-person"></i>
-          <%= item.gender === 1 ? "Herren" : item.gender === 2 ? "Damen" : "Unisex" %>
+          <%= watchGenderMap[item.gender] || '' %>
         </span>
       <% } %>
 
@@ -327,7 +333,7 @@
 
 
               <p class="productPrice mb-2" style="margin-top:12px;">
-                <%= item.priceFormatted || 'Preis auf Anfrage' %>
+                <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
               </p>
             </div>
           </div>
@@ -362,7 +368,7 @@
 
     <!-- TITEL OBEN -->
     <div class="hernando-perpage-title">
-      Inserate pro Seite
+      <%= t('seller.items_per_page', 'Inserate pro Seite') %>
     </div>
 
     <!-- ROW DARUNTER -->

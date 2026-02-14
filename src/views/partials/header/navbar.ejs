@@ -150,6 +150,12 @@ const normalize = (r) => {
 
   <% }) %>
 
+  <li class="nav-item position-static meNU">
+    <a class="nav-link text-uppercase" href="https://herando.com/de/investment">
+      <%= t('category.investment', 'Investment').toUpperCase() %>
+    </a>
+  </li>
+
 </ul>
 </div>
 
@@ -360,6 +366,14 @@ const normalize = (r) => {
         <% } %>
       </li>
     <% }) %>
+
+    <li class="mobile-item">
+      <div class="d-flex justify-content-between align-items-center mobile-link-header">
+        <a href="https://herando.com/de/investment" class="w-100">
+          <%= t('category.investment', 'Investment') %>
+        </a>
+      </div>
+    </li>
   </ul>
   
   <div class="mobile-menu-footer p-4 border-top">

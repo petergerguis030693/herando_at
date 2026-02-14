@@ -372,6 +372,9 @@ const labelMap = {
   adnumber:                  'Anzeigen-Nr.'
 };
 
+const renderNotFound = (req, res) =>
+  res.status(404).render('errors/404', { currentUrl: req.originalUrl, seo: '404 Error', });
+
 
 
 router.use(async (req, res, next) => {
@@ -392,6 +395,10 @@ router.use(async (req, res, next) => {
 // LOGIN
 // ——————————————————————————
 router.get('/login', (req, res) => {
+  if (req.session?.userId) {
+    if (Number(req.session.role) === 9) return res.redirect('/admin');
+    return renderNotFound(req, res);
+  }
   res.render('admin/login', { error: null });
 });
 
@@ -406,13 +413,15 @@ router.post('/login', async (req, res) => {
       [username]
     );
 
-    if (!user) {
-      return res.render('admin/login', { error: 'Benutzer nicht gefunden oder nicht bestätigt.' });
-    }
+    if (!user) return renderNotFound(req, res);
 
     const valid = await bcrypt.compare(password, user.password);
     if (!valid) {
-      return res.render('admin/login', { error: 'Falsches Passwort.' });
+      return renderNotFound(req, res);
+    }
+
+    if (Number(user.role) !== 9) {
+      return renderNotFound(req, res);
     }
 
     // ✅ Session setzen
@@ -448,6 +457,7 @@ router.get('/logout', (req, res) => {
 router.use((req, res, next) => {
   if (req.path.startsWith('/login')) return next();
   if (!req.session.userId) return res.redirect('/admin/login');
+  if (Number(req.session.role) !== 9) return renderNotFound(req, res);
   next();
 });
 

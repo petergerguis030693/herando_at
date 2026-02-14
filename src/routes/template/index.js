@@ -10,10 +10,104 @@ const nodePath = require('path');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
+const crypto = require('crypto');
 const geoip = require('geoip-lite');
 const DISABLE_PAYMENT = process.env.DISABLE_PAYMENT === 'true';
 
 const imagesBase = path.resolve('/', 'media', 'herando', 'images');
+
+let ensureListingVisitUniquesTablePromise = null;
+
+async function ensureListingVisitUniquesTable() {
+  if (!ensureListingVisitUniquesTablePromise) {
+    ensureListingVisitUniquesTablePromise = db.query(`
+      CREATE TABLE IF NOT EXISTS listing_visit_uniques (
+        entity VARCHAR(64) NOT NULL,
+        advert_id INT NOT NULL,
+        visited DATE NOT NULL,
+        identity_hash CHAR(64) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (entity, advert_id, visited, identity_hash),
+        KEY idx_entity_advert_date (entity, advert_id, visited)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci
+    `).catch((err) => {
+      ensureListingVisitUniquesTablePromise = null;
+      throw err;
+    });
+  }
+  return ensureListingVisitUniquesTablePromise;
+}
+
+function getRequestClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const realIp = String(req.headers['x-real-ip'] || '').trim();
+  const raw = forwarded || realIp || req.ip || '';
+  return raw.replace(/^::ffff:/, '').trim();
+}
+
+function buildVisitIdentityHash(req) {
+  const ip = getRequestClientIp(req);
+  const ua = String(req.headers['user-agent'] || '').slice(0, 300);
+  const fallbackIdentity = ip || `sid:${req.sessionID || ''}|ua:${ua}`;
+  const salt = String(process.env.VISIT_IP_HASH_SALT || process.env.SESSION_SECRET || 'herando-visit-salt');
+
+  return crypto
+    .createHash('sha256')
+    .update(`${salt}|${fallbackIdentity}`)
+    .digest('hex');
+}
+
+async function incrementListingVisitOncePerIpPerDay({
+  req,
+  entityRoute,
+  listingId,
+  ownerUserId,
+  colSet,
+  tableSql
+}) {
+  const viewerUserId = Number(req.session?.userId) || null;
+  const ownerId = Number(ownerUserId) || null;
+  const isOwnerView = viewerUserId && ownerId && viewerUserId === ownerId;
+  if (isOwnerView) return false;
+
+  await ensureListingVisitUniquesTable();
+
+  const identityHash = buildVisitIdentityHash(req);
+  const [guardInsert] = await db.query(
+    `INSERT IGNORE INTO listing_visit_uniques (entity, advert_id, visited, identity_hash)
+     VALUES (?, ?, CURDATE(), ?)`,
+    [entityRoute, Number(listingId), identityHash]
+  );
+
+  if (!guardInsert?.affectedRows) {
+    return false;
+  }
+
+  await db.query(
+    `INSERT INTO visits (entity, advert_id, visits, visits2, visited)
+     VALUES (?, ?, 1, 1, CURDATE())
+     ON DUPLICATE KEY UPDATE
+       visits = visits + 1,
+       visits2 = visits2 + 1`,
+    [entityRoute, Number(listingId)]
+  );
+
+  const counterCol = colSet.has('visits')
+    ? 'visits'
+    : (colSet.has('views') ? 'views' : null);
+
+  if (counterCol) {
+    const counterColSql = db.escapeId(counterCol);
+    await db.query(
+      `UPDATE ${tableSql}
+          SET ${counterColSql} = COALESCE(${counterColSql}, 0) + 1
+        WHERE id = ?`,
+      [Number(listingId)]
+    );
+  }
+
+  return true;
+}
 
 function resolveImageFilename(tableName, itemId, candidate) {
   const dir = path.join(imagesBase, tableName, String(itemId));
@@ -36,7 +130,7 @@ function resolveImageFilename(tableName, itemId, candidate) {
     // Ordner existiert nicht oder Lesefehler → weiter zum Platzhalter
   }
   // 3) Platzhalter
-  return 'placeholder.jpg';
+  return '/assets/herando-weblogo.png';
 }
 
 function extractImage(serialized) {
@@ -141,7 +235,7 @@ function extractMainImage(mainpicture, pictures) {
     }
   } catch {}
 
-  return "placeholder.jpg";
+  return "/assets/herando-weblogo.png";
 }
 
 function extractMainImageSimple(mainpictureField, picturesArray) {
@@ -163,7 +257,32 @@ function extractMainImageSimple(mainpictureField, picturesArray) {
     }
   } catch {}
 
-  return "placeholder.jpg";
+  return "/assets/herando-weblogo.png";
+}
+
+function buildPublicImageUrl(entityOrTable, itemId, rawFilename) {
+  const fallback = '/assets/herando-weblogo.png';
+  if (!rawFilename) return fallback;
+
+  let value = String(rawFilename).trim();
+  if (!value) return fallback;
+
+  // Falls bereits URL-encoded gespeichert, einmal robust dekodieren.
+  try {
+    value = decodeURIComponent(value);
+  } catch (_) {}
+
+  if (/^https?:\/\//i.test(value)) return value;
+  if (/^\/\/assets\//i.test(value)) value = value.replace(/^\/+/, '/');
+  if (/^\/assets\/herando-weblogo\.jpe?g$/i.test(value)) return fallback;
+  if (value.startsWith('/assets/')) return value;
+  if (/^assets\//i.test(value)) return `/${value}`;
+  if (value.startsWith('/images/')) return value;
+
+  const clean = value.replace(/^\/+/, '');
+  if (!clean) return fallback;
+
+  return `/images/${entityOrTable}/${itemId}/${encodeURIComponent(clean)}`;
 }
 
 // 🔽 SORTING (muss IN der Route sein, weil req hier existiert)
@@ -743,6 +862,20 @@ router.get('/test/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) =
       return res.redirect(301, `/${entityRoute}/${id}/${realSlug}`);
     }
 
+    // 3a) Besucherzaehlung: maximal 1x pro IP + Inserat + Tag
+    try {
+      await incrementListingVisitOncePerIpPerDay({
+        req,
+        entityRoute,
+        listingId: Number(id),
+        ownerUserId: itemRow.user_id,
+        colSet,
+        tableSql: table
+      });
+    } catch (visitErr) {
+      console.warn('[DETAIL] visit counter update failed:', visitErr.message);
+    }
+
     // 4) Bilder (DB & Ordner)
     let rawPics;
     try { rawPics = unserialize(itemRow.pictures || 'a:0:{}') || []; } catch { rawPics = []; }
@@ -798,7 +931,7 @@ router.get('/test/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) =
 
     const filteredImages = allImgs.length
       ? getFilteredImages(allImgs)
-      : pics.map(pic => typeof pic === 'string' ? pic : (pic.image || 'placeholder.jpg'));
+      : pics.map(pic => typeof pic === 'string' ? pic : (pic.image || '/assets/herando-weblogo.png'));
     console.log('[DETAIL][pics] filtered:', filteredImages.length);
 
     // ⭐ NEUE MASTER-BILDLOGIK ⭐
@@ -810,7 +943,7 @@ router.get('/test/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) =
       : pics.map(p => (typeof p === "string" ? p : p?.image)).filter(Boolean);
 
     if (!thumbnailFilenames.length) {
-      thumbnailFilenames.push("placeholder.jpg");
+      thumbnailFilenames.push("/assets/herando-weblogo.png");
     }
 
     console.log('[DETAIL][pics] main:', mainFilename, 'thumbs:', thumbnailFilenames.length);
@@ -859,8 +992,9 @@ router.get('/test/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) =
     item.priceFormatted = priceFormatted;
     item.pictures       = pics;
     item.mainPic        = mainFilename;
-    item.imageUrl       = `/images/${entityRoute}/${id}/${encodeURIComponent(mainFilename)}`;
-    item.thumbnailUrls  = thumbnailFilenames.map(fn => `/images/${entityRoute}/${id}/${encodeURIComponent(fn)}`);
+    const toImageUrl = (fn) => buildPublicImageUrl(entityRoute, id, fn);
+    item.imageUrl       = toImageUrl(mainFilename);
+    item.thumbnailUrls  = thumbnailFilenames.map(fn => toImageUrl(fn));
     if (item.imageUrl && Array.isArray(item.thumbnailUrls)) {
       const main = item.imageUrl;
       item.thumbnailUrls = [ main, ...item.thumbnailUrls.filter(u => u !== main) ];
@@ -1014,14 +1148,14 @@ router.get('/test/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) =
     let recommendedItems = recs.map(r => {
       const rpRaw  = unserialize(r.pictures || 'a:0:{}');
       const rpics  = Array.isArray(rpRaw) ? rpRaw : Object.values(rpRaw);
-      const main   = (rpics[0] && rpics[0].image) ? rpics[0].image : String(rpics[0] || 'placeholder.jpg');
+      const main   = (rpics[0] && rpics[0].image) ? rpics[0].image : String(rpics[0] || '/assets/herando-weblogo.png');
       const num    = r.price != null ? Number(r.price) : null;
       return {
         id:             r.id,
         reference:      HAS_REF ? (r.reference ?? null) : null,
         title:          r.name,
         slug:           slugify(r.name, { lower: true, strict: true }),
-        imageUrl:       `/images/${entityRoute}/${r.id}/${encodeURIComponent(main)}`,
+        imageUrl:       buildPublicImageUrl(entityRoute, r.id, main),
         priceFormatted: num != null
           ? res.locals.convertPrice(num)
           : '–'
@@ -1168,7 +1302,7 @@ rows.forEach(r => {
 const rpics = safeParsePictures(r.pictures);
 const img = extractMainImage(r.mainpicture, rpics);
 
-r.mainpicture = `/images/${r.entity}/${r.id}/${encodeURIComponent(img)}`;
+r.mainpicture = buildPublicImageUrl(r.entity, r.id, img);
 console.log(`➡ Neuer finaler Bildpfad (URL): ${r.mainpicture}`);
 
 });
@@ -1780,7 +1914,7 @@ similarItems = similarItems.map(r => {
     id: r.id,
     title: r.name,
     slug: slugify(r.name, { lower: true, strict: true }),
-    imageUrl: `/images/${currentEntity.route}/${r.id}/${encodeURIComponent(img)}`,
+    imageUrl: buildPublicImageUrl(currentEntity.route, r.id, img),
     price: r.price,
     priceFormatted: r.price ? res.locals.convertPrice(r.price) : "Preis auf Anfrage"
   };
@@ -1891,11 +2025,11 @@ router.get('/', ensureAdmin, async (req, res, next) => {
       const pics = unserialize(car.pictures || 'a:0:{}') || [];
       const mainPicFilename = Array.isArray(pics) && pics.length > 0
         ? (pics[0] && pics[0].image ? pics[0].image : String(pics[0]))
-        : 'placeholder.jpg';
+        : '/assets/herando-weblogo.png';
       return {
         id: car.id,
         title: car.title,
-        imageUrl: `/images/cars/${car.id}/${encodeURIComponent(mainPicFilename)}`,
+        imageUrl: buildPublicImageUrl('cars', car.id, mainPicFilename),
         reference: car.title
       };
     });
@@ -1957,7 +2091,7 @@ const [magRows] = await db.query(`
 const magazinPosts = magRows.map(p => ({
   title:   p.title,
   slug:    p.slug,
-  image:   `/uploads/postings/${p.slug}/${p.cover_image || 'placeholder.jpg'}`,
+  image:   `/uploads/postings/${p.slug}/${p.cover_image || '/assets/herando-weblogo.png'}`,
   author:  p.author,
   excerpt: (p.content || '')
              .replace(/<[^>]+>/g, '')   // HTML-Tags weg
@@ -2259,6 +2393,8 @@ router.get('/api/catalog_ads/:entitieId', async (req, res, next) => {
       LEFT JOIN countries AS c
         ON c.id = t.country_id
       WHERE ca.entitie_id = ?
+        AND t.status = 3
+        AND t.visible = 1
         AND ca.start_date <= ?
         AND ca.end_date   >= ?
       ORDER BY ca.start_date DESC, ca.id DESC
@@ -2297,7 +2433,7 @@ router.get('/api/catalog_ads/:entitieId', async (req, res, next) => {
           : null,
         priceConverted: converted,
 
-        imageUrl: `/images/${ent.table_name}/${row.advertId}/${encodeURIComponent(filename)}`
+        imageUrl: buildPublicImageUrl(ent.table_name, row.advertId, filename)
       };
     });
 
@@ -2877,7 +3013,7 @@ listings.push(
     subtitle: `${e.label} • ${r.city || ""}`,
     image: r.mainpicture
       ? `/images/${e.table}/${r.id}/${r.mainpicture}`
-      : '/images/placeholder.jpg',
+      : '/assets/herando-weblogo.png',
     url: `/${e.table}/${r.id}/${slugify(r.title, { lower: true, strict: true })}`
   }))
 );
@@ -2973,7 +3109,7 @@ router.get('/search', ensureAdmin, async (req, res, next) => {
           raw = [];
         }
         const pics    = Array.isArray(raw) ? raw : Object.values(raw);
-        const mainPic = pics[0]?.image || 'placeholder.jpg';
+        const mainPic = pics[0]?.image || '/assets/herando-weblogo.png';
         const priceNum = row.price != null ? Number(row.price) : null;
 
         return {
@@ -4027,7 +4163,7 @@ router.get('/magazin', async (req, res, next) => {
         id: p.id,
         title,
         slug: p.slug,
-        image: `/uploads/postings/${p.slug}/${p.cover_image || 'placeholder.jpg'}`,
+        image: `/uploads/postings/${p.slug}/${p.cover_image || '/assets/herando-weblogo.png'}`,
         author: p.author,
         excerpt: (content || '').replace(/<[^>]+>/g, '').substring(0, 200).trim() + '…',
         seo_title: seoTitle,
@@ -4971,6 +5107,37 @@ const displaySeonames = [
 
     const groupedBrands = { [entity.route]: brands };
 
+    const entityTypeMap = {
+      properties: 1,
+      watches: 2,
+      cars: 3,
+      yachts: 4,
+      lifestyles: 5
+    };
+    const brandType = entityTypeMap[entity.route];
+
+    let allBrands = [];
+    let allModels = [];
+
+    if (brandType) {
+      [allBrands] = await db.query(
+        `SELECT id, name, seoname
+         FROM brands
+         WHERE type = ?
+         ORDER BY name ASC`,
+        [brandType]
+      );
+
+      [allModels] = await db.query(
+        `SELECT m.id, m.name, m.brand_id, b.name AS brand_name
+         FROM models m
+         JOIN brands b ON b.id = m.brand_id
+         WHERE b.type = ?
+         ORDER BY b.name ASC, m.name ASC`,
+        [brandType]
+      );
+    }
+
     // 5) Überschrift dynamisch auf Deutsch
     const nameMap = {
       cars: 'Autos',
@@ -4990,6 +5157,9 @@ const displaySeonames = [
     res.render('pages/templates/hersteller-marken', {
       entieties,
       groupedBrands,
+      allBrands,
+      allModels,
+      entityRoute: entity.route,
       footerColumns,
       user
     });
@@ -5359,16 +5529,19 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
         const imagePath =
           main.startsWith('http') || main.startsWith('/')
             ? main
-            : `/images/${ent.route}/${r.id}/${encodeURIComponent(main)}`;
+            : buildPublicImageUrl(ent.route, r.id, main);
+
+        const priceNum = Number(r.price);
+        const hasPrice = Number.isFinite(priceNum) && priceNum > 0;
 
         return {
           id: r.id,
           route: ent.route,
           title: r.title,
           slug: slugify(r.title || '', { lower: true, strict: true }),
-          priceFormatted: r.price
-            ? Number(r.price).toLocaleString('de-DE') + ' €'
-            : 'Preis auf Anfrage',
+          priceFormatted: hasPrice
+            ? res.locals.convertPrice(priceNum, res.locals.currency)
+            : null,
           image: imagePath,
           ...Object.fromEntries(existingFields.map(f => [f, r[f] ?? null]))
         };
@@ -5462,7 +5635,7 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
     if (typeof resolveImageFilename === 'function') {
       try { return resolveImageFilename(entityRoute, id, candidate); } catch {}
     }
-    return (candidate && String(candidate).trim()) || 'mainpicture.jpg';
+    return (candidate && String(candidate).trim()) || '/assets/herando-weblogo.png';
   }
 
   // Map für Watches-Delivery (UI --> echte DB-Spalten)
@@ -5572,8 +5745,10 @@ router.get('/:entityRoute/:slug', ensureAdmin, async (req, res, next) => {
 
       // 2) Pagination
       const currentPage = Math.max(1, parseInt(req.query.hp, 10) || 1);
-      const limit       = Math.max(1, parseInt(req.query.limit, 10) || 32);
-      const offset      = (currentPage - 1) * limit;
+      const allowedLimits = new Set([32, 60, 120]);
+      const requestedLimit = parseInt(req.query.limit, 10);
+      const limit = allowedLimits.has(requestedLimit) ? requestedLimit : 32;
+      const offset = (currentPage - 1) * limit;
 
       // 3) Eingehende Filter sammeln
       const rawFilters = {
@@ -6433,8 +6608,15 @@ router.get('/:entityRoute/:slug', ensureAdmin, async (req, res, next) => {
           ORDER BY name
         `);
 
-        brands = lifestyleBrands;
-        lifestyleTypes = lifestyleBrands;   // 🟢 wichtig: an Filter weitergeben!
+        const t = (res.locals && typeof res.locals.t === 'function')
+          ? res.locals.t
+          : ((key, fb) => (fb ?? key));
+        const translatedBrands = lifestyleBrands.map(b => ({
+          ...b,
+          name: t(`lifestyle.brand.${b.id}`, b.name)
+        }));
+        brands = translatedBrands;
+        lifestyleTypes = translatedBrands;   // 🟢 wichtig: an Filter weitergeben!
 
         // 2) Lifestyle Unterkategorien (= models)
         if (sel.lifestyleType && sel.lifestyleType.length > 0) {
@@ -6447,8 +6629,12 @@ router.get('/:entityRoute/:slug', ensureAdmin, async (req, res, next) => {
             ORDER BY name
           `, sel.lifestyleType);
 
-          models = subcategories;
-          lifestyleSubcategories = subcategories; // 🟢 wichtig
+          const translatedSubs = subcategories.map(sc => ({
+            ...sc,
+            name: t(`lifestyle.subcategory.${sc.id}`, sc.name)
+          }));
+          models = translatedSubs;
+          lifestyleSubcategories = translatedSubs; // 🟢 wichtig
 
         } else {
           models = [];
@@ -6518,8 +6704,37 @@ router.get('/:entityRoute/:slug', ensureAdmin, async (req, res, next) => {
 
       console.log('🧠 Sortier-Query aktiv:', orderBy);
 
-      // 🟢 Ads NUR wenn keine Filter UND keine Sortierung
-      const allowAds = !hasFilter && !hasSort && currentPage === 1;
+      // 🟢 Ads nur im ungefilterten/unsortierten Modus
+      const adsMode = !hasFilter && !hasSort;
+      const allowAds = adsMode && currentPage === 1;
+
+      let promotedAdIds = [];
+      if (adsMode) {
+        const [promotedRows] = await db.query(
+          `
+          SELECT ca.advert_id, MAX(ca.start_date) AS start_date
+          FROM catalog_ads ca
+          JOIN ${tableName} t ON t.id = ca.advert_id
+          WHERE ca.entitie_id = ?
+            AND CURDATE() BETWEEN ca.start_date AND ca.end_date
+            AND ${baseWhere}
+          GROUP BY ca.advert_id
+          ORDER BY start_date DESC
+          LIMIT ?
+          `,
+          [currentEntity.id, ...baseParams, limit]
+        );
+        promotedAdIds = promotedRows.map(r => r.advert_id);
+      }
+
+      const promotedExclusionSql = promotedAdIds.length
+        ? ` AND t.id NOT IN (${promotedAdIds.map(() => '?').join(',')})`
+        : '';
+      const promotedExcludeParams = promotedAdIds.length ? [...promotedAdIds] : [];
+      const promotedAdCount = promotedAdIds.length;
+      const normalOffset = (adsMode && currentPage > 1)
+        ? Math.max(0, offset - promotedAdCount)
+        : offset;
 
       if (allowAds) {
         console.log('➡️ UNION-Mode (Ads erlaubt)');
@@ -6573,38 +6788,31 @@ console.log('===========================================\n');
 let finalRows = [];
 
 // ================= ADS =================
-if (allowAds) {
+if (allowAds && promotedAdIds.length) {
   const [ads] = await db.query(`
     SELECT ${selectCols}, 1 AS is_ad
-    FROM catalog_ads ca
-    JOIN ${tableName} t      ON t.id = ca.advert_id
+    FROM ${tableName} t
     LEFT JOIN users u        ON u.id = t.user_id
     LEFT JOIN countries ctry ON ctry.id = u.country_id
-    WHERE ca.entitie_id = ?
-      AND CURDATE() BETWEEN ca.start_date AND ca.end_date
-      AND ${baseWhere}
-    ORDER BY ca.start_date DESC
-  `, [currentEntity.id, ...baseParams]);
+    WHERE t.id IN (${promotedAdIds.map(() => '?').join(',')})
+    ORDER BY FIELD(t.id, ${promotedAdIds.map(() => '?').join(',')})
+  `, [...promotedAdIds, ...promotedAdIds]);
 
   finalRows.push(...ads);
 }
 
 // ================= NORMALE DATENSÄTZE =================
+const normalLimit = allowAds ? Math.max(0, limit - finalRows.length) : limit;
 const [normalRows] = await db.query(`
   SELECT ${selectCols}, 0 AS is_ad
   FROM ${tableName} t
   LEFT JOIN users u        ON u.id = t.user_id
   LEFT JOIN countries ctry ON ctry.id = u.country_id
   WHERE ${where.join(' AND ')}
-    AND t.id NOT IN (
-      SELECT advert_id
-      FROM catalog_ads
-      WHERE entitie_id = ?
-        AND CURDATE() BETWEEN start_date AND end_date
-    )
+    ${promotedExclusionSql}
   ORDER BY ${orderBy}
   LIMIT ? OFFSET ?
-`, [...params, currentEntity.id, limit, offset]);
+`, [...params, ...promotedExcludeParams, normalLimit, normalOffset]);
 
 finalRows.push(...normalRows);
 
@@ -6663,10 +6871,11 @@ console.log('================================================\n');
         LEFT JOIN countries ctry ON ctry.id = t.country_id
         JOIN users u ON u.id = t.user_id
         ${whereClause}
+        ${promotedExclusionSql}
         ORDER BY ${orderBy}
         LIMIT ? OFFSET ?
         `,
-        [...params, limit, offset]
+        [...params, ...promotedExcludeParams, limit, normalOffset]
       );
 
       rows = normalRows;
@@ -6763,7 +6972,7 @@ console.log('================================================\n');
         title: titleMap.get(r.id) || r.name,   // 🟦 Übersetzung oder fallback
         mainPic: filename,
         countryCode: r.country_code || null,   // ✅ HIER
-        imageUrl: `/images/${entityRoute}/${r.id}/${encodeURIComponent(filename)}`,
+        imageUrl: buildPublicImageUrl(entityRoute, r.id, filename),
         price,
         priceFormatted: price ? res.locals.convertPrice(price) : null,
         ...extra   // ⭐ WICHTIG!
@@ -7035,7 +7244,7 @@ if (!hasSliderFilter) {
         filename = typeof first === 'string' ? first : first?.image;
       }
 
-      if (!filename) filename = 'herando-weblogo.png';
+      if (!filename) filename = '/assets/herando-weblogo.png';
 
       const price = r.price != null ? Number(r.price) : null;
 
@@ -7043,7 +7252,7 @@ if (!hasSliderFilter) {
         id: r.id,
         title: sliderTitleMap.get(r.id) || r.title,
         mainPic: filename,
-        imageUrl: `/images/${currentEntity.route}/${r.id}/${encodeURIComponent(filename)}`,
+        imageUrl: buildPublicImageUrl(currentEntity.route, r.id, filename),
         price,
         priceFormatted: price
           ? res.locals.convertPrice(price, res.locals.currency)
@@ -7203,7 +7412,7 @@ if (!hasSliderFilter) {
           limit,
           totalCount,
           footerColumns,
-            query: req.query,
+            query: { ...req.query, limit, hp: currentPage },
           sort: req.query.sort || 'newest' ,
           user,
           currency: res.locals.currency, 
@@ -7929,6 +8138,7 @@ async function loadFilterOptions(entityRoute, tableName, type, baseWhere, basePa
     `SELECT 
        ao.column_name,
        ao.option_value AS id,
+       ao.option_label AS base_name,
        COALESCE(
          NULLIF(uit.${langCol}, ''),
          NULLIF(uit.en, ''),
@@ -7946,7 +8156,14 @@ async function loadFilterOptions(entityRoute, tableName, type, baseWhere, basePa
       name COLLATE utf8mb4_german2_ci ASC`,
     [entityRoute]
   );
-  const opts = (col) => allOpts.filter(o => o.column_name === col).map(({id,name}) => ({ id:String(id), name }));
+  const opts = (col) =>
+    allOpts
+      .filter(o => o.column_name === col)
+      .map(({ id, name, base_name }) => ({
+        id: String(id),
+        name,
+        baseName: base_name || name
+      }));
 
   // Alias-Where (JOINs benutzen t.*)
   const baseWhereT = baseWhere
@@ -8140,7 +8357,13 @@ if (entityRoute === 'lifestyles') {
     WHERE type = 5
     ORDER BY name
   `);
-  lifestyleTypes = lt;
+  const t = (res.locals && typeof res.locals.t === 'function')
+    ? res.locals.t
+    : ((key, fb) => (fb ?? key));
+  lifestyleTypes = lt.map(b => ({
+    ...b,
+    name: t(`lifestyle.brand.${b.id}`, b.name)
+  }));
 
   if (lt.length) {
     const ids = lt.map(b => b.id);
@@ -8152,7 +8375,10 @@ if (entityRoute === 'lifestyles') {
       ORDER BY name
     `, ids);
 
-    lifestyleSubcategories = subs;
+    lifestyleSubcategories = subs.map(sc => ({
+      ...sc,
+      name: t(`lifestyle.subcategory.${sc.id}`, sc.name)
+    }));
   }
 }
 
@@ -8559,6 +8785,20 @@ router.get('/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) => {
       return res.redirect(301, `/${entityRoute}/${id}/${realSlug}`);
     }
 
+    // 3a) Besucherzaehlung: maximal 1x pro IP + Inserat + Tag
+    try {
+      await incrementListingVisitOncePerIpPerDay({
+        req,
+        entityRoute,
+        listingId: Number(id),
+        ownerUserId: itemRow.user_id,
+        colSet,
+        tableSql: table
+      });
+    } catch (visitErr) {
+      console.warn('[DETAIL] visit counter update failed:', visitErr.message);
+    }
+
     // 4) Bilder (DB & Ordner)
     let rawPics;
     try { rawPics = unserialize(itemRow.pictures || 'a:0:{}') || []; } catch { rawPics = []; }
@@ -8614,7 +8854,7 @@ router.get('/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) => {
 
     const filteredImages = allImgs.length
       ? getFilteredImages(allImgs)
-      : pics.map(pic => typeof pic === 'string' ? pic : (pic.image || 'placeholder.jpg'));
+      : pics.map(pic => typeof pic === 'string' ? pic : (pic.image || '/assets/herando-weblogo.png'));
     console.log('[DETAIL][pics] filtered:', filteredImages.length);
 
     // ⭐ NEUE MASTER-BILDLOGIK ⭐
@@ -8626,7 +8866,7 @@ router.get('/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) => {
       : pics.map(p => (typeof p === "string" ? p : p?.image)).filter(Boolean);
 
     if (!thumbnailFilenames.length) {
-      thumbnailFilenames.push("placeholder.jpg");
+      thumbnailFilenames.push("/assets/herando-weblogo.png");
     }
 
     console.log('[DETAIL][pics] main:', mainFilename, 'thumbs:', thumbnailFilenames.length);
@@ -8675,8 +8915,9 @@ router.get('/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) => {
     item.priceFormatted = priceFormatted;
     item.pictures       = pics;
     item.mainPic        = mainFilename;
-    item.imageUrl       = `/images/${entityRoute}/${id}/${encodeURIComponent(mainFilename)}`;
-    item.thumbnailUrls  = thumbnailFilenames.map(fn => `/images/${entityRoute}/${id}/${encodeURIComponent(fn)}`);
+    const toImageUrl = (fn) => buildPublicImageUrl(entityRoute, id, fn);
+    item.imageUrl       = toImageUrl(mainFilename);
+    item.thumbnailUrls  = thumbnailFilenames.map(fn => toImageUrl(fn));
     if (item.imageUrl && Array.isArray(item.thumbnailUrls)) {
       const main = item.imageUrl;
       item.thumbnailUrls = [ main, ...item.thumbnailUrls.filter(u => u !== main) ];
@@ -8830,14 +9071,14 @@ router.get('/:entityRoute/:id/:slug', ensureAdmin, async (req, res, next) => {
     let recommendedItems = recs.map(r => {
       const rpRaw  = unserialize(r.pictures || 'a:0:{}');
       const rpics  = Array.isArray(rpRaw) ? rpRaw : Object.values(rpRaw);
-      const main   = (rpics[0] && rpics[0].image) ? rpics[0].image : String(rpics[0] || 'placeholder.jpg');
+      const main   = (rpics[0] && rpics[0].image) ? rpics[0].image : String(rpics[0] || '/assets/herando-weblogo.png');
       const num    = r.price != null ? Number(r.price) : null;
       return {
         id:             r.id,
         reference:      HAS_REF ? (r.reference ?? null) : null,
         title:          r.name,
         slug:           slugify(r.name, { lower: true, strict: true }),
-        imageUrl:       `/images/${entityRoute}/${r.id}/${encodeURIComponent(main)}`,
+        imageUrl:       buildPublicImageUrl(entityRoute, r.id, main),
         priceFormatted: num != null
           ? res.locals.convertPrice(num)
           : '–'
@@ -8984,7 +9225,7 @@ rows.forEach(r => {
 const rpics = safeParsePictures(r.pictures);
 const img = extractMainImage(r.mainpicture, rpics);
 
-r.mainpicture = `/images/${r.entity}/${r.id}/${encodeURIComponent(img)}`;
+r.mainpicture = buildPublicImageUrl(r.entity, r.id, img);
 console.log(`➡ Neuer finaler Bildpfad (URL): ${r.mainpicture}`);
 
 });
@@ -9596,7 +9837,7 @@ similarItems = similarItems.map(r => {
     id: r.id,
     title: r.name,
     slug: slugify(r.name, { lower: true, strict: true }),
-    imageUrl: `/images/${currentEntity.route}/${r.id}/${encodeURIComponent(img)}`,
+    imageUrl: buildPublicImageUrl(currentEntity.route, r.id, img),
     price: r.price,
     priceFormatted: r.price ? res.locals.convertPrice(r.price) : "Preis auf Anfrage"
   };
@@ -9771,6 +10012,78 @@ function safeParsePictures(pics) {
 
 
 const contactRateLimit = {}; 
+const reportRateLimit = {};
+
+const LISTING_ROUTE_TO_TABLE = {
+  cars: 'cars',
+  watches: 'watches',
+  properties: 'properties',
+  yachts: 'yachts',
+  lifestyles: 'lifestyles'
+};
+
+const CONTACT_ALLOWED_HOSTS = new Set([
+  'herando.at',
+  'www.herando.at',
+  'herando.com',
+  'www.herando.com'
+]);
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function normalizeText(value, maxLen = 200) {
+  return String(value ?? '')
+    .trim()
+    .replace(/[\r\n\t]+/g, ' ')
+    .slice(0, maxLen);
+}
+
+function normalizeMessageHtml(value, maxLen = 3000) {
+  const txt = String(value ?? '').trim().slice(0, maxLen);
+  return escapeHtml(txt).replace(/\r?\n/g, '<br>');
+}
+
+function normalizeEmail(value) {
+  return String(value ?? '').trim().toLowerCase().slice(0, 254);
+}
+
+function isValidEmailAddress(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isTrustedPostOrigin(req) {
+  const source = req.get('origin') || req.get('referer');
+  if (!source) return false;
+
+  try {
+    const parsed = new URL(source);
+    const hostHeader = String(req.get('host') || '').toLowerCase();
+    const trustedHosts = new Set([...CONTACT_ALLOWED_HOSTS, hostHeader].filter(Boolean));
+    return trustedHosts.has(parsed.host.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+function isRateLimited(bucket, key, maxRequests = 5, windowMs = 60 * 60 * 1000) {
+  const now = Date.now();
+  const current = bucket[key];
+
+  if (!current || now - current.firstTime > windowMs) {
+    bucket[key] = { count: 1, firstTime: now };
+    return false;
+  }
+
+  current.count += 1;
+  return current.count > maxRequests;
+}
 
 function extractListingId(url) {
   try {
@@ -9784,14 +10097,24 @@ function extractListingId(url) {
 
 function parseListingUrl(url) {
   try {
-    const parts = url.split("/");
+    const parsed = new URL(String(url || ''), 'https://www.herando.at');
+    const hostname = parsed.hostname.toLowerCase();
+    if (!CONTACT_ALLOWED_HOSTS.has(hostname)) return null;
 
-    const entity = parts[3]; // cars, watches, properties, yachts, lifestyles
-    const id = parseInt(parts[4], 10);
+    const parts = parsed.pathname.split('/').filter(Boolean);
+    const entity = String(parts[0] || '').toLowerCase();
+    const id = parseInt(parts[1], 10);
 
-    if (!entity || !id) return null;
+    if (!LISTING_ROUTE_TO_TABLE[entity] || !Number.isInteger(id) || id <= 0) {
+      return null;
+    }
 
-    return { entity, id };
+    const safePath = `/${parts.map(p => encodeURIComponent(p)).join('/')}`;
+    return {
+      entity,
+      id,
+      url: `https://${hostname}${safePath}`
+    };
   } catch {
     return null;
   }
@@ -9801,8 +10124,12 @@ function parseListingUrl(url) {
 
 router.post('/send-contact', async (req, res) => {
   try {
+    if (!isTrustedPostOrigin(req)) {
+      return res.status(403).json({ success: false, error: 'Ungültige Herkunft der Anfrage.' });
+    }
+
     // 🔹 FORM-DATEN
-    const { firstName, lastName, email, phone, message, listingUrl, hp_field, gender  } = req.body;
+    const { firstName, lastName, email, phone, message, listingUrl, hp_field } = req.body;
     console.log('📨 /send-contact payload received:', {
       firstName: firstName ? '[ok]' : '[missing]',
       lastName: lastName ? '[ok]' : '[missing]',
@@ -9821,34 +10148,27 @@ router.post('/send-contact', async (req, res) => {
 
     // 🛡 2) Rate-Limit
     const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
-    const now = Date.now();
-    const windowMs = 60 * 60 * 1000;
-    const maxRequests = 5;
-
-    if (!contactRateLimit[ip]) {
-      contactRateLimit[ip] = { count: 1, firstTime: now };
-    } else {
-      const entry = contactRateLimit[ip];
-
-      if (now - entry.firstTime > windowMs) {
-        entry.count = 1;
-        entry.firstTime = now;
-      } else {
-        entry.count++;
-      }
-
-      if (entry.count > maxRequests) {
-        console.warn('Rate Limit überschritten von IP:', ip);
-        return res.status(429).json({
-          success: false,
-          error: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.'
-        });
-      }
+    if (isRateLimited(contactRateLimit, ip, 5, 60 * 60 * 1000)) {
+      console.warn('Rate Limit überschritten von IP:', ip);
+      return res.status(429).json({
+        success: false,
+        error: 'Zu viele Anfragen. Bitte versuchen Sie es später erneut.'
+      });
     }
 
     // ✔ Pflichtfelder
     if (!firstName || !lastName || !email || !message || !listingUrl) {
       return res.status(400).json({ success: false, error: 'Missing fields' });
+    }
+
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmailAddress(normalizedEmail)) {
+      return res.status(400).json({ success: false, error: 'Ungültige E-Mail-Adresse.' });
+    }
+
+    const parsedListing = parseListingUrl(listingUrl);
+    if (!parsedListing) {
+      return res.status(400).json({ success: false, error: 'Ungültige Inserat-URL.' });
     }
 
     // ✉️ SMTP
@@ -9863,12 +10183,12 @@ router.post('/send-contact', async (req, res) => {
     });
 
     // 🧹 Daten bereinigen
-    const safeFirstName = String(firstName).trim();
-    const safeLastName  = String(lastName).trim();
-    const safeEmail     = String(email).trim();
-    const safePhone     = String(phone || '').trim();
-    const safeMessage   = String(message || '').trim().replace(/\n/g, '<br>');
-    const listing       = String(listingUrl).trim();
+    const safeFirstName = escapeHtml(normalizeText(firstName, 120));
+    const safeLastName  = escapeHtml(normalizeText(lastName, 120));
+    const safeEmail     = escapeHtml(normalizedEmail);
+    const safePhone     = escapeHtml(normalizeText(phone, 80));
+    const safeMessage   = normalizeMessageHtml(message, 3000);
+    const safeListingUrl = parsedListing.url;
     const baseUrl       = process.env.BASE_URL || 'https://herando.at';
 
     // ------------------------------------------------------------------------------------------------------------------
@@ -9922,7 +10242,7 @@ router.post('/send-contact', async (req, res) => {
               <td align="center" bgcolor="#c39052" 
                   style="background-color:#c39052;text-align:center">
 
-                <a href="${listingUrl}" 
+                <a href="${safeListingUrl}" 
                   target="_blank"
                   style="display:inline-block;color:#ffffff;background-color:#c39052;
                   border:none;text-decoration:none;font-size:16px;font-weight:400;
@@ -10067,7 +10387,7 @@ const platformHtml = `
           <td align="center" bgcolor="#c39052" 
               style="background-color:#c39052;text-align:center">
 
-            <a href="${listingUrl}" 
+            <a href="${safeListingUrl}" 
                target="_blank"
                style="display:inline-block;color:#ffffff;background-color:#c39052;
                border:none;text-decoration:none;font-size:16px;font-weight:400;
@@ -10141,14 +10461,8 @@ const platformHtml = `
 </table>
 `;
 
-    const parsed = parseListingUrl(listingUrl);
-
-    if (!parsed) {
-      console.error("❌ Konnte Entität/ID nicht parsen aus listingUrl:", listingUrl);
-    }
-
-    const table = parsed.entity;  // z.B. "cars"
-    const listingId = parsed.id;
+    const table = db.escapeId(LISTING_ROUTE_TO_TABLE[parsedListing.entity]);
+    const listingId = parsedListing.id;
     console.log('🧩 Parsed listing:', { table, listingId });
 
     const [sellerRows] = await db.query(`
@@ -10164,8 +10478,8 @@ const platformHtml = `
       gender: sellerData.gender ?? null
     });
 
-const sellerFirstName = sellerData.firstname || "";
-const sellerLastName  = sellerData.lastname  || "";
+const sellerFirstName = escapeHtml(normalizeText(sellerData.firstname || '', 120));
+const sellerLastName  = escapeHtml(normalizeText(sellerData.lastname || '', 120));
 const sellerGender    = sellerData.gender    || 0;
 
 let anrede;
@@ -10240,7 +10554,7 @@ const sellerHtml = `
           <td align="center" bgcolor="#c39052" 
               style="background-color:#c39052;text-align:center">
 
-            <a href="${listingUrl}" 
+            <a href="${safeListingUrl}" 
                target="_blank"
                style="display:inline-block;color:#ffffff;background-color:#c39052;
                border:none;text-decoration:none;font-size:16px;font-weight:400;
@@ -10343,19 +10657,36 @@ const sellerHtml = `
 
 router.post('/report-listing', async (req, res) => {
   try {
+    if (!isTrustedPostOrigin(req)) {
+      return res.status(403).json({ success: false, error: 'Ungültige Herkunft der Anfrage.' });
+    }
+
     const { firstName, lastName, email, reason, message, itemTitle, itemId, itemUrl, hp_report } = req.body;
 
     if (hp_report) return res.json({ success: true });
+
+    const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown';
+    if (isRateLimited(reportRateLimit, ip, 5, 60 * 60 * 1000)) {
+      return res.status(429).json({ success: false, error: 'Zu viele Anfragen. Bitte später erneut versuchen.' });
+    }
 
     if (!firstName || !lastName || !email || !reason) {
       return res.status(400).json({ success: false, error: 'Missing fields' });
     }
 
-    const safeFirstName = String(firstName).trim();
-    const safeLastName  = String(lastName).trim();
-    const safeEmail     = String(email).trim();
-    const safeReason    = String(reason).trim();
-    const safeMessage   = String(message || '').trim().replace(/\n/g, '<br>');
+    const normalizedEmail = normalizeEmail(email);
+    if (!isValidEmailAddress(normalizedEmail)) {
+      return res.status(400).json({ success: false, error: 'Ungültige E-Mail-Adresse.' });
+    }
+
+    const safeFirstName = escapeHtml(normalizeText(firstName, 120));
+    const safeLastName  = escapeHtml(normalizeText(lastName, 120));
+    const safeEmail     = escapeHtml(normalizedEmail);
+    const safeReason    = escapeHtml(normalizeText(reason, 120));
+    const safeMessage   = normalizeMessageHtml(message, 3000);
+    const safeItemTitle = escapeHtml(normalizeText(itemTitle, 240));
+    const parsedItemUrl = parseListingUrl(itemUrl);
+    const safeItemUrl = parsedItemUrl ? parsedItemUrl.url : 'https://www.herando.at/';
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -10393,8 +10724,8 @@ ${safeMessage}</p>
 ` : ""}
 
 <p><strong>Inserat:</strong><br>
-${itemTitle}<br>
-<a href="${itemUrl}" style="color:#9c7240">${itemUrl}</a>
+${safeItemTitle}<br>
+<a href="${safeItemUrl}" style="color:#9c7240">${safeItemUrl}</a>
 </p>
 
 </td>

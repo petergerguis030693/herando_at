@@ -30,7 +30,7 @@
     <!-- IMAGE -->
     <div class="lux-card-img">
       <img 
-        src="/images/<%= currentEntity.route %>/<%= item.id %>/<%= item.mainPic %>"
+        src="<%= item.imageUrl || '/assets/herando-weblogo.png' %>"
         alt="<%= item.title %>"
         loading="lazy"
         onerror="this.onerror=null;this.src='/assets/herando-weblogo.png';this.classList.add('is-placeholder');">

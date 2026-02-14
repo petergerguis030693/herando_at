@@ -16,13 +16,51 @@
 />
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
+<%
+  const heroByEntity = {
+    yachts: {
+      img: "/assets/yachten.jpg",
+      caption: "Luxury Yachts",
+      text: "Discover luxury yachts & superyachts worldwide."
+    },
+    cars: {
+      img: "/assets/cars.jpg",
+      caption: "Luxury Cars",
+      text: "Explore exclusive cars and supercars worldwide."
+    },
+    watches: {
+      img: "/assets/watches.jpg",
+      caption: "Luxury Watches",
+      text: "Timeless elegance with exclusive watches."
+    },
+    properties: {
+      img: "/assets/properties.jpg",
+      caption: "Luxury Properties",
+      text: "Find your dream property around the world."
+    },
+    lifestyles: {
+      img: "/assets/lifestyle.jpg",
+      caption: "Luxury Lifestyle",
+      text: "Experience the world of luxury lifestyle."
+    }
+  };
+
+  const heroKey = (currentEntity && currentEntity.route ? String(currentEntity.route).toLowerCase() : "");
+  const heroData = heroByEntity[heroKey] || {
+    img: "/assets/cars.jpg",
+    caption: "Luxury",
+    text: ""
+  };
+%>
+<link rel="preload" as="image" href="<%= heroData.img %>">
+
 <section id="heroSection" class="hero-section">
-  <img id="heroImage" src="" alt="Luxury" class="hero-image">
-  <div id="heroCaption" class="hero-caption"></div>
-  <div id="heroText" class="hero-text"></div>
+  <img id="heroImage" src="<%= heroData.img %>" alt="<%= heroData.caption %>" class="hero-image" fetchpriority="high" loading="eager">
+  <div id="heroCaption" class="hero-caption"><%= heroData.caption %></div>
+  <div id="heroText" class="hero-text"><%= heroData.text %></div>
 </section>
 
-
+ 
 
 <%- include('../../components/product-slider') %>
 
@@ -151,25 +189,44 @@
 <%- include('../../components/script') %>
 <script>
 (function () {
-  const saved = localStorage.getItem('itemsPerPage');
-  if (!saved) return;
+  const allowedLimits = new Set(['32', '60', '120']);
+  const fallbackLimit = '32';
+  const selectEl = document.getElementById('itemsPerPage');
+
+  const savedRaw = localStorage.getItem('itemsPerPage');
+  const saved = (savedRaw && allowedLimits.has(savedRaw)) ? savedRaw : null;
+  if (savedRaw && !saved) {
+    localStorage.removeItem('itemsPerPage');
+  }
 
   const url = new URL(window.location.href);
+  const urlLimit = url.searchParams.get('limit');
+  const renderedLimit = (selectEl && allowedLimits.has(selectEl.value)) ? selectEl.value : null;
 
-  // nur anwenden, wenn URL kein limit hat
-  if (!url.searchParams.has('limit')) {
-    url.searchParams.set('limit', saved);
-    window.location.replace(url.toString());
+  // Kein Seiten-Reload mehr: wir normalisieren nur URL/State.
+  let effectiveLimit = fallbackLimit;
+  if (urlLimit && allowedLimits.has(urlLimit)) effectiveLimit = urlLimit;
+  else if (saved) effectiveLimit = saved;
+  else if (renderedLimit) effectiveLimit = renderedLimit;
+
+  if (!urlLimit || !allowedLimits.has(urlLimit)) {
+    url.searchParams.set('limit', effectiveLimit);
+    window.history.replaceState({}, '', url.toString());
   }
+
+  if (selectEl) selectEl.value = effectiveLimit;
+  localStorage.setItem('itemsPerPage', effectiveLimit);
 })();
 </script>
 
 <script>
 function updateLimit(limit){
-  localStorage.setItem('itemsPerPage', limit);
+  const allowedLimits = new Set(['32', '60', '120']);
+  const safeLimit = allowedLimits.has(String(limit)) ? String(limit) : '32';
+  localStorage.setItem('itemsPerPage', safeLimit);
 
   const url = new URL(window.location.href);
-  url.searchParams.set('limit', limit);
+  url.searchParams.set('limit', safeLimit);
   url.searchParams.set('hp', '1');
   window.location.href = url.toString();
 }

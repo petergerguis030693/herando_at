@@ -165,12 +165,11 @@
 
  .tiny-link {
      font-size: 1.1rem;
-     color: var(--hr-muted);
      text-decoration: none;
  }
 
  .tiny-link:hover {
-     text-decoration: underline;
+     color: #c39052;
  }
 
  .filter-bar .form-control {

@@ -185,8 +185,11 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
   <div class="bodytype-grid">
     <% (filters.cartypes || []).forEach(ct => {
         const checked = (selectedFilters.cartype||[]).map(String).includes(String(ct.id));
-        // Dateiname = name der Karosserieform in Kleinbuchstaben ohne Sonderzeichen
-        const fileName = ct.name.toLowerCase()
+        // Dateiname immer aus deutschem Basislabel (unabhängig von aktiver Sprache)
+        const fileBase = (ct.baseName || ct.name || '').toLowerCase()
+          .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+          .trim();
+        const fileName = fileBase
           .replace(/\s+/g, '_')     // Leerzeichen zu Unterstrich
           .replace(/ä/g, 'ae')
           .replace(/ö/g, 'oe')
@@ -383,7 +386,7 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
           style="background-color:#f7f9fc; color:black;"
         >
       </div>
-      <div class="unit"><span>PS</span></div>
+      <div class="unit"><span><%= t('units.ps', 'PS') %></span></div>
     </div>
   </div>
 
@@ -1071,14 +1074,30 @@ document.addEventListener('change', e => {
     <% if (currentEntity.route === 'watches') { 
        const isSel = (arr, v) => (Array.isArray(arr) ? arr.map(String).includes(String(v)) : String(arr||'') === String(v));
        const pick = (arr, fb) => (Array.isArray(arr) && arr.length ? arr : fb);
+       const mergeById = (arr, fb) => {
+         const out = [];
+         const seen = new Set();
+         const pushItem = (item) => {
+           const id = String(item?.id ?? '');
+           if (!id || seen.has(id)) return;
+           seen.add(id);
+           out.push(item);
+         };
+         (Array.isArray(arr) ? arr : []).forEach(pushItem);
+         (Array.isArray(fb) ? fb : []).forEach(pushItem);
+         return out;
+       };
        function countryName(c){ return (c && (c.name || c.de || c.label || c.iso2)) || ''; }
 
     const FB = {
       watchTypes: [
-        { id: 'dress',  name: t('filters.watches.watchTypes.dress', 'Dresswatch') },
-        { id: 'diver',  name: t('filters.watches.watchTypes.diver', 'Taucheruhr') },
-        { id: 'pilot',  name: t('filters.watches.watchTypes.pilot', 'Fliegeruhr') },
-        { id: 'chrono', name: t('filters.watches.watchTypes.chrono', 'Chronograph') },
+        { id: '1',   name: t('category.watches.wristwatch', 'Armbanduhr') },
+        { id: '2',   name: t('category.watches.pocketwatch', 'Taschenuhr') },
+        { id: '3',   name: t('category.watches.tableclock', 'Tischuhr') },
+        { id: '4',   name: t('category.watches.antique', 'Antike Uhr') },
+        { id: '5',   name: t('category.watches.standuhr', 'Standuhr') },
+        { id: '6',   name: t('category.watches.wanduhr', 'Wanduhr') },
+        { id: '255', name: t('category.watches.sonstiges', 'Sonstige Uhren') },
       ],
       genders: [
         { id: 'men',    name: t('filters.watches.genders.men', 'Herren') },
@@ -1220,7 +1239,7 @@ document.addEventListener('change', e => {
       <div class="md-select">
         <select name="watchtype" id="fWatchType">
           <option value=""><%= t('common.any','Beliebig') %></option>
-          <% pick(filters.watchTypes, FB.watchTypes).forEach(o => { %>
+          <% mergeById(filters.watchTypes, FB.watchTypes).forEach(o => { %>
             <option value="<%= o.id %>" <%= isSel(selectedFilters.watchtype, o.id) ? 'selected' : '' %>><%= o.name %></option>
           <% }) %>
         </select>
@@ -1731,6 +1750,9 @@ document.addEventListener('change', e => {
 document.addEventListener("DOMContentLoaded", () => {
   const propertySelect = document.getElementById("fPropertyType");
   const investmentSelect = document.getElementById("fInvestmentType");
+  const TEXT_ANY = <%- JSON.stringify(t('labels.common.any', 'Beliebig')) %>;
+  const TEXT_LOCKED_BY_PROPERTY = <%- JSON.stringify(t('filters.realestate.locked_by_propertytype', 'Auswahl durch Immobilienart eingeschränkt')) %>;
+  const TEXT_LOCKED_BY_INVESTMENT = <%- JSON.stringify(t('filters.realestate.locked_by_investmenttype', 'Auswahl durch Investmenttyp eingeschränkt')) %>;
 
   // Hilfsfunktion: Placeholder-Text ändern
   function setPlaceholder(select, text) {
@@ -1745,12 +1767,12 @@ document.addEventListener("DOMContentLoaded", () => {
       investmentSelect.disabled = true;
       investmentSelect.classList.add("disabled-filter");
 
-      setPlaceholder(investmentSelect, "🔒 Auswahl durch Immobilienart eingeschränkt");
+      setPlaceholder(investmentSelect, TEXT_LOCKED_BY_PROPERTY);
     } else {
       investmentSelect.disabled = false;
       investmentSelect.classList.remove("disabled-filter");
 
-      setPlaceholder(investmentSelect, "Beliebig");
+      setPlaceholder(investmentSelect, TEXT_ANY);
     }
 
     // 2) Investmenttyp → deaktiviert Immobilienart
@@ -1759,12 +1781,12 @@ document.addEventListener("DOMContentLoaded", () => {
       propertySelect.disabled = true;
       propertySelect.classList.add("disabled-filter");
 
-      setPlaceholder(propertySelect, "🔒 Auswahl durch Investmenttyp eingeschränkt");
+      setPlaceholder(propertySelect, TEXT_LOCKED_BY_INVESTMENT);
     } else {
       propertySelect.disabled = false;
       propertySelect.classList.remove("disabled-filter");
 
-      setPlaceholder(propertySelect, "Beliebig");
+      setPlaceholder(propertySelect, TEXT_ANY);
     }
   }
 

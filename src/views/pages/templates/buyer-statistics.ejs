@@ -1,0 +1,294 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/buyer.css">
+
+<style>
+  .account-shell { max-width: 1500px; margin: 24px auto; }
+  .main { flex: 1; padding: 24px; }
+  .stats-card {
+    border: 1px solid #e6e6e6;
+    border-radius: 12px;
+    background: #fff;
+    padding: 16px;
+    height: 100%;
+  }
+  .stats-label { color: #666; font-size: 0.92rem; }
+  .stats-value { font-size: 1.8rem; font-weight: 700; line-height: 1.1; color: #111; }
+  @media (max-width: 992px) {
+    .left-nav { display: none; }
+    .account-shell { padding: 0 12px; }
+  }
+</style>
+
+<body> 
+  <% const stats = (typeof dashboardStats !== 'undefined' && dashboardStats) ? dashboardStats : {}; %>
+  <% const listings = Array.isArray(listingRows) ? listingRows : []; %>
+  <% const visitorGraph = visitorChartData || { labels: [], visits: [], listings: [] }; %>
+  <% const _langTag = (typeof lang === 'string' && lang.trim()) ? lang : 'de-DE'; %>
+  <% const _entityLabel = (item) => t('global.category.' + String(item?.entityRoute || ''), item?.entityName || ''); %>
+  <% const _stateLabel = (item) => {
+    const s = Number(item?.status);
+    const v = Number(item?.visible);
+    if (s === 3 && v === 1) return t('buyer.statistics.state.online', item?.stateLabel || 'Online');
+    if (s === 0 && v === 0) return t('buyer.statistics.state.draft', item?.stateLabel || 'Entwurf');
+    if (s === 4 && v === 0) return t('buyer.statistics.state.paused', item?.stateLabel || 'Pausiert');
+    if (s === 3 && v === 0) return t('buyer.statistics.state.review', item?.stateLabel || 'In Prüfung');
+    if (s === 9 && v === 0) return t('buyer.statistics.state.deleted', item?.stateLabel || 'Gelöscht');
+    if (v === 0) return t('buyer.statistics.state.offline', item?.stateLabel || 'Offline');
+    return t('buyer.statistics.state.other', item?.stateLabel || 'Sonstige');
+  }; %>
+
+  <div class="account-shell d-flex gap-3">
+    <%- include('../../partials/asside') %>
+
+    <main class="main">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="m-0" style="font-weight:700;">
+          <i class="bi bi-graph-up-arrow me-2"></i><%= t('buyer.statistics.title', 'Statistiken') %>
+        </h4>
+      </div>
+
+      <div class="row g-3">
+        <% if (false) { %>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="stats-card">
+              <div class="stats-label"><%= t('buyer.statistics.cards.inquiries_total', 'Anfragen gesamt') %></div>
+              <div class="stats-value"><%= stats.inquiries_total || 0 %></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="stats-card">
+              <div class="stats-label"><%= t('buyer.statistics.cards.inquiries_sent', 'Anfragen gesendet') %></div>
+              <div class="stats-value"><%= stats.inquiries_sent || 0 %></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="stats-card">
+              <div class="stats-label"><%= t('buyer.statistics.cards.inquiries_received', 'Anfragen erhalten') %></div>
+              <div class="stats-value"><%= stats.inquiries_received || 0 %></div>
+            </div>
+          </div>
+          <div class="col-12 col-md-6 col-xl-3">
+            <div class="stats-card">
+              <div class="stats-label"><%= t('buyer.statistics.cards.support_requests', 'Support-Anfragen') %></div>
+              <div class="stats-value"><%= stats.support_requests || 0 %></div>
+            </div>
+          </div>
+        <% } %>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.visitors_total', 'Besucher gesamt') %></div>
+            <div class="stats-value"><%= stats.total_visits || 0 %></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.listings_total', 'Inserate gesamt') %></div>
+            <div class="stats-value"><%= stats.total_listings || 0 %></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.online_listings', 'Online Inserate') %></div>
+            <div class="stats-value"><%= stats.online_listings || 0 %></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.offline_listings', 'Offline Inserate') %></div>
+            <div class="stats-value"><%= stats.offline_listings || 0 %></div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.drafts', 'Entwürfe') %></div>
+            <div class="stats-value"><%= stats.draft_listings || 0 %></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.paused', 'Pausiert') %></div>
+            <div class="stats-value"><%= stats.paused_listings || 0 %></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.review', 'In Prüfung') %></div>
+            <div class="stats-value"><%= stats.review_listings || 0 %></div>
+          </div>
+        </div>
+        <div class="col-12 col-md-6 col-xl-3">
+          <div class="stats-card">
+            <div class="stats-label"><%= t('buyer.statistics.cards.deleted_disabled', 'Gelöscht/Deaktiviert') %></div>
+            <div class="stats-value"><%= stats.deleted_listings || 0 %></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="card mt-4 border rounded-3">
+        <div class="card-body">
+          <h5 class="mb-3"><i class="bi bi-bar-chart-line me-2"></i><%= t('buyer.statistics.chart.title', 'Besucher pro Monat (letzte 12 Monate)') %></h5>
+          <canvas id="monthlyVisitorsChart" height="110"></canvas>
+        </div>
+      </div>
+
+      <div class="card mt-4 border rounded-3">
+        <div class="card-body">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <h5 class="m-0"><i class="bi bi-list-ul me-2"></i><%= t('buyer.statistics.list.title', 'Alle Inserate') %></h5>
+            <span class="text-muted small"><%= t('buyer.statistics.list.total_prefix', 'Gesamt') %>: <%= listings.length %></span>
+          </div>
+
+          <% if (!listings.length) { %>
+            <div class="text-muted"><%= t('buyer.statistics.list.empty', 'Keine Inserate vorhanden.') %></div>
+          <% } else { %>
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th><%= t('buyer.statistics.table.image', 'Bild') %></th>
+                    <th><%= t('buyer.statistics.table.title', 'Titel') %></th>
+                    <th><%= t('buyer.statistics.table.entity', 'Entität') %></th>
+                    <th><%= t('buyer.statistics.table.status', 'Status') %></th>
+                    <th><%= t('buyer.statistics.table.visitors', 'Besucher') %></th>
+                    <th><%= t('buyer.statistics.table.created', 'Erstellt') %></th>
+                    <th><%= t('buyer.statistics.table.actions', 'Aktionen') %></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% listings.forEach(item => { %>
+                    <tr>
+                      <td style="width:84px;">
+                        <img
+                          src="<%= item.thumbnailUrl %>"
+                          alt="<%= item.title %>"
+                          style="width:68px;height:52px;object-fit:cover;border-radius:8px;border:1px solid #eee;"
+                        >
+                      </td>
+                      <td><%= item.title %></td>
+                      <td><%= _entityLabel(item) %></td>
+                      <td><%= _stateLabel(item) %></td>
+                      <td><%= item.visits || 0 %></td>
+                      <td><%= item.createdAt ? new Date(item.createdAt).toLocaleDateString(_langTag) : t('buyer.statistics.table.not_available', '–') %></td>
+                      <td>
+                        <div class="d-flex gap-2">
+                          <a
+                            class="btn btn-sm btn-outline-primary"
+                            href="/<%= item.entityRoute %>/<%= item.id %>/<%= encodeURIComponent(item.title || '') %>"
+                            target="_blank"
+                            rel="noopener"
+                          >
+                            <%= t('buyer.statistics.actions.view', 'Ansehen') %>
+                          </a>
+                          <a
+                            class="btn btn-sm btn-outline-secondary"
+                            href="/buyer/edit-listing/<%= item.id %>"
+                          >
+                            <%= t('buyer.statistics.actions.edit', 'Bearbeiten') %>
+                          </a>
+                        </div>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          <% } %>
+        </div>
+      </div>
+    </main>
+  </div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  (() => {
+    const el = document.getElementById('monthlyVisitorsChart');
+    if (!el) return;
+    const TXT_DATASET_VISITORS = <%- JSON.stringify(t('buyer.statistics.chart.dataset.visitors', 'Besucher')) %>;
+    const TXT_TOTAL_12M = <%- JSON.stringify(t('buyer.statistics.chart.total_12m', 'Gesamt Besucher (12 Monate)')) %>;
+    const TXT_TOOLTIP_VISITORS = <%- JSON.stringify(t('buyer.statistics.chart.tooltip.visitors', 'Besucher')) %>;
+    const TXT_AXIS_MONTHS = <%- JSON.stringify(t('buyer.statistics.chart.axis.months', 'Monate')) %>;
+    const TXT_AXIS_VISITORS = <%- JSON.stringify(t('buyer.statistics.chart.axis.visitors', 'Besucher')) %>;
+
+    const labels = <%- JSON.stringify(visitorGraph.labels || []) %>;
+    const visits = <%- JSON.stringify(visitorGraph.visits || []) %>;
+    if (!labels.length) return;
+    const totalVisits = visits.reduce((sum, n) => sum + (Number(n) || 0), 0);
+
+    const valueLabelPlugin = {
+      id: 'valueLabelPlugin',
+      afterDatasetsDraw(chart) {
+        const { ctx } = chart;
+        const datasetMeta = chart.getDatasetMeta(0);
+        if (!datasetMeta || !datasetMeta.data) return;
+
+        ctx.save();
+        ctx.fillStyle = '#334155';
+        ctx.font = '12px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+
+        datasetMeta.data.forEach((point, index) => {
+          const value = Number(visits[index] || 0);
+          ctx.fillText(String(value), point.x, point.y - 8);
+        });
+
+        ctx.restore();
+      }
+    };
+
+    const ctx = el.getContext('2d');
+    new Chart(ctx, {
+      type: 'line',
+      plugins: [valueLabelPlugin],
+      data: {
+        labels,
+        datasets: [{
+          label: TXT_DATASET_VISITORS,
+          data: visits,
+          borderColor: '#0d6efd',
+          backgroundColor: 'rgba(13,110,253,0.2)',
+          fill: true,
+          tension: 0.28,
+          pointRadius: 3,
+          pointHoverRadius: 5
+        }]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          mode: 'index',
+          intersect: false
+        },
+        plugins: {
+          legend: { position: 'bottom' },
+          title: {
+            display: true,
+            text: `${TXT_TOTAL_12M}: ${totalVisits}`
+          },
+          tooltip: {
+            callbacks: {
+              label(context) {
+                const value = Number(context.parsed.y || 0);
+                return `${TXT_TOOLTIP_VISITORS}: ${value}`;
+              }
+            }
+          }
+        },
+        scales: {
+          x: {
+            title: { display: true, text: TXT_AXIS_MONTHS }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0 },
+            title: { display: true, text: TXT_AXIS_VISITORS }
+          }
+        }
+      }
+    });
+  })();
+</script>
+
+<%- include('../../partials/footer', { footerColumns }) %>

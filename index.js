@@ -21,6 +21,7 @@ require('./src/cron/commercialPackageReminder');
 
   
 const app = express(); 
+app.disable('x-powered-by');
 const geoip = require('geoip-lite');
 const CATEGORY_MAP = {
   cars: {
@@ -41,6 +42,31 @@ const CATEGORY_MAP = {
   }
 };
 
+const TRUSTED_APP_HOSTS = new Set([
+  'herando.at',
+  'www.herando.at',
+  'herando.com',
+  'www.herando.com'
+]);
+
+function getSafeBackPath(req, fallback = '/') {
+  const referer = req.get('Referer') || req.get('Referrer');
+  if (!referer) return fallback;
+
+  try {
+    const parsed = new URL(referer);
+    const hostHeader = String(req.get('host') || '').toLowerCase();
+    const trustedHosts = new Set([...TRUSTED_APP_HOSTS, hostHeader].filter(Boolean));
+
+    if (!trustedHosts.has(parsed.host.toLowerCase())) {
+      return fallback;
+    }
+
+    return `${parsed.pathname || '/'}${parsed.search || ''}${parsed.hash || ''}`;
+  } catch {
+    return fallback;
+  }
+}
 
 
 
@@ -48,28 +74,73 @@ const CATEGORY_MAP = {
 /* ────────────────────────────────────────────────────────────────────────────
  * Basis / App-Setup
  * ──────────────────────────────────────────────────────────────────────────── */
-app.use((req, res, next) => {
-  const url = req.url.toLowerCase();
 
-  const badPatterns = [
-    '.php',
-    '.git',
-    'wp-',
-    'xmlrpc',
-    'wp-content',
-    'wp-admin',
-    'ms-edit'
+app.set('trust proxy', true);
+
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "base-uri 'self'; object-src 'none'; frame-ancestors 'self'");
+  if (req.secure) {
+    res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  const url = (req.originalUrl || '').toLowerCase();
+  const ip = req.ip; // sauberer bei trust proxy
+
+  // 🔥 Exploit-Pattern (nur echte Traversal-/Nullbyte-Muster)
+  const hasTraversal =
+    url.includes('../') ||
+    url.includes('..\\') ||
+    /%2e%2e(?:%2f|\/|%5c|\\)/i.test(url) ||
+    /(?:\/|%2f)\.\.(?:\/|%2f|%5c|\\)/i.test(url);
+
+  const hasNullByte = url.includes('%00');
+
+  // 🔥 Kritische Dateiendungen (nur echte Endungen blocken)
+  const blockedExtensions = [
+    '.php', '.phtml', '.php5', '.php7',
+    '.cgi', '.pl', '.asp', '.aspx', '.jsp',
+    '.env', '.bak', '.sql',
+    '.ini', '.log', '.sh'
   ];
 
-  if (badPatterns.some(p => url.includes(p))) {
-    console.log('🚨 BOT SCAN BLOCKED:', req.ip, '|', req.method, '|', req.url);
-    return res.status(404).end(); // KEINE weitere Logik
+  // 🔥 Kritische Pfade (präzise)
+  const blockedPaths = [
+    '/.git',
+    '/.env',
+    '/wp-',
+    '/wordpress',
+    '/xmlrpc',
+    '/wp-content',
+    '/wp-admin',
+    '/wp-includes',
+    '/wlwmanifest',
+    '/ecp/',
+    '/owa/',
+    '/microsoft.exchange',
+    '/php-cgi',
+    '/vendor/',
+    '/node_modules/'
+  ];
+
+  const isExploit = hasTraversal || hasNullByte;
+  const isBadExtension = blockedExtensions.some(ext => url.endsWith(ext));
+  const isBadPath = blockedPaths.some(path => url.includes(path));
+
+  if (isExploit || isBadExtension || isBadPath) {
+    console.log('🚨 BOT BLOCKED:', ip, '|', req.method, '|', req.originalUrl);
+    return res.sendStatus(403);
   }
 
   next();
 });
 
-app.set('trust proxy', true);
 app.set('views', path.join(__dirname, 'src', 'views'));
 app.set('view engine', 'ejs');
 
@@ -125,6 +196,7 @@ app.use(
       maxAge: 24 * 60 * 60 * 1000,
       secure: true,
       httpOnly: true,
+      sameSite: 'lax'
     },
     name: 'herando_session_id'
   })
@@ -363,8 +435,7 @@ app.get('/lang/:code', (req, res) => {
     country: req.session.country
   });
 
-  const backURL = req.get('Referer') || '/';
-  return res.redirect(backURL);
+  return res.redirect(getSafeBackPath(req, '/'));
 });
 
 
@@ -542,7 +613,7 @@ app.get("/currency/:code", (req, res) => {
     console.warn(`⚠️ Ungültige Währung: ${code}`);
   }
 
-  res.redirect(req.get("Referer") || "/");
+  res.redirect(getSafeBackPath(req, '/'));
 });
 
 app.locals.getMegaMenu = (route) => {

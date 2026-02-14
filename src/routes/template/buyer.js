@@ -35,6 +35,7 @@ const EU_COUNTRIES = [
 
 const router        = express.Router();
 const bestTr = {};
+const WISHLIST_ALLOWED_TABLES = new Set(['cars', 'watches', 'properties', 'yachts', 'lifestyles']);
 
 
 // Body-Parser aktivieren
@@ -399,6 +400,476 @@ function buildCanonical(req) {
   const proto = (req.headers['x-forwarded-proto'] || req.protocol || 'https');
   const path  = req.originalUrl.split('?')[0]; // ohne Query
   return `${proto}://${host}${path}`;
+}
+
+function isSafeSqlIdentifier(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_]+$/.test(value);
+}
+
+async function getTableColumnsMap(tableNames) {
+  const safeTableNames = [...new Set(
+    (tableNames || []).filter(isSafeSqlIdentifier)
+  )];
+  const columnsByTable = new Map();
+
+  if (!safeTableNames.length) return columnsByTable;
+
+  const placeholders = safeTableNames.map(() => '?').join(', ');
+  const [rows] = await db.query(
+    `SELECT TABLE_NAME, COLUMN_NAME
+       FROM information_schema.COLUMNS
+      WHERE TABLE_SCHEMA = DATABASE()
+        AND TABLE_NAME IN (${placeholders})`,
+    safeTableNames
+  );
+
+  for (const row of rows) {
+    if (!columnsByTable.has(row.TABLE_NAME)) {
+      columnsByTable.set(row.TABLE_NAME, new Set());
+    }
+    columnsByTable.get(row.TABLE_NAME).add(row.COLUMN_NAME);
+  }
+
+  return columnsByTable;
+}
+
+async function loadBuyerDashboardStats(userId, listingRows = null) {
+  const stats = {
+    inquiries_total: 0,
+    inquiries_sent: 0,
+    inquiries_received: 0,
+    support_requests: 0,
+    total_visits: 0,
+    total_listings: 0,
+    online_listings: 0,
+    offline_listings: 0,
+    draft_listings: 0,
+    paused_listings: 0,
+    review_listings: 0,
+    deleted_listings: 0
+  };
+
+  if (Array.isArray(listingRows)) {
+    for (const item of listingRows) {
+      const status = Number(item?.status);
+      const visible = Number(item?.visible);
+      const isDeleted = status === 9 && visible === 0;
+
+      if (!isDeleted) {
+        stats.total_listings += 1;
+        stats.total_visits += Math.max(0, Number(item?.visits) || 0);
+      }
+
+      if (status === 3 && visible === 1) stats.online_listings += 1;
+      if (visible === 0 && !isDeleted) stats.offline_listings += 1;
+      if (status === 0 && visible === 0) stats.draft_listings += 1;
+      if (status === 4 && visible === 0) stats.paused_listings += 1;
+      if (status === 3 && visible === 0) stats.review_listings += 1;
+      if (isDeleted) stats.deleted_listings += 1;
+    }
+  } else {
+    const [entities] = await db.query(
+      `SELECT table_name
+         FROM ententies
+        ORDER BY id ASC`
+    );
+    const tableNames = [...new Set(
+      entities.map(e => e.table_name).filter(isSafeSqlIdentifier)
+    )];
+    const columnsByTable = await getTableColumnsMap(tableNames);
+
+    for (const table of tableNames) {
+      const cols = columnsByTable.get(table) || new Set();
+      if (!cols.has('user_id')) continue;
+
+      const visitsCol = cols.has('visits') ? 'visits' : (cols.has('views') ? 'views' : null);
+      const hasStatusVisible = cols.has('status') && cols.has('visible');
+
+      if (hasStatusVisible) {
+        const visitsExpr = visitsCol
+          ? `SUM(CASE WHEN NOT (status = 9 AND visible = 0) THEN COALESCE(\`${visitsCol}\`, 0) ELSE 0 END) AS total_visits`
+          : `0 AS total_visits`;
+
+        const [[row]] = await db.query(
+          `SELECT
+             SUM(CASE WHEN NOT (status = 9 AND visible = 0) THEN 1 ELSE 0 END) AS total_listings,
+             SUM(CASE WHEN status = 3 AND visible = 1 THEN 1 ELSE 0 END) AS online_listings,
+             SUM(CASE WHEN visible = 0 AND NOT (status = 9 AND visible = 0) THEN 1 ELSE 0 END) AS offline_listings,
+             SUM(CASE WHEN status = 0 AND visible = 0 THEN 1 ELSE 0 END) AS draft_listings,
+             SUM(CASE WHEN status = 4 AND visible = 0 THEN 1 ELSE 0 END) AS paused_listings,
+             SUM(CASE WHEN status = 3 AND visible = 0 THEN 1 ELSE 0 END) AS review_listings,
+             SUM(CASE WHEN status = 9 AND visible = 0 THEN 1 ELSE 0 END) AS deleted_listings,
+             ${visitsExpr}
+           FROM \`${table}\`
+           WHERE user_id = ?`,
+          [userId]
+        );
+
+        stats.total_listings += Number(row?.total_listings) || 0;
+        stats.online_listings += Number(row?.online_listings) || 0;
+        stats.offline_listings += Number(row?.offline_listings) || 0;
+        stats.draft_listings += Number(row?.draft_listings) || 0;
+        stats.paused_listings += Number(row?.paused_listings) || 0;
+        stats.review_listings += Number(row?.review_listings) || 0;
+        stats.deleted_listings += Number(row?.deleted_listings) || 0;
+        stats.total_visits += Number(row?.total_visits) || 0;
+        continue;
+      }
+
+      const visitsExpr = visitsCol ? `SUM(COALESCE(\`${visitsCol}\`, 0))` : '0';
+      const [[row]] = await db.query(
+        `SELECT
+           COUNT(*) AS total_listings,
+           ${visitsExpr} AS total_visits
+         FROM \`${table}\`
+         WHERE user_id = ?`,
+        [userId]
+      );
+
+      stats.total_listings += Number(row?.total_listings) || 0;
+      stats.total_visits += Number(row?.total_visits) || 0;
+    }
+  }
+
+  const [[messageStats]] = await db.query(
+    `SELECT
+       SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS inquiries_received,
+       SUM(CASE WHEN sender_id = ? THEN 1 ELSE 0 END) AS inquiries_sent
+     FROM user_notifications
+     WHERE user_id = ? OR sender_id = ?`,
+    [userId, userId, userId, userId]
+  );
+  stats.inquiries_received = Number(messageStats?.inquiries_received) || 0;
+  stats.inquiries_sent = Number(messageStats?.inquiries_sent) || 0;
+
+  try {
+    const [[supportStats]] = await db.query(
+      `SELECT COUNT(*) AS support_requests
+         FROM cancel_support_requests
+        WHERE user_id = ?`,
+      [userId]
+    );
+    stats.support_requests = Number(supportStats?.support_requests) || 0;
+  } catch (err) {
+    console.warn('Dashboard stats: cancel_support_requests not available', err.message);
+  }
+
+  stats.inquiries_total =
+    stats.inquiries_sent +
+    stats.inquiries_received +
+    stats.support_requests;
+
+  return stats;
+}
+
+function parseFirstImageFilename(input) {
+  if (!input) return null;
+  if (typeof input !== 'string') return null;
+  const raw = input.trim();
+  if (!raw) return null;
+
+  try {
+    if (raw.startsWith('a:')) {
+      const parsed = unserialize(raw);
+      const arr = Array.isArray(parsed) ? parsed : Object.values(parsed || {});
+      const first = arr[0];
+      if (typeof first === 'string' && first.trim()) return first.trim();
+      if (first && typeof first.image === 'string' && first.image.trim()) return first.image.trim();
+    }
+  } catch {}
+
+  if (raw.startsWith('[') || raw.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length) {
+        const first = parsed[0];
+        if (typeof first === 'string' && first.trim()) return first.trim();
+        if (first && typeof first.image === 'string' && first.image.trim()) return first.image.trim();
+      } else if (parsed && typeof parsed.image === 'string' && parsed.image.trim()) {
+        return parsed.image.trim();
+      }
+    } catch {}
+  }
+
+  if (raw.includes(',')) {
+    const first = raw.split(',').map(s => s.trim()).find(Boolean);
+    if (first) return first;
+  }
+
+  return raw;
+}
+
+function getListingStateLabel(status, visible) {
+  const s = Number(status);
+  const v = Number(visible);
+
+  if (s === 3 && v === 1) return 'Online';
+  if (s === 0 && v === 0) return 'Entwurf';
+  if (s === 4 && v === 0) return 'Pausiert';
+  if (s === 3 && v === 0) return 'In Pruefung';
+  if (s === 9 && v === 0) return 'Geloescht';
+  if (v === 0) return 'Offline';
+  return 'Sonstige';
+}
+
+function toIntlLocaleTag(lang) {
+  const base = String(lang || 'de').trim().toLowerCase();
+  const map = {
+    de: 'de-DE',
+    en: 'en-US',
+    fr: 'fr-FR',
+    it: 'it-IT',
+    tr: 'tr-TR',
+    ja: 'ja-JP',
+    cs: 'cs-CZ',
+    ru: 'ru-RU',
+    es: 'es-ES',
+    nl: 'nl-NL',
+    pl: 'pl-PL'
+  };
+  return map[base] || 'de-DE';
+}
+
+async function loadBuyerListingsForStatistics(userId) {
+  const [entities] = await db.query(
+    `SELECT id, name, route, table_name
+       FROM ententies
+      ORDER BY name ASC`
+  );
+  const tableNames = entities.map(e => e.table_name).filter(isSafeSqlIdentifier);
+  const columnsByTable = await getTableColumnsMap(tableNames);
+  const queryTasks = [];
+  for (const ent of entities) {
+    const table = ent.table_name;
+    if (!isSafeSqlIdentifier(table)) continue;
+
+    const cols = columnsByTable.get(table) || new Set();
+    if (!cols.has('user_id')) continue;
+
+    const titleCol = ['name', 'title', 'model', 'subtitle'].find(c => cols.has(c)) || null;
+    const createdCol = ['created', 'modified', 'published'].find(c => cols.has(c)) || null;
+    const visitsCol = cols.has('visits') ? 'visits' : (cols.has('views') ? 'views' : null);
+    const imageCols = ['sliderpicture', 'mainpicture', 'pictures', 'thumbnail', 'image', 'picture']
+      .filter(col => cols.has(col));
+
+    const selectBits = ['`id`'];
+    if (titleCol) {
+      selectBits.push(`\`${titleCol}\` AS title`);
+    } else {
+      selectBits.push(`CONCAT('#', id) AS title`);
+    }
+    if (createdCol) {
+      selectBits.push(`\`${createdCol}\` AS created_at`);
+    } else {
+      selectBits.push('NULL AS created_at');
+    }
+    if (cols.has('status')) {
+      selectBits.push('`status`');
+    } else {
+      selectBits.push('NULL AS status');
+    }
+    if (cols.has('visible')) {
+      selectBits.push('`visible`');
+    } else {
+      selectBits.push('NULL AS visible');
+    }
+    if (visitsCol) {
+      selectBits.push(`\`${visitsCol}\` AS visits`);
+    } else {
+      selectBits.push('0 AS visits');
+    }
+    imageCols.forEach(col => selectBits.push(`\`${col}\``));
+
+    const orderBy = createdCol ? `\`${createdCol}\` DESC` : '`id` DESC';
+
+    queryTasks.push(async () => {
+      const [rows] = await db.query(
+        `SELECT ${selectBits.join(', ')}
+           FROM \`${table}\`
+          WHERE user_id = ?
+          ORDER BY ${orderBy}
+          LIMIT 5000`,
+        [userId]
+      );
+
+      return rows.map((row) => {
+        const thumbFilename = parseFirstImageFilename(
+          row.sliderpicture ||
+          row.mainpicture ||
+          row.pictures ||
+          row.thumbnail ||
+          row.image ||
+          row.picture ||
+          null
+        );
+
+        return {
+          id: Number(row.id),
+          title: row.title || `#${row.id}`,
+          entityName: ent.name || ent.route,
+          entityRoute: ent.route,
+          createdAt: row.created_at || null,
+          status: row.status,
+          visible: row.visible,
+          visits: Number(row.visits) || 0,
+          stateLabel: getListingStateLabel(row.status, row.visible),
+          thumbnailUrl: thumbFilename ? `/images/${ent.route}/${row.id}/${thumbFilename}` : '/assets/default-placeholder.png'
+        };
+      });
+    });
+  }
+
+  const listings = [];
+  const batchSize = 6;
+  for (let i = 0; i < queryTasks.length; i += batchSize) {
+    const batch = queryTasks.slice(i, i + batchSize);
+    const batchResults = await Promise.all(batch.map(run => run()));
+    for (const items of batchResults) listings.push(...items);
+  }
+
+  listings.sort((a, b) => {
+    const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const dbb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return dbb - da;
+  });
+
+  return listings;
+}
+
+function buildMonthlyVisitorsSeries(listings, monthsBack = 12, localeTag = 'de-DE') {
+  const months = Math.max(1, Number(monthsBack) || 12);
+  const formatKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const labelFormatter = new Intl.DateTimeFormat(localeTag, { month: 'short', year: '2-digit' });
+
+  const currentMonthStart = new Date();
+  currentMonthStart.setDate(1);
+  currentMonthStart.setHours(0, 0, 0, 0);
+
+  const buckets = [];
+  const byMonth = new Map();
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() - i, 1);
+    const key = formatKey(d);
+    const bucket = {
+      key,
+      label: labelFormatter.format(d),
+      visits: 0,
+      listings: 0
+    };
+    buckets.push(bucket);
+    byMonth.set(key, bucket);
+  }
+
+  for (const item of listings || []) {
+    if (!item?.createdAt) continue;
+    const created = new Date(item.createdAt);
+    if (Number.isNaN(created.getTime())) continue;
+
+    const key = formatKey(new Date(created.getFullYear(), created.getMonth(), 1));
+    const bucket = byMonth.get(key);
+    if (!bucket) continue;
+
+    bucket.visits += Number(item.visits) || 0;
+    bucket.listings += 1;
+  }
+
+  return {
+    labels: buckets.map(b => b.label),
+    visits: buckets.map(b => b.visits),
+    listings: buckets.map(b => b.listings)
+  };
+}
+
+function buildEmptyMonthlySeries(monthsBack = 12, localeTag = 'de-DE') {
+  const months = Math.max(1, Number(monthsBack) || 12);
+  const labelFormatter = new Intl.DateTimeFormat(localeTag, { month: 'short', year: '2-digit' });
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const labels = [];
+  const values = [];
+
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() - i, 1);
+    labels.push(labelFormatter.format(d));
+    values.push(0);
+  }
+  return { labels, visits: values, listings: values.map(() => 0) };
+}
+
+async function loadBuyerMonthlyVisitorsFromVisitsHistory(userId, monthsBack = 12, listingRows = [], localeTag = 'de-DE') {
+  const months = Math.max(1, Number(monthsBack) || 12);
+  const emptySeries = buildEmptyMonthlySeries(months, localeTag);
+  if (!Array.isArray(listingRows) || !listingRows.length) return emptySeries;
+
+  const routeToAdvertIds = new Map();
+  for (const listing of listingRows) {
+    const route = String(listing?.entityRoute || '').trim();
+    const advertId = Number(listing?.id);
+    if (!route || !Number.isFinite(advertId)) continue;
+    if (!routeToAdvertIds.has(route)) routeToAdvertIds.set(route, new Set());
+    routeToAdvertIds.get(route).add(advertId);
+  }
+  if (!routeToAdvertIds.size) return emptySeries;
+
+  const now = new Date();
+  const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const startDate = new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() - (months - 1), 1);
+  const formatKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const labelFormatter = new Intl.DateTimeFormat(localeTag, { month: 'short', year: '2-digit' });
+
+  const monthKeys = [];
+  const labels = [];
+  for (let i = months - 1; i >= 0; i -= 1) {
+    const d = new Date(currentMonthStart.getFullYear(), currentMonthStart.getMonth() - i, 1);
+    const key = formatKey(d);
+    monthKeys.push(key);
+    labels.push(labelFormatter.format(d));
+  }
+  const monthIndexByKey = new Map(monthKeys.map((key, idx) => [key, idx]));
+  const monthValues = monthKeys.map(() => 0);
+  let hasTrackedRows = false;
+
+  const advertChunkSize = 400;
+  for (const [route, idSet] of routeToAdvertIds.entries()) {
+    const advertIds = [...idSet];
+    if (!advertIds.length) continue;
+
+    for (let i = 0; i < advertIds.length; i += advertChunkSize) {
+      const chunk = advertIds.slice(i, i + advertChunkSize);
+      const placeholders = chunk.map(() => '?').join(', ');
+      const [rows] = await db.query(
+        `SELECT
+           advert_id,
+           YEAR(visited) AS year_num,
+           MONTH(visited) AS month_num,
+           SUM(visits) AS visitors
+         FROM visits
+         WHERE entity = ?
+           AND advert_id IN (${placeholders})
+           AND visited >= ?
+         GROUP BY advert_id, year_num, month_num`,
+        [route, ...chunk, startDate]
+      );
+
+      if (rows.length) hasTrackedRows = true;
+      for (const row of rows) {
+        const monthKey = `${Number(row.year_num)}-${String(Number(row.month_num)).padStart(2, '0')}`;
+        const idx = monthIndexByKey.get(monthKey);
+        if (idx == null) continue;
+        monthValues[idx] += Number(row.visitors) || 0;
+      }
+    }
+  }
+
+  if (!hasTrackedRows) {
+    return buildMonthlyVisitorsSeries(listingRows, months, localeTag);
+  }
+
+  return {
+    labels,
+    visits: monthValues,
+    listings: labels.map(() => 0)
+  };
 }
 
 // ===========================================================
@@ -1349,6 +1820,77 @@ try {
   }
 });
 
+router.get('/statistiken', async (req, res, next) => {
+  try {
+    const userId = req.session.userId;
+    if (!userId) return res.redirect('/auth/login');
+
+    const [[user]] = await db.query(
+      `SELECT
+         id, role, firstname, lastname, email
+       FROM users
+       WHERE id = ?`,
+      [userId]
+    );
+    if (!user) return res.redirect('/auth/login');
+
+    const urlPath = normalizePathUrl(req.path);
+    const listingRows = await loadBuyerListingsForStatistics(userId);
+    const localeTag = toIntlLocaleTag(res.locals.lang || req.session?.lang || req.locale || 'de');
+
+    const [dashboardStats, visitorChartData, seoResult] = await Promise.all([
+      loadBuyerDashboardStats(userId, listingRows),
+      loadBuyerMonthlyVisitorsFromVisitsHistory(userId, 12, listingRows, localeTag).catch((trackingErr) => {
+        console.warn('Statistiken: Fallback auf listing-basierte Monatswerte', trackingErr.message);
+        return buildMonthlyVisitorsSeries(listingRows, 12, localeTag);
+      }),
+      db.query(
+        `SELECT
+           title,
+           description AS meta_description,
+           robots,
+           og_title,
+           og_description,
+           og_image,
+           twitter_card,
+           jsonld AS structured_data_json
+         FROM seo_meta
+         WHERE path_pattern = ?
+         LIMIT 1`,
+        [urlPath]
+      )
+    ]);
+    const [seoRows] = seoResult;
+    const seoRow = seoRows?.[0] || null;
+
+    const seo = {
+      title:                seoRow?.title || 'Buyer Statistiken – Herando',
+      meta_description:     seoRow?.meta_description || 'Statistiken zu Ihren Anfragen, Besuchern und Inseraten.',
+      robots:               seoRow?.robots || 'index,follow',
+      canonical_url:        buildCanonical(req),
+      og_title:             seoRow?.og_title || seoRow?.title || 'Buyer Statistiken – Herando',
+      og_description:       seoRow?.og_description || seoRow?.meta_description || null,
+      og_image:             seoRow?.og_image || null,
+      twitter_card:         seoRow?.twitter_card || 'summary_large_image',
+      structured_data_json: seoRow?.structured_data_json || null,
+      hreflang_json:        null
+    };
+    res.locals.seo = seo;
+
+    res.render('pages/templates/buyer-statistics', {
+      user,
+      currentPage: 'statistiken',
+      dashboardStats,
+      listingRows,
+      visitorChartData,
+      userHasPackage: Boolean(res.locals.hasPackage)
+    });
+  } catch (err) {
+    console.error('Fehler in GET /buyer/statistiken:', err);
+    next(err);
+  }
+});
+
 router.get('/my-listings', async (req, res, next) => {
   try {
     const userId = req.session.userId;
@@ -1870,6 +2412,17 @@ router.get(
             ids
           );
         }
+        const t = (res.locals && typeof res.locals.t === 'function')
+          ? res.locals.t
+          : ((key, fb) => (fb ?? key));
+        lifestyleTypes = lifestyleTypes.map(b => ({
+          ...b,
+          name: t(`lifestyle.brand.${b.id}`, b.name)
+        }));
+        lifestyleSubcategories = lifestyleSubcategories.map(sc => ({
+          ...sc,
+          name: t(`lifestyle.subcategory.${sc.id}`, sc.name)
+        }));
       }
 
       // 6) Checkbox‑Gruppen für cars
@@ -2166,13 +2719,18 @@ router.get(
         launchYears, 
         featureLabels,
           currencies,
+        successMessage: req.session.successMessage,
+        errorMessage: req.session.errorMessage,
       });
+
+      req.session.successMessage = null;
+      req.session.errorMessage = null;
     } catch (err) {
       console.error('Fehler in GET /new-listing:', err);
       next(err);
     }
   }
-);
+); 
 
 router.get('/api/models/:brandId', async (req, res) => {
   console.log('===================================');
@@ -2255,6 +2813,14 @@ router.post(
       if (!ent) {
         console.log('❌ Entität nicht gefunden');
         return res.redirect('/buyer');
+      }
+
+      if (ent.route === 'yachts') {
+        const yachtType = req.body.yachttype;
+        if (yachtType === undefined || yachtType === null || yachtType === '') {
+          req.session.errorMessage = 'Bitte Bootstyp auswählen.';
+          return res.redirect('/buyer/new-listing?tab=' + entId);
+        }
       }
 
       // 4️⃣ Spalten (WICHTIG: mit Typen)
@@ -2473,7 +3039,7 @@ router.get('/edit-listing/:id', async (req, res, next) => {
     // 🧩 5) Checkbox-Gruppen definieren (z. B. für cars)
     console.log('🧩 Erstelle Checkbox-Gruppen...');
     const checkboxGroupsRaw = {
-      'Sicherheit': ['abs', 'esp', 'asr', 'isofix'],
+      'Sicherheit': ['abs', 'esp', 'asr'],
       'Licht & Sicht': [
         'xenon', 'bixenon', 'led', 'laser', 'foglamp', 'daytime_lights', 'adaptive_lights',
         'glare_free', 'highbeam_assistant', 'headlight_washer', 'light_sensor', 'rain_sensor', 'head_up_display'
@@ -2758,10 +3324,67 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
     // ---------------------------------------------------------
     // 5) WATCH NORMALISIERUNG
     // ---------------------------------------------------------
-    if (ent.route === "watches" && req.body.movement) {
-      const map = { automatic: 1, manual: 2, quartz: 3, "1": 1, "2": 2, "3": 3 };
-      req.body.movement = map[req.body.movement] ?? null;
-      console.log("⌚ Movement normalisiert:", req.body.movement);
+    if (ent.route === "watches") {
+      // edit-listing nutzt bei Watches sprechende Form-Namen, DB erwartet function_/feature_-Spalten.
+      const watchAliasToColumn = {
+        // Lieferumfang
+        auth_certificate: 'authenticity_papers',
+        box: 'authenticity_box',
+        auth_guarantee: 'authenticity_warranty',
+
+        // Funktionen
+        alarm: 'function_alarm',
+        chronograph: 'function_chronograph',
+        date: 'function_date',
+        weekday_display: 'function_day',
+        month_display: 'function_month',
+        annual_calendar: 'function_year',
+        four_year_calendar: 'function_4year',
+        gmt: 'function_gmt',
+        equation_of_time: 'function_timeequation',
+        minute_repeater: 'function_minuterepeater',
+        repetition: 'function_repetition',
+        jumping_hour: 'function_jumping_hour',
+        split_chrono: 'function_double_chronograph',
+        panorama_date: 'function_panorama',
+        moon_phase: 'function_moonphase',
+        calendar: 'function_calendar',
+        small_seconds: 'function_smallseconds',
+        central_seconds: 'function_centralseconds',
+        tachymeter: 'function_tachymeter',
+        flyback: 'function_flyback',
+        striking_mechanism: 'function_striking_mechanism',
+
+        // Features
+        chronometer: 'feature_chronometer',
+        master_chronometer: 'feature_master_chronometer',
+        tourbillon: 'feature_tourbillon',
+        helium_valve: 'feature_heliumvalve',
+        power_reserve_indicator: 'feature_powerreserve',
+        rotating_bezel: 'feature_rotatingbezel',
+        diamond_bezel: 'feature_diamondsbezel',
+        luminous_hands: 'feature_luminescenthands'
+      };
+
+      const isChecked = (v) => ['1', 1, true, 'true', 'on'].includes(v);
+
+      for (const [alias, column] of Object.entries(watchAliasToColumn)) {
+        req.body[column] = isChecked(req.body[alias]) ? 1 : 0;
+        delete req.body[alias];
+      }
+
+      // Ein UI-Checkbox steuert beide alten Spalten.
+      const luminousIndices = isChecked(req.body.luminous_indices) ? 1 : 0;
+      req.body.feature_luminescentnumerals = luminousIndices;
+      req.body.feature_luminous_indexes = luminousIndices;
+      delete req.body.luminous_indices;
+
+      if (req.body.movement) {
+        const map = { automatic: 1, manual: 2, quartz: 3, "1": 1, "2": 2, "3": 3 };
+        req.body.movement = map[req.body.movement] ?? null;
+      }
+
+      console.log("⌚ Watches normalisiert:", req.body);
     }
 
     // ---------------------------------------------------------
@@ -2801,6 +3424,20 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
 if (ent.route === "cars") {
 
   console.log("🚗 Cars-Modus aktiviert");
+
+  // Legacy/UI-Aliase auf echte cars-Spalten mappen.
+  const carAliasToColumn = {
+    xenon_headlights: 'xenon',
+    bixenon_headlights: 'bixenon',
+    led_headlights: 'led'
+  };
+  const isChecked = (v) => ['1', 1, true, 'true', 'on'].includes(v);
+  for (const [alias, column] of Object.entries(carAliasToColumn)) {
+    if ((alias in req.body) && !(column in req.body)) {
+      req.body[column] = isChecked(req.body[alias]) ? 1 : 0;
+    }
+    delete req.body[alias];
+  }
 
   // 🟦 ALLE INT-Felder
   const carIntFields = [
@@ -3477,7 +4114,8 @@ async function getUsedCountsByCategory(userId, entities) {
            FROM \`${ent.table_name}\`
           WHERE user_id = ?
             AND (
-              (status = 3 AND visible = 1)
+              (status = 3 AND visible IN (0, 1))
+              OR (status = 4 AND visible = 0)
               OR (status = 1 AND visible = 0)
             )`,
         [userId]
@@ -3571,7 +4209,7 @@ router.get('/submit-online', async (req, res, next) => {
 
         const imageUrl = filename
           ? `/images/${route}/${r.id}/${filename}`
-          : '/assets/default-placeholder.png';
+          : '/assets/herando-weblogo.png';
 
         items.push({
           id: r.id,
@@ -3798,6 +4436,62 @@ router.post('/mark-as-sold/:id', async (req, res, next) => {
   }
 });
 
+router.post('/toggle-listing/:id', ensureAuthenticated, async (req, res, next) => {
+  try {
+    const userId = req.session.userId;
+    const listingId = req.params.id;
+
+    if (!userId) return res.redirect('/auth/login');
+
+    const tables = ['cars', 'properties', 'watches', 'yachts', 'lifestyles'];
+
+    for (const table of tables) {
+      const [[row]] = await db.query(
+        `SELECT status, visible FROM \`${table}\` WHERE id = ? AND user_id = ? LIMIT 1`,
+        [listingId, userId]
+      );
+
+      if (!row) continue;
+
+      const status = Number(row.status);
+      const visible = Number(row.visible);
+
+      // Online -> Deaktivieren
+      if (status === 3 && visible === 1) {
+        await db.query(
+          `UPDATE \`${table}\`
+              SET status = 4, visible = 0
+            WHERE id = ? AND user_id = ?`,
+          [listingId, userId]
+        );
+        req.session.successMessage = '⏸️ Das Inserat wurde pausiert.';
+        return res.redirect('/buyer/historie?tab=deactivate');
+      }
+
+      // Angehalten -> Online (inkl. Legacy status=3, visible=0)
+      if ((status === 4 && visible === 0) || (status === 3 && visible === 0)) {
+        await db.query(
+          `UPDATE \`${table}\`
+              SET status = 3, visible = 1
+            WHERE id = ? AND user_id = ?`,
+          [listingId, userId]
+        );
+        req.session.successMessage = '✅ Das Inserat ist wieder online.';
+        return res.redirect('/buyer/historie?tab=online');
+      }
+
+      req.session.errorMessage = '⚠️ Dieser Status kann nicht umgeschaltet werden.';
+      return res.redirect('/buyer/historie');
+    }
+
+    req.session.errorMessage = '❌ Inserat wurde nicht gefunden oder gehört Ihnen nicht.';
+    return res.redirect('/buyer/historie');
+  } catch (err) {
+    console.error('❌ Fehler beim Umschalten des Inserat-Status:', err);
+    next(err);
+  }
+});
+
 router.get(
   '/wishlist',
   ensureAuthenticated,
@@ -3870,15 +4564,21 @@ router.get(
       const { entity, id } = req.params;
       console.log(`[Wishlist Debug] GET /buyer/wishlist/${entity}/${id}`);
 
+      const safeEntity = String(entity || '').toLowerCase();
+      const safeId = parseInt(id, 10);
+      if (!WISHLIST_ALLOWED_TABLES.has(safeEntity) || !Number.isInteger(safeId) || safeId <= 0) {
+        return res.status(400).json({ error: 'Ungültige Anfrage' });
+      }
+
       // 1) Datenbank: name AS title, price AS priceRaw, pictures-Feld
       const [[row]] = await db.query(
         `SELECT id,
                 name    AS title,
                 price   AS priceRaw,
                 pictures
-           FROM ${db.escapeId(entity)}
+           FROM ${db.escapeId(safeEntity)}
           WHERE id = ?`,
-        [id]
+        [safeId]
       );
       if (!row) {
         console.log('[Wishlist Debug] Kein Datensatz für', entity, id);
@@ -3899,10 +4599,10 @@ router.get(
       }
 
       // 3) Bild-URLs bauen
-      const baseUrl = `/images/${entity}/${id}`;
+      const baseUrl = `/images/${encodeURIComponent(safeEntity)}/${safeId}`;
       const pictures = pics.map(p => ({
         filename: p.image,
-        url:      `${baseUrl}/${p.image}`
+        url:      `${baseUrl}/${encodeURIComponent(String(p.image || ''))}`
       }));
 
       // 4) JSON-Antwort zusammenstellen
@@ -4154,7 +4854,8 @@ router.get('/historie', async (req, res, next) => {
       online:  listings.filter(i => i.status == 3 && i.visible == 1),
       drafts:  listings.filter(i => i.status == 0),
       review:  listings.filter(i => [1, 2].includes(i.status)),
-      paused:  listings.filter(i => i.status == 3 && i.visible == 0),
+      paused: listings.filter(i => i.status == 3 && i.visible == 0),
+      deactivate: listings.filter(i => i.status == 4 && i.visible == 0),
       deleted: listings.filter(i => i.status == 9),
       expired: listings.filter(i => i.end_date && new Date(i.end_date) < today)
     };
@@ -4270,7 +4971,8 @@ router.get('/historie', async (req, res, next) => {
       onlineListings:  activeTab === "online"  ? paginated : groups.online,
       offlineListings: activeTab === "drafts"  ? paginated : groups.drafts,
       reviewListings:  activeTab === "review"  ? paginated : groups.review,
-      pausedListings:  activeTab === "paused"  ? paginated : groups.paused,
+      pausedListings: activeTab === "paused" ? paginated : groups.paused,
+      deactivateListings: activeTab === "deactivate" ? paginated : groups.deactivate,
       deletedListings: activeTab === "deleted" ? paginated : groups.deleted,
       expiredListings: activeTab === "expired" ? paginated : groups.expired,
 
@@ -5117,15 +5819,21 @@ const [packages] = await db.query(`
     `, [userId]);
 
     // 📌 Kategorienamen holen
-    const [entities] = await db.query(`SELECT id, name FROM ententies`);
-    const CATEGORY_MAP = Object.fromEntries(entities.map(e => [e.id, e.name]));
+    const [entities] = await db.query(`SELECT id, name, route FROM ententies`);
+    const CATEGORY_MAP = Object.fromEntries(
+      entities.map(e => [e.id, { name: e.name, route: e.route }])
+    );
 
     // 🧊 Paket-Gruppierung
     const privatePackages = [];
     const commercialPackages = { LIGHT: [], PRO: [], PREMIUM: [] };
 
     for (const pkg of activePackages) {
-      const categoryName = CATEGORY_MAP[pkg.category_id] || `Kategorie ${pkg.category_id}`;
+      const categoryInfo = CATEGORY_MAP[pkg.category_id] || null;
+      const categoryName =
+        categoryInfo?.route ||
+        categoryInfo?.name ||
+        `Kategorie ${pkg.category_id}`;
       const pkgName = pkg.package_name.toLowerCase();
 
       if (pkg.registration_type === 'private') {

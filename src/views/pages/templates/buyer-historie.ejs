@@ -231,6 +231,13 @@
     </li>
 
     <li class="nav-item">
+      <a href="/buyer/historie?tab=deactivate&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
+         class="nav-link <%= activeTab === 'deactivate' ? 'active' : '' %>" style="color: #1A253C">
+        <%= t('buyer.history.tab.deactivate', 'Deaktivieren') %> (<%= deactivateListings.length %>)
+      </a>
+    </li>
+
+    <li class="nav-item">
       <a href="/buyer/historie?tab=deleted&q=<%= f_q %>&price_from=<%= f_pFrom %>&price_to=<%= f_pTo %>&entity=<%= f_entity %>"
          class="nav-link <%= activeTab === 'deleted' ? 'active' : '' %>" style="color: #1A253C">
         <%= t('buyer.history.tab.deleted') %> (<%= deletedListings.length %>)
@@ -330,10 +337,36 @@
 
                 <a href="/buyer/upgrade/<%= item.id %>"
                   class="btn btn-primary"
+                  title="<%= t('buyer.history.btn.upgrade', 'Upgrade') %>"
+                  aria-label="<%= t('buyer.history.btn.upgrade', 'Upgrade') %>"
                   style="background:#1A253C;">
-                  <i class="bi bi-star text-white"></i>
+                  <i class="bi bi-bar-chart-line text-white"></i>
                 </a>
 
+                <form method="POST" action="/buyer/toggle-listing/<%= item.id %>" style="display:inline"
+                      onsubmit="return confirm('<%= t('buyer.history.confirm.pause','Möchtest du dieses Inserat wirklich pausieren?').replace(/'/g, '\\\'') %>')">
+                  <button type="submit"
+                      class="btn btn-primary"
+                      title="<%= t('buyer.history.btn.pause', 'Pausieren') %>"
+                      aria-label="<%= t('buyer.history.btn.pause', 'Pausieren') %>"
+                      style="background:#1A253C;">
+                    <i class="bi bi-pause-circle text-white"></i>
+                  </button>
+                </form>
+
+              <% } %>
+
+              <% if (item.status == 4 && item.visible == 0) { %>
+                <form method="POST" action="/buyer/toggle-listing/<%= item.id %>" style="display:inline"
+                      onsubmit="return confirm('<%= t('buyer.history.confirm.resume','Möchtest du dieses Inserat wieder online stellen?').replace(/'/g, '\\\'') %>')">
+                  <button type="submit"
+                      class="btn btn-primary"
+                      title="<%= t('buyer.history.btn.resume', 'Online stellen') %>"
+                      aria-label="<%= t('buyer.history.btn.resume', 'Online stellen') %>"
+                      style="background:#1A253C;">
+                    <i class="bi bi-play-circle text-white"></i>
+                  </button>
+                </form>
               <% } %>
 
             </div>
@@ -357,6 +390,7 @@
     <% if (activeTab === "drafts") renderCards(offlineListings) %>
     <% if (activeTab === "review") renderCards(reviewListings) %>
     <% if (activeTab === "paused") renderCards(pausedListings) %>
+    <% if (activeTab === "deactivate") renderCards(deactivateListings) %>
     <% if (activeTab === "deleted") renderCards(deletedListings) %>
     <% if (activeTab === "expired") renderCards(expiredListings) %>
   </div>

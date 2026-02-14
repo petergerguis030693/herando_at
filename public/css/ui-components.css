@@ -143,3 +143,14 @@ img {
     background-color: #c39052;;
     border-color: transparent;
 }
+
+.form-control:focus {
+    border-color: #c39052 !important;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(220, 220, 221, 0.25) !important;
+}
+
+.nav-link:focus{
+  color: #c39052 !important;
+}
+

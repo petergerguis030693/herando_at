@@ -194,10 +194,10 @@
           <div class="fi-select">
             <select name="lifestyleType" id="fLifeType">
               <option value="">Beliebig</option>
-              <% (filters.lifestyleTypes || []).forEach(t => { %>
-                <option value="<%= t.id %>"
-                  <%= (selectedFilters.lifestyleType||[]).map(String).includes(String(t.id)) ? 'selected' : '' %>>
-                  <%= t.name %>
+              <% (filters.lifestyleTypes || []).forEach(lt => { %>
+                <option value="<%= lt.id %>"
+                  <%= (selectedFilters.lifestyleType||[]).map(String).includes(String(lt.id)) ? 'selected' : '' %>>
+                  <%= t('lifestyle.brand.' + lt.id, lt.name) %>
                 </option>
               <% }) %>
             </select>
@@ -213,7 +213,7 @@
               <% (filters.lifestyleSubcategories || []).forEach(sc => { %>
                 <option value="<%= sc.id %>"
                   <%= (selectedFilters.lifestyleSubcategory||[]).map(String).includes(String(sc.id)) ? 'selected' : '' %>>
-                  <%= sc.name %>
+                  <%= t('lifestyle.subcategory.' + sc.id, sc.name) %>
                 </option>
               <% }) %>
             </select>

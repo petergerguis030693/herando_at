@@ -30,6 +30,28 @@ body.modal-open .custom-backdrop {
 span{
  font-size: 18px;
 }
+
+.form-control:focus {
+    border-color: #c39052 !important;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(220, 220, 221, 0.25) !important;
+}
+
+.nav-link:focus{
+  color: #c39052 !important;
+}
+
+.nav-link{
+  color: #000;
+}
+
+.nav-link:hover {
+  color: #c39052 !important;
+}
+
+.btn-close{
+      --bs-btn-close-color: #fff !important; 
+}
 </style>
 
 
@@ -351,31 +373,31 @@ span{
 
                 <!-- 🏠 Adresse -->
                 <div class="row">
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-8 mb-3">
                     <label class="form-label"><%= t('offers.auth.street', { fallback: 'Straße *' }) %> *</label>
                     <input type="text" name="street" class="form-control" required>
                   </div>
-                  <div class="col-md-2 mb-3">
+                  <div class="col-md-4 mb-3">
                     <label class="form-label"><%= t('offers.auth.housenumber', { fallback: 'Nr. *' }) %> *</label>
                     <input type="text" name="housenumber" class="form-control" required>
-                  </div>
-                  <div class="col-md-4 mb-3">
-                    <label class="form-label"><%= t('offers.auth.postcode', { fallback: 'PLZ' }) %> *</label>
-                    <input type="text" name="postcode" class="form-control" required>
                   </div>
                 </div>
 
                 <div class="row">
-                  <!-- 🏙️ Stadt -->
-                  <div class="col-md-6 mb-3">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label"><%= t('offers.auth.postcode', { fallback: 'PLZ' }) %> *</label>
+                    <input type="text" name="postcode" class="form-control" required>
+                  </div>
+                  <div class="col-md-8 mb-3">
                     <label for="city" class="form-label">
                       <%= t('offers.auth.city', { fallback: 'Ort *' }) %>
                     </label>
-                    <input type="text" id="city" name="city" class="form-control" required >
+                    <input type="text" id="city" name="city" class="form-control" required>
                   </div>
+                </div>
 
-                  <!-- 🌍 Land -->
-                  <div class="col-md-6 mb-3">
+                <div class="row">
+                  <div class="col-12 mb-3">
                     <label for="country" class="form-label">
                       <%= t('offers.auth.country', { fallback: 'Land *' }) %>
                     </label>
@@ -480,47 +502,51 @@ span{
                 </div>
 
                 <!-- 🏠 Adresse -->
- <div class="row">
-  <div class="col-md-6 mb-3">
-    <label class="form-label">
-      <%= t('offers.auth.street', { fallback: 'Straße ' }) %>
-    </label>
-    <input type="text" name="street" class="form-control" >
-  </div>
+                <div class="row">
+                  <div class="col-md-8 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.street', { fallback: 'Straße ' }) %>
+                    </label>
+                    <input type="text" name="street" class="form-control">
+                  </div>
 
-  <div class="col-md-2 mb-3">
-    <label class="form-label">
-      <%= t('offers.auth.housenumber', { fallback: 'Nr. ' }) %>
-    </label>
-    <input type="text" name="housenumber" class="form-control" >
-  </div>
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.housenumber', { fallback: 'Nr. ' }) %>
+                    </label>
+                    <input type="text" name="housenumber" class="form-control">
+                  </div>
+                </div>
 
-  <div class="col-md-4 mb-3">
-    <label class="form-label">
-      <%= t('offers.auth.postcode', { fallback: 'PLZ ' }) %>
-    </label>
-    <input type="text" name="postcode" class="form-control" >
-  </div>
-</div>
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.postcode', { fallback: 'PLZ ' }) %>
+                    </label>
+                    <input type="text" name="postcode" class="form-control">
+                  </div>
 
-<div class="mb-3">
-  <label class="form-label">
-    <%= t('offers.auth.city', { fallback: 'Ort' }) %>
-  </label>
-  <input type="text" name="city" class="form-control">
-</div>
+                  <div class="col-md-8 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.city', { fallback: 'Ort' }) %>
+                    </label>
+                    <input type="text" name="city" class="form-control">
+                  </div>
+                </div>
 
-<div class="mb-3">
-  <label for="country" class="form-label">
-    <%= t('offers.auth.country', { fallback: 'Land *' }) %>
-  </label>
+                <div class="row">
+                  <div class="col-12 mb-3">
+                    <label for="country" class="form-label">
+                      <%= t('offers.auth.country', { fallback: 'Land *' }) %>
+                    </label>
 
-                  <select id="country" name="country_id" class="form-select" required>
-                    <option value=""><%= t('offers.modal.country.placeholder',{fallback:'– bitte wählen –'}) %></option>
-                    <% countries.forEach(c => { %>
-                      <option value="<%= c.id %>"><%= c.name %></option>
-                    <% }) %>
-                  </select>
+                    <select id="country" name="country_id" class="form-select" required>
+                      <option value=""><%= t('offers.modal.country.placeholder',{fallback:'– bitte wählen –'}) %></option>
+                      <% countries.forEach(c => { %>
+                        <option value="<%= c.id %>"><%= c.name %></option>
+                      <% }) %>
+                    </select>
+                  </div>
                 </div>
 
 

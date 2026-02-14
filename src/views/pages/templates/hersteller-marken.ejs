@@ -39,12 +39,79 @@
     font-size:0.9rem;
     background:#fafafa;
   }
+
+  .all-links-wrap {
+    margin-top: 2rem;
+    padding-top: 1.25rem;
+    border-top: 1px solid #ececec;
+  }
+
+  .all-links-wrap h3 {
+    font-size: 1.2rem;
+    margin-bottom: 0.75rem;
+  }
+
+  .links-4-cols {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem 2rem;
+  }
+
+  .links-4-cols ul {
+    margin: 0;
+    padding-left: 0;
+    list-style: none;
+  }
+
+  .links-4-cols li {
+    margin-bottom: 0.4rem;
+  }
+
+  .links-4-cols a {
+    text-decoration: none;
+    transition: color 0.2s ease;
+    font-size: 18px;
+  }
+
+  .links-4-cols a:hover,
+  .links-4-cols a:focus {
+    color: #c89b5b; /* Herando Gold */
+  }
+
+  @media (max-width: 992px) {
+    .links-4-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
+
+  @media (max-width: 576px) {
+    .links-4-cols { grid-template-columns: 1fr; }
+  }
 </style>
 
 <%
   // Wenn NUR 1 Kategorie vorhanden → Einzelansicht
   const brandGroups = Object.keys(groupedBrands);
   const singleCategory = brandGroups.length === 1 ? brandGroups[0] : null;
+  const splitCols = (arr, n = 4) => {
+    const cols = Array.from({ length: n }, () => []);
+    arr.forEach((item, idx) => cols[idx % n].push(item));
+    return cols;
+  };
+
+  const safeAllBrands = (typeof allBrands !== 'undefined' && Array.isArray(allBrands)) ? allBrands : [];
+  const brandsWithLogo = (singleCategory && groupedBrands[singleCategory] && Array.isArray(groupedBrands[singleCategory]))
+    ? groupedBrands[singleCategory]
+    : [];
+  const brandIdsWithLogo = new Set(brandsWithLogo.map(b => Number(b.id)));
+  const brandsWithoutLogo = safeAllBrands.filter(b => !brandIdsWithLogo.has(Number(b.id)));
+
+  const allBrandLinks = (singleCategory && brandsWithoutLogo.length)
+    ? brandsWithoutLogo.map(b => ({
+        label: b.name,
+        url: `/${singleCategory}?brand=${encodeURIComponent(b.id)}`
+      }))
+    : [];
+
+  const allBrandColumns = splitCols(allBrandLinks, 4);
 %>
 
 <div class="brands-page">
@@ -78,12 +145,28 @@
             <a href="/<%= route %>/<%= encodeURIComponent(brand.seoname) %>" rel="noopener">
               <img 
                 src="https://herando.com/images/cms/brands/<%= brand.seoname %>.jpg" 
+                loading="lazy"
                 alt="<%= brand.name %>">
               <div class="legend"><%= brand.name %></div>
             </a>
           </div>
         <% }) %>
       </div>
+
+      <% if (singleCategory && allBrandLinks.length) { %>
+        <div class="all-links-wrap">
+          <h3><%= t('brands.all_brands_links', 'Alle Marken als Links') %></h3>
+          <div class="links-4-cols">
+            <% allBrandColumns.forEach(col => { %>
+              <ul>
+                <% col.forEach(item => { %>
+                  <li><a href="<%= item.url %>"><%= item.label %></a></li>
+                <% }) %>
+              </ul>
+            <% }) %>
+          </div>
+        </div>
+      <% } %>
 
     </section>
   <% } %>

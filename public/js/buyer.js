@@ -2,6 +2,7 @@
 
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[Wishlist Debug] DOM geladen');
+  const ALLOWED_ROUTES = new Set(['cars', 'watches', 'properties', 'yachts', 'lifestyles']);
 
   // 1) Zeige alle vorhandenen Storage-Keys
   console.log('[Wishlist Debug] alle localStorage-Keys =', Object.keys(localStorage));
@@ -51,7 +52,14 @@ document.addEventListener('DOMContentLoaded', () => {
     for (const [index, { route, id }] of wishlist.entries()) {
       console.log(`[Wishlist Debug] lade Eintrag #${index}: route=${route}, id=${id}`);
       try {
-        const res = await fetch(`/buyer/wishlist/${route}/${id}`);
+        const safeRoute = String(route || '').toLowerCase();
+        const safeId = Number.parseInt(id, 10);
+        if (!ALLOWED_ROUTES.has(safeRoute) || !Number.isInteger(safeId) || safeId <= 0) {
+          console.warn('[Wishlist Debug] Ungültiger Bookmark-Eintrag übersprungen:', { route, id });
+          continue;
+        }
+
+        const res = await fetch(`/buyer/wishlist/${encodeURIComponent(safeRoute)}/${safeId}`);
         console.log(`[Wishlist Debug] fetch-Status für ${route}/${id} =`, res.status);
         if (!res.ok) {
           console.warn(`[Wishlist Debug] Item nicht gefunden: ${route}/${id}`);
@@ -63,23 +71,46 @@ document.addEventListener('DOMContentLoaded', () => {
         // Card-Element erstellen
         const card = document.createElement('div');
         card.className = 'cardPeter mb-4 me-4';
-        card.innerHTML = `
-          <div class="imageBild">
-            <div class="bild">
-                          <a href="/${route}/${id}/${encodeURIComponent(item.title)}">
-              <img src="${item.mainpictureUrl}" 
-                   alt="${item.title}" loading="lazy">
-            </div>
-          </div>
-          <div class="informationSection pt-2">
-            <div class="productInfo">
 
-                <h5 class="mb-1" style="width: 400px">${item.title}</h5>
-              </a>
-              <p class="productPrice mb-2">${item.priceFormatted}</p>
-            </div>
-          </div>
-        `;
+        const imageWrap = document.createElement('div');
+        imageWrap.className = 'imageBild';
+
+        const imageInner = document.createElement('div');
+        imageInner.className = 'bild';
+
+        const link = document.createElement('a');
+        link.href = `/${safeRoute}/${safeId}/${encodeURIComponent(String(item.title || 'inserat'))}`;
+
+        const img = document.createElement('img');
+        img.src = String(item.mainpictureUrl || '/assets/herando-weblogo.png');
+        img.alt = String(item.title || '');
+        img.loading = 'lazy';
+
+        link.appendChild(img);
+        imageInner.appendChild(link);
+        imageWrap.appendChild(imageInner);
+
+        const infoWrap = document.createElement('div');
+        infoWrap.className = 'informationSection pt-2';
+
+        const productInfo = document.createElement('div');
+        productInfo.className = 'productInfo';
+
+        const titleEl = document.createElement('h5');
+        titleEl.className = 'mb-1';
+        titleEl.style.width = '400px';
+        titleEl.textContent = String(item.title || '');
+
+        const priceEl = document.createElement('p');
+        priceEl.className = 'productPrice mb-2';
+        priceEl.textContent = String(item.priceFormatted || '');
+
+        productInfo.appendChild(titleEl);
+        productInfo.appendChild(priceEl);
+        infoWrap.appendChild(productInfo);
+
+        card.appendChild(imageWrap);
+        card.appendChild(infoWrap);
         grid.appendChild(card);
 
       } catch (err) {

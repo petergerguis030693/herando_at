@@ -58,8 +58,8 @@
   font-weight: 600;
 }
 
-/* Close Button */
-.btn-close {
+/* Close Button (nur im Sprach-Modal) */
+.custom-modal .btn-close {
   filter: brightness(0);
 }
 

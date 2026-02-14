@@ -11,7 +11,7 @@ const router    = express.Router();
 // multer für Upload im Memory
 const multer = require('multer');
 const uploadMemory = multer();
-
+ 
 // Middleware: nur Admins dürfen
 async function requireAdmin(req, res, next) {
   console.log('requireAdmin: userId =', req.session.userId);
@@ -86,6 +86,10 @@ function buildSelectParts(columns) {
   return { selectBits, orderBy };
 }
 
+function isSafeSqlIdentifier(value) {
+  return typeof value === 'string' && /^[A-Za-z0-9_]+$/.test(value);
+}
+
 // --- lädt alle Inserate eines Users quer über alle Entitäten
 async function loadUserListingsAcrossEntities(userId) {
   const [entities] = await db.query(
@@ -146,6 +150,62 @@ async function loadUserListingsAcrossEntities(userId) {
   return result;
 }
 
+async function loadUserListingStateTotalsByUser(userIds, entities) {
+  const normalizedUserIds = [...new Set(
+    userIds.map(id => Number(id)).filter(Number.isFinite)
+  )];
+  const totalsByUser = new Map(
+    normalizedUserIds.map(id => [id, { drafts: 0, online: 0, paused: 0 }])
+  );
+
+  if (!normalizedUserIds.length || !Array.isArray(entities) || !entities.length) {
+    return totalsByUser;
+  }
+
+  const placeholders = normalizedUserIds.map(() => '?').join(', ');
+
+  for (const ent of entities) {
+    const table = ent?.table_name;
+    if (!isSafeSqlIdentifier(table)) continue;
+
+    let columns = [];
+    try {
+      columns = await getTableColumns(table);
+    } catch (err) {
+      console.warn(`Skipping table ${table}: unable to read columns`, err.message);
+      continue;
+    }
+
+    if (!columns.includes('user_id') || !columns.includes('status') || !columns.includes('visible')) {
+      continue;
+    }
+
+    const [rows] = await db.query(
+      `SELECT
+         user_id,
+         SUM(CASE WHEN status = 0 AND visible = 0 THEN 1 ELSE 0 END) AS drafts,
+         SUM(CASE WHEN status = 3 AND visible = 1 THEN 1 ELSE 0 END) AS online,
+         SUM(CASE WHEN status = 4 AND visible = 0 THEN 1 ELSE 0 END) AS paused
+       FROM \`${table}\`
+       WHERE user_id IN (${placeholders})
+       GROUP BY user_id`,
+      normalizedUserIds
+    );
+
+    for (const row of rows) {
+      const userId = Number(row.user_id);
+      if (!totalsByUser.has(userId)) continue;
+
+      const current = totalsByUser.get(userId);
+      current.drafts += Number(row.drafts) || 0;
+      current.online += Number(row.online) || 0;
+      current.paused += Number(row.paused) || 0;
+    }
+  }
+
+  return totalsByUser;
+}
+
 
 router.get('/', requireAdmin, async (req, res, next) => {
   console.log('GET /admin/users/ list start');
@@ -156,8 +216,9 @@ router.get('/', requireAdmin, async (req, res, next) => {
     const search  = (req.query.search || '').trim();
     const status  = (req.query.status || 'all').trim();
     const packageFilter = (req.query.package || '').trim();
+    const entityFilter = (req.query.entity || '').trim();
 
-    console.log({ page, perPage, offset, search, status, packageFilter });
+    console.log({ page, perPage, offset, search, status, packageFilter, entityFilter });
 
     // Grund-Filter
     const where  = [
@@ -199,6 +260,14 @@ router.get('/', requireAdmin, async (req, res, next) => {
       )`);
       params.push(packageFilter);
     }
+    if (entityFilter) {
+      where.push(`EXISTS (
+        SELECT 1
+        FROM selected_packages sp
+        WHERE sp.user_id = u.id AND sp.category_id = ?
+      )`);
+      params.push(entityFilter);
+    }
 
     // Flatrate-Ausdruck → nur prüfen ob irgendein Feld NICHT NULL ist
     const flatrateExpr = `
@@ -224,6 +293,13 @@ router.get('/', requireAdmin, async (req, res, next) => {
     );
     const totalPages = Math.ceil(count / perPage);
 
+    // Alle verfügbaren Entitäten (für Filter + Inserat-Statistik)
+    const [allEntities] = await db.query(`
+      SELECT id, name, route, table_name
+      FROM ententies
+      ORDER BY name ASC
+    `);
+
     // Userliste laden
     const [users] = await db.query(
       `SELECT
@@ -244,10 +320,39 @@ router.get('/', requireAdmin, async (req, res, next) => {
          ${expirationExpr} AS ablaufdatum,
          ${flatrateExpr} AS has_flatrate,
          (
-           SELECT GROUP_CONCAT(sp.package_id SEPARATOR ', ')
+           SELECT GROUP_CONCAT(DISTINCT sp.package_id SEPARATOR ', ')
            FROM selected_packages sp
            WHERE sp.user_id = u.id
-         ) AS packages_taken
+         ) AS packages_taken,
+         (
+           SELECT GROUP_CONCAT(
+             DISTINCT COALESCE(p.name, CONCAT('ID ', sp.package_id))
+             ORDER BY COALESCE(p.name, CONCAT('ID ', sp.package_id))
+             SEPARATOR ', '
+           )
+           FROM selected_packages sp
+           LEFT JOIN packages p ON p.id = sp.package_id
+           WHERE sp.user_id = u.id
+         ) AS package_names,
+         (
+           SELECT COUNT(DISTINCT sp.package_id)
+           FROM selected_packages sp
+           WHERE sp.user_id = u.id
+             AND sp.package_id IS NOT NULL
+         ) AS ordered_packages_count,
+         (
+           SELECT COUNT(DISTINCT sp.category_id)
+           FROM selected_packages sp
+           WHERE sp.user_id = u.id
+             AND sp.category_id IS NOT NULL
+         ) AS ordered_entities_count,
+         (
+           SELECT GROUP_CONCAT(DISTINCT e.name ORDER BY e.name SEPARATOR ', ')
+           FROM selected_packages sp
+           JOIN ententies e ON e.id = sp.category_id
+           WHERE sp.user_id = u.id
+             AND sp.category_id IS NOT NULL
+         ) AS ordered_entity_names
        FROM users u
        WHERE ${whereSQL}
        ORDER BY u.lastname, u.firstname
@@ -256,6 +361,18 @@ router.get('/', requireAdmin, async (req, res, next) => {
     );
 
     console.log('Loaded users:', users.length);
+
+    const listingStateTotals = await loadUserListingStateTotalsByUser(
+      users.map(u => u.id),
+      allEntities
+    );
+
+    for (const user of users) {
+      const state = listingStateTotals.get(Number(user.id)) || { drafts: 0, online: 0, paused: 0 };
+      user.listings_drafts = state.drafts;
+      user.listings_online = state.online;
+      user.listings_paused = state.paused;
+    }
 
     // Alle verfügbaren Pakete für Filter-Buttons laden
     const [allPackages] = await db.query(`
@@ -288,7 +405,9 @@ router.get('/', requireAdmin, async (req, res, next) => {
       search,
       status,
       packageFilter,
-      allPackages
+      entityFilter,
+      allPackages,
+      allEntities
     });
 
   } catch (err) {

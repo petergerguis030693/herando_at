@@ -328,6 +328,12 @@
   const _light   = Array.isArray(commercialPackages?.LIGHT)   ? [...new Set(commercialPackages.LIGHT)]   : [];
   const _pro     = Array.isArray(commercialPackages?.PRO)     ? [...new Set(commercialPackages.PRO)]     : [];
   const _prem    = Array.isArray(commercialPackages?.PREMIUM) ? [...new Set(commercialPackages.PREMIUM)] : [];
+  const _tEntity = (routeOrName) => {
+    const value = String(routeOrName || '').trim();
+    if (!value) return '';
+    return t('global.category.' + value, t('category.' + value, value));
+  };
+  const _fmtEntities = (list) => list.map(_tEntity).filter(Boolean).join(', ');
 %>
 
 <h2 class="fw-bold mb-4" style="text-align: left;">
@@ -345,28 +351,28 @@
     <% if (_private.length > 0) { %>
       <p class="text-muted">
         <%- t('buyer.marketing.private') %>
-        <strong><%= _private.join(', ') %></strong>
+        <strong><%= _fmtEntities(_private) %></strong>
       </p>
     <% } %>
 
     <% if (_light.length > 0) { %>
       <p class="text-muted">
         <%- t('buyer.marketing.light') %>
-        <strong><%= _light.join(', ') %></strong>
+        <strong><%= _fmtEntities(_light) %></strong>
       </p>
     <% } %>
 
     <% if (_pro.length > 0) { %>
       <p class="text-muted">
         <%- t('buyer.marketing.pro') %>
-        <strong><%= _pro.join(', ') %></strong>
+        <strong><%= _fmtEntities(_pro) %></strong>
       </p>
     <% } %>
 
     <% if (_prem.length > 0) { %>
       <p class="text-muted">
         <%- t('buyer.marketing.premium') %>
-        <strong><%= _prem.join(', ') %></strong>
+        <strong><%= _fmtEntities(_prem) %></strong>
       </p>
     <% } %>
 
@@ -391,7 +397,6 @@
   <p class="lead text-muted mx-auto" style="max-width: 1000px;">
     <%= t('buyer.new.desc.line1') %><br>
     <%= t('buyer.new.desc.line2') %><br>
-    <strong>Herando</strong> <%= t('buyer.new.desc.line3') %>
   </p>
 </section>
 
@@ -481,12 +486,13 @@
       <p class="text-muted"><%= t('buyer.packages.none') %></p>
     <% } %>
   </div>
-    <div class="MWST-class">
-      <span><%= t('buyer.sold.note.sync', '*Datenabgleich möglich, abhängig vom verwendeten System auf Händlerseite.') %></span><br><br>
-      <span class="sechszehnpx"><%= t('buyer.sold.note.prices', 'Diese Preise sind ab 03/2025 gültig. Alle Preise verstehen sich ggf. zzgl. Mehrwertsteuer.') %></span><br>
-      <span class="sechszehnpx"><%= t('buyer.sold.note.sales', 'Sie wollen mehr als 500 Angebote schalten oder weitere Leistungen zubuchen? Wenden Sie sich an unser Vertriebsteam für ein individuelles Angebot.') %></span>
-      </span>
-    </div>
+    <% if (registrationType === 'commercial') { %>
+      <div class="MWST-class">
+        <span><%= t('buyer.sold.note.sync', '*Datenabgleich möglich, abhängig vom verwendeten System auf Händlerseite.') %></span><br><br>
+        <span class="sechszehnpx"><%= t('buyer.sold.note.prices', 'Diese Preise sind ab 03/2025 gültig. Alle Preise verstehen sich ggf. zzgl. Mehrwertsteuer.') %></span><br>
+        <span class="sechszehnpx"><%= t('buyer.sold.note.sales', 'Sie wollen mehr als 500 Angebote schalten oder weitere Leistungen zubuchen? Wenden Sie sich an unser Vertriebsteam für ein individuelles Angebot.') %></span>
+      </div>
+    <% } %>
 </div>
 
 <section class="container my-5" style="max-width: 700px;">

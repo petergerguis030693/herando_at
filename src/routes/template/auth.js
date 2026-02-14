@@ -663,7 +663,7 @@ router.post('/forgot-password', async (req, res) => {
       subject: 'Passwort zurücksetzen',
       html: `
         <p>Hallo ${user.firstname || ''},</p>
-        <p>du hast ein neues Passwort angefordert.</p>
+        <p>Sie haben ein neues Passwort angefordert.</p>
         <p>
           <a href="${resetLink}"
              style="display:inline-block;background:#c39052;color:#fff;padding:10px 16px;text-decoration:none">

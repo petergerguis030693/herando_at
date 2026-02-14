@@ -10,7 +10,7 @@
   };
 %>
 
-<section class="product-scroller">
+<section class="product-scroller my-prod-section">
 <h2 id="dynamicTitle" class="content-title section-title" style="font-size:40px;">
   <%= pageTitle %>
 </h2>
@@ -21,11 +21,172 @@
   </h2>
 <% } %>
 
+<style>
+#carousel-categoryProduct {
+  overflow: hidden;
+  touch-action: pan-x;
+}
+
+#carousel-categoryProduct .my-carousel-slides {
+  display: flex;
+  transition: transform 0.35s ease;
+  will-change: transform;
+  touch-action: pan-x;
+}
 
 
-  <div class="product-container">
-    <% if (slider && slider.length) { %>
-<% slider.forEach(item => { 
+#carousel-categoryProduct .my-carousel-slide {
+  display: grid;
+  gap: 16px;
+  min-width: 100%;
+  grid-template-columns: 1fr;
+}
+
+#carousel-categoryProduct .my-carousel-prev,
+#carousel-categoryProduct .my-carousel-next {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+@media (hover: hover) {
+  #carousel-categoryProduct:hover .my-carousel-prev,
+  #carousel-categoryProduct:hover .my-carousel-next,
+  #carousel-categoryProduct .my-carousel-prev:focus-visible,
+  #carousel-categoryProduct .my-carousel-next:focus-visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+@media (hover: none) {
+  #carousel-categoryProduct .my-carousel-prev,
+  #carousel-categoryProduct .my-carousel-next {
+    opacity: 1;
+    pointer-events: auto;
+  }
+}
+
+#carousel-categoryProduct .my-carousel-slide .card-peter {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0;
+  margin: 0;
+}
+
+#carousel-categoryProduct .my-carousel-slide .product-item {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0;
+  height: auto !important;
+}
+
+#carousel-categoryProduct .my-carousel-slide .product-item.prItem {
+  height: auto !important;
+}
+
+#carousel-categoryProduct .my-carousel-slide .product-item img {
+  width: 100%;
+  height: clamp(180px, 20vw, 250px);
+  object-fit: cover;
+  object-position: center;
+}
+
+@media (min-width: 520px) {
+  #carousel-categoryProduct .my-carousel-slide {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) {
+  #carousel-categoryProduct .my-carousel-slide {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1099px) {
+  #carousel-categoryProduct .my-carousel-slide .product-item img {
+    object-fit: contain;
+    background: #fff;
+  }
+}
+
+@media (min-width: 1100px) {
+  #carousel-categoryProduct .my-carousel-slides {
+    gap: 0;
+  }
+
+  #carousel-categoryProduct .my-carousel-slide {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    min-width: 100%;
+  }
+}
+
+@media (max-width: 1099px) {
+  #carousel-categoryProduct .my-carousel-slides {
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    padding: 0 14px;
+  }
+
+  #carousel-categoryProduct .my-carousel-slides::-webkit-scrollbar {
+    display: none;
+  }
+
+  #carousel-categoryProduct .my-carousel-slide {
+    min-width: calc(100% - 150px);
+    scroll-snap-align: center;
+  }
+
+  #carousel-categoryProduct .category-carousel-controls {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+
+  #carousel-categoryProduct .category-carousel-controls .my-carousel-nav-dots {
+    margin-top: 0;
+    display: none;
+  }
+
+  #carousel-categoryProduct .category-carousel-controls .my-carousel-prev,
+  #carousel-categoryProduct .category-carousel-controls .my-carousel-next {
+    position: static !important;
+    top: auto !important;
+    left: auto !important;
+    right: auto !important;
+    transform: none !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+    width: 46px;
+    height: 40px;
+    padding: 0;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+</style>
+
+
+  <% if (slider && slider.length) { %>
+  <div class="my-carousel" id="carousel-categoryProduct">
+    <div class="my-carousel-slides" id="categoryProductSlides"></div>
+    <div class="category-carousel-controls">
+      <button class="my-carousel-prev" id="categoryProductPrev" aria-label="Zurück">‹</button>
+      <div class="my-carousel-nav-dots" id="categoryProductDots"></div>
+      <button class="my-carousel-next" id="categoryProductNext" aria-label="Weiter">›</button>
+    </div>
+  </div>
+
+  <div id="categoryProductSource" class="d-none">
+      <% slider.forEach(item => { 
      const safeTitle = slugify(item.title);
 
      /* ---- Mappings mit bestehenden Keys ---- */
@@ -112,8 +273,8 @@
      const roomsVal = (typeof item.rooms !== "undefined" ? item.rooms : item.bedrooms);
 %>
 
-        <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= safeTitle %>" class="product-link">
-          <div class="product-item prItem">
+        <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= safeTitle %>" class="product-link" style="text-decoration:none; color:inherit;">
+          <div class="product-item prItem" style="height:100%;">
             <img src="<%= item.imageUrl %>" alt="<%= item.title %>">
               <h3 title="<%= item.title %>" style="font-size: 14pt; margin-top: 12px">
                 <b><%= (item.title && item.title.length > 20) ? item.title.substring(0, 20) + "..." : item.title %></b>
@@ -310,16 +471,145 @@
           </div>
         </a>
       <% }) %>
-
-    <% } else { %>
-      <div> </div>
-    <% } %>
   </div>
+  <% } else { %>
+    <div></div>
+  <% } %>
 </section>
- 
-<% if (slider && slider.length > 5) { %>
-  <div class="scroll-controls">
-    <button class="scroll-btn left" aria-label="Scroll nach links">‹</button>
-    <button class="scroll-btn right" aria-label="Scroll nach rechts">›</button>
-  </div>
-<% } %>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const carousel = document.getElementById("carousel-categoryProduct");
+  if (!carousel) return;
+  const section = carousel.closest(".my-prod-section");
+
+  if (section) {
+    if ("IntersectionObserver" in window) {
+      const obs = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          section.classList.toggle("is-active", entry.isIntersecting);
+        });
+      }, { threshold: 0.25 });
+      obs.observe(section);
+    } else {
+      section.classList.add("is-active");
+    }
+  }
+
+  const slides = carousel.querySelector(".my-carousel-slides");
+  const source = document.getElementById("categoryProductSource");
+  const dotsWrap = document.getElementById("categoryProductDots");
+  const prevBtn = document.getElementById("categoryProductPrev");
+  const nextBtn = document.getElementById("categoryProductNext");
+  if (!slides || !source || !dotsWrap || !prevBtn || !nextBtn) return;
+
+  const cards = Array.from(source.children);
+  if (!cards.length) return;
+
+  let current = 0;
+  let currentGroupSize = 0;
+  let isDesktopMode = window.innerWidth >= 1100;
+
+  function getStepWidth() {
+    const first = slides.querySelector(".my-carousel-slide");
+    if (!first) return carousel.clientWidth || 0;
+    const styles = window.getComputedStyle(slides);
+    const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
+    return first.getBoundingClientRect().width + gap;
+  }
+
+  function goTo(index, behavior = "smooth") {
+    const total = slides.children.length;
+    if (!total) return;
+    current = (index + total) % total;
+    const step = getStepWidth();
+    if (isDesktopMode) {
+      slides.style.transform = `translateX(-${current * step}px)`;
+    } else {
+      slides.scrollTo({ left: current * step, behavior });
+    }
+    Array.from(dotsWrap.querySelectorAll("button[data-slide]"))
+      .forEach((dot, i) => dot.classList.toggle("active", i === current));
+  }
+
+  function getGroupSize() {
+    const w = window.innerWidth;
+    if (w >= 1100) return 5;
+    if (w >= 768) return 3;
+    if (w >= 520) return 2;
+    return 1;
+  }
+
+  function rebuildSlides(force = false) {
+    const groupSize = getGroupSize();
+    if (!force && groupSize === currentGroupSize) return;
+    currentGroupSize = groupSize;
+
+    slides.innerHTML = "";
+    dotsWrap.innerHTML = "";
+
+    for (let i = 0; i < cards.length; i += groupSize) {
+      const slide = document.createElement("div");
+      slide.className = "my-carousel-slide";
+      slide.dataset.slide = String(Math.floor(i / groupSize));
+
+      cards.slice(i, i + groupSize).forEach((card) => {
+        const wrapper = document.createElement("div");
+        wrapper.className = "card-peter";
+        wrapper.appendChild(card.cloneNode(true));
+        slide.appendChild(wrapper);
+      });
+
+      slides.appendChild(slide);
+
+      const dot = document.createElement("button");
+      dot.type = "button";
+      dot.dataset.slide = String(Math.floor(i / groupSize));
+      dotsWrap.appendChild(dot);
+    }
+
+    const total = slides.children.length;
+    const multi = total > 1;
+    isDesktopMode = window.innerWidth >= 1100;
+    prevBtn.style.display = multi ? "" : "none";
+    nextBtn.style.display = multi ? "" : "none";
+    dotsWrap.style.display = (multi && isDesktopMode) ? "" : "none";
+
+    current = Math.min(current, Math.max(0, total - 1));
+    if (isDesktopMode) {
+      slides.scrollLeft = 0;
+      goTo(current, "auto");
+    } else {
+      slides.style.transform = "translateX(0px)";
+      goTo(current, "auto");
+    }
+  }
+
+  dotsWrap.addEventListener("click", (e) => {
+    const dot = e.target.closest("button[data-slide]");
+    if (!dot) return;
+    goTo(Number(dot.dataset.slide || 0));
+  });
+
+  prevBtn.addEventListener("click", () => goTo(current - 1));
+  nextBtn.addEventListener("click", () => goTo(current + 1));
+
+  slides.addEventListener("scroll", () => {
+    if (isDesktopMode) return;
+    const step = getStepWidth();
+    if (!step) return;
+    const total = slides.children.length;
+    if (!total) return;
+    const idx = Math.max(0, Math.min(total - 1, Math.round(slides.scrollLeft / step)));
+    current = idx;
+  }, { passive: true });
+
+  let resizeTimer = null;
+  window.addEventListener("resize", () => {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(() => rebuildSlides(), 120);
+  });
+
+  rebuildSlides(true);
+});
+</script>
