@@ -18,6 +18,18 @@
       <% if (flash.error) { %>
         <div class="alert alert-danger"><%= flash.error %></div>
       <% } %>
+      <% const pageLangs = [
+        { code: 'en', label: 'English' },
+        { code: 'fr', label: 'Français' },
+        { code: 'it', label: 'Italiano' },
+        { code: 'tr', label: 'Türkçe' },
+        { code: 'ja', label: '日本語' },
+        { code: 'cs', label: 'Čeština' },
+        { code: 'ru', label: 'Русский' },
+        { code: 'es', label: 'Español' },
+        { code: 'nl', label: 'Nederlands' },
+        { code: 'pl', label: 'Polski' }
+      ]; %>
 
       <form
         method="POST"
@@ -41,7 +53,7 @@
         </div>
 
         <div class="mb-3">
-          <label for="title" class="form-label">Titel</label>
+          <label for="title" class="form-label">Titel (Deutsch)</label>
           <input
             type="text"
             id="title"
@@ -53,14 +65,48 @@
         </div>
 
         <div class="mb-3">
-        <label for="content" class="form-label">Inhalt (HTML)</label>
+        <label for="content" class="form-label">Inhalt (Deutsch, HTML)</label>
         <textarea
             id="content"
             name="content"
             rows="10"
-            class="form-control"
+            class="form-control js-ck-editor"
         ><%= page.content || '' %></textarea>
         </div>
+
+        <hr class="my-4">
+        <h5 class="mb-3">Übersetzungen</h5>
+        <p class="text-muted">Diese Felder werden direkt in der Tabelle <code>pages</code> gespeichert.</p>
+
+        <% pageLangs.forEach(l => { %>
+          <div class="card mb-4">
+            <div class="card-header">
+              <strong><%= l.label %></strong> (<code><%= l.code %></code>)
+            </div>
+            <div class="card-body">
+              <div class="mb-3">
+                <label for="title_<%= l.code %>" class="form-label">Titel (<%= l.label %>)</label>
+                <input
+                  type="text"
+                  id="title_<%= l.code %>"
+                  name="title_<%= l.code %>"
+                  class="form-control"
+                  value="<%= page[`title_${l.code}`] || '' %>"
+                />
+              </div>
+
+              <div class="mb-0">
+                <label for="content_<%= l.code %>" class="form-label">Inhalt (<%= l.label %>, HTML)</label>
+                <textarea
+                  id="content_<%= l.code %>"
+                  name="content_<%= l.code %>"
+                  rows="8"
+                  class="form-control js-ck-editor"
+                ><%= page[`content_${l.code}`] || '' %></textarea>
+              </div>
+            </div>
+          </div>
+        <% }) %>
 
         <button type="submit" class="btn btn-primary">
           <%= action === 'new' ? 'Anlegen' : 'Speichern' %>
@@ -78,15 +124,16 @@
 
 <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
 <script>
-  ClassicEditor
-    .create( document.querySelector( '#content' ), {
-      toolbar: [
-        'heading','|',
-        'bold','italic','underline','|',
-        'link','bulletedList','numberedList','|',
-        'blockQuote','insertTable','undo','redo'
-      ]
-    })
-    .catch( error => console.error( error ) );
-</script>
+  const editorConfig = {
+    toolbar: [
+      'heading', '|',
+      'bold', 'italic', 'underline', '|',
+      'link', 'bulletedList', 'numberedList', '|',
+      'blockQuote', 'insertTable', 'undo', 'redo'
+    ]
+  };
 
+  document.querySelectorAll('.js-ck-editor').forEach((el) => {
+    ClassicEditor.create(el, editorConfig).catch((error) => console.error(error));
+  });
+</script>

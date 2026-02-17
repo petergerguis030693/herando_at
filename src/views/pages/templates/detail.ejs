@@ -3071,6 +3071,7 @@ const qualityMap = {
   const btnPrev  = document.getElementById('lightboxPrev');
   const btnNext  = document.getElementById('lightboxNext');
   const btnClose = document.getElementById('lightboxClose');
+  if (!overlay || !imgEl || !btnPrev || !btnNext || !btnClose || !pics.length) return;
 
   function showLightbox(idx) {
     currentIndex = idx;

@@ -616,6 +616,17 @@ body.modal-open {
   opacity:.9;
 }
 
+@media (max-width: 767.98px) {
+  .hf-payments-logos {
+    gap: 10px;
+  }
+
+  .hf-payments-logos img {
+    height: 20px;
+    width: auto;
+  }
+}
+
 .hf-social .herando-social-icons{
   margin-top:8px;
   justify-content:flex-start;
@@ -638,5 +649,4 @@ body.modal-open {
 .btn-border:hover{
   border: 1px solid transparent !important;
 }
-
 

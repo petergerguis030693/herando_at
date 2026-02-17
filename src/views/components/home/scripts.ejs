@@ -218,7 +218,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <a href="/${cat.route}/${item.reference}/${slug}">
                   <img src="${item.imageUrl}" alt="${item.title}" loading="lazy" decoding="async">
               </div>
-              <div class="height"><p>${LABEL_POPULAR}</p></div>
+              <!--<div class="height"><p>${LABEL_POPULAR}</p></div>-->
             </div>
             <div class="information background">
               <div class="my-prod-info">
@@ -444,10 +444,13 @@ document.addEventListener("DOMContentLoaded", () => {
   // Carousel initialisieren
   (function initBrandsCarousel(){
     const section = document.getElementById('popularBrands');
+    if (!section) return;
+
     const slidesWrap = section.querySelector('.bcar-slides');
     const dotsWrap   = section.querySelector('.bcar-dots');
     const prevBtn    = section.querySelector('.bcar-prev');
     const nextBtn    = section.querySelector('.bcar-next');
+    if (!slidesWrap || !dotsWrap) return;
 
     // Slides bauen
     const groups = chunk(BRAND_ITEMS, 10);
@@ -481,10 +484,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Navigation
     let current = 0;
-    prevBtn.addEventListener('click', ()=> setIndex(current-1));
-    nextBtn.addEventListener('click', ()=> setIndex(current+1));
+    if (prevBtn) prevBtn.addEventListener('click', ()=> setIndex(current-1));
+    if (nextBtn) nextBtn.addEventListener('click', ()=> setIndex(current+1));
     dotsWrap.addEventListener('click', (e)=>{
-      const btn = e.target.closest('button[data-slide]');
+      const target = e.target instanceof Element ? e.target : null;
+      const btn = target ? target.closest('button[data-slide]') : null;
       if (!btn) return;
       setIndex(parseInt(btn.dataset.slide,10) || 0);
     });
@@ -1284,10 +1288,13 @@ function makeSlug(str) {
   entieties.forEach(ent => {
     const sectionId = `carousel-${ent.id}`;
     const carouselSection = document.getElementById(sectionId);
+    if (!carouselSection) return;
+
     const slides = carouselSection.querySelector(".my-carousel-slides");
     const dots = carouselSection.querySelector(".my-carousel-nav-dots");
     const prevBtn = carouselSection.querySelector(".my-carousel-prev");
     const nextBtn = carouselSection.querySelector(".my-carousel-next");
+    if (!slides || !dots) return;
 
     fetch(`/api/advert_inserat/${ent.id}`)
       .then(r => r.ok ? r.json() : [])
@@ -1340,6 +1347,8 @@ function makeSlug(str) {
         });
 
         // --- Navigation ---
+        if (!groups.length) return;
+
         dots.querySelectorAll("button").forEach(dot => {
           dot.addEventListener("click", () => {
             const idx = +dot.dataset.slide;
@@ -1349,22 +1358,24 @@ function makeSlug(str) {
           });
         });
 
-        prevBtn.addEventListener("click", () => {
+        if (prevBtn) prevBtn.addEventListener("click", () => {
           const active = dots.querySelector("button.active");
-          let i = +active.dataset.slide;
+          let i = active ? +active.dataset.slide : 0;
           i = i > 0 ? i - 1 : groups.length - 1;
           slides.style.transform = `translateX(-${i * 100}%)`;
           dots.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-          dots.querySelector(`button[data-slide="${i}"]`).classList.add("active");
+          const target = dots.querySelector(`button[data-slide="${i}"]`);
+          if (target) target.classList.add("active");
         });
 
-        nextBtn.addEventListener("click", () => {
+        if (nextBtn) nextBtn.addEventListener("click", () => {
           const active = dots.querySelector("button.active");
-          let i = +active.dataset.slide;
+          let i = active ? +active.dataset.slide : 0;
           i = (i + 1) % groups.length;
           slides.style.transform = `translateX(-${i * 100}%)`;
           dots.querySelectorAll("button").forEach(b => b.classList.remove("active"));
-          dots.querySelector(`button[data-slide="${i}"]`).classList.add("active");
+          const target = dots.querySelector(`button[data-slide="${i}"]`);
+          if (target) target.classList.add("active");
         });
       })
       .catch(err => {

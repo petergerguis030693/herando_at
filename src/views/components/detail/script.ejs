@@ -27,7 +27,8 @@
 
 <!-- ==== SCRIPT ==== -->
 <script>
-document.getElementById("sellerContactForm").addEventListener("submit", async function (e) {
+const sellerContactForm = document.getElementById("sellerContactForm");
+if (sellerContactForm) sellerContactForm.addEventListener("submit", async function (e) {
     e.preventDefault();
 
     // Daten sammeln
@@ -311,6 +312,7 @@ document.addEventListener("DOMContentLoaded", function () {
   const btnPrev  = document.getElementById('lightboxPrev');
   const btnNext  = document.getElementById('lightboxNext');
   const btnClose = document.getElementById('lightboxClose');
+  if (!overlay || !imgEl || !btnPrev || !btnNext || !btnClose || !pics.length) return;
 
   function showLightbox(idx) {
     currentIndex = idx;

@@ -10,14 +10,120 @@
 %>
                <link rel="stylesheet" href="/css/buyer.css">
                <style>
+                  /* ========== EDIT LISTING: aligned to NEW LISTING layout ========== */
+                  .listing-box {
+                    border: 1px solid #dedede !important;
+                    padding: 30px !important;
+                  }
 
-                  .form-check-label{
+                  .listing-legend {
+                    font-size: 1.2rem;
+                    padding: 0 8px;
+                  }
+
+                  .listing-label {
+                    font-size: 0.95rem;
+                  }
+
+                  .listing-row {
+                    margin-left: 0 !important;
+                    margin-right: 0 !important;
+                  }
+
+                  .note-hint {
+                    font-size: 0.85rem;
+                    color: #6c757d;
+                  }
+
+                  .nav-link {
+                    color: #111;
+                  }
+
+                  .nav-link:hover {
+                    color: #111;
+                  }
+
+                  .bi-house-door-fill,
+                  .bi-gem {
+                    color: #c39052 !important;
+                  }
+
+                  @media (max-width: 768px) {
+                    .listing-label {
+                      text-align: left !important;
+                      margin-bottom: 5px;
+                    }
+
+                    fieldset.listing-box {
+                      padding: 20px !important;
+                    }
+
+                    .note-hint {
+                      margin-left: 0 !important;
+                    }
+                  }
+
+                  .form-control:focus {
+                    color: var(--bs-body-color);
+                    border-color: #c99b5d;
+                    outline: 0;
+                    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+                  }
+
+                  .form-check-input:checked {
+                    background-color: #c99b5d;
+                    border-color: #c99b5d;
+                  }
+
+                  .form-check-input:focus {
+                    border-color: #c99b5d;
+                    outline: 0;
+                    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+                  }
+
+                  .form-select:focus {
+                    border-color: #c99b5d;
+                    outline: 0;
+                    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+                  }
+
+                  .form-check-label {
                     margin-left: 5px;
                   }
 
                   .col-md-3 {
-                      flex: 0 0 auto;
-                      width: 10%;
+                    flex: 0 0 auto;
+                    width: 10%;
+                  }
+
+                  /* Yacht speed fields: same behavior as new-listing */
+                  .yacht-speed-wrap {
+                    overflow-x: auto;
+                  }
+
+                  .yacht-speed-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, minmax(165px, 1fr));
+                    gap: 0.5rem;
+                    min-width: 700px;
+                  }
+
+                  .yacht-speed-label {
+                    min-height: 3.25rem;
+                    margin-bottom: 0.35rem;
+                    display: flex;
+                    align-items: flex-end;
+                  }
+
+                  @media (max-width: 1100px) {
+                    .yacht-speed-wrap {
+                      overflow-x: visible;
+                    }
+
+                    .yacht-speed-grid {
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      min-width: 0;
+                    }
                   }
                </style>
 <body>
@@ -55,8 +161,8 @@
 <form action="/buyer/edit-listing/<%= item.id %>" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="ent_id" value="<%= ent.id %>">
 
-<fieldset class="mb-4 p-4 border bg-white rounded shadow-sm">
-  <legend class="fw-semibold px-2"><%= t('edit_listing.section.base','Basisdaten') %></legend>
+<fieldset class="mb-4 p-4 border bg-white rounded shadow-sm listing-box">
+  <legend class="fw-semibold px-2 listing-legend"><%= t('edit_listing.section.base','Basisdaten') %></legend>
 
   <!-- Titel -->
 <div class="row mb-4">
@@ -81,7 +187,7 @@
   <!-- Kaufpreis -->
   <div class="row mb-4 align-items-center">
 
-    <label for="priceFormatted" class="col-md-3 col-form-label fw-semibold">
+    <label for="priceFormatted" class="col-md-3 col-form-label fw-semibold listing-label">
       * <%= t('edit_listing.label.price','Kaufpreis') %>
     </label>
 
@@ -1191,7 +1297,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <fieldset class="border rounded p-4 mb-4">
   <legend class="fs-5 mb-3"><%= t('edit_listing.cars.section.safety','Sicherheit') %></legend>
 
-  <!-- Airbags & Isofix -->
+  <!-- Airbags -->
   <div class="row g-3 align-items-center mb-3">
     <div class="col-md-4">
       <label for="airbags" class="form-label"><%= t('edit_listing.cars.airbags','Airbags') %></label>
@@ -1210,9 +1316,15 @@ document.addEventListener("DOMContentLoaded", () => {
         <% } %>
       </select>
     </div>
+    <div class="col-md-4 d-none d-md-block"></div>
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
 
-    <div class="col-md-4">
-      <div class="form-check mt-4">
+  <!-- Isofix + Fahrassistenzsysteme -->
+  <% if (checkboxGroups.Fahrassistenzsysteme) { %>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div class="form-check">
         <input type="hidden" name="isofix" value="0">
         <input 
           id="isofix"
@@ -1225,14 +1337,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <%= t('edit_listing.cars.isofix','Isofix (Kindersitzbefestigung)') %>
         </label>
       </div>
-    </div>
-
-    <div class="col-md-4 d-none d-md-block"></div>
-  </div>
-
-  <!-- Fahrassistenzsysteme -->
-  <% if (checkboxGroups.Fahrassistenzsysteme) { %>
-    <div class="row g-3 mb-3">
+      </div>
       <% checkboxGroups.Fahrassistenzsysteme.forEach(field => { %>
         <div class="col-md-4">
           <!-- Hidden-Input, damit bei deaktivierter Checkbox ein "0" gesendet wird -->
@@ -1254,11 +1359,34 @@ document.addEventListener("DOMContentLoaded", () => {
     </div>
   <% } %>
 
+  <!-- Basis-Sicherheit (ABS / ESP / ASR) -->
+  <% if (checkboxGroups.Sicherheit) { %>
+    <div class="row g-3 mb-1">
+      <% checkboxGroups.Sicherheit.forEach(field => { %>
+        <div class="col-md-4">
+          <input type="hidden" name="<%= field.name %>" value="0">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="<%= field.name %>"
+              name="<%= field.name %>"
+              value="1"
+              <%= field.checked %>>
+            <label class="form-check-label" for="<%= field.name %>">
+              <%= labelOf(field.name) %>
+            </label>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+
 </fieldset>
 
 
 <% Object.entries(checkboxGroups).forEach(([legend, keys]) => { %>
-  <% if (legend === 'Assistenzsysteme') return; %>
+  <% if (legend === 'Assistenzsysteme' || legend === 'Fahrassistenzsysteme' || legend === 'Sicherheit') return; %>
   <fieldset class="border rounded p-4 mb-4">
     <legend class="fs-5 mb-3"><%= legend %></legend>
 
@@ -2372,25 +2500,25 @@ document.addEventListener("DOMContentLoaded", async () => {
     </div>
 
     <!-- Geschwindigkeiten -->
-    <div class="col-12">
-      <div class="row g-3">
-        <div class="col-md-2">
-          <label for="cruising_speed_kn" class="form-label"><%= t('edit_listing.yachts.cruising_speed_kn','Reisegeschwindigkeit (kn)') %></label>
+    <div class="col-12 yacht-speed-wrap">
+      <div class="yacht-speed-grid">
+        <div>
+          <label for="cruising_speed_kn" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.cruising_speed_kn','Reisegeschwindigkeit (kn)') %></label>
           <input id="cruising_speed_kn" name="cruising_speed_kn" type="number" step="0.1" class="form-control"
                  value="<%= item.cruising_speed_kn || '' %>">
         </div>
-        <div class="col-md-2">
-          <label for="cruising_speed" class="form-label"><%= t('edit_listing.yachts.cruising_speed','Reisegeschwindigkeit (km/h)') %></label>
+        <div>
+          <label for="cruising_speed" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.cruising_speed','Reisegeschwindigkeit (km/h)') %></label>
           <input id="cruising_speed" name="cruising_speed" type="number" step="1" class="form-control"
                  value="<%= item.cruising_speed || '' %>">
         </div>
-        <div class="col-md-2">
-          <label for="max_speed_kn" class="form-label"><%= t('edit_listing.yachts.max_speed_kn','Max. Geschwindigkeit (kn)') %></label>
+        <div>
+          <label for="max_speed_kn" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.max_speed_kn','Max. Geschwindigkeit (kn)') %></label>
           <input id="max_speed_kn" name="max_speed_kn" type="number" step="0.1" class="form-control"
                  value="<%= item.max_speed_kn || '' %>">
         </div>
-        <div class="col-md-2">
-          <label for="max_speed" class="form-label"><%= t('edit_listing.yachts.max_speed','Max. Geschwindigkeit (km/h)') %></label>
+        <div>
+          <label for="max_speed" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.max_speed','Max. Geschwindigkeit (km/h)') %></label>
           <input id="max_speed" name="max_speed" type="number" step="1" class="form-control"
                  value="<%= item.max_speed || '' %>">
         </div>

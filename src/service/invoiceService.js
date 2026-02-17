@@ -34,6 +34,11 @@ async function generateInvoice(order, callback) {
 
     // PDF initialisieren
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
+    pdfDoc.setTitle('Herando Rechnung');
+    pdfDoc.setSubject('Rechnung');
+    pdfDoc.setAuthor('Herando');
+    pdfDoc.setCreator('Herando Invoice Service');
+    pdfDoc.setProducer('Herando');
     const font   = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const [page] = pdfDoc.getPages();
 
@@ -135,9 +140,6 @@ async function generateInvoice(order, callback) {
     // Tabellenkopf
     recipientY -= 50;
     page.drawText(await tPdf('invoice.column.article'), { x: recipientX, y: recipientY, size: 9, font });
-    page.drawText(await tPdf('invoice.column.price'),   { x: recipientX + 200, y: recipientY, size: 9, font });
-    page.drawText(await tPdf('invoice.column.qty'),     { x: recipientX + 280, y: recipientY, size: 9, font });
-    page.drawText(await tPdf('invoice.column.total'),   { x: recipientX + 400, y: recipientY, size: 9, font });
 
     // ================== POSITION / RABATT (FIX) ==================
     const packageName = await tPdf(order.package_key);
@@ -151,9 +153,9 @@ async function generateInvoice(order, callback) {
       ? (await tPdf('invoice.runtime')).replace('{{date}}', order.package_end_formatted)
       : '';
 
-    // Spalten-Rechtskanten (wie bei dir)
-    const PRICE_RIGHT_X = recipientX + 200 + 42;
-    const QTY_RIGHT_X   = recipientX + 280 + 25;
+    // Spalten-Positionen
+    const PRICE_X       = recipientX + 200;
+    const QTY_CENTER_X  = recipientX + 280;
     const SUM_RIGHT_X   = recipientX + 400 + 42;
 
     const fontSizePos = 9;
@@ -163,9 +165,18 @@ async function generateInvoice(order, callback) {
       page.drawText(text, { x: rightX - w, y, size: fontSizePos, font });
     }
 
+    function drawCenter(text, centerX, y) {
+      const w = font.widthOfTextAtSize(text, fontSizePos);
+      page.drawText(text, { x: centerX - w / 2, y, size: fontSizePos, font });
+    }
+
     function drawLabel(text, y, size = fontSizePos) {
       page.drawText(text, { x: recipientX, y, size, font });
     }
+
+    page.drawText(await tPdf('invoice.column.price'), { x: PRICE_X, y: recipientY, size: 9, font });
+    drawCenter(await tPdf('invoice.column.qty'), QTY_CENTER_X, recipientY);
+    drawRight(await tPdf('invoice.column.total'), SUM_RIGHT_X, recipientY);
 
     // Einzelposition
     recipientY -= 15;
@@ -180,9 +191,9 @@ async function generateInvoice(order, callback) {
       recipientY += 12; // zurück auf Artikel-Linie
     }
 
-    // Preis/Menge/Summe (rechtsbündig auf Artikel-Linie)
-    drawRight(asEuro(originalNet), PRICE_RIGHT_X, recipientY);
-    drawRight('1', QTY_RIGHT_X, recipientY);
+    // Preis/Menge/Summe (links/zentriert/rechts auf Artikel-Linie)
+    page.drawText(asEuro(originalNet), { x: PRICE_X, y: recipientY, size: fontSizePos, font });
+    drawCenter('1', QTY_CENTER_X, recipientY);
     drawRight(asEuro(originalNet), SUM_RIGHT_X, recipientY);
 
     // ⭐⭐⭐ WICHTIG: GROSSER Abstand bevor Rabatt kommt

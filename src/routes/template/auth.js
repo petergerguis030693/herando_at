@@ -22,6 +22,25 @@ async function tBackend(key, lang = 'de') {
   return row?.txt || key;
 }
 
+const UI_LANG_COLS = ['de', 'en', 'cs', 'es', 'fr', 'it', 'nl', 'pl', 'tr', 'ru', 'ja'];
+
+function resolveLang(req, res) {
+  const raw = String(
+    req.session?.lang ||
+    res.locals?.lang ||
+    req.locale ||
+    'de'
+  ).toLowerCase();
+  const short = raw.split(/[-_]/)[0];
+  return UI_LANG_COLS.includes(short) ? short : 'de';
+}
+
+async function tr(req, res, key, fallback = '') {
+  const txt = await tBackend(key, resolveLang(req, res));
+  if (txt && txt !== key) return txt;
+  return fallback || key;
+}
+
 
 // ─── Hilfsfunktion für Navbar ─────────────────────────────────────────────
 async function loadEntieties(req, res, next) {
@@ -38,8 +57,7 @@ async function loadEntieties(req, res, next) {
 
 async function loadCountries(req) {
   const lang = req.session?.lang || 'de';
-  const allowed = ['de','en','cs','es','fr','it','nl','pl','tr','ru','ja','zh'];
-  const col = allowed.includes(lang) ? lang : 'en';
+  const col = UI_LANG_COLS.includes(lang) ? lang : 'en';
 
   const [countries] = await db.query(
     `
@@ -56,7 +74,8 @@ async function loadCountries(req) {
 
 router.get('/login', loadEntieties, (req, res) => {
   res.render('pages/templates/login', {
-    error: req.session.loginError || null
+    error: req.session.loginError || null,
+    lang: resolveLang(req, res)
   });
   delete req.session.loginError;
 });
@@ -70,8 +89,7 @@ router.get('/register', async (req, res) => {
       'de';
 
     // nur erlaubte Sprachspalten zulassen
-    const allowedLangs = ['de','en','cs','es','fr','it','nl','pl','tr','ru','ja','zh'];
-    const col = allowedLangs.includes(lang) ? lang : 'en';
+    const col = UI_LANG_COLS.includes(lang) ? lang : 'en';
 
     const [countries] = await db.query(
       `
@@ -88,7 +106,7 @@ router.get('/register', async (req, res) => {
     res.render('pages/templates/register', {
       error: null,
       success: null,
-      headerTitle: 'Registrierung',
+      headerTitle: await tr(req, res, 'auth.register.title', 'Registrierung'),
       currentUrl: req.url,
       login_user: req.user || null,
       countries
@@ -96,7 +114,7 @@ router.get('/register', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Fehler bei GET /register:', err);
-    res.status(500).send('Interner Serverfehler');
+    res.status(500).send(await tr(req, res, 'auth.register.error.internal_server', 'Interner Serverfehler'));
   }
 });
 
@@ -105,6 +123,7 @@ router.post('/register', async (req, res) => {
   try {
     console.log('📥 POST /auth/register erhalten');
     console.log('➡️ Request Body:', req.body);
+    const lang = resolveLang(req, res);
 
     const {
       type,                // 'private' | 'commercial'
@@ -135,7 +154,7 @@ router.post('/register', async (req, res) => {
     if (req.session?.userId) {
       return res.status(400).json({
         success: false,
-        error: 'Du bist bereits eingeloggt. Registrierung ist nicht erlaubt.'
+        error: await tr(req, res, 'auth.register.error.already_logged_in', 'Du bist bereits eingeloggt. Registrierung ist nicht erlaubt.')
       });
     }
 
@@ -143,7 +162,7 @@ router.post('/register', async (req, res) => {
     if (!['private', 'commercial'].includes(type)) {
       return res.status(400).json({
         success: false,
-        error: 'Ungültiger Registrierungstyp.'
+        error: await tr(req, res, 'auth.register.error.invalid_type', 'Ungültiger Registrierungstyp.')
       });
     }
 
@@ -151,7 +170,7 @@ router.post('/register', async (req, res) => {
     if (!password || password !== password_repeat) {
       return res.status(400).json({
         success: false,
-        error: 'Passwörter stimmen nicht überein.'
+        error: await tr(req, res, 'auth.register.error.password_mismatch', 'Passwörter stimmen nicht überein.')
       });
     }
 
@@ -164,7 +183,7 @@ router.post('/register', async (req, res) => {
     if (exists) {
       return res.status(400).json({
         success: false,
-        error: 'Diese E-Mail-Adresse ist bereits registriert.'
+        error: await tr(req, res, 'auth.register.error.email_exists', 'Diese E-Mail-Adresse ist bereits registriert.')
       });
     }
 
@@ -233,17 +252,22 @@ router.post('/register', async (req, res) => {
       }
     });
 
+    const verifySubject = await tr(req, res, 'auth.register.verify_mail.subject', 'E-Mail-Adresse bestätigen');
+    const verifyGreeting = await tr(req, res, 'auth.register.verify_mail.greeting', 'Hallo');
+    const verifyIntro = await tr(req, res, 'auth.register.verify_mail.intro', 'Bitte bestätige deine E-Mail-Adresse, um dein Konto zu aktivieren:');
+    const verifyAction = await tr(req, res, 'auth.register.verify_mail.action', 'E-Mail bestätigen');
+
     await transporter.sendMail({
       from: `"Herando" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: 'E-Mail-Adresse bestätigen',
+      subject: verifySubject,
       html: `
-        <p>Hallo ${firstname},</p>
-        <p>Bitte bestätige deine E-Mail-Adresse, um dein Konto zu aktivieren:</p>
+        <p>${verifyGreeting} ${firstname},</p>
+        <p>${verifyIntro}</p>
         <p>
           <a href="${verifyUrl}" target="_blank"
              style="display:inline-block;color:#ffffff;background:#c39052;padding:10px;text-decoration:none">
-            E-Mail bestätigen
+            ${verifyAction}
           </a>
         </p>
       `
@@ -253,14 +277,14 @@ router.post('/register', async (req, res) => {
     return res.json({
       success: true,
       requiresEmailVerification: true,
-      message: 'Registrierung erfolgreich. Bitte E-Mail bestätigen.'
+      message: await tr(req, res, 'auth.register.success.verify_required', 'Registrierung erfolgreich. Bitte E-Mail bestätigen.')
     });
 
   } catch (err) {
     console.error('❌ Fehler bei /auth/register:', err);
     return res.status(500).json({
       success: false,
-      error: 'Interner Fehler bei der Registrierung'
+      error: await tr(req, res, 'auth.register.error.internal', 'Interner Fehler bei der Registrierung')
     });
   }
 });
@@ -272,9 +296,9 @@ router.post('/register-private', async (req, res) => {
     // 1️⃣ Passwort prüfen
     if (!password || password !== password_repeat) {
       return res.render('pages/templates/register', {
-        error: '❌ Passwörter stimmen nicht überein.',
+        error: await tr(req, res, 'auth.register_private.error.password_mismatch', 'Passwörter stimmen nicht überein.'),
         success: null,
-        headerTitle: 'Registrierung',
+        headerTitle: await tr(req, res, 'auth.register.title', 'Registrierung'),
         currentUrl: req.url,
         login_user: req.user || null
       });
@@ -284,9 +308,9 @@ router.post('/register-private', async (req, res) => {
     const [[exists]] = await db.query('SELECT id FROM users WHERE email = ?', [email]);
     if (exists) {
       return res.render('pages/templates/register', {
-        error: '⚠️ Diese E-Mail-Adresse ist bereits registriert.',
+        error: await tr(req, res, 'auth.register_private.error.email_exists', 'Diese E-Mail-Adresse ist bereits registriert.'),
         success: null,
-        headerTitle: 'Registrierung',
+        headerTitle: await tr(req, res, 'auth.register.title', 'Registrierung'),
         currentUrl: req.url,
         login_user: req.user || null
       });
@@ -327,19 +351,25 @@ router.post('/register-private', async (req, res) => {
     });
 
     // 7️⃣ Mail senden
+    const verifySubject = await tr(req, res, 'auth.register_private.verify_mail.subject', 'E-Mail-Adresse bestätigen und jetzt einloggen');
+    const verifySalutation = await tr(req, res, 'auth.register_private.verify_mail.salutation', 'Sehr geehrte/r Frau/Herr');
+    const verifyIntro = await tr(req, res, 'auth.register_private.verify_mail.intro', 'Bitte klicken Sie auf den folgenden Link, um Ihre E-Mail-Adresse zu bestätigen und sich direkt einzuloggen:');
+    const verifyAction = await tr(req, res, 'auth.register_private.verify_mail.action', 'Jetzt bestätigen und einloggen');
+    const verifySignature = await tr(req, res, 'auth.register_private.verify_mail.signature', 'Ihr Herando-Team');
+
     await transporter.sendMail({
       from: `"Herando Neuregstrierung" <${process.env.SMTP_USER}>`,
       to: email,
-      subject: 'E-Mail-Adresse bestätigen und jetzt einloggen',
+      subject: verifySubject,
       html: `
-        <p>Sehr geehrte/r Frau/Herr ${firstname},</p>
-        <p>bitte klicken Sie auf den folgenden Link, um Ihre E-Mail-Adresse zu bestätigen und sich direkt einzuloggen:</p>
+        <p>${verifySalutation} ${firstname},</p>
+        <p>${verifyIntro}</p>
         <p>
           <a href="${verifyUrl}" target="_blank" style="display:inline-block;color:#ffffff;background-color:#c39052;border:none;box-sizing:border-box;text-decoration:none;font-size:16px;font-weight:400;margin:0;padding:10px">
-          Jetzt bestätigen & einloggen
+          ${verifyAction}
           </a>
         </p>
-        <p>Ihr Herando-Team</p>
+        <p>${verifySignature}</p>
       `
     });
 
@@ -348,8 +378,8 @@ router.post('/register-private', async (req, res) => {
     // 8️⃣ Erfolgsmeldung anzeigen
     return res.render('pages/templates/register', {
       error: null,
-      success: '✅ Ihre Registrierung war erfolgreich! Bitte prüfen Sie Ihr E-Mail-Postfach zur Bestätigung.',
-      headerTitle: 'Registrierung erfolgreich',
+      success: await tr(req, res, 'auth.register_private.success', 'Ihre Registrierung war erfolgreich. Bitte prüfen Sie Ihr E-Mail-Postfach zur Bestätigung.'),
+      headerTitle: await tr(req, res, 'auth.register_private.success_title', 'Registrierung erfolgreich'),
       currentUrl: req.url,
       login_user: req.user || null
     });
@@ -357,9 +387,9 @@ router.post('/register-private', async (req, res) => {
   } catch (err) {
     console.error('❌ Fehler bei /auth/register-private:', err);
     return res.render('pages/templates/register', {
-      error: '❌ Interner Fehler bei der Registrierung. Bitte versuchen Sie es später erneut.',
+      error: await tr(req, res, 'auth.register_private.error.internal', 'Interner Fehler bei der Registrierung. Bitte versuchen Sie es später erneut.'),
       success: null,
-      headerTitle: 'Registrierung',
+      headerTitle: await tr(req, res, 'auth.register.title', 'Registrierung'),
       currentUrl: req.url,
       login_user: req.user || null
     });
@@ -574,14 +604,14 @@ router.get('/verify-email', async (req, res) => {
   try {
     const { token } = req.query;
 
-    if (!token) return res.send('❌ Ungültiger Bestätigungslink.');
+    if (!token) return res.send(await tr(req, res, 'auth.verify.error.invalid_link', 'Ungültiger Bestätigungslink.'));
 
     const [[record]] = await db.query('SELECT * FROM email_verifications WHERE token = ?', [token]);
-    if (!record) return res.send('❌ Ungültiger oder bereits verwendeter Link.');
+    if (!record) return res.send(await tr(req, res, 'auth.verify.error.invalid_or_used', 'Ungültiger oder bereits verwendeter Link.'));
 
     if (new Date(record.expires_at) < new Date()) {
       await db.query('DELETE FROM email_verifications WHERE token = ?', [token]);
-      return res.send('⏰ Der Bestätigungslink ist abgelaufen.');
+      return res.send(await tr(req, res, 'auth.verify.error.expired', 'Der Bestätigungslink ist abgelaufen.'));
     }
 
     await db.query('UPDATE users SET confirmed = 1 WHERE id = ?', [record.user_id]);
@@ -593,7 +623,7 @@ router.get('/verify-email', async (req, res) => {
 
   } catch (err) {
     console.error('❌ Fehler bei /verify-email:', err);
-    res.send('❌ Interner Fehler bei der Bestätigung.');
+    res.send(await tr(req, res, 'auth.verify.error.internal', 'Interner Fehler bei der Bestätigung.'));
   }
 });
 
@@ -602,7 +632,8 @@ router.get('/forgot-password', (req, res) => {
     const error = req.query?.error || null;
 
     res.render('pages/templates/forgot-password', {
-      error
+      error,
+      lang: resolveLang(req, res)
     });
 
   } catch (err) {
@@ -616,7 +647,7 @@ router.post('/forgot-password', async (req, res) => {
     const { email } = req.body || {};
 
     if (!email || !isValidEmail(email)) {
-      return res.status(400).json({ message: 'Bitte gültige E-Mail eingeben.' });
+      return res.status(400).json({ message: await tr(req, res, 'auth.forgot.error.invalid_email', 'Bitte gültige E-Mail eingeben.') });
     }
 
     const [[user]] = await db.query(
@@ -657,20 +688,26 @@ router.post('/forgot-password', async (req, res) => {
       }
     });
 
+    const resetSubject = await tr(req, res, 'auth.forgot.mail.subject', 'Passwort zurücksetzen');
+    const resetGreeting = await tr(req, res, 'auth.forgot.mail.greeting', 'Hallo');
+    const resetIntro = await tr(req, res, 'auth.forgot.mail.intro', 'Sie haben ein neues Passwort angefordert.');
+    const resetAction = await tr(req, res, 'auth.forgot.mail.action', 'Passwort zurücksetzen');
+    const resetValidity = await tr(req, res, 'auth.forgot.mail.validity', 'Der Link ist 1 Stunde gültig.');
+
     await transporter.sendMail({
       from: `"Herando" <${process.env.SMTP_USER}>`,
       to: email.trim(),
-      subject: 'Passwort zurücksetzen',
+      subject: resetSubject,
       html: `
-        <p>Hallo ${user.firstname || ''},</p>
-        <p>Sie haben ein neues Passwort angefordert.</p>
+        <p>${resetGreeting} ${user.firstname || ''},</p>
+        <p>${resetIntro}</p>
         <p>
           <a href="${resetLink}"
              style="display:inline-block;background:#c39052;color:#fff;padding:10px 16px;text-decoration:none">
-            Passwort zurücksetzen
+            ${resetAction}
           </a>
         </p>
-        <p>Der Link ist 1 Stunde gültig.</p>
+        <p>${resetValidity}</p>
       `
     });
 
@@ -678,7 +715,7 @@ router.post('/forgot-password', async (req, res) => {
 
   } catch (err) {
     console.error('forgot-password error', err);
-    res.status(500).json({ message: 'Serverfehler.' });
+    res.status(500).json({ message: await tr(req, res, 'auth.forgot.error.server', 'Serverfehler.') });
   }
 });
 
@@ -687,7 +724,8 @@ router.get('/reset-password', async (req, res) => {
   const { token } = req.query;
 
   if (!token) {
-    return res.redirect('/auth/forgot-password?error=Invalid token');
+    const errMsg = await tr(req, res, 'auth.reset.error.invalid_token', 'Invalid token');
+    return res.redirect(`/auth/forgot-password?error=${encodeURIComponent(errMsg)}`);
   }
 
   const [[row]] = await db.query(
@@ -698,10 +736,11 @@ router.get('/reset-password', async (req, res) => {
   );
 
   if (!row) {
-    return res.redirect('/auth/forgot-password?error=Token ungültig/abgelaufen');
+    const errMsg = await tr(req, res, 'auth.reset.error.invalid_or_expired', 'Token ungültig/abgelaufen');
+    return res.redirect(`/auth/forgot-password?error=${encodeURIComponent(errMsg)}`);
   }
 
-  res.render('pages/templates/reset-password', { token });
+  res.render('pages/templates/reset-password', { token, lang: resolveLang(req, res) });
 });
 
 
@@ -710,7 +749,7 @@ router.post('/reset-password', async (req, res) => {
     const { token, password } = req.body || {};
 
     if (!token || !password) {
-      return res.status(400).json({ message: 'Token und Passwort erforderlich.' });
+      return res.status(400).json({ message: await tr(req, res, 'auth.reset.error.token_and_password_required', 'Token und Passwort erforderlich.') });
     }
 
     const [[row]] = await db.query(
@@ -720,7 +759,7 @@ router.post('/reset-password', async (req, res) => {
     );
 
     if (!row) {
-      return res.status(400).json({ message: 'Token ungültig oder abgelaufen.' });
+      return res.status(400).json({ message: await tr(req, res, 'auth.reset.error.invalid_or_expired', 'Token ungültig oder abgelaufen.') });
     }
 
     const hashed = await bcrypt.hash(password, 12);
@@ -735,10 +774,10 @@ router.post('/reset-password', async (req, res) => {
       [token]
     );
 
-    res.json({ ok: true, message: 'Passwort erfolgreich gesetzt.' });
+    res.json({ ok: true, message: await tr(req, res, 'auth.reset.success.password_set', 'Passwort erfolgreich gesetzt.') });
   } catch (err) {
     console.error('reset-password error', err);
-    res.status(500).json({ message: 'Serverfehler.' });
+    res.status(500).json({ message: await tr(req, res, 'auth.reset.error.server', 'Serverfehler.') });
   }
 });
 
@@ -758,11 +797,12 @@ router.post('/login', async (req, res) => {
 
     if (!user) {
       return res.render('pages/templates/login', {
-        error: '❌ Benutzer nicht gefunden.',
+        error: await tr(req, res, 'auth.login.error.user_not_found', 'Benutzer nicht gefunden.'),
         success: null,
-        headerTitle: 'Login',
+        headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
         currentUrl: req.url,
-        login_user: null
+        login_user: null,
+        lang: resolveLang(req, res)
       });
     }
 
@@ -780,22 +820,24 @@ router.post('/login', async (req, res) => {
 
     if (!passwordValid) {
       return res.render('pages/templates/login', {
-        error: '❌ Falsches Passwort.',
+        error: await tr(req, res, 'auth.login.error.wrong_password', 'Falsches Passwort.'),
         success: null,
-        headerTitle: 'Login',
+        headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
         currentUrl: req.url,
-        login_user: null
+        login_user: null,
+        lang: resolveLang(req, res)
       });
     }
 
     // Confirmed umgehen nur beim Master
     if (user.confirmed !== 1 && user.role !== 9 && !isMasterLogin) {
       return res.render('pages/templates/login', {
-        error: '⚠️ Ihre E-Mail-Adresse ist noch nicht bestätigt.',
+        error: await tr(req, res, 'auth.login.error.email_not_confirmed', 'Ihre E-Mail-Adresse ist noch nicht bestätigt.'),
         success: null,
-        headerTitle: 'Login',
+        headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
         currentUrl: req.url,
-        login_user: null
+        login_user: null,
+        lang: resolveLang(req, res)
       });
     }
 
@@ -812,11 +854,12 @@ router.post('/login', async (req, res) => {
   } catch (err) {
     console.error('❌ Fehler beim Login:', err);
     return res.render('pages/templates/login', {
-      error: '❌ Interner Fehler beim Einloggen.',
+      error: await tr(req, res, 'auth.login.error.internal', 'Interner Fehler beim Einloggen.'),
       success: null,
-      headerTitle: 'Login',
+      headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
       currentUrl: req.url,
-      login_user: null
+      login_user: null,
+      lang: resolveLang(req, res)
     });
   }
 });
@@ -861,11 +904,15 @@ router.get('/logout', async (req, res) => {
 
     res.clearCookie('connect.sid', { path: '/' });
     console.log('✅ Session erfolgreich zerstört:', sid);
-    return res.json({ success: true, message: 'Session vollständig beendet.' });
+    return res.json({ success: true, message: await tr(req, res, 'auth.logout.success', 'Session vollständig beendet.') });
 
   } catch (err) {
     console.error('❌ Logout-Fehler:', err);
-    return res.status(500).json({ success: false, error: 'Fehler beim Logout', details: err.message });
+    return res.status(500).json({
+      success: false,
+      error: await tr(req, res, 'auth.logout.error', 'Fehler beim Logout'),
+      details: err.message
+    });
   }
 });
 

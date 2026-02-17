@@ -36,6 +36,40 @@ const EU_COUNTRIES = [
 const router        = express.Router();
 const bestTr = {};
 const WISHLIST_ALLOWED_TABLES = new Set(['cars', 'watches', 'properties', 'yachts', 'lifestyles']);
+const UI_LANG_COLS = ['de', 'en', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
+
+function resolveLang(req, res) {
+  const raw = String(
+    req.session?.lang ||
+    res.locals?.lang ||
+    req.locale ||
+    req.acceptsLanguages?.()?.[0] ||
+    'de'
+  ).toLowerCase();
+  const short = raw.split(/[-_]/)[0];
+  return UI_LANG_COLS.includes(short) ? short : 'de';
+}
+
+async function tUi(key, locale = 'de') {
+  const [[row]] = await db.query(
+    `SELECT ?? AS txt FROM ui_translations WHERE \`key\` = ? LIMIT 1`,
+    [locale, key]
+  );
+  return row?.txt || key;
+}
+
+async function tr(req, res, key, fallback = '') {
+  const txt = await tUi(key, resolveLang(req, res));
+  if (txt && txt !== key) return txt;
+  return fallback || key;
+}
+
+function fillTpl(template, vars = {}) {
+  return String(template || '').replace(/\{\{(\w+)\}\}/g, (_, k) => {
+    const v = vars[k];
+    return v == null ? '' : String(v);
+  });
+}
 
 
 // Body-Parser aktivieren
@@ -713,7 +747,7 @@ async function loadBuyerListingsForStatistics(userId) {
           visible: row.visible,
           visits: Number(row.visits) || 0,
           stateLabel: getListingStateLabel(row.status, row.visible),
-          thumbnailUrl: thumbFilename ? `/images/${ent.route}/${row.id}/${thumbFilename}` : '/assets/default-placeholder.png'
+          thumbnailUrl: thumbFilename ? `/images/${ent.route}/${row.id}/${thumbFilename}` : '/assets/herando-weblogo.png'
         };
       });
     });
@@ -954,7 +988,9 @@ async function runCheckout(req, res, next, checkoutBody, options = {}) {
 
     if (!packageId || !type) {
       console.error('❌ Fehlende Paketdaten:', { packageId, type });
-      return res.status(400).json({ error: 'Fehlende Paketdaten.' });
+      return res.status(400).json({
+        error: await tr(req, res, 'buyer.checkout.error.missing_package_data', 'Fehlende Paketdaten.')
+      });
     }
 
     // 🔹 Land ggf. nachladen
@@ -974,7 +1010,9 @@ async function runCheckout(req, res, next, checkoutBody, options = {}) {
 
     if (!country_id) {
       console.error('❌ Kein Land angegeben oder gefunden!');
-      return res.status(400).json({ error: 'Kein Land angegeben oder beim User gefunden.' });
+      return res.status(400).json({
+        error: await tr(req, res, 'buyer.checkout.error.missing_country', 'Kein Land angegeben oder beim User gefunden.')
+      });
     }
 
     // 1️⃣ Paketdaten laden
@@ -995,7 +1033,9 @@ async function runCheckout(req, res, next, checkoutBody, options = {}) {
 
     if (!pkgInfo) {
       console.error('❌ Kein passendes Paket gefunden:', { packageId, type });
-      return res.status(404).json({ error: 'Paket nicht gefunden.' });
+      return res.status(404).json({
+        error: await tr(req, res, 'buyer.checkout.error.package_not_found', 'Paket nicht gefunden.')
+      });
     }
 
     console.log('✅ Paket gefunden:', pkgInfo);
@@ -1223,18 +1263,26 @@ router.get('/zahlung/success', async (req, res, next) => {
 
     if (!pending) {
       console.error('❌ Keine Pending-Order gefunden.');
-      return res.status(400).send('Ungültiger Vorgang.');
+      return res.status(400).send(
+        await tr(req, res, 'buyer.checkout.error.invalid_operation', 'Ungültiger Vorgang.')
+      );
     }
 
     // ✅ Stripe-Check nur im Live-Modus
     let sessionObj = null;
     if (!isTest) {
       const sessionId = req.query.session_id;
-      if (!sessionId) return res.status(400).send('Keine Session-ID vorhanden.');
+      if (!sessionId) {
+        return res.status(400).send(
+          await tr(req, res, 'buyer.checkout.error.missing_session_id', 'Keine Session-ID vorhanden.')
+        );
+      }
       sessionObj = await stripe.checkout.sessions.retrieve(sessionId);
       if (sessionObj.payment_status !== 'paid') {
         console.warn('⚠️ Zahlung nicht abgeschlossen.');
-        return res.status(400).send('Zahlung nicht abgeschlossen.');
+        return res.status(400).send(
+          await tr(req, res, 'buyer.checkout.error.payment_not_completed', 'Zahlung nicht abgeschlossen.')
+        );
       }
       console.log(`✅ Stripe Zahlung bestätigt: ${sessionObj.id}`);
     } else {
@@ -1428,7 +1476,9 @@ router.get('/zahlung/success', async (req, res, next) => {
     generateInvoice(orderData, async (err, pdfBytes) => {
       if (err) {
         console.error('❌ Fehler bei Rechnungserstellung:', err);
-        return res.status(500).send('Fehler bei der Rechnungserstellung.');
+        return res.status(500).send(
+          await tr(req, res, 'buyer.checkout.error.invoice_generation', 'Fehler bei der Rechnungserstellung.')
+        );
       }
 
       fs.writeFileSync(filePath, pdfBytes);
@@ -1667,7 +1717,7 @@ router.get('/zahlung_failed', async (req, res, next) => {
     res.render('pages/templates/zahlung-failed', {
       orderId,
       user,
-      headerTitle: 'Zahlung fehlgeschlagen',
+      headerTitle: await tr(req, res, 'buyer.payment.failed.title', 'Zahlung fehlgeschlagen'),
       currentUrl: req.url,
       login_user: req.user,
       seo,
@@ -3243,7 +3293,12 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
     console.log("➡️ User:", userId, "Listing:", listingId);
 
     if (!userId || isNaN(listingId)) {
-      req.session.errorMessage = "Ungültige ID oder Session.";
+      req.session.errorMessage = await tr(
+        req,
+        res,
+        'buyer.listing.error.invalid_id_or_session',
+        'Ungültige ID oder Session.'
+      );
       return res.redirect('/buyer');
     }
 
@@ -4567,7 +4622,9 @@ router.get(
       const safeEntity = String(entity || '').toLowerCase();
       const safeId = parseInt(id, 10);
       if (!WISHLIST_ALLOWED_TABLES.has(safeEntity) || !Number.isInteger(safeId) || safeId <= 0) {
-        return res.status(400).json({ error: 'Ungültige Anfrage' });
+        return res.status(400).json({
+          error: await tr(req, res, 'buyer.wishlist.error.invalid_request', 'Ungültige Anfrage')
+        });
       }
 
       // 1) Datenbank: name AS title, price AS priceRaw, pictures-Feld
@@ -4583,7 +4640,9 @@ router.get(
       if (!row) {
         console.log('[Wishlist Debug] Kein Datensatz für', entity, id);
         // JSON-Endpoint: bei „nicht gefunden“ einfach 404-Antwort senden
-        return res.status(404).json({ error: 'Nicht gefunden' });
+        return res.status(404).json({
+          error: await tr(req, res, 'buyer.wishlist.error.not_found', 'Nicht gefunden')
+        });
       }
       console.log('[Wishlist Debug] DB-Row:', row);
 
@@ -4964,7 +5023,7 @@ router.get('/historie', async (req, res, next) => {
     res.render('pages/templates/buyer-historie', {
       user,
       seo,
-      headerTitle: 'Inserate-Historie',
+      headerTitle: await tr(req, res, 'buyer.history.title', 'Inserat-Historie'),
       currentPage: 'historie',
 
       // nur aktiver Tab ist gefiltert + paginiert
@@ -5027,7 +5086,12 @@ router.post('/change-password', async (req, res, next) => {
       [hash, userId]
     );
 
-    req.session.successMessage = 'Passwort erfolgreich geändert.';
+    req.session.successMessage = await tr(
+      req,
+      res,
+      'buyer.profile.password.success',
+      'Passwort erfolgreich geändert.'
+    );
     return res.redirect('/buyer');
   } catch (err) {
     next(err);
@@ -5043,7 +5107,12 @@ router.post('/upgrade/:itemId', ensureAuthenticated, async (req, res, next) => {
     const usersPackageId = Number(req.body.selectedPackageId);
 
     if (!userId || !itemId || !usersPackageId) {
-      req.session.errorMessage = 'Ungültige Anfrage (IDs fehlen).';
+      req.session.errorMessage = await tr(
+        req,
+        res,
+        'buyer.upgrade.error.invalid_request_ids',
+        'Ungültige Anfrage (IDs fehlen).'
+      );
       return res.redirect('/buyer/online');
     }
 
@@ -5330,7 +5399,12 @@ router.get('/upgrade/success', ensureAuthenticated, async (req, res, next) => {
 
     if (!orderRec) {
       console.log('   ✖ Bestellung nicht gefunden – sessionId falsch/leer');
-      req.session.errorMessage = 'Bestellung nicht gefunden.';
+      req.session.errorMessage = await tr(
+        req,
+        res,
+        'buyer.checkout.error.order_not_found',
+        'Bestellung nicht gefunden.'
+      );
       return res.redirect('/buyer/online');
     }
     console.log('   ✓ Bestellung gefunden:', orderRec.order_id);
@@ -5340,7 +5414,12 @@ router.get('/upgrade/success', ensureAuthenticated, async (req, res, next) => {
     const stripeSession = await stripe.checkout.sessions.retrieve(sessionId);
     if (!stripeSession || stripeSession.payment_status !== 'paid') {
       console.log('   ✖ Zahlung nicht abgeschlossen');
-      req.session.errorMessage = 'Zahlung nicht abgeschlossen.';
+      req.session.errorMessage = await tr(
+        req,
+        res,
+        'buyer.checkout.error.payment_not_completed',
+        'Zahlung nicht abgeschlossen.'
+      );
       return res.redirect('/buyer/online');
     }
 
@@ -5543,19 +5622,36 @@ await transporter.sendMail({
   ]
 });
 
-// 📧 ADMIN MAIL (NUR DEUTSCH!)
+// 📧 ADMIN MAIL (i18n)
+const upgradeAdminSubject = fillTpl(
+  await tr(req, res, 'buyer.upgrade.admin.subject', 'Neue Upgrade-Zahlung - Rechnung Nr. {{id}}'),
+  { id: orderRec.order_number }
+);
+const upgradeAdminTitle = fillTpl(
+  await tr(req, res, 'buyer.upgrade.admin.title', 'Neue Upgrade-Zahlung - Rechnung Nr. {{id}}'),
+  { id: orderRec.order_number }
+);
+const upgradeAdminCustomerLabel = await tr(req, res, 'buyer.upgrade.admin.customer_label', 'Kunde');
+const upgradeAdminEmailLabel = await tr(req, res, 'buyer.upgrade.admin.email_label', 'E-Mail');
+const upgradeAdminProductLabel = await tr(req, res, 'buyer.upgrade.admin.product_label', 'Produkt');
+const upgradeAdminInvoiceLabel = await tr(req, res, 'buyer.upgrade.admin.invoice_label', 'Rechnungsnummer');
+const upgradeAdminAmountLabel = await tr(req, res, 'buyer.upgrade.admin.amount_label', 'Betrag');
+const upgradeAdminTimeLabel = await tr(req, res, 'buyer.upgrade.admin.time_label', 'Zeitpunkt');
+const upgradeAdminAttachment = await tr(req, res, 'buyer.upgrade.admin.attachment_note', 'Die PDF-Rechnung ist im Anhang beigefügt.');
+const upgradeAdminSystemNote = await tr(req, res, 'buyer.upgrade.admin.system_note', 'Automatische Systembenachrichtigung');
+
 await transporter.sendMail({
   from: `"Herando System" <${process.env.SMTP_USER}>`,
   to: "fm@herando.com",
-  subject: `Neue Upgrade-Zahlung – Rechnung Nr. ${orderRec.order_number}`,
+  subject: upgradeAdminSubject,
   html: `
   <!DOCTYPE html>
-  <html lang="de">
+  <html lang="${locale}">
   <head>
   <meta charset="UTF-8" />
   <style>
     body { font-family: Arial, sans-serif; background:#fafafa; padding:0; margin:0; }
-    .box { max-width:650px; margin:25px auto; background:#fff; padding:25px; 
+    .box { max-width:650px; margin:25px auto; background:#fff; padding:25px;
           border-radius:8px; border:1px solid #eee; }
     p { color:#333; font-size:14px; line-height:1.6; }
   </style>
@@ -5563,20 +5659,20 @@ await transporter.sendMail({
 
   <body>
   <div class="box">
-    <p><strong>Neue Upgrade-Zahlung – Rechnung Nr. ${orderRec.order_number}</strong></p>
+    <p><strong>${upgradeAdminTitle}</strong></p>
 
     <p>
-      Kunde: <strong>${orderRec.partner_first_name} ${orderRec.partner_last_name}</strong><br>
-      E-Mail: ${orderRec.partner_email}<br>
-      Produkt: <strong>${orderRec.product}</strong><br>
-      Rechnungsnummer: <strong>${orderRec.order_number}</strong><br>
-      Betrag: <strong>${orderRec.amount} EUR</strong><br>
-      Zeitpunkt: ${new Date().toLocaleString("de-DE")}
+      ${upgradeAdminCustomerLabel}: <strong>${orderRec.partner_first_name} ${orderRec.partner_last_name}</strong><br>
+      ${upgradeAdminEmailLabel}: ${orderRec.partner_email}<br>
+      ${upgradeAdminProductLabel}: <strong>${orderRec.product}</strong><br>
+      ${upgradeAdminInvoiceLabel}: <strong>${orderRec.order_number}</strong><br>
+      ${upgradeAdminAmountLabel}: <strong>${orderRec.amount} EUR</strong><br>
+      ${upgradeAdminTimeLabel}: ${new Date().toLocaleString()}
     </p>
 
-    <p>Die PDF-Rechnung ist im Anhang beigefügt.</p>
+    <p>${upgradeAdminAttachment}</p>
 
-    <p>– Automatische Systembenachrichtigung</p>
+    <p>- ${upgradeAdminSystemNote}</p>
   </div>
   </body>
   </html>
@@ -5746,7 +5842,7 @@ router.get('/sold', ensureAuthenticated, async (req, res, next) => {
         packages: [],
         seo: {},
         registrationType: null,
-        headerTitle: 'Verkaufen',
+        headerTitle: await tr(req, res, 'buyer.card.sell.title', 'Verkaufen'),
         login_user: req.user,
         currentUrl: req.url,
         currentPage: 'sold',
@@ -5851,7 +5947,7 @@ const [packages] = await db.query(`
       packages,
       seo,
       registrationType,
-      headerTitle: 'Verkaufen',
+      headerTitle: await tr(req, res, 'buyer.card.sell.title', 'Verkaufen'),
       currentPage: 'sold',
       login_user: req.user,
       currentUrl: req.url,
@@ -5901,8 +5997,8 @@ router.get('/sell', ensureAuthenticated, async (req, res, next) => {
         packages: [],
         seo: {},
         registrationType: null,
-        headerTitle: 'Kaufen',
-        message: 'Keine passenden Pakete gefunden.',
+        headerTitle: await tr(req, res, 'buyer.sell.title', 'Kaufen'),
+        message: await tr(req, res, 'buyer.packages.none', 'Keine passenden Pakete gefunden.'),
         login_user: req.user,
         currentUrl: req.url,
         currentPage: 'sell'
@@ -5957,7 +6053,7 @@ router.get('/sell', ensureAuthenticated, async (req, res, next) => {
       packages,
       seo,
       registrationType,
-      headerTitle: 'Kaufen',
+      headerTitle: await tr(req, res, 'buyer.sell.title', 'Kaufen'),
       currentPage: 'sell',
       login_user: req.user,
       currentUrl: req.url
@@ -5974,16 +6070,20 @@ router.get("/profil", async (req, res) => {
   try {
     const userId = req.user?.id;
     if (!userId) return res.redirect("/login");
+    const locale = resolveLang(req, res);
+    const countryCol = UI_LANG_COLS.includes(locale) ? locale : 'en';
 
     // 👤 User & Land laden
     const [rows] = await db.query(`
-      SELECT u.*, c.de AS country_name
+      SELECT u.*, COALESCE(c.\`${countryCol}\`, c.en, c.de) AS country_name
       FROM users u
       LEFT JOIN countries c ON c.id = u.country_id
       WHERE u.id = ?
     `, [userId]);
     const user = rows[0];
-    if (!user) return res.status(404).send("Benutzer nicht gefunden");
+    if (!user) {
+      return res.status(404).send(await tr(req, res, 'buyer.profile.error.not_found', 'Benutzer nicht gefunden'));
+    }
 
     // 🧾 Rechnungen
     const [invoices] = await db.query(`
@@ -6081,7 +6181,7 @@ router.get("/profil", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Fehler beim Laden des Profils:", err);
-    res.status(500).send("Serverfehler beim Laden des Profils");
+    res.status(500).send(await tr(req, res, 'buyer.profile.error.load', 'Serverfehler beim Laden des Profils'));
   }
 });
 
@@ -6133,7 +6233,7 @@ router.post("/profil", async (req, res) => {
     res.redirect("/buyer/profil");
   } catch (err) {
     console.error("❌ Fehler beim Aktualisieren des Profils:", err);
-    res.status(500).send("Fehler beim Aktualisieren des Profils");
+    res.status(500).send(await tr(req, res, 'buyer.profile.error.update', 'Fehler beim Aktualisieren des Profils'));
   }
 });
 
@@ -6365,6 +6465,11 @@ router.post("/profil/cancel-package", async (req, res) => {
     const existingPdfBytes = fs.readFileSync(templatePath);
 
     const pdfDoc = await PDFDocument.load(existingPdfBytes);
+    pdfDoc.setTitle("Herando Kuendigung");
+    pdfDoc.setSubject("Kuendigung");
+    pdfDoc.setAuthor("Herando");
+    pdfDoc.setCreator("Herando Buyer Service");
+    pdfDoc.setProducer("Herando");
     const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
     const [page] = pdfDoc.getPages();
 
@@ -6529,45 +6634,57 @@ router.post("/profil/cancel-package", async (req, res) => {
       },
     });
 
+    const cancelSubject = await tr(req, res, 'buyer.cancel.mail.subject', 'Bestätigung Ihrer Kündigung Ihres Marketing-Pakets');
+    const cancelGreeting = fillTpl(
+      await tr(req, res, 'buyer.cancel.mail.greeting', 'Sehr geehrte/r {{firstname}} {{lastname}},'),
+      { firstname: userInfo.firstname || '', lastname: userInfo.lastname || '' }
+    );
+    const cancelIntro = await tr(req, res, 'buyer.cancel.mail.intro', 'Wir bestätigen den Eingang Ihrer Kündigung für das folgende Marketing-Paket:');
+    const cancelPackageLabel = await tr(req, res, 'buyer.cancel.mail.package_label', 'Paket');
+    const cancelRuntimeLabel = await tr(req, res, 'buyer.cancel.mail.runtime_until_label', 'Laufzeit bis');
+    const cancelDateLabel = await tr(req, res, 'buyer.cancel.mail.termination_date_label', 'Kündigungsdatum');
+    const cancelTypeLabel = await tr(req, res, 'buyer.cancel.mail.termination_type_label', 'Kündigungsart');
+    const cancelTypeManual = await tr(req, res, 'buyer.cancel.mail.termination_type_manual', 'Manuell gewähltes Datum');
+    const cancelTypeNext = await tr(req, res, 'buyer.cancel.mail.termination_type_next', 'Nächstmöglicher Kündigungstermin');
+    const cancelReasonLabel = await tr(req, res, 'buyer.cancel.mail.reason_label', 'Kündigungsgrund');
+    const cancelEffect = await tr(req, res, 'buyer.cancel.mail.effect_text', 'Ihre Kündigung wird automatisch zum oben genannten Datum wirksam. Bis dahin bleibt Ihr Marketing-Paket vollständig aktiv.');
+    const cancelPdfIntro = await tr(req, res, 'buyer.cancel.mail.pdf_intro', 'Die Bestätigung als PDF-Dokument finden Sie hier:');
+    const cancelPdfLink = await tr(req, res, 'buyer.cancel.mail.pdf_link_label', 'Kündigungs-PDF herunterladen');
+    const cancelQuestions = await tr(req, res, 'buyer.cancel.mail.questions', 'Für Rückfragen stehen wir Ihnen jederzeit gerne zur Verfügung.');
+    const cancelRegards = await tr(req, res, 'buyer.cancel.mail.regards', 'Mit freundlichen Grüßen');
+    const cancelTeam = await tr(req, res, 'buyer.cancel.mail.team', 'Marketingabteilung - Herando');
+    const cancelTypeValue = termination_date_type === 'manual' ? cancelTypeManual : cancelTypeNext;
+
     await transporter.sendMail({
       from: process.env.SMTP_USER,
       to: userInfo.email,
-      subject: "Bestätigung Ihrer Kündigung Ihres Marketing-Pakets",
-
+      subject: cancelSubject,
       html: `
-        <p>Sehr geehrte/r ${userInfo.firstname} ${userInfo.lastname},</p>
+        <p>${cancelGreeting}</p>
 
-        <p>wir bestätigen den Eingang Ihrer Kündigung für das folgende Marketing-Paket:</p>
+        <p>${cancelIntro}</p>
 
         <ul>
-          <li><strong>Paket:</strong> ${sp.package_name}</li>
-          <li><strong>Laufzeit bis:</strong> ${sp.end_date.toISOString().slice(0, 10)}</li>
-          <li><strong>Kündigungsdatum:</strong> ${terminationDate}</li>
-          <li><strong>Kündigungsart:</strong> ${
-            termination_date_type === "manual"
-              ? "Manuell gewähltes Datum"
-              : "Nächstmöglicher Kündigungstermin"
-          }</li>
-          ${
-            finalReason
-              ? `<li><strong>Kündigungsgrund:</strong> ${finalReason}</li>`
-              : ""
-          }
+          <li><strong>${cancelPackageLabel}:</strong> ${sp.package_name}</li>
+          <li><strong>${cancelRuntimeLabel}:</strong> ${sp.end_date.toISOString().slice(0, 10)}</li>
+          <li><strong>${cancelDateLabel}:</strong> ${terminationDate}</li>
+          <li><strong>${cancelTypeLabel}:</strong> ${cancelTypeValue}</li>
+          ${finalReason ? `<li><strong>${cancelReasonLabel}:</strong> ${finalReason}</li>` : ''}
         </ul>
 
-        <p>Ihre Kündigung wird automatisch zum oben genannten Datum wirksam. Bis dahin bleibt Ihr Marketing-Paket vollständig aktiv.</p>
+        <p>${cancelEffect}</p>
 
-        <p>Die Bestätigung als PDF-Dokument finden Sie hier:</p>
-        <p><a href="${publicPdfPath}" target="_blank">Kündigungs-PDF herunterladen</a></p>
+        <p>${cancelPdfIntro}</p>
+        <p><a href="${publicPdfPath}" target="_blank">${cancelPdfLink}</a></p>
 
         <br>
 
-        <p>Für Rückfragen stehen wir Ihnen jederzeit gerne zur Verfügung.</p>
+        <p>${cancelQuestions}</p>
 
         <br><br>
 
-        <p>Mit freundlichen Grüßen<br>
-        <strong>Marketingabteilung – Herando</strong></p>
+        <p>${cancelRegards}<br>
+        <strong>${cancelTeam}</strong></p>
       `,
     });
 
@@ -6645,35 +6762,49 @@ router.post("/profil/cancel-support", async (req, res) => {
       console.log("📬 Sende Support-Mail an Admin…");
 
       try {
+        const supportSubject = await tr(req, res, 'buyer.cancel_support.admin.subject', 'Supportanfrage vor Kündigung - Kunde benötigt Rückmeldung');
+        const supportGreeting = await tr(req, res, 'buyer.cancel_support.admin.greeting', 'Sehr geehrtes Herando-Supportteam,');
+        const supportIntro = await tr(req, res, 'buyer.cancel_support.admin.intro', 'Ein Kunde hat vor der Kündigung ausdrücklich eine Rückmeldung gewünscht.');
+        const supportDetails = await tr(req, res, 'buyer.cancel_support.admin.customer_details', 'Kundendetails:');
+        const supportUserIdLabel = await tr(req, res, 'buyer.cancel_support.admin.user_id_label', 'User-ID');
+        const supportNameLabel = await tr(req, res, 'buyer.cancel_support.admin.name_label', 'Name');
+        const supportEmailLabel = await tr(req, res, 'buyer.cancel_support.admin.email_label', 'E-Mail');
+        const supportPhoneLabel = await tr(req, res, 'buyer.cancel_support.admin.phone_label', 'Telefon');
+        const supportPhoneMissing = await tr(req, res, 'buyer.cancel_support.admin.phone_missing', 'Keine Angabe');
+        const supportMessageLabel = await tr(req, res, 'buyer.cancel_support.admin.message_label', 'Nachricht des Kunden:');
+        const supportContact = await tr(req, res, 'buyer.cancel_support.admin.request_contact', 'Bitte kontaktieren Sie den Kunden zeitnah.');
+        const supportRegards = await tr(req, res, 'buyer.cancel_support.admin.regards', 'Mit freundlichen Grüßen');
+        const supportSignature = await tr(req, res, 'buyer.cancel_support.admin.signature', 'Herando - Automatisierte Systembenachrichtigung');
+
         await transporter.sendMail({
           from: process.env.SMTP_USER,
           to: process.env.ADMIN_EMAIL,
           cc: process.env.ADMIN_CC || "",
-          subject: "Supportanfrage vor Kündigung – Kunde benötigt Rückmeldung",
+          subject: supportSubject,
 
           html: `
-            <p>Sehr geehrtes Herando-Supportteam,</p>
+            <p>${supportGreeting}</p>
 
-            <p>Ein Kunde hat vor der Kündigung ausdrücklich eine Rückmeldung gewünscht.</p>
+            <p>${supportIntro}</p>
 
-            <p><strong>Kundendetails:</strong></p>
+            <p><strong>${supportDetails}</strong></p>
             <ul>
-              <li><strong>User-ID:</strong> ${userId}</li>
-              <li><strong>Name:</strong> ${firstname} ${lastname}</li>
-              <li><strong>E-Mail:</strong> ${email}</li>
-              <li><strong>Telefon:</strong> ${phone || "Keine Angabe"}</li>
+              <li><strong>${supportUserIdLabel}:</strong> ${userId}</li>
+              <li><strong>${supportNameLabel}:</strong> ${firstname} ${lastname}</li>
+              <li><strong>${supportEmailLabel}:</strong> ${email}</li>
+              <li><strong>${supportPhoneLabel}:</strong> ${phone || supportPhoneMissing}</li>
             </ul>
 
-            <p><strong>Nachricht des Kunden:</strong></p>
+            <p><strong>${supportMessageLabel}</strong></p>
             <p>${message.replace(/\n/g, "<br>")}</p>
 
             <br>
-            <p>Bitte kontaktieren Sie den Kunden zeitnah.</p>
+            <p>${supportContact}</p>
 
             <br><br>
 
-            <p>Mit freundlichen Grüßen<br>
-            <strong>Herando – Automatisierte Systembenachrichtigung</strong></p>
+            <p>${supportRegards}<br>
+            <strong>${supportSignature}</strong></p>
           `,
         });
 
@@ -6757,36 +6888,50 @@ router.post("/profil/cancel-support", async (req, res) => {
       console.log("📬 Sende Support-Mail an Admin...");
 
       try {
+        const supportSubject = await tr(req, res, 'buyer.cancel_support.admin.subject', 'Supportanfrage vor Kündigung - Kunde benötigt Rückmeldung');
+        const supportGreeting = await tr(req, res, 'buyer.cancel_support.admin.greeting', 'Sehr geehrtes Herando-Supportteam,');
+        const supportIntro = await tr(req, res, 'buyer.cancel_support.admin.intro', 'Ein Kunde hat vor der Kündigung ausdrücklich eine Rückmeldung gewünscht.');
+        const supportDetails = await tr(req, res, 'buyer.cancel_support.admin.customer_details', 'Kundendetails:');
+        const supportUserIdLabel = await tr(req, res, 'buyer.cancel_support.admin.user_id_label', 'User-ID');
+        const supportNameLabel = await tr(req, res, 'buyer.cancel_support.admin.name_label', 'Name');
+        const supportEmailLabel = await tr(req, res, 'buyer.cancel_support.admin.email_label', 'E-Mail');
+        const supportPhoneLabel = await tr(req, res, 'buyer.cancel_support.admin.phone_label', 'Telefon');
+        const supportPhoneMissing = await tr(req, res, 'buyer.cancel_support.admin.phone_missing', 'Keine Angabe');
+        const supportMessageLabel = await tr(req, res, 'buyer.cancel_support.admin.message_label', 'Nachricht des Kunden:');
+        const supportContact = await tr(req, res, 'buyer.cancel_support.admin.request_contact', 'Bitte kontaktieren Sie den Kunden zeitnah.');
+        const supportRegards = await tr(req, res, 'buyer.cancel_support.admin.regards', 'Mit freundlichen Grüßen');
+        const supportSignature = await tr(req, res, 'buyer.cancel_support.admin.signature', 'Herando - Automatisierte Systembenachrichtigung');
+
         await transporter.sendMail({
           from: process.env.MAIL_FROM,
           to: process.env.ADMIN_EMAIL,
           cc: process.env.ADMIN_CC || "",
-          subject: "Supportanfrage vor Kündigung – Kunde benötigt Rückmeldung",
+          subject: supportSubject,
 
           html: `
-            <p>Sehr geehrtes Herando-Supportteam,</p>
+            <p>${supportGreeting}</p>
 
-            <p>Ein Kunde hat vor der Kündigung aktiv um Kontaktaufnahme gebeten.</p>
+            <p>${supportIntro}</p>
 
-            <p><strong>Kundendetails:</strong></p>
+            <p><strong>${supportDetails}</strong></p>
             <ul>
-              <li><strong>User-ID:</strong> ${userId}</li>
-              <li><strong>Name:</strong> ${firstname} ${lastname}</li>
-              <li><strong>E-Mail:</strong> ${email}</li>
-              <li><strong>Telefon:</strong> ${phone || "Keine Angabe"}</li>
+              <li><strong>${supportUserIdLabel}:</strong> ${userId}</li>
+              <li><strong>${supportNameLabel}:</strong> ${firstname} ${lastname}</li>
+              <li><strong>${supportEmailLabel}:</strong> ${email}</li>
+              <li><strong>${supportPhoneLabel}:</strong> ${phone || supportPhoneMissing}</li>
             </ul>
 
-            <p><strong>Nachricht des Kunden:</strong></p>
+            <p><strong>${supportMessageLabel}</strong></p>
             <p>${message.replace(/\n/g, "<br>")}</p>
 
             <br>
 
-            <p>Bitte kontaktieren Sie den Kunden zeitnah, um Fragen zu klären oder Unterstützung anzubieten.</p>
+            <p>${supportContact}</p>
 
             <br><br>
 
-            <p>Mit freundlichen Grüßen<br>
-            <strong>Systembenachrichtigung – Herando</strong></p>
+            <p>${supportRegards}<br>
+            <strong>${supportSignature}</strong></p>
           `,
         });
 
@@ -6968,7 +7113,7 @@ router.get('/messages', ensureAuthenticated, async (req, res, next) => {
       items,
       seo,
       currentPage: 'messages',
-      headerTitle: 'Meine Nachrichten',
+      headerTitle: await tr(req, res, 'buyer.messages.title', 'Meine Nachrichten'),
       login_user: req.user,
       currentUrl:  req.url
     });
@@ -7030,7 +7175,7 @@ router.get('/messages/sent', ensureAuthenticated, async (req, res, next) => {
       user,
       items,
       currentPage: 'messages',
-      headerTitle: 'Gesendete Nachrichten',
+      headerTitle: await tr(req, res, 'buyer.messages.sent_title', 'Gesendete Nachrichten'),
       login_user: req.user,
       currentUrl: req.url, 
       seo, 
@@ -7087,11 +7232,12 @@ router.get('/messages/compose', ensureAuthenticated, async (req, res, next) => {
       log('Receiver path: NO toUserId and NO SUPPORT_USER_ID → receiver=null (UI soll Hinweis zeigen)');
     }
 
+    const composeTitle = await tr(req, res, 'buyer.messages.compose', 'Neue Nachricht');
     log('Rendering messages-compose.ejs with:', {
       user: user ? { id: user.id, email: user.email } : null,
       receiver: receiver ? { id: receiver.id, email: receiver.email } : null,
       currentPage: 'messages',
-      headerTitle: 'Neue Nachricht',
+      headerTitle: composeTitle,
       currentUrl: req.url
     });
 
@@ -7130,7 +7276,7 @@ router.get('/messages/compose', ensureAuthenticated, async (req, res, next) => {
       user,
       receiver,                  // null ⇒ Formular kann Hinweis zeigen
       currentPage: 'messages',
-      headerTitle: 'Neue Nachricht',
+      headerTitle: composeTitle,
       login_user: req.user,
       currentUrl: req.url, 
       seo, 
@@ -7202,7 +7348,9 @@ router.get('/messages/:id', ensureAuthenticated, async (req, res, next) => {
   try {
     const myId = asInt(req.session.userId);
     const id   = asInt(req.params.id);
-    if (!myId || !id) return res.status(400).send('Ungültige ID.');
+    if (!myId || !id) {
+      return res.status(400).send(await tr(req, res, 'buyer.messages.error.invalid_id', 'Ungültige ID.'));
+    }
 
     const [[row]] = await db.query(
       `SELECT n.*,
@@ -7214,7 +7362,9 @@ router.get('/messages/:id', ensureAuthenticated, async (req, res, next) => {
     );
     if (!row) {
       return res.status(404).render('pages/templates/messages-view', {
-        user: null, item: null, headerTitle: 'Nachricht',
+        user: null,
+        item: null,
+        headerTitle: await tr(req, res, 'buyer.messages.item_title', 'Nachricht'),
         login_user: req.user, currentUrl: req.url, currentPage: 'messages'
       });
     }
@@ -7265,7 +7415,7 @@ router.get('/messages/:id', ensureAuthenticated, async (req, res, next) => {
     return res.render('pages/templates/messages-view', {
       user,
       item: row,
-      headerTitle: row.subject || 'Nachricht',
+      headerTitle: row.subject || await tr(req, res, 'buyer.messages.item_title', 'Nachricht'),
       login_user: req.user,
       currentUrl: req.url,
       currentPage: 'messages'
@@ -7395,7 +7545,7 @@ router.get('/newsletters', ensureAuthenticated, async (req, res, next) => {
       items,
       currentPage: 'newsletters',
       seo,
-      headerTitle: 'Meine Newsletter',
+      headerTitle: await tr(req, res, 'buyer.news.title', 'Meine Newsletter'),
       login_user: req.user,
       currentUrl:  req.url, 
     });
@@ -7430,7 +7580,9 @@ router.get('/newsletters/:logId', ensureAuthenticated, async (req, res, next) =>
       [logId, user.id, user.email]
     );
 
-    if (!row) return res.status(404).send('Newsletter nicht gefunden.');
+    if (!row) {
+      return res.status(404).send(await tr(req, res, 'buyer.news.error.not_found', 'Newsletter nicht gefunden.'));
+    }
 
     // HTML bevorzugt, sonst Plaintext in HTML umwandeln
     const html = row.body_html && row.body_html.trim().length
@@ -7472,13 +7624,13 @@ router.get('/newsletters/:logId', ensureAuthenticated, async (req, res, next) =>
     return res.render('pages/templates/newsletter-view', {
       user,
       newsletter: {
-        title:   row.subject || 'Newsletter',
+        title:   row.subject || await tr(req, res, 'buyer.news.title', 'Newsletter'),
         subject: row.subject || '',
         html
       },
       openPixelUrl: null, // kein Tracking in eurer Struktur
       currentPage: 'newsletters',
-      headerTitle: row.subject || 'Newsletter',
+      headerTitle: row.subject || await tr(req, res, 'buyer.news.title', 'Newsletter'),
       login_user: req.user,
       currentUrl:  req.url, 
       seo, 

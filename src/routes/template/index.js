@@ -4586,10 +4586,20 @@ router.get('/:pageKey', async (req, res, next) => {
 
   try {
     const pageKey = req.params.pageKey;
+    const PAGE_LANGS = ['de', 'en', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
+    const activeLangRaw = String(res.locals.lang || req.session?.lang || req.locale || 'de').toLowerCase();
+    const activeLang = PAGE_LANGS.includes(activeLangRaw.split(/[-_]/)[0])
+      ? activeLangRaw.split(/[-_]/)[0]
+      : 'de';
+    const titleCol = activeLang === 'de' ? 'title' : `title_${activeLang}`;
+    const contentCol = activeLang === 'de' ? 'content' : `content_${activeLang}`;
 
     // 1) Hole die Seite
     const [[page]] = await db.query(
-      `SELECT slug, title, content
+      `SELECT
+         slug,
+         COALESCE(NULLIF(\`${titleCol}\`, ''), NULLIF(title_en, ''), title) AS title,
+         COALESCE(NULLIF(\`${contentCol}\`, ''), NULLIF(content_en, ''), content) AS content
          FROM pages
         WHERE slug = ?`,
       [pageKey]

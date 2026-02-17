@@ -1474,6 +1474,23 @@ router.get('/ententies', async (req, res, next) => {
     }
   });
 
+const PAGE_I18N_LANGS = ['en', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
+
+function getPageI18nPayload(body = {}) {
+  const payload = {
+    slug: String(body.slug || '').trim(),
+    title: String(body.title || '').trim(),
+    content: String(body.content || '')
+  };
+
+  for (const lang of PAGE_I18N_LANGS) {
+    payload[`title_${lang}`] = String(body[`title_${lang}`] || '').trim();
+    payload[`content_${lang}`] = String(body[`content_${lang}`] || '');
+  }
+
+  return payload;
+}
+
 router.get('/pages',  async (req, res, next) => {
   try {
     const [rows] = await db.query(`SELECT id, slug, title, created, modified FROM pages ORDER BY slug`);
@@ -1491,10 +1508,34 @@ router.get('/pages/new', (req, res) => {
 
 router.post('/pages/new', async (req, res, next) => {
   try {
-    const { slug, title, content } = req.body;
+    const data = getPageI18nPayload(req.body);
     await db.query(
-      `INSERT INTO pages (slug, title, content) VALUES (?, ?, ?)`,
-      [slug.trim(), title.trim(), content]
+      `INSERT INTO pages (
+         slug, title, content,
+         title_en, content_en,
+         title_fr, content_fr,
+         title_it, content_it,
+         title_tr, content_tr,
+         title_ja, content_ja,
+         title_cs, content_cs,
+         title_ru, content_ru,
+         title_es, content_es,
+         title_nl, content_nl,
+         title_pl, content_pl
+       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        data.slug, data.title, data.content,
+        data.title_en, data.content_en,
+        data.title_fr, data.content_fr,
+        data.title_it, data.content_it,
+        data.title_tr, data.content_tr,
+        data.title_ja, data.content_ja,
+        data.title_cs, data.content_cs,
+        data.title_ru, data.content_ru,
+        data.title_es, data.content_es,
+        data.title_nl, data.content_nl,
+        data.title_pl, data.content_pl
+      ]
     );
     req.flash('success', 'Seite angelegt.');
     res.redirect('/admin/pages');
@@ -1513,10 +1554,35 @@ router.get('/pages/:slug/edit',  async (req, res, next) => {
 router.post('/pages/:slug/edit', async (req, res, next) => {
   try {
     const oldSlug = req.params.slug;
-    const { slug, title, content } = req.body;
+    const data = getPageI18nPayload(req.body);
     await db.query(
-      `UPDATE pages SET slug = ?, title = ?, content = ? WHERE slug = ?`,
-      [ slug.trim(), title.trim(), content, oldSlug ]
+      `UPDATE pages SET
+         slug = ?, title = ?, content = ?,
+         title_en = ?, content_en = ?,
+         title_fr = ?, content_fr = ?,
+         title_it = ?, content_it = ?,
+         title_tr = ?, content_tr = ?,
+         title_ja = ?, content_ja = ?,
+         title_cs = ?, content_cs = ?,
+         title_ru = ?, content_ru = ?,
+         title_es = ?, content_es = ?,
+         title_nl = ?, content_nl = ?,
+         title_pl = ?, content_pl = ?
+       WHERE slug = ?`,
+      [
+        data.slug, data.title, data.content,
+        data.title_en, data.content_en,
+        data.title_fr, data.content_fr,
+        data.title_it, data.content_it,
+        data.title_tr, data.content_tr,
+        data.title_ja, data.content_ja,
+        data.title_cs, data.content_cs,
+        data.title_ru, data.content_ru,
+        data.title_es, data.content_es,
+        data.title_nl, data.content_nl,
+        data.title_pl, data.content_pl,
+        oldSlug
+      ]
     );
     req.flash('success', 'Seite aktualisiert.');
     res.redirect('/admin/pages');

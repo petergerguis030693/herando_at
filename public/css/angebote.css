@@ -39,6 +39,7 @@
   .buyButton { background: white; color: #c39052; border: 2px solid #c39052; padding: 10px 15px; border-radius: 5px; cursor: pointer; margin-top: 10px; }
   .buyButton:hover { background: #0056b3; }
 
+
   @media (max-width: 1024px) {
     .step, .feature, .testimonial { width: 45%; }
     .stepImage { width: 100%; height: auto; max-height: 250px; }
@@ -64,23 +65,23 @@
     .package { width: 100%; }
     .stepNumber { font-size: 1.5rem; }
     .step, .feature, .testimonial { width: 100%; }
+        .row>* {
+        flex-shrink: 0;
+        width: 79%;
+        max-width: 100%;
+        padding-right: calc(var(--bs-gutter-x) * .5);
+        padding-left: calc(var(--bs-gutter-x) * .5);
+        margin-top: var(--bs-gutter-y);
+    }
+    .row {
+      --bs-gutter-x: 1.5rem;
+      --bs-gutter-y: 0;
+      display: flex;
+      flex-wrap: wrap;
+      margin-top: calc(-1 * var(--bs-gutter-y));
+      margin-right: calc(-.5 * var(--bs-gutter-x));
+      margin-left: calc(-.5 * var(--bs-gutter-x));
+      justify-content: center;
+    }
   }
 
-  /* Footer quick styles (dein Custom-Footer in dieser Datei) */
-  .herando-footer { background:#172237; color:#dfe6f3; padding:32px 0 20px; }
-  .herando-footer .container{ max-width:1350px; margin:0 auto; padding:0 16px; }
-  .herando-newsletter h3, .herando-footer-links h4, .herando-social h4, .herando-payment h4 { color:#aeb8cc; }
-  .herando-newsletter-form { display:flex; gap:8px; max-width:520px; }
-  .herando-newsletter-form input[type="email"]{ flex:1; border:1px solid rgba(255,255,255,.25); background:#0f182a; color:#fff; border-radius:6px; padding:.55rem .8rem; }
-  .herando-newsletter-form button{ border:1px solid rgba(255,255,255,.25); background:transparent; color:#fff; border-radius:6px; padding:.55rem .8rem; }
-  .herando-footer-links{ display:grid; grid-template-columns:repeat(1,minmax(0,1fr)); gap:24px; padding:20px 0; border-top:1px solid rgba(255,255,255,.08); border-bottom:1px solid rgba(255,255,255,.08); margin:24px 0; }
-  @media(min-width:768px){ .herando-footer-links{ grid-template-columns:repeat(4,1fr);} }
-  .herando-footer-links ul{ list-style:none; margin:0; padding:0; }
-  .herando-footer-links a{ color:#dfe6f3; text-decoration:none; }
-  .herando-footer-links a:hover{ text-decoration:underline; }
-  .herando-support p{ margin:.25rem 0; }
-  .herando-social-icons{ display:flex; gap:14px; }
-  .herando-social-icons a{ color:#fff; font-size:1.3rem; }
-  .herando-social-icons a:hover{ color:#c8a24e; }
-  .herando-countries ul{ display:flex; gap:16px; flex-wrap:wrap; list-style:none; padding:0; margin:16px 0; align-items:center; }
-  .herando-copyright{ border-top:1px solid rgba(255,255,255,.08); padding-top:14px; margin-top:10px; color:#98a6c3; }
