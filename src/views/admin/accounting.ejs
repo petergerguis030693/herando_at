@@ -1,0 +1,289 @@
+<%- include('../partials/header-admin') %>
+<%
+  const sum = (typeof summary !== 'undefined' && summary) ? summary : {};
+  const invoices = Array.isArray(invoiceRows) ? invoiceRows : [];
+  const listingPkgs = Array.isArray(recentListingPackages) ? recentListingPackages : [];
+  const adPkgs = Array.isArray(recentAdPackages) ? recentAdPackages : [];
+  const rev12 = Array.isArray(revenueByMonth12) ? revenueByMonth12 : [];
+  const pg = (typeof pagination !== 'undefined' && pagination) ? pagination : { page: 1, totalPages: 1, totalRows: 0 };
+  const num = (v) => Number(v || 0).toLocaleString('de-DE');
+  const money = (v) => Number(v || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const page = Math.max(1, Number(pg.page || 1));
+  const totalPages = Math.max(1, Number(pg.totalPages || 1));
+%>
+
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('./sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="main-content flex-fill px-4 py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+      <div>
+        <h4 class="mb-1"><i class="bi bi-receipt me-2"></i>Buchhaltung</h4>
+        <div class="text-muted small">Rechnungen, Umsatz und aktuelle Paketbuchungen im Adminpanel</div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="/admin" class="btn btn-outline-secondary btn-sm">
+          <i class="bi bi-speedometer2 me-1"></i> Dashboard
+        </a>
+        <a href="/admin/analytics" class="btn btn-outline-primary btn-sm">
+          <i class="bi bi-graph-up me-1"></i> Analytics
+        </a>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Gesamt Rechnungen</div>
+            <div class="fs-4 fw-bold"><%= num(sum.total_invoices) %></div>
+            <div class="small text-muted">Bestellungen / Rechnungen aus `orders`</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Gesamt Umsatz</div>
+            <div class="fs-4 fw-bold"><%= money(sum.total_revenue) %> €</div>
+            <div class="small text-muted">Summe aller Rechnungsbeträge</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Umsatz (30 Tage)</div>
+            <div class="fs-4 fw-bold"><%= money(sum.revenue_30d) %> €</div>
+            <div class="small text-muted">Rechnungen: <%= num(sum.invoices_30d) %></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Aktueller Monat</div>
+            <div class="fs-4 fw-bold"><%= money(sum.revenue_mtd) %> €</div>
+            <div class="small text-muted">Rechnungen: <%= num(sum.invoices_mtd) %></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Rechnungen (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(sum.invoices_24h) %></div>
+            <div class="small text-muted">Rolling 24h</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Umsatz (24h)</div>
+            <div class="fs-4 fw-bold"><%= money(sum.revenue_24h) %> €</div>
+            <div class="small text-muted">Rolling 24h</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Abgerechnete Kunden</div>
+            <div class="fs-4 fw-bold"><%= num(sum.billed_customers) %></div>
+            <div class="small text-muted">Distinct `user_id` in Rechnungen</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Rechnungsliste</div>
+            <div class="fs-4 fw-bold"><%= num(pg.totalRows) %></div>
+            <div class="small text-muted">Alle Rechnungen geladen</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Umsatz pro Monat (12 Monate)</div>
+          <div class="card-body" style="min-height: 280px;">
+            <canvas id="chartAccountingRevenue"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Neu gebuchte Listing-Pakete (letzte 20)</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Kunde</th>
+                    <th>Paket</th>
+                    <th>Kategorie</th>
+                    <th>Gebucht</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!listingPkgs.length) { %>
+                    <tr><td colspan="5" class="text-center text-muted py-3">Keine Listing-Paketbuchungen gefunden.</td></tr>
+                  <% } %>
+                  <% listingPkgs.forEach((r) => { %>
+                    <tr>
+                      <td><%= r.id %></td>
+                      <td class="text-truncate" style="max-width: 180px;"><a href="/admin/users/<%= r.user_id %>/edit" class="text-decoration-none"><%= r.customer_name %></a></td>
+                      <td class="text-truncate" style="max-width: 200px;"><%= r.package_name || '–' %></td>
+                      <td><%= r.category_name || '–' %></td>
+                      <td><%= r.created_at || '–' %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Alle Rechnungen</span>
+            <span class="small text-muted"><%= num(pg.totalRows) %> Einträge gesamt</span>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Dokument</th>
+                    <th>Kunde</th>
+                    <th>E-Mail</th>
+                    <th>Erstellt</th>
+                    <th>Geändert</th>
+                    <th class="text-end">Betrag</th>
+                    <th class="text-end">PDF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!invoices.length) { %>
+                    <tr><td colspan="8" class="text-center text-muted py-3">Keine Rechnungen gefunden.</td></tr>
+                  <% } %>
+                  <% invoices.forEach((r) => { %>
+                    <tr>
+                      <td><%= r.id %></td>
+                      <td class="text-truncate" style="max-width: 180px;" title="<%= r.document %>"><%= r.document %></td>
+                      <td class="text-truncate" style="max-width: 190px;"><a href="/admin/users/<%= r.user_id %>/edit" class="text-decoration-none"><%= r.customer_name %></a></td>
+                      <td class="text-truncate" style="max-width: 220px;"><%= r.email || '–' %></td>
+                      <td><%= r.created || '–' %></td>
+                      <td><%= r.modified || '–' %></td>
+                      <td class="text-end fw-semibold"><%= money(r.amount) %> €</td>
+                      <td class="text-end">
+                        <% if (r.pdf_exists) { %>
+                          <div class="btn-group btn-group-sm" role="group">
+                            <a href="<%= r.pdf_url %>" target="_blank" rel="noopener" class="btn btn-outline-secondary" title="PDF öffnen">
+                              <i class="bi bi-eye"></i>
+                            </a>
+                            <a href="<%= r.pdf_download_url %>" class="btn btn-outline-primary" title="PDF herunterladen">
+                              <i class="bi bi-download"></i>
+                            </a>
+                          </div>
+                        <% } else { %>
+                          <a href="<%= r.pdf_download_url %>" class="btn btn-sm btn-outline-warning" title="PDF jetzt erzeugen und herunterladen">
+                            <i class="bi bi-magic me-1"></i> PDF erzeugen
+                          </a>
+                        <% } %>
+                      </td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer d-flex justify-content-between align-items-center">
+            <div class="small text-muted">
+              Alle Rechnungen sind geladen. Wenn eine PDF fehlt, erzeugt der Admin-Download sie automatisch über den Invoice-Service aus den Order-Daten.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header">Neu gebuchte Werbe-/Userpackages (letzte 20)</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Kunde</th>
+                    <th>Paket</th>
+                    <th>Inserat-ID</th>
+                    <th>Status</th>
+                    <th>Start</th>
+                    <th>Ende</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!adPkgs.length) { %>
+                    <tr><td colspan="7" class="text-center text-muted py-3">Keine Werbe-/Userpackage-Buchungen gefunden.</td></tr>
+                  <% } %>
+                  <% adPkgs.forEach((r) => { %>
+                    <tr>
+                      <td><%= r.id %></td>
+                      <td class="text-truncate" style="max-width: 190px;"><a href="/admin/users/<%= r.user_id %>/edit" class="text-decoration-none"><%= r.customer_name %></a></td>
+                      <td class="text-truncate" style="max-width: 240px;"><%= r.package_name || '–' %></td>
+                      <td><%= r.item_id || '–' %></td>
+                      <td><span class="badge text-bg-<%= r.status === 'paid' ? 'success' : (r.status === 'pending' ? 'warning' : 'secondary') %>"><%= r.status %></span></td>
+                      <td><%= r.start_date || '–' %></td>
+                      <td><%= r.end_date || '–' %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('chartAccountingRevenue');
+  if (!canvas) return;
+  const data = <%- JSON.stringify(rev12 || []) %>;
+  new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: data.map(r => r.month),
+      datasets: [{
+        label: 'Umsatz (€)',
+        data: data.map(r => Number(r.revenue || 0)),
+        backgroundColor: '#0d6efd'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: { legend: { display: true, position: 'bottom' } },
+      scales: { y: { beginAtZero: true } }
+    }
+  });
+});
+</script>

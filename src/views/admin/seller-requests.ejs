@@ -1,0 +1,270 @@
+<%- include('../partials/header-admin') %>
+<style>
+  .seller-requests-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    align-items: center;
+  }
+  .seller-requests-meta .badge {
+    font-size: .78rem;
+    font-weight: 600;
+    padding: .45rem .65rem;
+  }
+  .seller-requests-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .seller-requests-table th {
+    white-space: nowrap;
+  }
+  .seller-request-snippet {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.35;
+    max-height: 4.2em;
+  }
+  .seller-request-id {
+    line-height: 1.1;
+  }
+  .seller-request-actions {
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    min-width: 110px;
+  }
+  .seller-request-actions .btn {
+    width: 100%;
+    white-space: nowrap;
+  }
+  .seller-request-date {
+    white-space: nowrap;
+    line-height: 1.2;
+  }
+  .seller-request-subactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+  }
+  .seller-entity-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .5rem;
+    margin-bottom: 1rem;
+  }
+  .seller-entity-filters .btn {
+    white-space: nowrap;
+  }
+  .seller-search-form .form-control {
+    min-width: 240px;
+  }
+</style>
+
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active }) %>
+  </aside>
+
+  <main class="admin-container flex-grow-1 p-4 bg-white">
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+      <h1 class="mb-0">Verkäuferanfragen</h1>
+      <div class="seller-requests-meta">
+        <span class="badge text-bg-secondary">Angezeigt: <%= total %></span>
+        <span class="badge text-bg-light border">Offen: <%= (statusCounts && statusCounts.pending) || 0 %></span>
+        <span class="badge text-bg-light border">Gesendet: <%= (statusCounts && statusCounts.sent) || 0 %></span>
+      </div>
+    </div>
+
+    <div class="btn-group mb-2" role="group" aria-label="Status-Filter">
+      <a href="/admin/seller-requests?filter=pending&entity=<%= encodeURIComponent(selectedEntity || 'all') %>&searchBuyer=<%= encodeURIComponent(searchBuyer || '') %>&searchSeller=<%= encodeURIComponent(searchSeller || '') %>&perPage=<%= perPage %>&page=1" class="btn <%= filter === 'pending' ? 'btn-primary' : 'btn-outline-primary' %>">Offen (<%= (statusCounts && statusCounts.pending) || 0 %>)</a>
+      <a href="/admin/seller-requests?filter=sent&entity=<%= encodeURIComponent(selectedEntity || 'all') %>&searchBuyer=<%= encodeURIComponent(searchBuyer || '') %>&searchSeller=<%= encodeURIComponent(searchSeller || '') %>&perPage=<%= perPage %>&page=1" class="btn <%= filter === 'sent' ? 'btn-primary' : 'btn-outline-primary' %>">Gesendet (<%= (statusCounts && statusCounts.sent) || 0 %>)</a>
+      <a href="/admin/seller-requests?filter=all&entity=<%= encodeURIComponent(selectedEntity || 'all') %>&searchBuyer=<%= encodeURIComponent(searchBuyer || '') %>&searchSeller=<%= encodeURIComponent(searchSeller || '') %>&perPage=<%= perPage %>&page=1" class="btn <%= filter === 'all' ? 'btn-primary' : 'btn-outline-primary' %>">Alle (<%= (statusCounts && statusCounts.all) || 0 %>)</a>
+    </div>
+
+    <form method="get" action="/admin/seller-requests" class="seller-search-form d-flex flex-wrap align-items-end gap-2 mb-3">
+      <input type="hidden" name="filter" value="<%= filter %>">
+      <input type="hidden" name="entity" value="<%= selectedEntity || 'all' %>">
+      <input type="hidden" name="perPage" value="<%= perPage %>">
+      <input type="hidden" name="page" value="1">
+      <div>
+        <label for="searchBuyer" class="form-label mb-1">Interessent (Vor-/Nachname, E-Mail)</label>
+        <input id="searchBuyer" name="searchBuyer" class="form-control form-control-sm" value="<%= searchBuyer || '' %>" placeholder="z.B. Max Mustermann oder mail@beispiel.de">
+      </div>
+      <div>
+        <label for="searchSeller" class="form-label mb-1">Anbieter (Vor-/Nachname, E-Mail)</label>
+        <input id="searchSeller" name="searchSeller" class="form-control form-control-sm" value="<%= searchSeller || '' %>" placeholder="z.B. Anna Müller oder anbieter@firma.de">
+      </div>
+      <button type="submit" class="btn btn-sm btn-primary">Suchen</button>
+      <a href="/admin/seller-requests?filter=<%= encodeURIComponent(filter) %>&entity=<%= encodeURIComponent(selectedEntity || 'all') %>&perPage=<%= perPage %>&page=1" class="btn btn-sm btn-outline-secondary">Zurücksetzen</a>
+    </form>
+
+    <form method="get" action="/admin/seller-requests" class="d-flex align-items-center gap-2 mb-3">
+      <input type="hidden" name="filter" value="<%= filter %>">
+      <input type="hidden" name="entity" value="<%= selectedEntity || 'all' %>">
+      <input type="hidden" name="searchBuyer" value="<%= searchBuyer || '' %>">
+      <input type="hidden" name="searchSeller" value="<%= searchSeller || '' %>">
+      <input type="hidden" name="page" value="1">
+      <label for="perPageSelect" class="form-label mb-0">Pro Seite:</label>
+      <select id="perPageSelect" name="perPage" class="form-select form-select-sm" style="width:auto;" onchange="this.form.submit()">
+        <% (perPageOptions || [300, 400, 500, 600]).forEach(function(opt) { %>
+          <option value="<%= opt %>" <%= Number(perPage) === Number(opt) ? 'selected' : '' %>><%= opt %></option>
+        <% }) %>
+      </select>
+    </form>
+
+    <div class="seller-entity-filters">
+      <a href="/admin/seller-requests?filter=<%= encodeURIComponent(filter) %>&entity=all&searchBuyer=<%= encodeURIComponent(searchBuyer || '') %>&searchSeller=<%= encodeURIComponent(searchSeller || '') %>&perPage=<%= perPage %>&page=1"
+         class="btn btn-sm <%= (selectedEntity || 'all') === 'all' ? 'btn-dark' : 'btn-outline-dark' %>">
+        Alle Entities
+      </a>
+      <% (entityOptions || []).forEach(function(opt) { %>
+        <a href="/admin/seller-requests?filter=<%= encodeURIComponent(filter) %>&entity=<%= encodeURIComponent(opt.value) %>&searchBuyer=<%= encodeURIComponent(searchBuyer || '') %>&searchSeller=<%= encodeURIComponent(searchSeller || '') %>&perPage=<%= perPage %>&page=1"
+           class="btn btn-sm <%= selectedEntity === opt.value ? 'btn-dark' : 'btn-outline-dark' %>">
+          <%= opt.label %> (<%= opt.count %>)
+        </a>
+      <% }) %>
+    </div>
+
+    <% if (notice === 'sent') { %>
+      <div class="alert alert-success">Anfrage wurde an den Anbieter weitergeleitet.</div>
+    <% } %>
+    <% if (notice === 'deleted') { %>
+      <div class="alert alert-warning">Anfrage wurde verworfen und gelöscht.</div>
+    <% } %>
+    <% if (error === 'no_seller_email') { %>
+      <div class="alert alert-danger">Kein Anbieter-E-Mail vorhanden. Anfrage konnte nicht gesendet werden.</div>
+    <% } %>
+    <% if (error === 'not_found') { %>
+      <div class="alert alert-danger">Anfrage wurde nicht gefunden.</div>
+    <% } %>
+    <% if (error === 'invalid_id') { %>
+      <div class="alert alert-danger">Ungültige Anfrage-ID.</div>
+    <% } %>
+    <% if (error === 'send_failed') { %>
+      <div class="alert alert-danger">Versand fehlgeschlagen. Bitte SMTP-Konfiguration prüfen und erneut senden.</div>
+    <% } %>
+
+    <% if (!requests || requests.length === 0) { %>
+      <div class="alert alert-info">Keine Verkäuferanfragen gefunden.</div>
+    <% } else { %>
+      <div class="card shadow-sm">
+        <div class="table-responsive">
+          <table class="table table-striped align-middle mb-0 seller-requests-table">
+            <colgroup>
+              <col style="width:100px;">
+              <col style="width:280px;">
+              <col style="width:auto;">
+              <col style="width:280px;">
+              <col style="width:130px;">
+              <col style="width:130px;">
+            </colgroup>
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Interessent</th>
+                <th>Nachricht</th>
+                <th>Anbieter</th>
+                <th>Datum</th>
+                <th class="text-center">Aktion</th>
+              </tr>
+            </thead>
+            <tbody>
+              <% requests.forEach(function(r) { %>
+                <tr>
+                  <td>
+                    <div class="fw-bold seller-request-id"><%= r.id %></div>
+                    <span class="badge <%= Number(r.status) === 1 ? 'bg-success' : 'bg-secondary' %>">
+                      <%= Number(r.status) === 1 ? 'gesendet' : 'offen' %>
+                    </span>
+                  </td>
+                  <td>
+                    <div class="fw-semibold"><%= r.buyerNameRaw || '-' %></div>
+                    <div><a href="mailto:<%= r.buyerEmailRaw %>"><%= r.buyerEmailRaw || '-' %></a></div>
+                    <div><%= r.buyerPhoneRaw || '-' %></div>
+                  </td>
+                  <td>
+                    <div class="seller-request-snippet"><%= r.snippet || '-' %></div>
+                    <div class="mt-2 seller-request-subactions">
+                      <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#previewModal-<%= r.id %>">
+                        HTML Vorschau
+                      </button>
+                      <a href="<%= r.listingUrl %>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Inserat</a>
+                    </div>
+                  </td>
+                  <td>
+                    <div class="fw-semibold"><%= r.sellerNameRaw || '-' %></div>
+                    <% if (r.sellerEmailRaw) { %>
+                      <div><a href="mailto:<%= r.sellerEmailRaw %>"><%= r.sellerEmailRaw %></a></div>
+                    <% } else { %>
+                      <div class="text-danger">Keine E-Mail</div>
+                    <% } %>
+                  </td>
+                  <td class="seller-request-date">
+                    <% if (r.created) { %>
+                      <% const createdAt = new Date(r.created); %>
+                      <div><%= createdAt.toLocaleDateString('de-DE') %></div>
+                      <div><%= createdAt.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) %></div>
+                    <% } else { %>
+                      -
+                    <% } %>
+                  </td>
+                  <td class="text-center">
+                    <div class="seller-request-actions mx-auto">
+                      <form method="post" action="/admin/seller-requests/<%= r.id %>/send">
+                        <input type="hidden" name="returnTo" value="<%= returnTo %>">
+                        <button type="submit" class="btn btn-sm btn-success" <%= !r.sellerEmailRaw ? 'disabled' : '' %>>
+                          Senden
+                        </button>
+                      </form>
+                      <form method="post" action="/admin/seller-requests/<%= r.id %>/delete" onsubmit="return confirm('Anfrage wirklich verwerfen und löschen?');">
+                        <input type="hidden" name="returnTo" value="<%= returnTo %>">
+                        <button type="submit" class="btn btn-sm btn-danger">Verwerfen</button>
+                      </form>
+                    </div>
+                  </td>
+                </tr>
+              <% }) %>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    <% } %>
+
+    <% if (totalPages > 1) { %>
+      <nav class="mt-3" aria-label="Pagination">
+        <ul class="pagination mb-0">
+          <% pages.forEach(function(p) { %>
+            <li class="page-item <%= p === currentPage ? 'active' : '' %>">
+              <a class="page-link" href="/admin/seller-requests?filter=<%= encodeURIComponent(filter) %>&entity=<%= encodeURIComponent(selectedEntity || 'all') %>&searchBuyer=<%= encodeURIComponent(searchBuyer || '') %>&searchSeller=<%= encodeURIComponent(searchSeller || '') %>&perPage=<%= perPage %>&page=<%= p %>"><%= p %></a>
+            </li>
+          <% }) %>
+          <li class="page-item <%= currentPage >= totalPages ? 'disabled' : '' %>">
+            <a class="page-link" href="/admin/seller-requests?filter=<%= encodeURIComponent(filter) %>&entity=<%= encodeURIComponent(selectedEntity || 'all') %>&searchBuyer=<%= encodeURIComponent(searchBuyer || '') %>&searchSeller=<%= encodeURIComponent(searchSeller || '') %>&perPage=<%= perPage %>&page=<%= Math.min(totalPages, currentPage + 1) %>">nächste</a>
+          </li>
+        </ul>
+      </nav>
+    <% } %>
+  </main>
+</div>
+
+<% if (requests && requests.length) { %>
+  <% requests.forEach(function(r) { %>
+    <div class="modal fade" id="previewModal-<%= r.id %>" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">HTML Vorschau Anfrage #<%= r.id %></h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body bg-light">
+            <div class="border rounded bg-white p-2">
+              <%- r.previewHtml %>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  <% }) %>
+<% } %>

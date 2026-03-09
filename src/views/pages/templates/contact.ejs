@@ -39,7 +39,7 @@
         <label for="last_name"><span style="color:red">*</span> <%= t('contact.form.last_name') %></label>
         <input type="text" id="last_name" name="last_name" value="<%= formData.last_name || '' %>" required>
 
-        <label for="ichbin"><%= t('contact.form.role') %></label>
+        <label for="ichbin"><%= t('contact.form.i_am', 'Ich bin') %></label>
         <select name="ichbin" id="ichbin">
           <option value=""><%= t('common.please_choose') %></option>
           <option value="Privat" <%= formData.ichbin === 'Privat' ? 'selected' : '' %>><%= t('contact.form.private') %></option>
@@ -56,10 +56,20 @@
         <input type="email" id="email" name="email" value="<%= formData.email || '' %>" required>
 
         <label for="telefon"><span style="color:red">*</span> <%= t('contact.form.phone') %></label>
-        <input type="text" id="telefon" name="telefon" value="<%= formData.telefon || '' %>" required>
+        <div style="display:flex; gap:10px;">
+          <select id="telefon_prefix" name="telefon_prefix" required style="max-width: 190px;">
+            <option value=""><%= t('contact.form.phone_prefix', 'Vorwahl') %></option>
+            <% (phonePrefixOptions || []).forEach(opt => { %>
+              <option value="<%= opt.prefix %>" <%= String(formData.telefon_prefix || '') === String(opt.prefix) ? 'selected' : '' %>>
+                <%= opt.code %> (<%= opt.prefix %>)
+              </option>
+            <% }) %>
+          </select>
+          <input type="text" id="telefon" name="telefon" value="<%= formData.telefon || '' %>" required style="flex:1;">
+        </div>
 
-        <label for="nachricht"><%= t('contact.form.message') %></label>
-        <textarea id="nachricht" name="nachricht"><%= formData.nachricht || '' %></textarea>
+        <label for="nachricht"><span style="color:red">*</span> <%= t('contact.form.message') %></label>
+        <textarea id="nachricht" name="nachricht" required><%= formData.nachricht || '' %></textarea>
 
         <div class="checkbox-group">
           <label>
@@ -73,7 +83,6 @@
             <%= t('contact.form.captcha') %>: <strong><%= captcha.question %></strong> =
           </label>
           <input type="number" id="captcha_answer" name="captcha_answer" required>
-          <input type="hidden" name="captcha_expected" value="<%= captcha.expected %>">
         </div>
 
         <button type="submit" class="btn-submit"><%= t('contact.form.submit') %></button>

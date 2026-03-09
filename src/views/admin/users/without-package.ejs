@@ -1,0 +1,422 @@
+<%- include('../../partials/header-admin') %>
+
+<%
+  const safeFilters = {
+    firstname: filters?.firstname || '',
+    lastname: filters?.lastname || '',
+    email: filters?.email || '',
+    company: filters?.company || '',
+    entity: filters?.entity || 'all'
+  };
+  const entityFieldByKey = {
+    cars: 'cars_online',
+    watches: 'watches_online',
+    properties: 'properties_online',
+    yachts: 'yachts_online',
+    lifestyles: 'lifestyles_online'
+  };
+  const selectedEntity = (entityOptions || []).find((opt) => opt.key === safeFilters.entity) || { key: 'all', label: 'Alle Entitäten' };
+  const selectedEntityField = entityFieldByKey[selectedEntity.key] || null;
+  const formatPrice = (value) => {
+    const amount = Number(value);
+    if (!Number.isFinite(amount)) return String(value || '');
+    return amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  };
+%>
+
+<style>
+  .without-package-main {
+    min-width: 0;
+  }
+
+  .without-package-toolbar {
+    gap: 0.75rem;
+  }
+
+  .without-package-total {
+    font-size: 0.95rem;
+  }
+
+  .without-package-entity-badge {
+    border: 1px solid #dbe3ea;
+    background: #f8fafc;
+    color: #1f2937;
+    border-radius: 999px;
+    padding: 0.2rem 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+  }
+
+  .without-package-mobile-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+  }
+
+  @media (max-width: 575.98px) {
+    .without-package-mobile-actions .btn {
+      width: 100%;
+    }
+  }
+</style>
+
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+
+  <main class="flex-fill p-4 without-package-main">
+    <div class="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 without-package-toolbar">
+      <div>
+        <h1 class="mb-1">Benutzer ohne Paket</h1>
+        <div class="text-muted">Direkte Paketzuweisung per Modal inkl. Entitätsauswahl</div>
+      </div>
+      <a href="/admin/users" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i> Zur Benutzerliste
+      </a>
+    </div>
+
+    <% if (successMessage) { %>
+      <div class="alert alert-success py-2"><%= successMessage %></div>
+    <% } %>
+    <% if (errorMessage) { %>
+      <div class="alert alert-danger py-2"><%= errorMessage %></div>
+    <% } %>
+
+    <form method="get" action="/admin/users/without-package" class="row g-2 mb-3">
+      <div class="col-12 col-md-4 col-lg-2">
+        <select name="entity" class="form-select">
+          <% (entityOptions || []).forEach((opt) => { %>
+            <option value="<%= opt.key %>" <%= safeFilters.entity === opt.key ? 'selected' : '' %>><%= opt.label %></option>
+          <% }) %>
+        </select>
+      </div>
+      <div class="col-12 col-md-4 col-lg-2">
+        <input type="text" name="firstname" class="form-control" placeholder="Vorname" value="<%= safeFilters.firstname %>">
+      </div>
+      <div class="col-12 col-md-4 col-lg-2">
+        <input type="text" name="lastname" class="form-control" placeholder="Nachname" value="<%= safeFilters.lastname %>">
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+        <input type="text" name="email" class="form-control" placeholder="E-Mail" value="<%= safeFilters.email %>">
+      </div>
+      <div class="col-12 col-md-6 col-lg-3">
+        <input type="text" name="company" class="form-control" placeholder="Firma" value="<%= safeFilters.company %>">
+      </div>
+      <div class="col-6 col-md-auto">
+        <button type="submit" class="btn btn-primary w-100">Filtern</button>
+      </div>
+      <div class="col-6 col-md-auto">
+        <a href="/admin/users/without-package" class="btn btn-outline-secondary w-100">Zurücksetzen</a>
+      </div>
+    </form>
+
+    <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
+      <span class="badge bg-primary without-package-total">Treffer: <%= users.length %></span>
+      <span class="badge bg-light text-dark border">Entität: <%= selectedEntity.label %></span>
+    </div>
+
+    <div class="table-responsive d-none d-lg-block">
+      <table class="table table-sm table-striped align-middle">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Vorname</th>
+            <th>Nachname</th>
+            <th>Firma</th>
+            <th>E-Mail</th>
+            <th><%= selectedEntityField ? selectedEntity.label : 'Online Entitäten' %></th>
+            <th class="text-end">Gesamt online</th>
+            <th>Aktion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!users.length) { %>
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">Keine Treffer gefunden.</td>
+            </tr>
+          <% } %>
+          <% users.forEach((u) => { %>
+            <tr>
+              <td><strong><%= u.id %></strong></td>
+              <td><%= u.firstname || '–' %></td>
+              <td><%= u.lastname || '–' %></td>
+              <td><%= u.company || '–' %></td>
+              <td><%= u.email || '–' %></td>
+              <td>
+                <% if (selectedEntityField) { %>
+                  <strong><%= Number(u[selectedEntityField] || 0) %></strong>
+                <% } else { %>
+                  <div class="d-flex gap-1 flex-wrap">
+                    <% if (Number(u.cars_online || 0) > 0) { %><span class="without-package-entity-badge">Autos: <%= u.cars_online %></span><% } %>
+                    <% if (Number(u.watches_online || 0) > 0) { %><span class="without-package-entity-badge">Watches: <%= u.watches_online %></span><% } %>
+                    <% if (Number(u.properties_online || 0) > 0) { %><span class="without-package-entity-badge">Properties: <%= u.properties_online %></span><% } %>
+                    <% if (Number(u.yachts_online || 0) > 0) { %><span class="without-package-entity-badge">Yachts: <%= u.yachts_online %></span><% } %>
+                    <% if (Number(u.lifestyles_online || 0) > 0) { %><span class="without-package-entity-badge">Lifestyles: <%= u.lifestyles_online %></span><% } %>
+                  </div>
+                <% } %>
+              </td>
+              <td class="text-end"><strong><%= u.total_online || 0 %></strong></td>
+              <td>
+                <div class="d-flex gap-2">
+                  <button
+                    type="button"
+                    class="btn btn-sm btn-primary js-open-assign-modal"
+                    data-user-id="<%= u.id %>"
+                    data-user-name="<%= `${u.firstname || ''} ${u.lastname || ''}`.trim() || `User #${u.id}` %>"
+                    data-entities="<%- encodeURIComponent(JSON.stringify(u.available_entities || [])) %>">
+                    Paket direkt zuweisen
+                  </button>
+                  <a href="/admin/users/<%= u.id %>/overview" class="btn btn-sm btn-outline-secondary">Overview</a>
+                </div>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="d-lg-none">
+      <% if (!users.length) { %>
+        <div class="text-center text-muted py-4">Keine Treffer gefunden.</div>
+      <% } %>
+      <% users.forEach((u) => { %>
+        <div class="without-package-mobile-card p-3 mb-3 bg-white">
+          <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+            <div>
+              <div class="fw-semibold"><%= u.firstname || '–' %> <%= u.lastname || '' %></div>
+              <div class="text-muted small">ID: <%= u.id %></div>
+            </div>
+            <span class="badge bg-dark">Online: <%= u.total_online || 0 %></span>
+          </div>
+
+          <div class="small mb-1"><strong>Firma:</strong> <%= u.company || '–' %></div>
+          <div class="small mb-2"><strong>E-Mail:</strong> <%= u.email || '–' %></div>
+
+          <% if (selectedEntityField) { %>
+            <div class="small mb-3"><strong><%= selectedEntity.label %>:</strong> <%= Number(u[selectedEntityField] || 0) %></div>
+          <% } else { %>
+            <div class="d-flex gap-1 flex-wrap mb-3">
+              <% if (Number(u.cars_online || 0) > 0) { %><span class="without-package-entity-badge">Autos: <%= u.cars_online %></span><% } %>
+              <% if (Number(u.watches_online || 0) > 0) { %><span class="without-package-entity-badge">Watches: <%= u.watches_online %></span><% } %>
+              <% if (Number(u.properties_online || 0) > 0) { %><span class="without-package-entity-badge">Properties: <%= u.properties_online %></span><% } %>
+              <% if (Number(u.yachts_online || 0) > 0) { %><span class="without-package-entity-badge">Yachts: <%= u.yachts_online %></span><% } %>
+              <% if (Number(u.lifestyles_online || 0) > 0) { %><span class="without-package-entity-badge">Lifestyles: <%= u.lifestyles_online %></span><% } %>
+            </div>
+          <% } %>
+
+          <div class="d-grid gap-2 without-package-mobile-actions">
+            <button
+              type="button"
+              class="btn btn-sm btn-primary js-open-assign-modal"
+              data-user-id="<%= u.id %>"
+              data-user-name="<%= `${u.firstname || ''} ${u.lastname || ''}`.trim() || `User #${u.id}` %>"
+              data-entities="<%- encodeURIComponent(JSON.stringify(u.available_entities || [])) %>">
+              Paket direkt zuweisen
+            </button>
+            <a href="/admin/users/<%= u.id %>/overview" class="btn btn-sm btn-outline-secondary">Overview</a>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  </main>
+</div>
+
+<div class="modal fade" id="assignPackageModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="/admin/users/without-package/assign" id="assignPackageForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Paket direkt zuweisen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        </div>
+        <div class="modal-body">
+          <p class="mb-2 small text-muted" id="assignModalUserLabel">Benutzer</p>
+
+          <input type="hidden" name="user_id" id="assign_user_id">
+          <input type="hidden" name="category_id" id="assign_category_id">
+
+          <div class="mb-3" id="assignEntitySingleWrap">
+            <label class="form-label">Entität</label>
+            <div class="form-control bg-light" id="assignEntitySingleText">-</div>
+          </div>
+
+          <div class="mb-3 d-none" id="assignEntitySelectWrap">
+            <label for="assignEntitySelect" class="form-label">Entität auswählen</label>
+            <select class="form-select" id="assignEntitySelect">
+              <option value="">Bitte wählen</option>
+            </select>
+            <div class="form-text">Dieser Benutzer hat mehrere Entitäten online. Bitte wähle die gewünschte Zuweisung.</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="assignPackageSelect" class="form-label">Paket</label>
+            <select class="form-select" name="package_id" id="assignPackageSelect" required>
+              <option value="">Bitte Paket wählen</option>
+              <% (packages || []).forEach((pkg) => { %>
+                <option value="<%= pkg.id %>">
+                  <%= pkg.name %> (<%= formatPrice(pkg.price) %> EUR)
+                </option>
+              <% }) %>
+            </select>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">Jetzt zuweisen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const modalEl = document.getElementById('assignPackageModal');
+    if (!modalEl) return;
+
+    const modal = window.bootstrap ? new window.bootstrap.Modal(modalEl) : null;
+    let fallbackBackdrop = null;
+    const openButtons = document.querySelectorAll('.js-open-assign-modal');
+    const form = document.getElementById('assignPackageForm');
+    const userIdInput = document.getElementById('assign_user_id');
+    const categoryIdInput = document.getElementById('assign_category_id');
+    const userLabel = document.getElementById('assignModalUserLabel');
+    const singleWrap = document.getElementById('assignEntitySingleWrap');
+    const singleText = document.getElementById('assignEntitySingleText');
+    const selectWrap = document.getElementById('assignEntitySelectWrap');
+    const entitySelect = document.getElementById('assignEntitySelect');
+    const packageSelect = document.getElementById('assignPackageSelect');
+    const currentEntityFilter = <%- JSON.stringify(safeFilters.entity || 'all') %>;
+
+    const parseEntities = (raw) => {
+      try {
+        return JSON.parse(decodeURIComponent(raw || ''));
+      } catch (err) {
+        return [];
+      }
+    };
+
+    const showModal = () => {
+      if (modal) {
+        modal.show();
+        return;
+      }
+
+      modalEl.classList.add('show', 'd-block');
+      modalEl.removeAttribute('aria-hidden');
+      modalEl.setAttribute('aria-modal', 'true');
+      document.body.classList.add('modal-open');
+
+      if (fallbackBackdrop && fallbackBackdrop.parentNode) {
+        fallbackBackdrop.parentNode.removeChild(fallbackBackdrop);
+      }
+      fallbackBackdrop = document.createElement('div');
+      fallbackBackdrop.className = 'modal-backdrop fade show';
+      fallbackBackdrop.addEventListener('click', () => hideModal());
+      document.body.appendChild(fallbackBackdrop);
+    };
+
+    const hideModal = () => {
+      if (modal) {
+        modal.hide();
+        return;
+      }
+
+      modalEl.classList.remove('show', 'd-block');
+      modalEl.setAttribute('aria-hidden', 'true');
+      modalEl.removeAttribute('aria-modal');
+      document.body.classList.remove('modal-open');
+
+      if (fallbackBackdrop && fallbackBackdrop.parentNode) {
+        fallbackBackdrop.parentNode.removeChild(fallbackBackdrop);
+      }
+      fallbackBackdrop = null;
+    };
+
+    const resetModal = () => {
+      if (form) form.reset();
+      if (entitySelect) entitySelect.innerHTML = '<option value="">Bitte wählen</option>';
+      if (singleText) singleText.textContent = '-';
+      if (userIdInput) userIdInput.value = '';
+      if (categoryIdInput) categoryIdInput.value = '';
+      if (singleWrap) singleWrap.classList.remove('d-none');
+      if (selectWrap) selectWrap.classList.add('d-none');
+    };
+
+    if (entitySelect) {
+      entitySelect.addEventListener('change', () => {
+        if (!categoryIdInput) return;
+        categoryIdInput.value = entitySelect.value || '';
+      });
+    }
+
+    openButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        resetModal();
+
+        const userId = btn.getAttribute('data-user-id') || '';
+        const userName = btn.getAttribute('data-user-name') || `User #${userId}`;
+        const entities = parseEntities(btn.getAttribute('data-entities')).filter((ent) => ent && ent.entitie_id && ent.count > 0);
+
+        if (userLabel) userLabel.textContent = `Benutzer: ${userName} (ID ${userId})`;
+        if (userIdInput) userIdInput.value = userId;
+
+        if (!entities.length) {
+          alert('Keine gültige Entität für diese Zuweisung gefunden.');
+          return;
+        }
+
+        if (entities.length === 1) {
+          if (categoryIdInput) categoryIdInput.value = String(entities[0].entitie_id);
+          if (singleText) singleText.textContent = `${entities[0].label}: ${entities[0].count} online`;
+        } else {
+          if (singleWrap) singleWrap.classList.add('d-none');
+          if (selectWrap) selectWrap.classList.remove('d-none');
+
+          entities.forEach((ent) => {
+            const opt = document.createElement('option');
+            opt.value = String(ent.entitie_id);
+            opt.textContent = `${ent.label}: ${ent.count} online`;
+            opt.dataset.key = String(ent.key || '');
+            entitySelect.appendChild(opt);
+          });
+
+          let selectedOption = '';
+          if (currentEntityFilter && currentEntityFilter !== 'all') {
+            const preferred = Array.from(entitySelect.options).find((opt) => opt.dataset.key === currentEntityFilter);
+            if (preferred) selectedOption = preferred.value;
+          }
+          entitySelect.value = selectedOption;
+          if (categoryIdInput) categoryIdInput.value = selectedOption || '';
+        }
+
+        if (packageSelect) packageSelect.value = '';
+        showModal();
+      });
+    });
+
+    modalEl.querySelectorAll('[data-bs-dismiss="modal"]').forEach((el) => {
+      el.addEventListener('click', () => {
+        if (!modal) hideModal();
+      });
+    });
+
+    if (form) {
+      form.addEventListener('submit', (event) => {
+        const missingUser = !userIdInput || !userIdInput.value;
+        const missingCategory = !categoryIdInput || !categoryIdInput.value;
+        const missingPackage = !packageSelect || !packageSelect.value;
+        if (missingUser || missingCategory || missingPackage) {
+          event.preventDefault();
+          alert('Bitte Entität und Paket vollständig auswählen.');
+        }
+      });
+    }
+
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && !modal && modalEl.classList.contains('show')) {
+        hideModal();
+      }
+    });
+  })();
+</script>

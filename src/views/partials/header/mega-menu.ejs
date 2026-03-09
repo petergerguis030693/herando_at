@@ -10,6 +10,15 @@ const normalize = (r) => {
 };
 
 const route = normalize(cat.route);
+const canonicalRoute = route === 'autos' ? 'cars' : route;
+const entityHref = (routeName, suffix = "") => {
+  const canonical = routeName === 'autos' ? 'cars' : routeName;
+  const base = typeof entityPath === "function" ? entityPath(canonical) : `/${canonical}`;
+  const s = String(suffix || "");
+  if (!s) return base;
+  if (s.startsWith("?")) return `${base}${s}`;
+  return `${base}/${s.replace(/^\/+/, "")}`;
+};
 %>
 <style>
 /* Button immer unten rechts */
@@ -56,10 +65,10 @@ const route = normalize(cat.route);
             { slug: "bentley", name: "Bentley" },
             { slug: "rolls-royce", name: "Rolls-Royce" },
           ].forEach(b => { %>
-            <li><a class="dropdown-item" href="/cars/<%= b.slug %>"><%= b.name %></a></li>
+            <li><a class="dropdown-item" href="<%= entityHref('cars', b.slug) %>"><%= b.name %></a></li>
           <% }) %>
             <li>
-              <a class="dropdown-item fw-bold" href="/cars/allmodels">
+              <a class="dropdown-item fw-bold" href="<%= entityHref('cars', 'allmodels') %>">
                 <%= t('menu.show_all_brands','Alle Marken anzeigen') %>
               </a>
             </li>
@@ -77,9 +86,9 @@ const route = normalize(cat.route);
             { slug: "chopard", name: "Chopard" },
             { slug: "iwc", name: "IWC" },
           ].forEach(b => { %>
-            <li><a class="dropdown-item" href="/watches/<%= b.slug %>"><%= b.name %></a></li>
+            <li><a class="dropdown-item" href="<%= entityHref('watches', b.slug) %>"><%= b.name %></a></li>
           <% }) %>
-          <li><a class="dropdown-item fw-bold" href="/watches/allmodels"><%= t('menu.show_all_brands','Alle Marken anzeigen') %></a></li>
+          <li><a class="dropdown-item fw-bold" href="<%= entityHref('watches', 'allmodels') %>"><%= t('menu.show_all_brands','Alle Marken anzeigen') %></a></li>
         </ul>
 
         <% } else if (route === 'yachts') { %>
@@ -94,9 +103,9 @@ const route = normalize(cat.route);
             { slug: "fairline", name: "Fairline" },
             { slug: "alalunga", name: "Alalunga" },
           ].forEach(b => { %>
-            <li><a class="dropdown-item" href="/yachts/<%= b.slug %>"><%= b.name %></a></li>
+            <li><a class="dropdown-item" href="<%= entityHref('yachts', b.slug) %>"><%= b.name %></a></li>
           <% }) %>
-          <li><a class="dropdown-item fw-bold" href="/yachts/allmodels"><%= t('menu.show_all_brands','Alle Marken anzeigen') %></a></li>
+          <li><a class="dropdown-item fw-bold" href="<%= entityHref('yachts', 'allmodels') %>"><%= t('menu.show_all_brands','Alle Marken anzeigen') %></a></li>
         </ul>
 
         <% } else if (route === 'properties') { %>
@@ -111,7 +120,7 @@ const route = normalize(cat.route);
             { slug: "12", name: "Schloss/Herrenhaus" },
 
           ].forEach(i => { %>
-            <li><a class="dropdown-item" href="/properties?propertytype=<%= i.slug %>"><%= i.name %></a></li>
+            <li><a class="dropdown-item" href="<%= entityHref('properties', '?propertytype=' + i.slug) %>"><%= i.name %></a></li>
           <% }) %>
 
         </ul>
@@ -119,10 +128,10 @@ const route = normalize(cat.route);
         <% } else { %>
         <ul class="list-unstyled">
           <% menu.brands.forEach(b => { %>
-            <li><a class="dropdown-item" href="/<%= route %>/<%= b.toLowerCase().replace(/\s+/g,'-') %>"><%= b %></a></li>
+            <li><a class="dropdown-item" href="<%= entityHref(canonicalRoute, b.toLowerCase().replace(/\s+/g,'-')) %>"><%= b %></a></li>
           <% }) %>
             <li>
-              <a class="dropdown-item fw-bold" href="/<%= route %>">
+              <a class="dropdown-item fw-bold" href="<%= entityHref(canonicalRoute) %>">
                 <%= t('menu.show_all_brands','Alle Marken anzeigen') %>
               </a>
             </li>
@@ -143,62 +152,62 @@ const route = normalize(cat.route);
 
     <% if (route === 'autos') { %>
 
-      <li><a class="dropdown-item" href="/cars?cartype=1&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=1&hp=1') %>">
         <%= t('category.autos.coupe','Coupé') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/cars?cartype=2&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=2&hp=1') %>">
         <%= t('category.autos.convertible','Cabrio') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/cars?cartype=3&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=3&hp=1') %>">
         <%= t('attribute.cars.cartype.3','Limousine') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/cars?cartype=4&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=4&hp=1') %>">
         <%= t('attribute.cars.cartype.4','Limousine') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/cars?cartype=5&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=5&hp=1') %>">
         <%= t('attribute.cars.cartype.5','Limousine') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/cars?cartype=6&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=6&hp=1') %>">
         <%= t('attribute.cars.cartype.6','Pickup') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/cars?onlyOldtimer=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?onlyOldtimer=1') %>">
         <%= t('attribute.cars.cartype.7','Oldtimer') %>
       </a></li>
 
 
     <% } else if (route === 'watches') { %>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=1&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=1&hp=1') %>">
         <%= t('category.watches.wristwatch','Armbanduhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=2&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=2&hp=1') %>">
         <%= t('category.watches.pocketwatch','Taschenuhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=3&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=3&hp=1') %>">
         <%= t('category.watches.tableclock','Tischuhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=4&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=4&hp=1') %>">
         <%= t('category.watches.antique','Antike Uhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=5&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=5&hp=1') %>">
         <%= t('category.watches.standuhr', 'Standuhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=6&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=6&hp=1') %>">
         <%= t('category.watches.wanduhr', 'Wanduhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=255&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=255&hp=1') %>">
         <%= t('category.watches.sonstiges', 'Sonstige Uhren') %>
       </a></li>
 
@@ -206,70 +215,70 @@ const route = normalize(cat.route);
 
     <% } else if (route === 'yachts') { %>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=1&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=1&hp=1') %>">
         <%= t('category.yachts.motor','Motor Yachts') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=10&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=10&hp=1') %>">
         <%= t('category.yachts.flybridge','Flybridge') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=14&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=14&hp=1') %>">
         <%= t('category.yachts.cabin','Kajütboot') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=15&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=15&hp=1') %>">
         <%= t('category.yachts.catamaran','Katamaran') %>
       </a></li>
 
-            <li><a class="dropdown-item" href="/yachts?yachttype=6&hp=1">
+            <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=6&hp=1') %>">
         <%= t('attribute.yachts.yachttype.6') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=7&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=7&hp=1') %>">
         <%= t('attribute.yachts.yachttype.7') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=8&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=8&hp=1') %>">
         <%= t('attribute.yachts.yachttype.8') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=10&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=10&hp=1') %>">
         <%= t('attribute.yachts.yachttype.10') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=11&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=11&hp=1') %>">
         <%= t('attribute.yachts.yachttype.11') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=12&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=12&hp=1') %>">
         <%= t('attribute.yachts.yachttype.12') %>
       </a></li>
 
 
     <% } else if (route === 'properties') { %>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=1">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=1') %>">
         <%= t('category.properties.residential','Wohnimmobilie') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=2">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=2') %>">
         <%= t('category.properties.hotel','Hotels & Gastronomie') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=3">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=3') %>">
         <%= t('category.properties.commercial','Gewerbe') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=4">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=4') %>">
         <%= t('category.properties.land','Grundstück') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=5">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=5') %>">
         <%= t('attribute.properties.investmenttype.5','Pflegeimmobilie') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=6">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=6') %>">
         <%= t('attribute.properties.investmenttype.6','Pflegeimmobilie') %>
       </a></li>
 
@@ -287,23 +296,15 @@ const route = normalize(cat.route);
   <!-- CTA: Alle anzeigen -->
 <div class="text-end mt-3 px-2 pb-2">
 <%
-const urlMap = {
-  autos: 'cars',
-  watches: 'watches',
-  yachts: 'yachts',
-  properties: 'properties',
-  lifestyles: 'lifestyles'
-};
-const urlSlug = urlMap[route] || route;  // Fallback
 %>
 
-<a href="/<%= urlSlug %>" class="btn btn-outline-dark btn-sm fw-bold">
+<a href="<%= entityHref(canonicalRoute) %>" class="btn btn-outline-dark btn-sm fw-bold">
   <%= 
-    route === 'cars'       ? t('menu.all_cars','Alle Autos anzeigen') :
-    route === 'watches'    ? t('menu.all_watches','Alle Uhren anzeigen') :
-    route === 'yachts'     ? t('menu.all_yachts','Alle Yachten anzeigen') :
-    route === 'properties' ? t('menu.all_properties','Alle Immobilien anzeigen') :
-    route === 'lifestyles' ? t('menu.all_lifestyles','Alle Lifestyle-Produkte anzeigen') :
+    canonicalRoute === 'cars'       ? t('menu.all_cars','Alle Autos anzeigen') :
+    canonicalRoute === 'watches'    ? t('menu.all_watches','Alle Uhren anzeigen') :
+    canonicalRoute === 'yachts'     ? t('menu.all_yachts','Alle Yachten anzeigen') :
+    canonicalRoute === 'properties' ? t('menu.all_properties','Alle Immobilien anzeigen') :
+    canonicalRoute === 'lifestyles' ? t('menu.all_lifestyles','Alle Lifestyle-Produkte anzeigen') :
     t('menu.show_all','Alle anzeigen')
   %>
 </a>

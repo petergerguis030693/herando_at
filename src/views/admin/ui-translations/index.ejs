@@ -10,7 +10,8 @@
     <h1 class="h4 mb-3"><%= headerTitle %></h1>
 
     <form method="get" class="d-flex gap-2 align-items-center mb-3">
-      <input class="form-control" type="text" name="q" value="<%= q %>" placeholder="Key suchen…">
+      <input class="form-control" type="text" name="q_key" value="<%= qKey || '' %>" placeholder="Key suchen…">
+      <input class="form-control" type="text" name="q_text" value="<%= qText || '' %>" placeholder="Text suchen…">
       <label class="mb-0">Vorschau:</label>
       <select name="preview" class="form-select" style="max-width:120px;">
         <% SUPPORTED.forEach(c => { %>
@@ -18,7 +19,9 @@
         <% }) %>
       </select>
       <button class="btn btn-primary" type="submit">Filtern</button>
-      <a class="btn btn-outline-secondary ms-auto" href="/admin/ui/new">+ Neu</a>
+      <a class="btn btn-outline-secondary ms-auto" href="/admin/ui/home-hero">Startseite Slider-Bilder</a>
+      <a class="btn btn-outline-secondary" href="/admin/ui/category-hero">Kategorie Hero-Bilder</a>
+      <a class="btn btn-outline-secondary" href="/admin/ui/new">+ Neu</a>
     </form>
 
     <div class="table-responsive">
@@ -58,11 +61,11 @@
         <div class="ms-auto">
           <% if (page > 1) { %>
             <a class="btn btn-sm btn-outline-secondary"
-               href="?q=<%= encodeURIComponent(q) %>&preview=<%= preview %>&page=<%= page-1 %>">« Zurück</a>
+               href="?q_key=<%= encodeURIComponent(qKey || '') %>&q_text=<%= encodeURIComponent(qText || '') %>&preview=<%= preview %>&page=<%= page-1 %>">« Zurück</a>
           <% } %>
           <% if (page < totalPages) { %>
             <a class="btn btn-sm btn-outline-secondary ms-2"
-               href="?q=<%= encodeURIComponent(q) %>&preview=<%= preview %>&page=<%= page+1 %>">Weiter »</a>
+               href="?q_key=<%= encodeURIComponent(qKey || '') %>&q_text=<%= encodeURIComponent(qText || '') %>&preview=<%= preview %>&page=<%= page+1 %>">Weiter »</a>
           <% } %>
         </div>
       </div>

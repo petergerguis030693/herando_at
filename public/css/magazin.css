@@ -181,7 +181,6 @@ section[style*="height: 700px"] {
 }
 
 .uhren-item p {
-  font-size: 14px;
   color: #555;
   line-height: 1.5;
   margin: 0;                    /* Standard-Margin aus, Lücken durch Flex/Gap */
@@ -251,7 +250,7 @@ section[style*="height: 700px"] {
   bottom: 0;
   left: 0;
   right: 0;
-  padding: 20px;
+  padding: 50px;
   color: white;
 }
 .magazinDate {
@@ -273,7 +272,7 @@ section[style*="height: 700px"] {
 .magazinSide {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 10px;
 }
 .magazinSideItem {
   display: flex;

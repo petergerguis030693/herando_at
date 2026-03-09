@@ -1,27 +1,33 @@
 <%- include('../partials/header-admin') %>
 
-<div class="container-fluid">
-  <div class="row">
-    <!-- Sidebar -->
-    <aside class="col-md-2 col-lg-2 bg-white border-end p-3">
-      <%- include('./sidebar', { active: 'Analytics' }) %>
-    </aside>
+<div class="d-flex">
+  <!-- Sidebar -->
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('./sidebar', { active: active }) %>
+  </aside>
 
-    <!-- Main -->
-    <main class="col-md-10 col-lg-10 px-4 py-3">
+  <!-- Main -->
+  <main class="main-content flex-fill px-4 py-3">
       
       <!-- Toolbar -->
-      <div class="d-flex flex-wrap align-items-center justify-content-between mb-4">
-        <h4 class="mb-0 d-flex align-items-center gap-2">
-          <i class="bi bi-graph-up"></i> Analytics
-        </h4>
+      <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-2">
+        <div>
+          <h4 class="mb-1 d-flex align-items-center gap-2">
+            <i class="bi bi-graph-up"></i> Analytics
+          </h4>
+          <div class="small text-muted" id="analyticsStatus">
+            Zeitraum <span id="rangeLabel"><%= from %></span> – <span id="rangeLabel2"><%= to %></span>
+          </div>
+        </div>
 
-        <div class="d-flex flex-wrap gap-2">
-          <div class="btn-group">
+        <div class="d-flex flex-wrap gap-2 align-items-center">
+          <div class="btn-group" role="group" aria-label="Schnell-Zeiträume">
             <button class="btn btn-sm btn-outline-secondary" data-preset="today">Heute</button>
+            <button class="btn btn-sm btn-outline-secondary" data-preset="yesterday">Gestern</button>
             <button class="btn btn-sm btn-outline-secondary" data-preset="7">7T</button>
             <button class="btn btn-sm btn-outline-secondary" data-preset="30">30T</button>
             <button class="btn btn-sm btn-outline-secondary" data-preset="90">90T</button>
+            <button class="btn btn-sm btn-outline-secondary" data-preset="mtd">Monat</button>
           </div>
           <input id="from" type="date" class="form-control form-control-sm" value="<%= from %>">
           <input id="to" type="date" class="form-control form-control-sm" value="<%= to %>">
@@ -40,6 +46,8 @@
         </div>
       </div>
 
+      <div id="analyticsError" class="alert alert-danger d-none py-2 mb-3"></div>
+
       <!-- KPIs -->
       <div class="row g-3 mb-4">
         <div class="col-sm-6 col-lg-3">
@@ -48,6 +56,7 @@
               <div class="fw-bold text-muted">Pageviews</div>
               <h3 id="kpiViews" class="fw-bold mb-0 skeleton">–</h3>
               <small class="text-muted">Summe im Zeitraum</small>
+              <div id="deltaViews" class="small mt-1 text-muted">Vergleich: –</div>
             </div>
           </div>
         </div>
@@ -57,6 +66,7 @@
               <div class="fw-bold text-muted">Sessions</div>
               <h3 id="kpiSessions" class="fw-bold mb-0 skeleton">–</h3>
               <small class="text-muted">Distinct Sessions</small>
+              <div id="deltaSessions" class="small mt-1 text-muted">Vergleich: –</div>
             </div>
           </div>
         </div>
@@ -66,6 +76,7 @@
               <div class="fw-bold text-muted">Ø Zeit / Seite</div>
               <h3 id="kpiAvgTime" class="fw-bold mb-0 skeleton">–</h3>
               <small class="text-muted">Sekunden</small>
+              <div id="deltaAvgTime" class="small mt-1 text-muted">Vergleich: –</div>
             </div>
           </div>
         </div>
@@ -77,6 +88,27 @@
                 <%= (kpis && typeof kpis.bounce_rate !== 'undefined') ? kpis.bounce_rate : 0 %>%
               </h3>
               <small class="text-muted">Sessions mit 1 Pageview*</small>
+              <div id="deltaBounce" class="small mt-1 text-muted">Vergleich: –</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="card text-center shadow-sm">
+            <div class="card-body">
+              <div class="fw-bold text-muted">Events</div>
+              <h3 id="kpiEvents" class="fw-bold mb-0 skeleton">–</h3>
+              <small class="text-muted">Klicks / Such-Events / Custom</small>
+              <div id="deltaEvents" class="small mt-1 text-muted">Vergleich: –</div>
+            </div>
+          </div>
+        </div>
+        <div class="col-sm-6 col-lg-3">
+          <div class="card text-center shadow-sm">
+            <div class="card-body">
+              <div class="fw-bold text-muted">Seiten / Session</div>
+              <h3 id="kpiPagesPerSession" class="fw-bold mb-0 skeleton">–</h3>
+              <small class="text-muted">Pageviews pro Session</small>
+              <div id="deltaPagesPerSession" class="small mt-1 text-muted">Vergleich: –</div>
             </div>
           </div>
         </div>
@@ -86,10 +118,7 @@
       <div class="card shadow-sm mb-4">
         <div class="card-header d-flex align-items-center justify-content-between">
           <span>Seitenaufrufe (Zeitverlauf)</span>
-          <span class="text-muted small">Zeitraum: 
-            <span id="rangeLabel"><%= from %></span> – 
-            <span id="rangeLabel2"><%= to %></span>
-          </span>
+          <span class="text-muted small" id="rangeMetaLabel">Lade Daten…</span>
         </div>
         <div class="card-body">
           <canvas id="viewsChart" height="100"></canvas>
@@ -99,6 +128,7 @@
       <!-- Tabs -->
       <ul class="nav nav-pills mb-3" id="analyticsTabs" role="tablist">
         <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pane-top">Top-Listen</button></li>
+        <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-insights">Auswertung</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-tech">Geräte & Technik</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-geo">Geo & Länder</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-entryexit">Entry / Exit</button></li>
@@ -132,9 +162,9 @@
                 <div class="card-body">
                   <div class="table-responsive">
                     <table class="table table-sm">
-                      <thead><tr><th>Ziel</th><th class="text-end">Klicks</th></tr></thead>
+                      <thead><tr><th>Seite</th><th>Ziel</th><th class="text-end">Klicks</th></tr></thead>
                       <tbody id="tblClicks">
-                        <tr><td colspan="2" class="text-center text-muted">Lade Daten…</td></tr>
+                        <tr><td colspan="3" class="text-center text-muted">Lade Daten…</td></tr>
                       </tbody>
                     </table>
                   </div>
@@ -174,6 +204,278 @@
               </div>
             </div>
 
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span>Neueste Sessions</span>
+                  <span class="small text-muted">Top 20 nach letzter Aktivität</span>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Letzte Aktivität</th>
+                          <th>User</th>
+                          <th class="text-end">PV</th>
+                          <th>Quelle</th>
+                          <th>Kampagne</th>
+                          <th>Gerät</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblSessions">
+                        <tr><td colspan="6" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                  <span>Neueste Aktionen (Admin / Kunde)</span>
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <select id="activityActorFilter" class="form-select form-select-sm" style="min-width: 150px;">
+                      <option value="">Alle</option>
+                      <option value="admin">Nur Admin</option>
+                      <option value="customer">Nur Kunde</option>
+                    </select>
+                    <input id="activityUserFilter" class="form-control form-control-sm" style="min-width: 120px;" placeholder="User-ID">
+                    <select id="activityRoleFilter" class="form-select form-select-sm" style="min-width: 110px;">
+                      <option value="">Rolle</option>
+                      <option value="9">9</option>
+                      <option value="8">8</option>
+                      <option value="7">7</option>
+                      <option value="2">2</option>
+                      <option value="1">1</option>
+                    </select>
+                    <select id="activityMethodFilter" class="form-select form-select-sm" style="min-width: 120px;">
+                      <option value="">Methode</option>
+                      <option value="GET">GET</option>
+                      <option value="POST">POST</option>
+                      <option value="PUT">PUT</option>
+                      <option value="PATCH">PATCH</option>
+                      <option value="DELETE">DELETE</option>
+                    </select>
+                    <input id="activityPathFilter" class="form-control form-control-sm" style="min-width: 220px;" placeholder="Pfad enthält...">
+                    <button id="activityFilterApply" class="btn btn-sm btn-outline-primary">Filter</button>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Zeit</th>
+                          <th>Typ</th>
+                          <th>Rolle</th>
+                          <th>User</th>
+                          <th>Aktion</th>
+                          <th class="text-end">Status</th>
+                          <th class="text-end">Dauer</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblActivity">
+                        <tr><td colspan="7" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span>Klick-Events (Buttons/Links)</span>
+                  <span class="small text-muted">Rohdaten je Klick</span>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Zeit</th>
+                          <th>Rolle</th>
+                          <th>User</th>
+                          <th>Seite</th>
+                          <th>Element</th>
+                          <th>Text</th>
+                          <th>Ziel</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblClickEvents">
+                        <tr><td colspan="7" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Auswertung -->
+        <div class="tab-pane fade" id="pane-insights">
+          <div class="card shadow-sm mb-3">
+            <div class="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
+              <span>Deep-Dive Auswertung (Länder / Seiten / Klicks)</span>
+              <div class="d-flex flex-wrap gap-2 align-items-center">
+                <select id="insightCountry" class="form-select form-select-sm" style="min-width: 120px;">
+                  <option value="">Land wählen…</option>
+                </select>
+                <input id="insightPath" type="text" class="form-control form-control-sm" style="min-width: 260px;" placeholder="/pfad oder /kategorie?page=...">
+                <button id="btnInsightsApply" class="btn btn-sm btn-outline-primary">
+                  <i class="bi bi-funnel me-1"></i> Auswerten
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="small text-muted">
+                Wähle ein Land, um zu sehen was dort angesehen und geklickt wurde. Gib zusätzlich einen Seitenpfad ein für einen Seiten-Drilldown.
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span>Länder-Überblick (Sessions, Pageviews, Events)</span>
+                  <span class="small text-muted">Klick auf ein Land lädt den Drilldown</span>
+                </div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm align-middle">
+                      <thead>
+                        <tr>
+                          <th>Land</th>
+                          <th class="text-end">Sessions</th>
+                          <th class="text-end">Pageviews</th>
+                          <th class="text-end">Events</th>
+                          <th class="text-end">Ø Zeit (s)</th>
+                        </tr>
+                      </thead>
+                      <tbody id="tblCountryOverview">
+                        <tr><td colspan="5" class="text-center text-muted">Lade Daten…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3 mb-3">
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">Land: meist gesehene Seiten</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr><th>Pfad</th><th class="text-end">Views</th><th class="text-end">Sessions</th><th class="text-end">Ø Zeit (s)</th></tr>
+                      </thead>
+                      <tbody id="tblCountryPages">
+                        <tr><td colspan="4" class="text-center text-muted">Land auswählen…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="col-lg-6">
+              <div class="card shadow-sm h-100">
+                <div class="card-header">Land: meist geklickte Ziele</div>
+                <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-sm">
+                      <thead>
+                        <tr><th>Seite</th><th>Ziel</th><th class="text-end">Klicks</th></tr>
+                      </thead>
+                      <tbody id="tblCountryClicks">
+                        <tr><td colspan="3" class="text-center text-muted">Land auswählen…</td></tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row g-3">
+            <div class="col-12">
+              <div class="card shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <span>Seiten-Drilldown</span>
+                  <span id="pageDrilldownLabel" class="small text-muted">Kein Pfad ausgewählt</span>
+                </div>
+                <div class="card-body">
+                  <div class="row g-3 mb-3">
+                    <div class="col-6 col-lg-3">
+                      <div class="border rounded p-3 text-center h-100">
+                        <div class="small text-muted">Views</div>
+                        <div id="pdViews" class="fs-5 fw-bold">–</div>
+                      </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                      <div class="border rounded p-3 text-center h-100">
+                        <div class="small text-muted">Sessions</div>
+                        <div id="pdSessions" class="fs-5 fw-bold">–</div>
+                      </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                      <div class="border rounded p-3 text-center h-100">
+                        <div class="small text-muted">Ø Zeit (s)</div>
+                        <div id="pdAvgTime" class="fs-5 fw-bold">–</div>
+                      </div>
+                    </div>
+                    <div class="col-6 col-lg-3">
+                      <div class="border rounded p-3 text-center h-100">
+                        <div class="small text-muted">Exits / Exit-Rate</div>
+                        <div id="pdExits" class="fs-5 fw-bold">–</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="row g-3">
+                    <div class="col-lg-4">
+                      <div class="table-responsive">
+                        <table class="table table-sm">
+                          <thead><tr><th>Land</th><th class="text-end">Views</th><th class="text-end">Sessions</th><th class="text-end">Ø Zeit</th></tr></thead>
+                          <tbody id="tblPageCountries">
+                            <tr><td colspan="4" class="text-center text-muted">Pfad eingeben…</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div class="col-lg-4">
+                      <div class="table-responsive">
+                        <table class="table table-sm">
+                          <thead><tr><th>Ziel</th><th class="text-end">Klicks</th></tr></thead>
+                          <tbody id="tblPageClicks">
+                            <tr><td colspan="2" class="text-center text-muted">Pfad eingeben…</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                    <div class="col-lg-4">
+                      <div class="table-responsive">
+                        <table class="table table-sm">
+                          <thead><tr><th>Referrer</th><th class="text-end">Hits</th></tr></thead>
+                          <tbody id="tblPageReferrers">
+                            <tr><td colspan="2" class="text-center text-muted">Pfad eingeben…</td></tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -231,80 +533,297 @@
       </div>
 
       <p class="text-muted small mt-4">* Bounce Rate = Anteil der Sessions mit genau einem Pageview im Zeitraum.</p>
-    </main>
-  </div>
+  </main>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
 <script>
-  // ---------- Helpers ----------
-  const elFrom   = document.getElementById('from');
-  const elTo     = document.getElementById('to');
+  const elFrom = document.getElementById('from');
+  const elTo = document.getElementById('to');
   const btnApply = document.getElementById('apply');
+  const statusEl = document.getElementById('analyticsStatus');
+  const errorEl = document.getElementById('analyticsError');
+  const rangeMetaLabelEl = document.getElementById('rangeMetaLabel');
+  const presetButtons = Array.from(document.querySelectorAll('[data-preset]'));
+  const tabButtons = Array.from(document.querySelectorAll('#analyticsTabs [data-bs-target]'));
+  const insightCountryEl = document.getElementById('insightCountry');
+  const insightPathEl = document.getElementById('insightPath');
+  const btnInsightsApply = document.getElementById('btnInsightsApply');
+  const pageDrilldownLabelEl = document.getElementById('pageDrilldownLabel');
+  const activityActorFilter = document.getElementById('activityActorFilter');
+  const activityUserFilter = document.getElementById('activityUserFilter');
+  const activityRoleFilter = document.getElementById('activityRoleFilter');
+  const activityMethodFilter = document.getElementById('activityMethodFilter');
+  const activityPathFilter = document.getElementById('activityPathFilter');
+  const activityFilterApply = document.getElementById('activityFilterApply');
+  const initialUrlParams = new URLSearchParams(window.location.search);
+  const initialInsightCountry = String(initialUrlParams.get('country') || '').trim().toUpperCase();
+  const initialInsightPath = String(initialUrlParams.get('path') || '').trim();
 
-  document.querySelectorAll('[data-preset]').forEach(b=>{
-    b.addEventListener('click', ()=>{
-      const p = b.getAttribute('data-preset');
-      const to = new Date();
-      const from = new Date();
-      if (p === 'today') {
-        // heute: 00:00..23:59
-      } else {
-        from.setDate(from.getDate() - parseInt(p,10) + 1);
-      }
-      elFrom.value = toISODate(from);
-      elTo.value   = toISODate(to);
+  let lineChart;
+  let chEntries, chExits, chCountries;
+
+  if (insightPathEl && initialInsightPath) insightPathEl.value = initialInsightPath;
+  if (insightCountryEl && initialInsightCountry) insightCountryEl.dataset.initialCountry = initialInsightCountry;
+
+  function toISODate(d) {
+    const z = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+  }
+  function parseDateInput(v) {
+    if (!v) return null;
+    const d = new Date(`${v}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  function qs() {
+    const p = new URLSearchParams();
+    if (elFrom.value) p.set('from', elFrom.value);
+    if (elTo.value) p.set('to', elTo.value);
+    return p.toString();
+  }
+  function qsWith(extra = {}) {
+    const p = new URLSearchParams(qs());
+    for (const [k, v] of Object.entries(extra || {})) {
+      if (v == null) continue;
+      const s = String(v).trim();
+      if (!s) continue;
+      p.set(k, s);
+    }
+    return p.toString();
+  }
+  function fmt(n) { return new Intl.NumberFormat('de-DE').format(Number(n ?? 0)); }
+  function fmtDec(n, digits = 1) {
+    return Number(Number(n ?? 0).toFixed(digits)).toLocaleString('de-DE', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits
+    });
+  }
+  async function getJSON(url) {
+    const r = await fetch(url);
+    if (!r.ok) throw new Error((await r.text()) || `${r.status} ${r.statusText}`);
+    return r.json();
+  }
+  function setVal(id, text) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = text;
+    el.classList.remove('skeleton');
+  }
+  function setText(id, text) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = text;
+  }
+  function setHtml(id, html) {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = html;
+  }
+  function showError(msg) {
+    if (!errorEl) return;
+    errorEl.textContent = msg || 'Fehler beim Laden der Analytics-Daten.';
+    errorEl.classList.remove('d-none');
+  }
+  function clearError() {
+    if (!errorEl) return;
+    errorEl.classList.add('d-none');
+    errorEl.textContent = '';
+  }
+  function setBusy(isBusy) {
+    btnApply.disabled = isBusy;
+    btnApply.innerHTML = isBusy
+      ? '<span class="spinner-border spinner-border-sm me-1"></span>Lade…'
+      : '<i class="bi bi-arrow-repeat"></i> Anwenden';
+    if (btnInsightsApply) btnInsightsApply.disabled = isBusy;
+  }
+  function formatDeltaValue(metricKey, value) {
+    if (metricKey === 'bounce_rate') return `${fmtDec(value, 1)} pp`;
+    if (metricKey === 'avg_time_s') return `${fmtDec(value, 1)} s`;
+    if (metricKey === 'pages_per_session') return fmtDec(value, 2);
+    if (metricKey === 'events_total') return fmt(value);
+    return fmt(value);
+  }
+  function setDelta(elId, current, previous, metricKey) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const cur = Number(current ?? 0);
+    const prev = Number(previous ?? 0);
+    const diff = cur - prev;
+    const absDiff = Math.abs(diff);
+    let pct = null;
+    if (prev !== 0) pct = (diff / prev) * 100;
+
+    el.className = 'small mt-1';
+    if (Math.abs(diff) < 0.000001) {
+      el.classList.add('text-muted');
+      el.textContent = 'Vergleich: unverändert';
+      return;
+    }
+
+    const positiveIsGood = !['bounce_rate'].includes(metricKey);
+    const isPositive = diff > 0;
+    const good = positiveIsGood ? isPositive : !isPositive;
+    el.classList.add(good ? 'text-success' : 'text-danger');
+
+    const sign = diff > 0 ? '+' : '−';
+    const pctText = pct == null ? '' : ` (${sign}${fmtDec(Math.abs(pct), 1)}%)`;
+    el.textContent = `Vergleich: ${sign}${formatDeltaValue(metricKey, absDiff)}${pctText}`;
+  }
+
+  function syncUrl() {
+    const url = new URL(window.location.href);
+    if (elFrom.value) url.searchParams.set('from', elFrom.value); else url.searchParams.delete('from');
+    if (elTo.value) url.searchParams.set('to', elTo.value); else url.searchParams.delete('to');
+    if (insightCountryEl && insightCountryEl.value) url.searchParams.set('country', insightCountryEl.value); else url.searchParams.delete('country');
+    if (insightPathEl && insightPathEl.value.trim()) url.searchParams.set('path', insightPathEl.value.trim()); else url.searchParams.delete('path');
+    history.replaceState(null, '', url.toString());
+  }
+  function validRangeOrFix() {
+    const from = parseDateInput(elFrom.value);
+    const to = parseDateInput(elTo.value);
+    if (!from || !to) throw new Error('Bitte gültige Datumswerte auswählen.');
+    if (from > to) {
+      elTo.value = elFrom.value;
+    }
+    return { from: parseDateInput(elFrom.value), to: parseDateInput(elTo.value) };
+  }
+  function isSameDay(a, b) {
+    return a && b && toISODate(a) === toISODate(b);
+  }
+  function diffDaysInclusive(from, to) {
+    const ms = parseDateInput(toISODate(to)).getTime() - parseDateInput(toISODate(from)).getTime();
+    return Math.floor(ms / 86400000) + 1;
+  }
+  function applyPreset(preset) {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    let from = new Date(today);
+    let to = new Date(today);
+
+    if (preset === 'today') {
+      // already set
+    } else if (preset === 'yesterday') {
+      from.setDate(from.getDate() - 1);
+      to = new Date(from);
+    } else if (preset === 'mtd') {
+      from = new Date(today.getFullYear(), today.getMonth(), 1);
+    } else {
+      const days = Math.max(1, parseInt(preset, 10) || 7);
+      from.setDate(from.getDate() - days + 1);
+    }
+
+    elFrom.value = toISODate(from);
+    elTo.value = toISODate(to);
+    highlightActivePreset();
+  }
+  function highlightActivePreset() {
+    const from = parseDateInput(elFrom.value);
+    const to = parseDateInput(elTo.value);
+    const today = new Date(); today.setHours(0,0,0,0);
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+    const days = (from && to) ? diffDaysInclusive(from, to) : null;
+
+    let activePreset = '';
+    if (isSameDay(from, today) && isSameDay(to, today)) activePreset = 'today';
+    else if (isSameDay(from, yesterday) && isSameDay(to, yesterday)) activePreset = 'yesterday';
+    else if (isSameDay(to, today) && isSameDay(from, monthStart)) activePreset = 'mtd';
+    else if (isSameDay(to, today) && [7,30,90].includes(days)) activePreset = String(days);
+
+    presetButtons.forEach(btn => {
+      const active = btn.dataset.preset === activePreset;
+      btn.classList.toggle('btn-primary', active);
+      btn.classList.toggle('btn-outline-secondary', !active);
+    });
+  }
+
+  presetButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      applyPreset(btn.dataset.preset || '7');
+      loadAll();
+    });
+  });
+  [elFrom, elTo].forEach(el => {
+    el.addEventListener('change', highlightActivePreset);
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') { ev.preventDefault(); loadAll(); }
     });
   });
   btnApply.addEventListener('click', loadAll);
+  if (btnInsightsApply) {
+    btnInsightsApply.addEventListener('click', () => {
+      loadInsights().catch((err) => {
+        showError(err.message || 'Fehler beim Laden der Auswertung.');
+        console.error(err);
+      });
+    });
+  }
+  if (insightCountryEl) {
+    insightCountryEl.addEventListener('change', () => {
+      loadCountryDrilldown().then(syncUrl).catch((err) => {
+        showError(err.message || 'Fehler beim Laden der Länder-Auswertung.');
+        console.error(err);
+      });
+    });
+  }
+  if (insightPathEl) {
+    insightPathEl.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        loadInsights().catch((err) => {
+          showError(err.message || 'Fehler beim Laden der Auswertung.');
+          console.error(err);
+        });
+      }
+    });
+  }
 
-  function toISODate(d){
-    const z = n => String(n).padStart(2,'0');
-    return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
-  }
-  function qs(){
-    const p = new URLSearchParams();
-    if (elFrom.value) p.set('from', elFrom.value);
-    if (elTo.value)   p.set('to',   elTo.value);
-    return p.toString();
-  }
-  function fmt(n){ return new Intl.NumberFormat('de-DE').format(n ?? 0); }
-  async function getJSON(url){
-    const r = await fetch(url);
-    if (!r.ok) throw new Error(await r.text());
-    return r.json();
+  // Tabs über URL-Hash merken
+  tabButtons.forEach(btn => {
+    btn.addEventListener('shown.bs.tab', () => {
+      const target = btn.getAttribute('data-bs-target');
+      if (target) history.replaceState(null, '', `${location.pathname}${location.search}${target}`);
+    });
+  });
+  if (location.hash) {
+    const targetBtn = tabButtons.find(btn => btn.getAttribute('data-bs-target') === location.hash);
+    if (targetBtn && window.bootstrap?.Tab) {
+      new bootstrap.Tab(targetBtn).show();
+    }
   }
 
-  // ---------- Summary + Timeseries ----------
-  let lineChart;
-  async function loadSummary(){
+  async function loadSummary() {
     const data = await getJSON(`/admin/analytics/summary.json?${qs()}`);
+    const cur = data.kpis || {};
+    const prev = data.previous_kpis || {};
 
-    // KPIs
-    setVal('kpiViews', fmt(data.kpis.pageviews));
-    setVal('kpiSessions', fmt(data.kpis.sessions));
-    setVal('kpiAvgTime', (data.kpis.avg_time_s ?? 0).toLocaleString('de-DE'));
+    setVal('kpiViews', fmt(cur.pageviews));
+    setVal('kpiSessions', fmt(cur.sessions));
+    setVal('kpiAvgTime', fmtDec(cur.avg_time_s, 1));
+    setVal('kpiEvents', fmt(cur.events_total));
+    setVal('kpiPagesPerSession', fmtDec(cur.pages_per_session, 2));
+    setText('kpiBounce', `${fmtDec(cur.bounce_rate, 1)}%`);
 
-    // Bounce (client-approximiert via Sessions-API, max 1000)
-    try {
-      const sess = await getJSON(`/admin/analytics/sessions.json?${qs()}&limit=1000`);
-      const total = sess.length;
-      const bounces = sess.filter(s => (s.pv_count || 0) === 1).length;
-      const br = total ? Math.round((bounces / total) * 1000) / 10 : 0;
-      setText('kpiBounce', br.toLocaleString('de-DE') + '%');
-    } catch(e) {
-      // Fallback: belasse initialen Serverwert
+    setDelta('deltaViews', cur.pageviews, prev.pageviews, 'pageviews');
+    setDelta('deltaSessions', cur.sessions, prev.sessions, 'sessions');
+    setDelta('deltaAvgTime', cur.avg_time_s, prev.avg_time_s, 'avg_time_s');
+    setDelta('deltaBounce', cur.bounce_rate, prev.bounce_rate, 'bounce_rate');
+    setDelta('deltaEvents', cur.events_total, prev.events_total, 'events_total');
+    setDelta('deltaPagesPerSession', cur.pages_per_session, prev.pages_per_session, 'pages_per_session');
+
+    setText('rangeLabel', elFrom.value || '');
+    setText('rangeLabel2', elTo.value || '');
+
+    const from = parseDateInput(elFrom.value);
+    const to = parseDateInput(elTo.value);
+    const days = (from && to) ? diffDaysInclusive(from, to) : 0;
+    if (rangeMetaLabelEl) {
+      rangeMetaLabelEl.textContent = `${days} Tage | Vergleich mit vorherigem Zeitraum`;
     }
 
-    // Range label
-    setText('rangeLabel', elFrom.value || '');
-    setText('rangeLabel2', elTo.value   || '');
-
-    // Chart
-    const labels = data.series.map(r => r.day);
-    const values = data.series.map(r => r.views);
+    const labels = (data.series || []).map(r => r.day);
+    const viewValues = (data.series || []).map(r => Number(r.views || 0));
+    const sessionValues = (data.series || []).map(r => Number(r.sessions || 0));
     const ctx = document.getElementById('viewsChart').getContext('2d');
 
     if (lineChart) lineChart.destroy();
@@ -312,29 +831,36 @@
       type: 'line',
       data: {
         labels,
-        datasets: [{ label: 'Views', data: values, tension: .25, fill: false }]
+        datasets: [
+          {
+            label: 'Pageviews',
+            data: viewValues,
+            borderColor: '#0d6efd',
+            backgroundColor: 'rgba(13,110,253,0.15)',
+            tension: 0.25,
+            fill: false
+          },
+          {
+            label: 'Sessions',
+            data: sessionValues,
+            borderColor: '#198754',
+            backgroundColor: 'rgba(25,135,84,0.15)',
+            tension: 0.25,
+            fill: false
+          }
+        ]
       },
       options: {
         maintainAspectRatio: false,
         responsive: true,
+        interaction: { mode: 'index', intersect: false },
         scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
-        plugins: { legend: { display: false } }
+        plugins: { legend: { display: true, position: 'bottom' } }
       }
     });
   }
 
-  function setVal(id, text){
-    const el = document.getElementById(id);
-    el.textContent = text;
-    el.classList.remove('skeleton');
-  }
-  function setText(id, text){
-    const el = document.getElementById(id);
-    el.textContent = text;
-  }
-
-  // ---------- Tables ----------
-  async function loadTable(endpoint, tbodyId, columns, emptyText){
+  async function loadTable(endpoint, tbodyId, columns, emptyText) {
     const rows = await getJSON(`/admin/analytics/${endpoint}?${qs()}`);
     const tb = document.getElementById(tbodyId);
     tb.innerHTML = '';
@@ -348,7 +874,12 @@
         const td = document.createElement('td');
         if (col.align === 'end') td.classList.add('text-end');
         let val = r[col.key];
-        if (['views','clicks','cnt','hits'].includes(col.key)) val = fmt(val);
+        if (['views', 'clicks', 'cnt', 'hits'].includes(col.key)) val = fmt(val);
+        if (col.key === 'avg_time_s') val = fmtDec(val, 1);
+        if (col.maxLen && typeof val === 'string' && val.length > col.maxLen) {
+          td.title = val;
+          val = `${val.slice(0, col.maxLen)}…`;
+        }
         td.textContent = (val ?? '–');
         tr.appendChild(td);
       }
@@ -356,28 +887,363 @@
     }
   }
 
-  // ---------- Donuts & Bars ----------
-  let chDevices, chBrowsers, chOS, chCountries, chEntries, chExits;
-
-  async function loadDonut(endpoint, canvasId, label){
-    const rows = await getJSON(`/admin/analytics/${endpoint}?${qs()}`);
-    const labels = rows.map(r => Object.values(r)[0]);
-    const values = rows.map(r => Object.values(r)[1]);
-
-    const ctx = document.getElementById(canvasId).getContext('2d');
-    if (window[canvasId]) window[canvasId].destroy();
-    window[canvasId] = new Chart(ctx, {
-      type: 'doughnut',
-      data: { labels, datasets: [{ data: values }] },
-      options: { plugins: { legend: { position:'bottom' } } }
-    });
-    return window[canvasId];
+  function setTableMessage(tbodyId, colCount, text) {
+    const tb = document.getElementById(tbodyId);
+    if (!tb) return;
+    tb.innerHTML = `<tr><td colspan="${colCount}" class="text-center text-muted">${text}</td></tr>`;
   }
 
-  async function loadBarsEntryExit(){
+  function appendCell(tr, text, { align = '', muted = false } = {}) {
+    const td = document.createElement('td');
+    if (align === 'end') td.classList.add('text-end');
+    if (muted) td.classList.add('text-muted');
+    td.textContent = text ?? '–';
+    tr.appendChild(td);
+    return td;
+  }
+
+  function setPageDrilldownEmpty(message = 'Pfad eingeben…') {
+    if (pageDrilldownLabelEl) pageDrilldownLabelEl.textContent = 'Kein Pfad ausgewählt';
+    setText('pdViews', '–');
+    setText('pdSessions', '–');
+    setText('pdAvgTime', '–');
+    setText('pdExits', '–');
+    setTableMessage('tblPageCountries', 4, message);
+    setTableMessage('tblPageClicks', 2, message);
+    setTableMessage('tblPageReferrers', 2, message);
+  }
+
+  function populateCountryOptions(rows) {
+    if (!insightCountryEl) return;
+    const current = String(insightCountryEl.value || '').trim().toUpperCase();
+    const initial = String(insightCountryEl.dataset.initialCountry || '').trim().toUpperCase();
+    const preferred = current || initial;
+    const present = new Set(rows.map(r => String(r.country || '').trim().toUpperCase()).filter(Boolean));
+
+    insightCountryEl.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = 'Land wählen…';
+    insightCountryEl.appendChild(placeholder);
+
+    rows.forEach(r => {
+      const code = String(r.country || '').trim().toUpperCase() || 'UNKNOWN';
+      const opt = document.createElement('option');
+      opt.value = code;
+      opt.textContent = `${code} (${fmt(r.sessions)})`;
+      insightCountryEl.appendChild(opt);
+    });
+
+    if (preferred && present.has(preferred)) {
+      insightCountryEl.value = preferred;
+    } else {
+      insightCountryEl.value = '';
+    }
+    delete insightCountryEl.dataset.initialCountry;
+  }
+
+  async function loadCountryOverview() {
+    const rows = await getJSON(`/admin/analytics/country-overview.json?${qsWith({ limit: 200 })}`);
+    populateCountryOptions(rows || []);
+
+    const tb = document.getElementById('tblCountryOverview');
+    if (!tb) return;
+    tb.innerHTML = '';
+    if (!rows.length) {
+      setTableMessage('tblCountryOverview', 5, 'Keine Länder-Daten im Zeitraum.');
+      return;
+    }
+
+    const selectedCountry = String(insightCountryEl?.value || '').trim().toUpperCase();
+
+    rows.forEach(r => {
+      const country = String(r.country || '').trim().toUpperCase() || 'UNKNOWN';
+      const tr = document.createElement('tr');
+      tr.style.cursor = 'pointer';
+      if (selectedCountry && selectedCountry === country) tr.classList.add('table-active');
+
+      appendCell(tr, country);
+      appendCell(tr, fmt(r.sessions), { align: 'end' });
+      appendCell(tr, fmt(r.pageviews), { align: 'end' });
+      appendCell(tr, fmt(r.events), { align: 'end' });
+      appendCell(tr, fmtDec(r.avg_time_s, 1), { align: 'end' });
+
+      tr.addEventListener('click', () => {
+        if (insightCountryEl) insightCountryEl.value = country;
+        loadCountryDrilldown()
+          .then(() => loadCountryOverview()) // re-render active row state
+          .then(syncUrl)
+          .catch((err) => {
+            showError(err.message || 'Fehler beim Laden des Länder-Drilldowns.');
+            console.error(err);
+          });
+      });
+
+      tb.appendChild(tr);
+    });
+  }
+
+  async function loadCountryDrilldown() {
+    const country = String(insightCountryEl?.value || '').trim().toUpperCase();
+    if (!country) {
+      setTableMessage('tblCountryPages', 4, 'Land auswählen…');
+      setTableMessage('tblCountryClicks', 3, 'Land auswählen…');
+      return;
+    }
+
+    const [pages, clicks] = await Promise.all([
+      getJSON(`/admin/analytics/country-pages.json?${qsWith({ country, limit: 50 })}`),
+      getJSON(`/admin/analytics/country-clicks.json?${qsWith({ country, limit: 50 })}`)
+    ]);
+
+    const pagesTb = document.getElementById('tblCountryPages');
+    pagesTb.innerHTML = '';
+    if (!pages.length) {
+      setTableMessage('tblCountryPages', 4, 'Keine Seiten für dieses Land im Zeitraum.');
+    } else {
+      pages.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.style.cursor = 'pointer';
+        appendCell(tr, r.path || '–');
+        appendCell(tr, fmt(r.views), { align: 'end' });
+        appendCell(tr, fmt(r.sessions), { align: 'end' });
+        appendCell(tr, fmtDec(r.avg_time_s, 1), { align: 'end' });
+        tr.addEventListener('click', () => {
+          if (insightPathEl) insightPathEl.value = String(r.path || '');
+          loadPageDrilldown().then(syncUrl).catch((err) => {
+            showError(err.message || 'Fehler beim Laden des Seiten-Drilldowns.');
+            console.error(err);
+          });
+        });
+        pagesTb.appendChild(tr);
+      });
+    }
+
+    const clicksTb = document.getElementById('tblCountryClicks');
+    clicksTb.innerHTML = '';
+    if (!clicks.length) {
+      setTableMessage('tblCountryClicks', 3, 'Keine Klicks für dieses Land im Zeitraum.');
+    } else {
+      clicks.forEach(r => {
+        const tr = document.createElement('tr');
+        appendCell(tr, r.path || '–');
+        appendCell(tr, r.target || '–');
+        appendCell(tr, fmt(r.clicks), { align: 'end' });
+        clicksTb.appendChild(tr);
+      });
+    }
+  }
+
+  async function loadPageDrilldown() {
+    const path = String(insightPathEl?.value || '').trim();
+    if (!path) {
+      setPageDrilldownEmpty('Pfad eingeben…');
+      return;
+    }
+
+    const data = await getJSON(`/admin/analytics/page-drilldown.json?${qsWith({ path, limit: 25 })}`);
+    const summary = data.summary || {};
+    const normalizedPath = data.path || path;
+
+    if (pageDrilldownLabelEl) pageDrilldownLabelEl.textContent = normalizedPath;
+    setText('pdViews', fmt(summary.views));
+    setText('pdSessions', fmt(summary.sessions));
+    setText('pdAvgTime', `${fmtDec(summary.avg_time_s, 1)} s`);
+    setText('pdExits', `${fmt(summary.exits)} / ${fmtDec(summary.exit_rate, 1)}%`);
+
+    const tbCountries = document.getElementById('tblPageCountries');
+    tbCountries.innerHTML = '';
+    if (!(data.countries || []).length) {
+      setTableMessage('tblPageCountries', 4, 'Keine Seitenaufrufe für diesen Pfad im Zeitraum.');
+    } else {
+      for (const r of data.countries) {
+        const tr = document.createElement('tr');
+        appendCell(tr, r.country || 'UNKNOWN');
+        appendCell(tr, fmt(r.views), { align: 'end' });
+        appendCell(tr, fmt(r.sessions), { align: 'end' });
+        appendCell(tr, fmtDec(r.avg_time_s, 1), { align: 'end' });
+        tbCountries.appendChild(tr);
+      }
+    }
+
+    const tbClicks = document.getElementById('tblPageClicks');
+    tbClicks.innerHTML = '';
+    if (!(data.clicks || []).length) {
+      setTableMessage('tblPageClicks', 2, 'Keine Klicks für diesen Pfad im Zeitraum.');
+    } else {
+      for (const r of data.clicks) {
+        const tr = document.createElement('tr');
+        appendCell(tr, r.target || '–');
+        appendCell(tr, fmt(r.clicks), { align: 'end' });
+        tbClicks.appendChild(tr);
+      }
+    }
+
+    const tbRefs = document.getElementById('tblPageReferrers');
+    tbRefs.innerHTML = '';
+    if (!(data.referrers || []).length) {
+      setTableMessage('tblPageReferrers', 2, 'Keine Referrer für diesen Pfad im Zeitraum.');
+    } else {
+      for (const r of data.referrers) {
+        const tr = document.createElement('tr');
+        appendCell(tr, r.referer || '–');
+        appendCell(tr, fmt(r.hits), { align: 'end' });
+        tbRefs.appendChild(tr);
+      }
+    }
+  }
+
+  async function loadInsights() {
+    syncUrl();
+    await loadCountryOverview();
+    await Promise.all([
+      loadCountryDrilldown(),
+      loadPageDrilldown()
+    ]);
+  }
+
+  async function loadSessionsTable() {
+    const rows = await getJSON(`/admin/analytics/sessions.json?${qs()}&limit=20`);
+    const tb = document.getElementById('tblSessions');
+    tb.innerHTML = '';
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="6" class="text-muted">Keine Sessions im Zeitraum.</td></tr>';
+      return;
+    }
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      const userText = r.user_id ? `#${r.user_id}` : 'Gast';
+      const source = [r.utm_source, r.utm_medium].filter(Boolean).join(' / ') || '–';
+      const campaign = r.utm_campaign || '–';
+      const device = [r.device_type, r.browser, r.os].filter(Boolean).join(' / ') || '–';
+      tr.innerHTML = `
+        <td>${r.last_seen || '–'}</td>
+        <td>${userText}</td>
+        <td class="text-end">${fmt(r.pv_count)}</td>
+        <td>${source}</td>
+        <td>${campaign}</td>
+        <td>${device}</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  async function loadActivityTable() {
+    const actor = activityActorFilter ? String(activityActorFilter.value || '') : '';
+    const userId = activityUserFilter ? String(activityUserFilter.value || '').trim() : '';
+    const role = activityRoleFilter ? String(activityRoleFilter.value || '').trim() : '';
+    const method = activityMethodFilter ? String(activityMethodFilter.value || '').trim().toUpperCase() : '';
+    const path = activityPathFilter ? String(activityPathFilter.value || '').trim() : '';
+    const params = new URLSearchParams(qs());
+    params.set('limit', '50');
+    if (actor) params.set('actor', actor);
+    if (userId) params.set('user_id', userId);
+    if (role) params.set('role', role);
+    if (method) params.set('method', method);
+    if (path) params.set('path', path);
+
+    const rows = await getJSON(`/admin/analytics/activity.json?${params.toString()}`);
+    const tb = document.getElementById('tblActivity');
+    tb.innerHTML = '';
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="text-muted">Keine Aktionen im Zeitraum.</td></tr>';
+      return;
+    }
+
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      const actorLabel = r.actor_type === 'admin' ? 'Admin' : 'Kunde';
+      const userLabel = r.actor_name
+        ? `${r.actor_name} (#${r.actor_user_id || '–'})`
+        : (r.actor_user_id ? `#${r.actor_user_id}` : '–');
+      const action = `${(r.method || '').toUpperCase()} ${r.path || ''}`;
+      const roleLabel = (r.actor_role == null || r.actor_role === '') ? '–' : String(r.actor_role);
+      tr.innerHTML = `
+        <td>${r.created_at || '–'}</td>
+        <td>${actorLabel}</td>
+        <td>${roleLabel}</td>
+        <td>${userLabel}</td>
+        <td>${action}</td>
+        <td class="text-end">${r.status_code || '–'}</td>
+        <td class="text-end">${Number(r.duration_ms || 0)} ms</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  async function loadClickEventsTable() {
+    const actor = activityActorFilter ? String(activityActorFilter.value || '') : '';
+    const userId = activityUserFilter ? String(activityUserFilter.value || '').trim() : '';
+    const role = activityRoleFilter ? String(activityRoleFilter.value || '').trim() : '';
+    const path = activityPathFilter ? String(activityPathFilter.value || '').trim() : '';
+    const params = new URLSearchParams(qs());
+    params.set('limit', '80');
+    if (actor) params.set('actor', actor);
+    if (userId) params.set('user_id', userId);
+    if (role) params.set('role', role);
+    if (path) params.set('path', path);
+
+    const rows = await getJSON(`/admin/analytics/click-events.json?${params.toString()}`);
+    const tb = document.getElementById('tblClickEvents');
+    tb.innerHTML = '';
+    if (!rows.length) {
+      tb.innerHTML = '<tr><td colspan="7" class="text-muted">Keine Klick-Events im Zeitraum.</td></tr>';
+      return;
+    }
+
+    for (const r of rows) {
+      const tr = document.createElement('tr');
+      const roleLabel = (r.role == null || r.role === '') ? '–' : String(r.role);
+      const userLabel = r.user_name
+        ? `${r.user_name} (#${r.user_id || '–'})`
+        : (r.user_id ? `#${r.user_id}` : '–');
+      const element = [r.element || '', r.element_id ? `#${r.element_id}` : ''].filter(Boolean).join(' ');
+      tr.innerHTML = `
+        <td>${r.created_at || '–'}</td>
+        <td>${roleLabel}</td>
+        <td>${userLabel}</td>
+        <td>${r.path || '–'}</td>
+        <td>${element || '–'}</td>
+        <td>${r.element_text || '–'}</td>
+        <td>${r.target_url || '–'}</td>
+      `;
+      tb.appendChild(tr);
+    }
+  }
+
+  const donutCharts = Object.create(null);
+  async function loadDonut(endpoint, canvasId) {
+    const rows = await getJSON(`/admin/analytics/${endpoint}?${qs()}`);
+    const labels = rows.map(r => Object.values(r)[0] || 'unknown');
+    const values = rows.map(r => Number(Object.values(r)[1] || 0));
+    const ctx = document.getElementById(canvasId).getContext('2d');
+    if (donutCharts[canvasId]) donutCharts[canvasId].destroy();
+    donutCharts[canvasId] = new Chart(ctx, {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data: values }] },
+      options: { plugins: { legend: { position: 'bottom' } } }
+    });
+    return donutCharts[canvasId];
+  }
+
+  async function loadCountriesChart() {
+    const c = await getJSON(`/admin/analytics/countries.json?${qs()}&limit=20`);
+    const ctx = document.getElementById('chartCountries').getContext('2d');
+    if (chCountries) chCountries.destroy();
+    chCountries = new Chart(ctx, {
+      type: 'bar',
+      data: { labels: c.map(r => r.country || '–'), datasets: [{ label: 'Sessions', data: c.map(r => Number(r.sessions || 0)) }] },
+      options: {
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+      }
+    });
+  }
+
+  async function loadBarsEntryExit() {
     const data = await getJSON(`/admin/analytics/entry-exit.json?${qs()}`);
     const entries = (data.entries || []).slice(0, 15);
-    const exits   = (data.exits   || []).slice(0, 15);
+    const exits = (data.exits || []).slice(0, 15);
 
     const eCtx = document.getElementById('chartEntries').getContext('2d');
     if (chEntries) chEntries.destroy();
@@ -385,12 +1251,12 @@
       type: 'bar',
       data: {
         labels: entries.map(r => r.path),
-        datasets: [{ label: 'Entries', data: entries.map(r => r.entries) }]
+        datasets: [{ label: 'Entries', data: entries.map(r => Number(r.entries || 0)) }]
       },
       options: {
         indexAxis: 'y',
-        plugins: { legend: { display:false } },
-        scales: { x: { beginAtZero: true, ticks:{ precision:0 } } }
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
       }
     });
 
@@ -400,60 +1266,98 @@
       type: 'bar',
       data: {
         labels: exits.map(r => r.path),
-        datasets: [{ label: 'Exits', data: exits.map(r => r.exits) }]
+        datasets: [{ label: 'Exits', data: exits.map(r => Number(r.exits || 0)) }]
       },
       options: {
         indexAxis: 'y',
-        plugins: { legend: { display:false } },
-        scales: { x: { beginAtZero: true, ticks:{ precision:0 } } }
+        plugins: { legend: { display: false } },
+        scales: { x: { beginAtZero: true, ticks: { precision: 0 } } }
       }
     });
   }
 
-  // ---------- Exports ----------
-  function wireExports(){
+  function wireExports() {
     const q = qs();
     document.getElementById('exportPv').href = `/admin/analytics/export/pageviews.csv?${q}`;
     document.getElementById('exportEv').href = `/admin/analytics/export/events.csv?${q}`;
-  } 
-
-  // ---------- Loader ----------
-  async function loadAll(){
-    wireExports();
-    await Promise.all([
-      loadSummary(),
-      loadTable('top-pages.json',  'tblPages',
-        [{key:'path'},{key:'views',align:'end'},{key:'avg_time_s',align:'end'}],
-        'Keine Seitenaufrufe im Zeitraum.'
-      ),
-      loadTable('top-clicks.json', 'tblClicks',
-        [{key:'target'},{key:'clicks',align:'end'}],
-        'Keine Klicks im Zeitraum.'
-      ),
-      loadTable('searches.json',   'tblSearches',
-        [{key:'query'},{key:'cnt',align:'end'}],
-        'Keine Suchen im Zeitraum.'
-      ),
-      loadTable('referrers.json',  'tblReferrers',
-        [{key:'referer'},{key:'hits',align:'end'}],
-        'Keine Referrer im Zeitraum.'
-      ),
-      loadDonut('devices.json',  'chartDevices'),
-      loadDonut('browsers.json', 'chartBrowsers'),
-      loadDonut('os.json',       'chartOS'),
-      (async ()=>{ const c = await getJSON(`/admin/analytics/countries.json?${qs()}&limit=20`);
-        const ctx = document.getElementById('chartCountries').getContext('2d');
-        if (chCountries) chCountries.destroy();
-        chCountries = new Chart(ctx, {
-          type: 'bar',
-          data: { labels: c.map(r=>r.country || '–'), datasets: [{ label:'Sessions', data: c.map(r=>r.sessions) }] },
-          options: { plugins: { legend:{ display:false } }, scales: { y:{ beginAtZero:true, ticks:{ precision:0 } } } }
-        });
-      })(),
-      loadBarsEntryExit()
-    ]);
   }
 
-  // initial load
+  async function loadAll() {
+    try {
+      validRangeOrFix();
+      clearError();
+      setBusy(true);
+      highlightActivePreset();
+      syncUrl();
+      if (statusEl) statusEl.textContent = 'Lade Analytics-Daten…';
+      wireExports();
+
+      const jobs = await Promise.allSettled([
+        loadSummary(),
+        loadTable('top-pages.json', 'tblPages',
+          [{ key: 'path', maxLen: 70 }, { key: 'views', align: 'end' }, { key: 'avg_time_s', align: 'end' }],
+          'Keine Seitenaufrufe im Zeitraum.'
+        ),
+        loadTable('top-clicks.json', 'tblClicks',
+          [{ key: 'path', maxLen: 55 }, { key: 'target', maxLen: 70 }, { key: 'clicks', align: 'end' }],
+          'Keine Klicks im Zeitraum.'
+        ),
+        loadTable('searches.json', 'tblSearches',
+          [{ key: 'query', maxLen: 70 }, { key: 'cnt', align: 'end' }],
+          'Keine Suchen im Zeitraum.'
+        ),
+        loadTable('referrers.json', 'tblReferrers',
+          [{ key: 'referer', maxLen: 70 }, { key: 'hits', align: 'end' }],
+          'Keine Referrer im Zeitraum.'
+        ),
+        loadSessionsTable(),
+        loadActivityTable(),
+        loadClickEventsTable(),
+        loadDonut('devices.json', 'chartDevices'),
+        loadDonut('browsers.json', 'chartBrowsers'),
+        loadDonut('os.json', 'chartOS'),
+        loadCountriesChart(),
+        loadBarsEntryExit(),
+        loadInsights()
+      ]);
+
+      const failures = jobs.filter(j => j.status === 'rejected');
+      if (failures.length) {
+        showError(`${failures.length} Bereich(e) konnten nicht geladen werden. Details in der Browser-Konsole.`);
+        failures.forEach(f => console.error(f.reason));
+      } else {
+        const now = new Date();
+        if (statusEl) statusEl.textContent = `Zeitraum ${elFrom.value} – ${elTo.value} | Zuletzt aktualisiert: ${now.toLocaleTimeString('de-DE')}`;
+      }
+    } catch (err) {
+      showError(err.message || 'Fehler beim Laden der Analytics-Daten.');
+      console.error(err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  highlightActivePreset();
+  const runActivityReload = () => {
+    Promise.all([
+      loadActivityTable(),
+      loadClickEventsTable()
+    ]).catch((err) => {
+      showError(err.message || 'Fehler beim Laden der Aktivitaets-/Klickliste.');
+      console.error(err);
+    });
+  };
+  activityActorFilter?.addEventListener('change', runActivityReload);
+  activityRoleFilter?.addEventListener('change', runActivityReload);
+  activityMethodFilter?.addEventListener('change', runActivityReload);
+  activityFilterApply?.addEventListener('click', runActivityReload);
+  [activityUserFilter, activityPathFilter].forEach((el) => {
+    el?.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        runActivityReload();
+      }
+    });
+  });
   loadAll();
 </script>

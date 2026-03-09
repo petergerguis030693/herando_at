@@ -1,0 +1,93 @@
+<%- include('../../partials/header', { entieties, active: 'jobs' }) %>
+<link rel="stylesheet" href="/css/jobs.css">
+
+<main class="jobs-page">
+  <section class="jobs-hero">
+    <div class="jobs-hero__inner">
+      <p class="jobs-hero__eyebrow"><%= jt('jobs.page.eyebrow', 'Karriere bei Herando') %></p>
+      <h1><%= jt('jobs.page.title', 'Offene Stellen') %></h1>
+      <p><%= jt('jobs.page.subtitle', 'Finde die Position, die zu dir passt und bewirb dich direkt online.') %></p>
+    </div>
+  </section>
+
+  <section class="jobs-content container">
+    <form class="jobs-filter" method="get" action="/jobs">
+      <div class="jobs-filter__field jobs-filter__field--wide">
+        <label for="q"><%= jt('jobs.filter.search_label', 'Suche') %></label>
+        <input
+          id="q"
+          name="q"
+          type="text"
+          value="<%= filters.q || '' %>"
+          placeholder="<%= jt('jobs.filter.search_placeholder', 'Titel, Abteilung oder Stichwort') %>"
+        >
+      </div>
+
+      <div class="jobs-filter__field">
+        <label for="location"><%= jt('jobs.filter.location_label', 'Standort') %></label>
+        <select id="location" name="location">
+          <option value=""><%= jt('jobs.filter.all', 'Alle') %></option>
+          <% (filterOptions.locations || []).forEach((loc) => { %>
+            <option value="<%= loc %>" <%= String(filters.location || '') === String(loc) ? 'selected' : '' %>>
+              <%= loc %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="jobs-filter__field">
+        <label for="employment_type"><%= jt('jobs.filter.employment_label', 'Anstellung') %></label>
+        <select id="employment_type" name="employment_type">
+          <option value=""><%= jt('jobs.filter.all', 'Alle') %></option>
+          <% (filterOptions.employmentTypes || []).forEach((type) => { %>
+            <option value="<%= type %>" <%= String(filters.employment_type || '') === String(type) ? 'selected' : '' %>>
+              <%= type %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="jobs-filter__actions">
+        <button type="submit" class="jobs-btn jobs-btn--primary"><%= jt('jobs.filter.submit', 'Filtern') %></button>
+        <a href="/jobs" class="jobs-btn jobs-btn--ghost"><%= jt('jobs.filter.reset', 'Zurücksetzen') %></a>
+      </div>
+    </form>
+
+    <% if (!jobs || !jobs.length) { %>
+      <div class="jobs-empty">
+        <h2><%= jt('jobs.empty.title', 'Aktuell keine passenden Stellen') %></h2>
+        <p><%= jt('jobs.empty.text', 'Bitte passe deine Filter an oder schaue später erneut vorbei.') %></p>
+      </div>
+    <% } else { %>
+      <div class="jobs-list">
+        <% jobs.forEach((job) => { %>
+          <article class="job-row">
+            <% if (job.image_url) { %>
+              <a class="job-row__media" href="/jobs/<%= job.slug %>">
+                <img src="<%= job.image_url %>" alt="<%= job.title %>" loading="lazy">
+              </a>
+            <% } %>
+
+            <div class="job-row__content">
+              <div class="job-row__meta">
+                <% if (job.department) { %><span><%= job.department %></span><% } %>
+                <% if (job.location) { %><span><%= job.location %></span><% } %>
+                <% if (job.employment_type) { %><span><%= job.employment_type %></span><% } %>
+                <% if (job.workplace_type) { %><span><%= job.workplace_type %></span><% } %>
+              </div>
+
+              <h2><a href="/jobs/<%= job.slug %>"><%= job.title %></a></h2>
+              <p><%= job.short_description || jt('jobs.item.fallback_summary', 'Mehr zur Position erfahren Sie in der Detailansicht.') %></p>
+            </div>
+
+            <div class="job-row__actions">
+              <a class="jobs-btn jobs-btn--primary" href="/jobs/<%= job.slug %>"><%= jt('jobs.item.read_more', 'Zur Stelle') %></a>
+            </div>
+          </article>
+        <% }) %>
+      </div>
+    <% } %>
+  </section>
+</main>
+
+<%- include('../../partials/footer', { footerColumns }) %>

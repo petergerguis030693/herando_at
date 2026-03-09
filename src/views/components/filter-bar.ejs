@@ -1,5 +1,10 @@
 <section class="filter-bar shell" data-entity="<%= currentEntity.route %>">
-  <form method="get" action="" class="filter-form" id="quickFilters">
+  <form
+    method="get"
+    action="<%= typeof entityPath === 'function' ? entityPath(currentEntity.route) : '/' + currentEntity.route %>"
+    class="filter-form"
+    id="quickFilters"
+    data-entity-route="<%= currentEntity.route %>">
 
     <div class="filter-grid" style="padding: 20px;">
 

@@ -1,5 +1,8 @@
 <section class="category-search">
-  <form method="get" action="" class="search-form d-flex align-items-center gap-2">
+  <form
+    method="get"
+    action="<%= typeof entityPath === 'function' ? entityPath(currentEntity.route) : '/' + currentEntity.route %>"
+    class="search-form d-flex align-items-center gap-2">
 
     <input
       type="search"

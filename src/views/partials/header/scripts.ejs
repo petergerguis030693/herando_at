@@ -1,5 +1,19 @@
+<%
+  const __trackUser = (
+    (typeof _user !== 'undefined' && _user && _user.id) ? _user :
+    ((typeof user !== 'undefined' && user && user.id) ? user :
+    ((typeof login_user !== 'undefined' && login_user && login_user.id) ? login_user : null))
+  );
+  const __forceTracking = !!(__trackUser && __trackUser.id);
+  const __trackRole = (__trackUser && __trackUser.role != null) ? Number(__trackUser.role) : null;
+%>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  window.__herandoForceTracking = <%= __forceTracking ? 'true' : 'false' %>;
+  window.__herandoActorRole = <%= __trackRole == null ? 'null' : __trackRole %>;
+</script>
+<script src="/js/analytics-tracker.js" defer></script>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {

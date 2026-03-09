@@ -1,0 +1,388 @@
+<%- include('../../partials/header-admin') %>
+<style>
+  .addons-shell {
+    background: linear-gradient(180deg, #f7f9fc 0%, #ffffff 60%);
+    min-height: 100%;
+  }
+  .addons-hero {
+    border: 1px solid #e8edf4;
+    border-radius: 16px;
+    background: #fff;
+    box-shadow: 0 10px 25px rgba(23, 43, 77, 0.06);
+    padding: 18px;
+  }
+  .addons-grid {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    gap: 16px;
+    align-items: start;
+  }
+  .addons-panel {
+    border: 1px solid #e8edf4;
+    border-radius: 14px;
+    background: #fff;
+    box-shadow: 0 6px 18px rgba(23, 43, 77, 0.04);
+  }
+  .addons-panel-body {
+    padding: 16px;
+  }
+  .listing-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 12px;
+  }
+  .listing-card {
+    display: block;
+    border: 1px solid #dfe6ee;
+    border-radius: 12px;
+    background: #fff;
+    padding: 10px;
+    cursor: pointer;
+    transition: .15s ease;
+  }
+  .listing-card:hover {
+    border-color: #b9c7da;
+    transform: translateY(-1px);
+  }
+  .listing-card.selected {
+    border-color: #0d6efd;
+    box-shadow: 0 0 0 3px rgba(13,110,253,.14);
+    background: #f8fbff;
+  }
+  .listing-card.current-addon {
+    border-color: #198754;
+    box-shadow: 0 0 0 3px rgba(25,135,84,.12);
+  }
+  .listing-thumb {
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    display: block;
+    border-radius: 10px;
+    background: #eef2f7;
+  }
+  .listing-thumb-empty {
+    width: 100%;
+    height: 140px;
+    border-radius: 10px;
+    background: repeating-linear-gradient(
+      -45deg,
+      #f2f4f8,
+      #f2f4f8 10px,
+      #e9edf3 10px,
+      #e9edf3 20px
+    );
+    color: #6c757d;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+  }
+  .listing-meta-line {
+    font-size: 12px;
+    color: #6c757d;
+  }
+  .listing-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .listing-action-btn {
+    flex: 1;
+  }
+  @media (max-width: 992px) {
+    .addons-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+<div class="d-flex addons-shell">
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+
+  <main class="p-4 flex-fill">
+    <div class="addons-hero mb-4">
+      <div class="d-flex flex-wrap justify-content-between align-items-start gap-3">
+        <div>
+          <div class="text-uppercase text-muted small fw-semibold">Admin / Kundenverwaltung</div>
+          <h1 class="h4 mb-1">Zusatzleistungen & Inserat-Zuordnung</h1>
+          <div class="text-muted">
+            <strong><%= user.firstname %> <%= user.lastname %></strong>
+            <span class="mx-2">•</span>
+            #<%= user.id %>
+            <% if (user.company) { %><span class="mx-2">•</span><%= user.company %><% } %>
+          </div>
+          <div class="text-muted small"><%= user.email %></div>
+        </div>
+        <div class="d-flex gap-2">
+          <a href="/admin/users/<%= user.id %>/edit" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-pencil"></i> Benutzer bearbeiten
+          </a>
+          <a href="/admin/users" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Zur Liste
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <% if (errors && errors.length) { %>
+      <div class="alert alert-danger">
+        <ul class="mb-0">
+          <% errors.forEach(e => { %>
+            <li><%= e.msg %></li>
+          <% }) %>
+        </ul>
+      </div>
+    <% } %>
+
+    <% if (currentAddonDisplay) { %>
+      <div class="alert <%= currentAddonDisplay.selectedListingVisible ? 'alert-success' : 'alert-warning' %>">
+        <div class="fw-semibold mb-1">Aktuell gespeicherte Zusatzleistung vorhanden</div>
+        <div class="small">
+          Zusatzleistung:
+          <strong><%= currentAddonDisplay.package_name || ('ID ' + currentAddonDisplay.users_package_id) %></strong>
+          · Zuordnung: Entität <strong><%= currentAddonDisplay.entitie_id ?? '–' %></strong>
+          / Inserat <strong><%= currentAddonDisplay.item_id ?? '–' %></strong>
+          · DB-ID <strong><%= currentAddonDisplay.id %></strong>
+        </div>
+        <div class="small mt-1">
+          Status:
+          <strong><%= currentAddonDisplay.status || '–' %></strong>
+          · Prüfung: <strong><%= currentAddonDisplay.examination_status ?? '–' %></strong>
+          <% if (currentAddonDisplay.start_date_display || currentAddonDisplay.start_date) { %>
+            · Von: <strong><%= currentAddonDisplay.start_date_display || currentAddonDisplay.start_date %></strong>
+          <% } %>
+          <% if (currentAddonDisplay.end_date_display || currentAddonDisplay.end_date) { %>
+            · Bis: <strong><%= currentAddonDisplay.end_date_display || currentAddonDisplay.end_date %></strong>
+          <% } %>
+        </div>
+        <% if (currentAddonDisplay.resolvedSavedListing) { %>
+          <div class="small mt-1">
+            Gefundenes Inserat im System:
+            <strong><%= currentAddonDisplay.resolvedSavedListing.title %></strong>
+            · Entität <strong><%= currentAddonDisplay.resolvedSavedListing.entitie_id %></strong>
+            · Status <strong><%= currentAddonDisplay.resolvedSavedListing.status ?? '–' %></strong>
+            · Visible <strong><%= currentAddonDisplay.resolvedSavedListing.visible ?? '–' %></strong>
+          </div>
+        <% } %>
+        <% if (currentAddonDisplay.matchMode === 'item_id_fallback') { %>
+          <div class="small mt-1">
+            Hinweis: Das Inserat wurde über <code>item_id</code> gefunden, aber die gespeicherte <code>entitie_id</code> passt nicht exakt.
+          </div>
+        <% } %>
+        <% if (!currentAddonDisplay.selectedListingVisible) { %>
+          <div class="small mt-2">
+            Hinweis: Der Eintrag ist gespeichert, erscheint aber nicht in der Auswahl, weil hier nur Inserate mit
+            <code>status = 3</code> und <code>visible = 1</code> angezeigt werden.
+          </div>
+        <% } %>
+        <% if (String(currentAddonDisplay.status || '').toLowerCase() !== 'paid') { %>
+          <form action="/admin/users/<%= user.id %>/addons/<%= currentAddonDisplay.id %>/activate" method="POST" class="mt-3">
+            <button type="submit" class="btn btn-sm btn-success">
+              <i class="bi bi-check2-circle"></i> Manuell aktivieren (Status auf paid)
+            </button>
+          </form>
+        <% } else { %>
+          <div class="mt-3">
+            <span class="badge text-bg-success">Bereits aktiviert (paid)</span>
+          </div>
+          <form action="/admin/users/<%= user.id %>/addons/<%= currentAddonDisplay.id %>/activate" method="POST" class="mt-2">
+            <button type="submit" class="btn btn-sm btn-outline-success">
+              <i class="bi bi-arrow-repeat"></i> Placement synchronisieren
+            </button>
+          </form>
+        <% } %>
+      </div>
+    <% } %>
+
+    <div class="addons-grid">
+        <section class="addons-panel">
+          <div class="addons-panel-body">
+            <h2 class="h6 mb-3">Verfügbare Zusatzleistungen</h2>
+
+            <% if (!Array.isArray(listings) || listings.length === 0) { %>
+              <div class="alert alert-secondary mb-3">
+                Keine Inserate vorhanden. Zusatzleistungen können erst nach dem Anlegen eines Inserats zugeordnet werden.
+              </div>
+              <a href="/admin/listings/users/<%= user.id %>/new-listing" class="btn btn-success btn-sm w-100">
+                <i class="bi bi-plus-circle"></i> Neues Inserat anlegen
+              </a>
+            <% } else { %>
+              <p class="text-muted small mb-3">
+                Klicke direkt beim Inserat auf <strong>Werbeanzeige</strong>. Die Auswahl der Zusatzleistung passiert nur im Modal.
+              </p>
+
+              <div class="d-grid gap-2">
+                <a href="/admin/listings/users/<%= user.id %>/new-listing" class="btn btn-outline-success">
+                  <i class="bi bi-plus-circle"></i> Neues Inserat
+                </a>
+              </div>
+            <% } %>
+          </div>
+        </section>
+
+        <section class="addons-panel">
+          <div class="addons-panel-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h2 class="h6 mb-0">Inserat auswählen</h2>
+              <span class="badge text-bg-light border"><%= (listings || []).length %> Inserat<%= (listings || []).length === 1 ? '' : 'e' %></span>
+            </div>
+
+            <% if (!Array.isArray(listings) || listings.length === 0) { %>
+              <div class="text-muted">Sobald Inserate vorhanden sind, erscheinen sie hier als Bildkarten zur Auswahl.</div>
+            <% } else { %>
+              <div class="listing-grid">
+                <% listings.forEach((listing, idx) => { %>
+                  <% const listingAssignment = addonAssignmentsByListing && addonAssignmentsByListing[listing.key] ? addonAssignmentsByListing[listing.key] : null; %>
+                  <% const isCurrentListing = Boolean(listingAssignment); %>
+                  <div class="listing-card <%= isCurrentListing ? 'current-addon' : '' %>">
+                    <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                      <div class="fw-semibold">
+                        <%= listing.entitie_name %> (#<%= listing.id %>)
+                      </div>
+                      <% if (isCurrentListing) { %>
+                        <% const placementState = String(listingAssignment.status || '').toLowerCase(); %>
+                        <span class="badge <%= placementState === 'paid' ? 'text-bg-success' : 'text-bg-secondary' %>">
+                          <%= placementState === 'paid' ? 'Aktiv' : 'Inaktiv' %>
+                        </span>
+                      <% } %>
+                    </div>
+
+                    <% if (listing.thumb) { %>
+                      <img src="<%= listing.thumb %>" alt="<%= listing.title %>" class="listing-thumb mb-2">
+                    <% } else { %>
+                      <div class="listing-thumb-empty mb-2">Kein Bild</div>
+                    <% } %>
+
+                    <div class="fw-semibold text-truncate" title="<%= listing.title %>"><%= listing.title %></div>
+                    <div class="listing-meta-line">
+                      Status: <%= listing.status ?? '–' %> · Sichtbar: <%= listing.visible ?? '–' %>
+                    </div>
+                    <% if (listingAssignment) { %>
+                      <div class="listing-meta-line">
+                        Zusatzleistung: <strong><%= listingAssignment.package_name || ('ID ' + listingAssignment.users_package_id) %></strong>
+                      </div>
+                    <% } %>
+                    <div class="listing-actions">
+                      <button
+                        type="button"
+                        class="btn btn-sm btn-primary listing-action-btn open-addon-modal"
+                        data-listing-key="<%= listing.key %>"
+                        data-listing-title="<%= listing.title %>"
+                        data-listing-entity="<%= listing.entitie_name %>"
+                        data-listing-id="<%= listing.id %>"
+                        data-listing-thumb="<%= listing.thumb || '' %>"
+                        data-current-package-id="<%= listingAssignment ? (listingAssignment.users_package_id || '') : '' %>"
+                      >
+                        <i class="bi bi-megaphone"></i> Werbeanzeige
+                      </button>
+                    </div>
+                  </div>
+                <% }) %>
+              </div>
+            <% } %>
+          </div>
+        </section>
+      </div>
+  </main>
+</div>
+
+<div class="modal fade" id="addonAssignModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <form method="POST" action="/admin/users/<%= user.id %>/addons" id="addonAssignForm">
+        <input type="hidden" name="selected_listing" id="addon-modal-selected-listing">
+        <div class="modal-header">
+          <h5 class="modal-title">Werbeanzeige zuweisen</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+        </div>
+        <div class="modal-body">
+          <div class="small text-muted mb-2">Ausgewähltes Inserat</div>
+          <div class="border rounded p-2 mb-3 bg-light">
+            <div class="fw-semibold" id="addon-modal-listing-title">–</div>
+            <div class="small text-muted" id="addon-modal-listing-meta">–</div>
+          </div>
+
+          <div class="mb-3">
+            <label for="addon-modal-package" class="form-label">Werbeanzeige / Zusatzleistung</label>
+            <select name="users_package_id" id="addon-modal-package" class="form-select" required>
+              <option value="">– Bitte wählen –</option>
+              <% (usersPackages || []).forEach(up => { %>
+                <option value="<%= up.id %>" data-package-category="<%= up.category || '' %>">
+                  <%= up.name %> – €<%= (up.price_cents/100).toFixed(2) %> (<%= up.duration_weeks %> Woche<%= up.duration_weeks>1?'n':'' %>)
+                </option>
+              <% }) %>
+            </select>
+          </div>
+
+          <div class="small mb-2">
+            Ziel-Placement: <strong id="addon-modal-placement-target">–</strong>
+          </div>
+
+          <div class="form-text">
+            Speichern legt/aktualisiert die Zusatzleistung für dieses Inserat. Danach kannst du oben bei Bedarf manuell aktivieren (`paid`).
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+          <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Speichern
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const modalEl = document.getElementById('addonAssignModal');
+    if (!modalEl || typeof bootstrap === 'undefined') return;
+
+    const modal = new bootstrap.Modal(modalEl);
+    const selectedListingInput = document.getElementById('addon-modal-selected-listing');
+    const packageSelect = document.getElementById('addon-modal-package');
+    const listingTitleEl = document.getElementById('addon-modal-listing-title');
+    const listingMetaEl = document.getElementById('addon-modal-listing-meta');
+    const placementTargetEl = document.getElementById('addon-modal-placement-target');
+    const lastPackageId = <%- JSON.stringify(String(data?.users_package_id || '')) %>;
+    const placementTableMap = {
+      slideshow: 'slider_ads',
+      top_listing: 'advert_inserat',
+      sonstiges: 'catalog_ads'
+    };
+
+    const updatePlacementTarget = () => {
+      if (!placementTargetEl) return;
+      const opt = packageSelect?.selectedOptions?.[0];
+      const category = opt?.dataset?.packageCategory || '';
+      placementTargetEl.textContent = placementTableMap[category] || (category || 'unbekannt');
+    };
+
+    document.querySelectorAll('.open-addon-modal').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const listingKey = btn.getAttribute('data-listing-key') || '';
+        const listingTitle = btn.getAttribute('data-listing-title') || '–';
+        const listingEntity = btn.getAttribute('data-listing-entity') || '–';
+        const listingId = btn.getAttribute('data-listing-id') || '–';
+        const currentPackageId = btn.getAttribute('data-current-package-id') || '';
+
+        selectedListingInput.value = listingKey;
+        listingTitleEl.textContent = listingTitle;
+        listingMetaEl.textContent = `${listingEntity} (#${listingId})`;
+
+        packageSelect.value = currentPackageId || lastPackageId || '';
+        updatePlacementTarget();
+        modal.show();
+      });
+    });
+
+    if (packageSelect) {
+      packageSelect.addEventListener('change', updatePlacementTarget);
+      updatePlacementTarget();
+    }
+  });
+</script>

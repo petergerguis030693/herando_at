@@ -1,23 +1,95 @@
         :root {
             --bs-primary: #080422;
+            --admin-sidebar-width: 250px;
+            --admin-sidebar-collapsed-width: 88px;
+            --admin-sidebar-divider: #dee2e6;
         }
 
         body {
             background-color: #f8f9fa;
-            zoom: 0.85;
+            overflow-x: hidden;
+        }
+
+        main{
+            background-color: #fff;
         }
 
         .sidebar {
-            border-right: 1px solid #dee2e6;
             min-height: 100vh;
-            width: 300px;
+            width: auto;
+            background-color: #ffffff !important;
         }
 
-        .sidebar .nav-link {
+        body.admin-page .sidebar {
+            border-right: 0;
+        }
+
+        .admin-sidebar-nav {
+            position: relative;
+            z-index: 1055;
+            background-color: #ffffff;
+            overflow-x: hidden;
+            overflow-y: auto;
+            transition: width 0.25s ease, transform 0.25s ease;
+            width: var(--admin-sidebar-width);
+            min-width: var(--admin-sidebar-width);
+            flex: 0 0 var(--admin-sidebar-width);
+            border-right: 1px solid var(--admin-sidebar-divider);
+            box-sizing: border-box;
+        }
+
+        .admin-sidebar-host {
+            background-color: #ffffff !important;
+            width: var(--admin-sidebar-width) !important;
+            min-width: var(--admin-sidebar-width) !important;
+            flex: 0 0 var(--admin-sidebar-width) !important;
+            padding: 0 !important;
+            border-right: 1px solid var(--admin-sidebar-divider);
+            box-sizing: border-box;
+        }
+
+        .admin-sidebar-host .admin-sidebar-nav {
+            width: 100%;
+            min-width: 0;
+            flex: 1 1 auto;
+            border-right: 0;
+        }
+
+        .admin-sidebar-brand a {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 100%;
+        }
+
+        .admin-sidebar-brand img {
+            display: block;
+            max-width: 100%;
+            width: auto;
+            height: auto;
+            max-height: 80px;
+        }
+
+        .admin-sidebar-mobile-toggle {
+            position: fixed;
+            top: 72px;
+            left: 12px;
+            z-index: 1060;
+            display: none;
+        }
+
+        .admin-layout {
+            align-items: stretch;
+            min-height: 100vh;
+        }
+
+        .admin-sidebar-nav .nav-link {
             color: #333333;
+            border-radius: 0.65rem;
+            padding: 0.7rem 0.85rem;
         }
 
-        .sidebar .nav-link.active {
+        .admin-sidebar-nav .nav-link.active {
             background-color: #e9ecef;
             font-weight: 500;
         }
@@ -120,7 +192,184 @@
             gap: 1rem;
           }
           
-          .listing-card {
+        .listing-card {
             flex: 0 0 300px; /* jede Karte genau 300px breit */
           }
+
+        @media (min-width: 992px) {
+            .admin-sidebar-host {
+                transition: width 0.25s ease, flex-basis 0.25s ease;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-host {
+                width: var(--admin-sidebar-collapsed-width) !important;
+                min-width: var(--admin-sidebar-collapsed-width) !important;
+                flex-basis: var(--admin-sidebar-collapsed-width) !important;
+                padding: 0 !important;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav {
+                width: var(--admin-sidebar-collapsed-width) !important;
+                min-width: var(--admin-sidebar-collapsed-width) !important;
+                flex: 0 0 var(--admin-sidebar-collapsed-width) !important;
+                padding-left: 0.45rem !important;
+                padding-right: 0.45rem !important;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-host .admin-sidebar-nav {
+                width: 100% !important;
+                min-width: 0 !important;
+                flex: 1 1 auto !important;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .nav-link {
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: clip;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .nav-link i {
+                margin-right: 0 !important;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .admin-sidebar-brand {
+                margin-bottom: 0.75rem !important;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .admin-sidebar-brand img {
+                width: 100%;
+                max-width: 100%;
+                height: auto !important;
+                max-height: 42px;
+                object-fit: contain;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .nav-link {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0;
+                min-height: 40px;
+                font-size: 0;
+                line-height: 1;
+                padding-left: 0.55rem;
+                padding-right: 0.55rem;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .nav-link i {
+                font-size: 1.1rem;
+                line-height: 1;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .collapse {
+                display: none !important;
+            }
+
+            body.admin-sidebar-collapsed .admin-sidebar-nav .nav-link[data-bs-toggle="collapse"] .bi-chevron-down {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 991.98px) {
+            body.admin-page {
+                overflow-x: hidden;
+            }
+
+            .admin-sidebar-mobile-toggle {
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .admin-sidebar-nav {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: min(82vw, 320px) !important;
+                height: 100vh;
+                background-color: #ffffff;
+                box-shadow: 0 0.5rem 1.25rem rgba(0, 0, 0, 0.2);
+                transform: translateX(-105%);
+                padding-top: 1rem;
+            }
+
+            .admin-sidebar-host .admin-sidebar-nav {
+                width: min(82vw, 320px) !important;
+                min-width: min(82vw, 320px) !important;
+            }
+
+            .admin-sidebar-host {
+                width: 0 !important;
+                flex: 0 0 0 !important;
+                min-width: 0 !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                border: 0 !important;
+            }
+
+            body.admin-sidebar-mobile-open .admin-sidebar-nav {
+                transform: translateX(0);
+            }
+
+            body.admin-sidebar-mobile-open::before {
+                content: "";
+                position: fixed;
+                inset: 0;
+                background: rgba(0, 0, 0, 0.35);
+                z-index: 1050;
+            }
+
+            body.admin-sidebar-mobile-open {
+                overflow: hidden;
+            }
+
+            .admin-layout {
+                display: block !important;
+            }
+
+            .admin-layout > main,
+            .admin-layout > .main-content,
+            .admin-layout > .admin-content,
+            .admin-layout > .admin-container,
+            .admin-layout > .flex-fill,
+            .admin-layout > .flex-grow-1 {
+                width: 100% !important;
+                min-width: 0 !important;
+                padding: 0.9rem !important;
+            }
+
+            .content {
+                padding: 12px;
+            }
+
+            .welcome-banner {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+            }
+
+            .card-grid {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+
+            form.d-flex,
+            .btn-group,
+            .input-group {
+                flex-wrap: wrap;
+            }
+
+            .btn-group .btn {
+                margin-bottom: 0.4rem;
+            }
+
+            .input-group {
+                min-width: 0 !important;
+                width: 100%;
+            }
+
+            .table-responsive {
+                overflow-x: auto;
+            }
+        }
           

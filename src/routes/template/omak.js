@@ -2482,6 +2482,30 @@ const TITLES = [
 
 
 
+const omakContactFormRateLimit = {};
+function omakGetContactClientIp(req) {
+  const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
+  const realIp = String(req.headers['x-real-ip'] || '').trim();
+  const raw = forwarded || realIp || req.ip || '';
+  return raw.replace(/^::ffff:/, '').trim();
+}
+function omakNormalizeEmail(value) {
+  return String(value ?? '').trim().toLowerCase().slice(0, 254);
+}
+function omakIsValidEmailAddress(value) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(value || ''));
+}
+function omakIsRateLimited(bucket, key, maxRequests = 5, windowMs = 60 * 60 * 1000) {
+  const now = Date.now();
+  const current = bucket[key];
+  if (!current || now - current.firstTime > windowMs) {
+    bucket[key] = { count: 1, firstTime: now };
+    return false;
+  }
+  current.count += 1;
+  return current.count > maxRequests;
+}
+
 // GET /contact: Seite anzeigen
 router.get('/contact', async (req, res, next) => {
   const user = res.locals.user;
@@ -2489,24 +2513,117 @@ router.get('/contact', async (req, res, next) => {
   try {
     const layout = await loadLayoutData();
 
-    const { success, error } = req.query;
+    const contactFlash = req.session.contactFormFlash || null;
+    if (contactFlash) delete req.session.contactFormFlash;
+
+    const success = contactFlash?.success || req.query.success;
+    const error = contactFlash?.error || req.query.error;
+    const flashFormData = contactFlash?.formData || {};
 
 
 
     // FormData zurückfüllen
     const formData = {
-      anrede:       req.query.anrede       || '',
-      titel:        req.query.titel        || '',
-      first_name:   req.query.first_name   || '',
-      last_name:    req.query.last_name    || '',
-      ichbin:       req.query.ichbin       || '',
-      firma:        req.query.firma        || '',
-      kundennummer: req.query.kundennummer || '',
-      email:        req.query.email        || '',
-      telefon:      req.query.telefon      || '',
-      nachricht:    req.query.nachricht    || '',
-      datenschutz:  req.query.datenschutz  || ''
+      anrede:       flashFormData.anrede       ?? req.query.anrede       ?? '',
+      titel:        flashFormData.titel        ?? req.query.titel        ?? '',
+      first_name:   flashFormData.first_name   ?? req.query.first_name   ?? '',
+      last_name:    flashFormData.last_name    ?? req.query.last_name    ?? '',
+      ichbin:       flashFormData.ichbin       ?? req.query.ichbin       ?? '',
+      firma:        flashFormData.firma        ?? req.query.firma        ?? '',
+      kundennummer: flashFormData.kundennummer ?? req.query.kundennummer ?? '',
+      telefon_prefix: flashFormData.telefon_prefix ?? req.query.telefon_prefix ?? '',
+      email:        flashFormData.email        ?? req.query.email        ?? '',
+      telefon:      flashFormData.telefon      ?? req.query.telefon      ?? '',
+      nachricht:    flashFormData.nachricht    ?? req.query.nachricht    ?? '',
+      datenschutz:  flashFormData.datenschutz  ?? req.query.datenschutz  ?? ''
     };
+
+    const [phonePrefixRows] = await db.query(
+      `SELECT code,
+              COALESCE(NULLIF(de,''), en, code) AS name,
+              prefix
+         FROM countries
+        WHERE prefix IS NOT NULL
+          AND prefix <> ''
+        ORDER BY COALESCE(NULLIF(de,''), en, code) ASC`
+    );
+    const phonePrefixOptions = (phonePrefixRows || []).map((r) => ({
+      code: String(r.code || '').toUpperCase(),
+      name: String(r.name || r.code || '').trim(),
+      prefix: String(r.prefix || '').trim().replace(/^\+?/, '+')
+    }));
+
+    // Eingeloggte Nutzer automatisch vorbefüllen (nur leere Felder überschreiben)
+    if (req.session?.userId) {
+      const [[contactUser]] = await db.query(
+        `SELECT u.id, u.firstname, u.lastname, u.email, u.company, u.phone, u.mobile, u.country_id,
+                c.prefix AS country_prefix
+           FROM users u
+           LEFT JOIN countries c ON c.id = u.country_id
+          WHERE u.id = ?
+          LIMIT 1`,
+        [req.session.userId]
+      );
+
+      if (contactUser) {
+        const buildPhoneWithPrefix = (prefixRaw, ...candidates) => {
+          const raw = candidates.map(v => String(v || '').trim()).find(Boolean) || '';
+          if (!raw) return '';
+
+          let phone = raw.replace(/\s+/g, ' ').trim();
+          if (/^\+/.test(phone)) return phone;
+          if (/^00\d+/.test(phone)) return `+${phone.slice(2)}`;
+
+          const prefixClean = String(prefixRaw || '').trim();
+          if (!prefixClean) return phone;
+          const prefix = prefixClean.startsWith('+') ? prefixClean : `+${prefixClean}`;
+
+          const prefixDigits = prefix.replace(/\D/g, '');
+          const phoneDigits = phone.replace(/\D/g, '');
+          if (prefixDigits && phoneDigits.startsWith(prefixDigits)) {
+            return `${prefix} ${phoneDigits.slice(prefixDigits.length)}`.trim();
+          }
+
+          return `${prefix} ${phone.replace(/^0+/, '')}`.trim();
+        };
+        const splitPhoneForForm = (prefixRaw, fullPhoneRaw) => {
+          const prefixClean = String(prefixRaw || '').trim();
+          const prefix = prefixClean ? (prefixClean.startsWith('+') ? prefixClean : `+${prefixClean}`) : '';
+          const raw = String(fullPhoneRaw || '').trim();
+          if (!raw) return { prefix, local: '' };
+
+          let local = raw;
+          const rawDigits = raw.replace(/\D/g, '');
+          const prefixDigits = prefix.replace(/\D/g, '');
+
+          if (/^00\d+/.test(raw)) {
+            local = `+${raw.slice(2)}`;
+          }
+          if (prefixDigits && rawDigits.startsWith(prefixDigits)) {
+            local = rawDigits.slice(prefixDigits.length);
+          } else if (raw.startsWith(prefix)) {
+            local = raw.slice(prefix.length);
+          }
+
+          local = String(local || '').replace(/^\+/, '').trim();
+          return { prefix, local };
+        };
+
+        const customerNumber = String(contactUser.id || '').padStart(9, '0');
+        const prefillPhoneCombined = buildPhoneWithPrefix(contactUser.country_prefix, contactUser.phone, contactUser.mobile);
+        const prefillPhoneParts = splitPhoneForForm(contactUser.country_prefix, prefillPhoneCombined);
+        const prefillRole = String(contactUser.company || '').trim() ? 'Firma' : 'Privat';
+
+        if (!String(formData.first_name || '').trim()) formData.first_name = contactUser.firstname || '';
+        if (!String(formData.last_name || '').trim()) formData.last_name = contactUser.lastname || '';
+        if (!String(formData.email || '').trim()) formData.email = contactUser.email || '';
+        if (!String(formData.firma || '').trim()) formData.firma = contactUser.company || '';
+        if (!String(formData.kundennummer || '').trim()) formData.kundennummer = customerNumber || '';
+        if (!String(formData.ichbin || '').trim()) formData.ichbin = prefillRole;
+        if (!String(formData.telefon_prefix || '').trim()) formData.telefon_prefix = prefillPhoneParts.prefix || '';
+        if (!String(formData.telefon || '').trim()) formData.telefon = prefillPhoneParts.local || '';
+      }
+    }
 
     // SEO laden
     const urlPath = normalizePathUrl(req.path);
@@ -2557,6 +2674,7 @@ router.get('/contact', async (req, res, next) => {
       success,
       error,
       formData,
+      phonePrefixOptions,
       user,
       captcha,
       TITLES, 
@@ -2573,28 +2691,130 @@ router.post(
   '/contact',
   express.urlencoded({ extended: false }),
   async (req, res, next) => {
+    const tContact = (key, fallback) => {
+      const fn =
+        (res.locals && typeof res.locals.t === 'function' && res.locals.t) ||
+        (typeof req.t === 'function' ? req.t : null);
+      if (!fn) return fallback;
+      try { return fn(key, { defaultValue: fallback }); } catch {}
+      try { return fn(key, fallback); } catch {}
+      try { return fn(key); } catch {}
+      return fallback;
+    };
+
     const {
       anrede, titel, first_name, last_name,
       ichbin, firma, kundennummer,
-      email, telefon, nachricht, datenschutz,
+      email, telefon_prefix, telefon, nachricht, datenschutz,
+      formRendered,
       website,           // Honeypot
       captcha_answer     // Eingabe vom User
     } = req.body;
 
     const errors = [];
+    const spamReasons = [];
+    let spamScore = 0;
+    let suppressAutoReply = false;
+    let hardSpamBlock = false;
+    const addSpamSignal = (points, reason) => {
+      spamScore += Number(points || 0);
+      if (reason) spamReasons.push(reason);
+    };
+    const requestIp = omakGetContactClientIp(req);
+    const normalizedEmailAddr = omakNormalizeEmail(email);
+    const normalizedPhonePrefixRaw = String(telefon_prefix || '').trim();
+    const normalizedPhonePrefix = normalizedPhonePrefixRaw
+      ? normalizedPhonePrefixRaw.replace(/^\+?/, '+')
+      : '';
+    const normalizedPhoneLocal = String(telefon || '').trim();
+    const combinePhoneFromParts = (prefixRaw, phoneRaw) => {
+      const phone = String(phoneRaw || '').trim();
+      if (!phone) return '';
+      if (/^\+/.test(phone)) return phone;
+      if (/^00\d+/.test(phone)) return `+${phone.slice(2)}`;
+      const prefix = String(prefixRaw || '').trim();
+      if (!prefix) return phone;
+      return `${prefix} ${phone.replace(/^0+/, '')}`.trim();
+    };
+    const normalizedPhone = combinePhoneFromParts(normalizedPhonePrefix, normalizedPhoneLocal);
+    const normalizedMessage = String(nachricht || '').trim();
+    const contactFormState = {
+      anrede: anrede || '',
+      titel: titel || '',
+      first_name: first_name || '',
+      last_name: last_name || '',
+      ichbin: ichbin || '',
+      firma: firma || '',
+      kundennummer: kundennummer || '',
+      email: email || '',
+      telefon_prefix: telefon_prefix || '',
+      telefon: telefon || '',
+      nachricht: nachricht || '',
+      datenschutz: datenschutz || ''
+    };
 
     // Honeypot
     if (website && website.trim() !== "") {
       console.log("❌ Spam-Verdacht (Honeypot ausgefüllt):", website);
-      errors.push("Spam erkannt (Honeypot).");
+      errors.push(tContact('contact.backend.error.spam_detected', 'Spam erkannt.'));
+      addSpamSignal(100, 'honeypot-filled');
     }
 
     // Pflichtfelder prüfen
-    if (!first_name)  errors.push("Bitte Vorname ausfüllen.");
-    if (!last_name)   errors.push("Bitte Nachname ausfüllen.");
-    if (!email)       errors.push("Bitte E-Mail-Adresse ausfüllen.");
-    if (!telefon)     errors.push("Bitte Telefon ausfüllen.");
-    if (datenschutz !== "on") errors.push("Bitte Datenschutz akzeptieren.");
+    if (!first_name)  errors.push(tContact('contact.backend.error.first_name_required', 'Bitte Vorname ausfüllen.'));
+    if (!last_name)   errors.push(tContact('contact.backend.error.last_name_required', 'Bitte Nachname ausfüllen.'));
+    if (!email)       errors.push(tContact('contact.backend.error.email_required', 'Bitte E-Mail-Adresse ausfüllen.'));
+    if (!telefon_prefix) errors.push(tContact('contact.backend.error.phone_prefix_required', 'Bitte Telefonvorwahl auswählen.'));
+    if (!normalizedPhoneLocal) errors.push(tContact('contact.backend.error.phone_required', 'Bitte Telefon ausfüllen.'));
+    if (!normalizedMessage) errors.push(tContact('contact.backend.error.message_required', 'Bitte Nachricht ausfüllen.'));
+    if (datenschutz !== "on") errors.push(tContact('contact.backend.error.privacy_required', 'Bitte Datenschutz akzeptieren.'));
+    if (email && !omakIsValidEmailAddress(normalizedEmailAddr)) {
+      errors.push(tContact('contact.backend.error.email_invalid', 'Bitte gültige E-Mail-Adresse eingeben.'));
+      addSpamSignal(25, 'invalid-email-format');
+    }
+
+    const renderedAtMs = Number(formRendered || 0);
+    if (Number.isFinite(renderedAtMs) && renderedAtMs > 0) {
+      const elapsedMs = Date.now() - renderedAtMs;
+      if (elapsedMs < 2500) addSpamSignal(70, `submitted-too-fast:${elapsedMs}ms`);
+      else if (elapsedMs < 5000) addSpamSignal(25, `submitted-fast:${elapsedMs}ms`);
+      if (elapsedMs > 24 * 60 * 60 * 1000) addSpamSignal(10, 'stale-form');
+    } else {
+      addSpamSignal(15, 'missing-formRendered');
+    }
+
+    if (requestIp && omakIsRateLimited(omakContactFormRateLimit, `contact-form:ip:${requestIp}`, 5, 60 * 60 * 1000)) {
+      addSpamSignal(120, 'ip-rate-limit');
+    }
+    if (normalizedEmailAddr && omakIsRateLimited(omakContactFormRateLimit, `contact-form:email:${normalizedEmailAddr}`, 3, 60 * 60 * 1000)) {
+      addSpamSignal(120, 'email-rate-limit');
+    }
+
+    if (normalizedMessage) {
+      if (normalizedMessage.length < 15) addSpamSignal(35, 'message-too-short');
+      const linkMatches = normalizedMessage.match(/(?:https?:\/\/|www\.)/gi) || [];
+      if (linkMatches.length >= 1) addSpamSignal(10, `contains-link:${linkMatches.length}`);
+      if (linkMatches.length > 2) {
+        addSpamSignal(80, `too-many-links:${linkMatches.length}`);
+        hardSpamBlock = true;
+      }
+
+      const hardKeywordMatches = normalizedMessage.match(/\b(?:casino|crypto|bitcoin|forex|loan|viagra|porn|escort|telegram|whatsapp)\b/gi) || [];
+      if (hardKeywordMatches.length) {
+        const hardKeywords = Array.from(new Set(hardKeywordMatches.map(k => String(k).toLowerCase())));
+        addSpamSignal(120 + Math.max(0, hardKeywordMatches.length - 1) * 20, `hard-spam-keywords:${hardKeywords.join('|')}`);
+        hardSpamBlock = true;
+      }
+
+      const softKeywordMatches = normalizedMessage.match(/\b(?:seo|backlink)\b/gi) || [];
+      if (softKeywordMatches.length) {
+        const softKeywords = Array.from(new Set(softKeywordMatches.map(k => String(k).toLowerCase())));
+        addSpamSignal(Math.min(60, softKeywordMatches.length * 25), `soft-spam-keywords:${softKeywords.join('|')}`);
+      }
+
+      if (/(.)\1{6,}/.test(normalizedMessage)) addSpamSignal(15, 'repeated-chars');
+      if (/[<>{}]/.test(normalizedMessage)) addSpamSignal(10, 'html-like-content');
+    }
 
     // Captcha prüfen
     console.log("👉 captcha_answer (vom User):", captcha_answer);
@@ -2603,7 +2823,7 @@ router.post(
     const expected = req.session.captchaExpected;
     if (parseInt(captcha_answer, 10) !== expected) {
       console.log("❌ Captcha Prüfung fehlgeschlagen!");
-      errors.push("Die Sicherheitsfrage wurde falsch beantwortet.");
+      errors.push(tContact('contact.backend.error.captcha_failed', 'Die Sicherheitsfrage wurde falsch beantwortet.'));
     } else {
       console.log("✅ Captcha erfolgreich gelöst!");
     }
@@ -2611,16 +2831,54 @@ router.post(
     // Session zurücksetzen
     req.session.captchaExpected = null;
 
+    if (hardSpamBlock || spamScore >= 60) {
+      errors.push(tContact('contact.backend.error.request_blocked', 'Ihre Anfrage konnte nicht gesendet werden. Bitte versuchen Sie es später erneut.'));
+    } else if (spamScore >= 25) {
+      suppressAutoReply = true;
+    }
+
     if (errors.length) {
+      if (spamScore > 0) {
+        console.warn('⚠️ Kontaktformular blockiert/fehlerhaft', {
+          ip: requestIp,
+          email: normalizedEmailAddr,
+          spamScore,
+          spamReasons
+        });
+      }
       console.log("❌ Fehlerliste:", errors);
-      const params = new URLSearchParams({
+      req.session.contactFormFlash = {
         error: errors.join("\n"),
-        ...req.body
-      }).toString();
-      return res.redirect("/contact?" + params);
+        formData: contactFormState
+      };
+      return res.redirect("/contact");
     }
 
     try {
+      const [[duplicateContact]] = await db.query(
+        `SELECT id, created_at
+           FROM contacts
+          WHERE LOWER(email) = ?
+            AND TRIM(message) = ?
+            AND created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+          ORDER BY id DESC
+          LIMIT 1`,
+        [normalizedEmailAddr, normalizedMessage]
+      );
+
+      if (duplicateContact) {
+        console.warn('⚠️ Kontaktformular-Duplikat blockiert', {
+          ip: requestIp,
+          email: normalizedEmailAddr,
+          duplicateId: duplicateContact.id
+        });
+        req.session.contactFormFlash = {
+          error: tContact('contact.backend.error.duplicate_recent', 'Eine ähnliche Anfrage wurde bereits gesendet. Bitte warten Sie kurz oder ändern Sie Ihre Nachricht.'),
+          formData: contactFormState
+        };
+        return res.redirect("/contact");
+      }
+
       await db.query(
         `INSERT INTO contacts
           (salutation, title, first_name, last_name, role,
@@ -2631,16 +2889,111 @@ router.post(
           first_name, last_name,
           ichbin||"Privat",
           firma||null, kundennummer||null,
-          email, telefon, nachricht||""
+          normalizedEmailAddr || email, normalizedPhone, normalizedMessage
         ]
       );
 
       console.log("✅ Kontaktformular erfolgreich gespeichert:", email);
 
-      const params = new URLSearchParams({
-        success: "Deine Nachricht wurde erfolgreich abgeschickt!"
-      }).toString();
-      res.redirect("/contact?" + params);
+      const contactRecipient =
+        process.env.CONTACT_FORM_TO ||
+        'support@herando.com';
+
+      const senderName = [first_name, last_name].filter(Boolean).join(' ').trim() || 'Kontaktformular';
+      const requestHost = String(req.get('host') || req.hostname || 'herando.com');
+      const mailFromAddress = process.env.CONTACT_FORM_FROM || 'support@herando.com';
+
+      const internalMailText = [
+        tContact('contact.backend.mail.internal.title', 'Neue Kontaktanfrage über /contact'),
+        '',
+        `${tContact('contact.backend.mail.internal.label.website', 'Website/Host')}: ${requestHost}`,
+        `${tContact('contact.backend.mail.internal.label.name', 'Name')}: ${senderName}`,
+        `IP: ${requestIp || '-'}`,
+        `${tContact('contact.backend.mail.internal.label.salutation', 'Anrede')}: ${anrede || '-'}`,
+        `${tContact('contact.backend.mail.internal.label.title', 'Titel')}: ${titel || '-'}`,
+        `${tContact('contact.backend.mail.internal.label.role', 'Ich bin')}: ${ichbin || 'Privat'}`,
+        `${tContact('contact.backend.mail.internal.label.company', 'Firma')}: ${firma || '-'}`,
+        `${tContact('contact.backend.mail.internal.label.customer_number', 'Kundennummer')}: ${kundennummer || '-'}`,
+        `${tContact('contact.backend.mail.internal.label.email', 'E-Mail')}: ${normalizedEmailAddr || email || '-'}`,
+        `${tContact('contact.backend.mail.internal.label.phone', 'Telefon')}: ${normalizedPhone || '-'}`,
+        `${tContact('contact.backend.mail.internal.label.spam_score', 'Spam-Score')}: ${spamScore}`,
+        `${tContact('contact.backend.mail.internal.label.spam_reasons', 'Spam-Hinweise')}: ${spamReasons.length ? spamReasons.join(', ') : '-'}`,
+        '',
+        `${tContact('contact.backend.mail.internal.label.message', 'Nachricht')}:`,
+        normalizedMessage || '-'
+      ].join('\n');
+
+      const confirmGreeting = String(
+        tContact('contact.backend.mail.confirm.greeting', 'Hallo {{name}},')
+      ).replace('{{name}}', senderName);
+      const confirmationMailText = [
+        confirmGreeting,
+        '',
+        tContact('contact.backend.mail.confirm.line1', 'vielen Dank für Ihre Nachricht an Herando.'),
+        tContact('contact.backend.mail.confirm.line2', 'Wir haben Ihre Anfrage erhalten und melden uns schnellstmöglich bei Ihnen.'),
+        '',
+        `${tContact('contact.backend.mail.confirm.data_header', 'Ihre Angaben')}:`,
+        `${tContact('contact.backend.mail.confirm.label.email', 'E-Mail')}: ${normalizedEmailAddr || email || '-'}`,
+        `${tContact('contact.backend.mail.confirm.label.phone', 'Telefon')}: ${normalizedPhone || '-'}`,
+        `${tContact('contact.backend.mail.confirm.label.company', 'Firma')}: ${firma || '-'}`,
+        '',
+        `${tContact('contact.backend.mail.confirm.message_header', 'Ihre Nachricht')}:`,
+        normalizedMessage || '-',
+        '',
+        tContact('contact.backend.mail.confirm.closing', 'Mit freundlichen Grüßen'),
+        tContact('contact.backend.mail.confirm.signature', 'Ihr Herando Team')
+      ].join('\n');
+
+      const mailJobs = [];
+
+      if (contactRecipient) {
+        mailJobs.push(
+          transporter.sendMail({
+            from: `"Herando Support" <${mailFromAddress}>`,
+            to: contactRecipient,
+            replyTo: normalizedEmailAddr || email,
+            subject: `${tContact('contact.backend.mail.internal.subject_prefix', 'Neue Kontaktanfrage von')} ${senderName}`,
+            text: internalMailText
+          })
+        );
+      } else {
+        console.warn('⚠️ Kein Empfänger für Kontaktformular-Mail konfiguriert (CONTACT_FORM_TO/ADMIN_EMAIL/SMTP_USER).');
+      }
+
+      if ((normalizedEmailAddr || email) && !suppressAutoReply) {
+        mailJobs.push(
+          transporter.sendMail({
+            from: `"Herando Support" <${mailFromAddress}>`,
+            to: normalizedEmailAddr || email,
+            replyTo: contactRecipient || mailFromAddress,
+            subject: tContact('contact.backend.mail.confirm.subject', 'Ihre Kontaktanfrage bei Herando'),
+            text: confirmationMailText
+          })
+        );
+      } else if (suppressAutoReply) {
+        console.warn('⚠️ Absender-Bestätigung beim Kontaktformular unterdrückt (Spam-Score)', {
+          ip: requestIp,
+          email: normalizedEmailAddr || email,
+          spamScore,
+          spamReasons
+        });
+      }
+
+      if (mailJobs.length) {
+        const mailResults = await Promise.allSettled(mailJobs);
+        const mailErrors = mailResults.filter(r => r.status === 'rejected');
+        if (mailErrors.length) {
+          console.error('❌ Kontaktformular-Mailversand teilweise fehlgeschlagen:', mailErrors.map(r => r.reason));
+        } else {
+          console.log('✅ Kontaktformular-Mails versendet (Empfänger + Absenderbestätigung).');
+        }
+      }
+
+      req.session.contactFormFlash = {
+        success: tContact('contact.backend.success.sent', 'Deine Nachricht wurde erfolgreich abgeschickt!'),
+        formData: {}
+      };
+      res.redirect("/contact");
     } catch (err) {
       console.error("❌ DB Fehler beim Speichern:", err);
       next(err);
@@ -6005,78 +6358,53 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
       return res.redirect(301, `/${entityRoute}/${id}/${realSlug}`);
     }
 
-    // 4) Bilder (DB & Ordner)
+    // 4) Bilder (nur DB)
     let rawPics;
     try { rawPics = unserialize(itemRow.pictures || 'a:0:{}') || []; } catch { rawPics = []; }
     const pics = Array.isArray(rawPics) ? rawPics : Object.values(rawPics);
     console.log('[DETAIL][pics] from DB:', pics.length);
 
-    const folder = path.join(imagesBase, entityRoute, String(id));
-    let allImgs = [];
-    try {
-      allImgs = fs.readdirSync(folder).filter(f => /\.(jpe?g|png|webp)$/i.test(f));
-    } catch { allImgs = []; }
-    console.log('[DETAIL][pics] from folder:', allImgs.length, folder);
+    const dbGalleryFilenames = [];
+    const seenGallery = new Set();
+    for (const pic of pics) {
+      const rawValue = typeof pic === 'string' ? pic : pic?.image;
+      if (!rawValue) continue;
 
-    function getFilteredImages(images) {
-      if (!images.length) return [];
-      const cleaned = images.filter(filename => {
-        const n = path.basename(filename, path.extname(filename));
-        return !/-Square\d+$/i.test(n);
-      });
-      if (!cleaned.length) return [];
-      const groups = {};
-      cleaned.forEach(filename => {
-        const ext = path.extname(filename);
-        const n = path.basename(filename, ext);
-        let baseName;
-        if (/_(?:large|largex2|medium|mediumx2|small|smallx2)$/i.test(n)) {
-          const withoutSize = n.replace(/_(large|largex2|medium|mediumx2|small|smallx2)$/i, '');
-          const i = withoutSize.lastIndexOf('-');
-          baseName = i !== -1 ? withoutSize.substring(0, i) : withoutSize;
-        } else {
-          const i = n.lastIndexOf('-');
-          baseName = i !== -1 ? n.substring(0, i) : n;
-        }
-        (groups[baseName] ||= []).push(filename);
-      });
-      const out = [];
-      Object.values(groups).forEach(group => {
-        if (group.length === 1) { out.push(group[0]); return; }
-        const withoutSize = group.filter(f => {
-          const n = path.basename(f, path.extname(f));
-          return !/_(?:large|largex2|medium|mediumx2|small|smallx2)$/i.test(n);
-        });
-        if (withoutSize.length) out.push(withoutSize[0]);
-        else {
-          const x2 = group.find(f => /_largex2\./i.test(f));
-          const l  = group.find(f => /_large\./i.test(f) && !/_largex2\./i.test(f));
-          out.push(x2 || l || group[0]);
-        }
-      });
-      return out.sort();
+      const value = String(rawValue).trim();
+      if (!value) continue;
+
+      let key = value;
+      try {
+        key = decodeURIComponent(value);
+      } catch (_) {}
+      key = key.toLowerCase();
+
+      if (seenGallery.has(key)) continue;
+      seenGallery.add(key);
+      dbGalleryFilenames.push(value);
     }
+    console.log('[DETAIL][pics] unique DB gallery:', dbGalleryFilenames.length);
 
-    const filteredImages = allImgs.length
-      ? getFilteredImages(allImgs)
-      : pics.map(pic => typeof pic === 'string' ? pic : (pic.image || 'placeholder.jpg'));
-    console.log('[DETAIL][pics] filtered:', filteredImages.length);
-
-    let mainFilename;
-    if (filteredImages.length) {
-      let maxSize = 0;
-      for (const fn of filteredImages) {
+    let mainFilename = null;
+    if (itemRow.mainpicture && typeof itemRow.mainpicture === 'string' && itemRow.mainpicture.trim() !== '') {
+      const rawMain = itemRow.mainpicture.trim();
+      if (rawMain.startsWith('a:')) {
         try {
-          const st = fs.statSync(path.join(folder, fn));
-          if (st.size > maxSize) { maxSize = st.size; mainFilename = fn; }
-        } catch { /* ignore */ }
+          const parsedMain = unserialize(rawMain);
+          if (parsedMain && typeof parsedMain === 'object' && parsedMain.image) {
+            mainFilename = String(parsedMain.image).trim();
+          }
+        } catch (_) {}
+      } else {
+        mainFilename = rawMain;
       }
-      if (!mainFilename) mainFilename = filteredImages[0];
-    } else {
+    }
+    if (!mainFilename) {
       const first = pics[0];
       mainFilename = typeof first === 'string' ? first : (first?.image || 'placeholder.jpg');
     }
-    const thumbnailFilenames = filteredImages.length ? filteredImages : ['placeholder.jpg'];
+
+    const thumbnailFilenames = dbGalleryFilenames.length ? dbGalleryFilenames : ['placeholder.jpg'];
     console.log('[DETAIL][pics] main:', mainFilename, 'thumbs:', thumbnailFilenames.length);
 
     // 5) Marke/Modell/Land/EZ

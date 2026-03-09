@@ -7,6 +7,18 @@
     cs:'cs-CZ', ru:'ru-RU', es:'es-ES', nl:'nl-NL', pl:'pl-PL'
   };
   const _locale = _localeMap[_lang] || 'de-DE';
+  const _entityLabelFallbacks = {
+    properties: 'Immobilien',
+    cars: 'Autos',
+    watches: 'Uhren',
+    yachts: 'Yachten',
+    lifestyles: 'Lifestyle'
+  };
+  const entityLabel = (route) => {
+    const key = String(route || '').toLowerCase();
+    if (!key) return t('buyer.history.card.category_unknown', 'Kategorie');
+    return t(`global.category.${key}`, _entityLabelFallbacks[key] || key);
+  };
 %>
 <link rel="stylesheet" href="/css/buyer.css">
 </head>
@@ -295,9 +307,9 @@
     <i class="bi bi-plus-circle me-1"></i> <%= t('buyer.history.btn.new') %>
   </a>
 
-  <a href="/buyer/submit-online" class="btn btn-gold fw-semibold ms-auto">
+  <!--<a href="/buyer/submit-online" class="btn btn-gold fw-semibold ms-auto">
     <i class="bi bi-clipboard-check me-1"></i> <%= t('buyer.history.btn.submit') %>
-  </a>
+  </a>-->
 </div>
 
 
@@ -339,7 +351,7 @@
             </h6>
 
             <p class="small mb-1 text-muted">
-              <%= item.entityRoute %> • <%= t('buyer.history.card.id', 'ID') %>: <%= item.id %>
+              <%= entityLabel(item.entityRoute) %> • <%= t('buyer.history.card.id', 'ID') %>: <%= item.id %>
             </p>
 
             <% if (item.placementEndDate) { %>
@@ -374,6 +386,31 @@
                     <span class="listing-action-text text-white"><%= t('buyer.history.btn.delete', 'Löschen') %></span>
                   </button>
                 </form>
+
+                <% if (activeTab === 'drafts') { %>
+                  <%
+                    const submitCatId = Number(
+                      (submitOnlineCategoryIdByRoute && submitOnlineCategoryIdByRoute[String(item.entityRoute || '').toLowerCase()]) || 0
+                    );
+                    const submitSlotsLeft = Number(
+                      (submitOnlineRemainingByCategory && submitOnlineRemainingByCategory[submitCatId]) || 0
+                    );
+                  %>
+                  <% if (submitCatId && submitSlotsLeft > 0) { %>
+                    <form method="POST" action="/buyer/submit-online"
+                          onsubmit="return confirm('<%= t('buyer.history.confirm.submit_review_now','Möchtest du dieses Inserat jetzt zur Prüfung einreichen?').replace(/'/g, '\\\'') %>')">
+                      <input type="hidden" name="items" value="<%= item.entityRoute %>:<%= item.id %>:<%= submitCatId %>">
+                      <button type="submit"
+                          class="btn btn-primary"
+                          title="<%= t('buyer.history.btn.publish_now', 'Jetzt veröffentlichen') %>"
+                          aria-label="<%= t('buyer.history.btn.publish_now', 'Jetzt veröffentlichen') %>"
+                          style="background:#1A253C;">
+                        <i class="bi bi-send-check text-white"></i>
+                        <span class="listing-action-text text-white"><%= t('buyer.history.btn.publish_now', 'Jetzt veröffentlichen') %></span>
+                      </button>
+                    </form>
+                  <% } %>
+                <% } %>
               <% } %>
 
 
@@ -389,22 +426,26 @@
                 </a>
 
                 <form method="POST" action="/buyer/toggle-listing/<%= item.id %>"
-                      onsubmit="return confirm('<%= t('buyer.history.confirm.pause','Möchtest du dieses Inserat wirklich pausieren?').replace(/'/g, '\\\'') %>')">
+                      onsubmit="return confirm('<%= t('buyer.history.confirm.deactivate','Möchtest du dieses Inserat wirklich deaktivieren?').replace(/'/g, '\\\'') %>')">
+                  <input type="hidden" name="target" value="deactivate">
+                  <input type="hidden" name="return_tab" value="deactivate">
                   <button type="submit"
                       class="btn btn-primary"
-                      title="<%= t('buyer.history.btn.pause', 'Pausieren') %>"
-                      aria-label="<%= t('buyer.history.btn.pause', 'Pausieren') %>"
+                      title="<%= t('buyer.history.btn.deactivate', 'Deaktivieren') %>"
+                      aria-label="<%= t('buyer.history.btn.deactivate', 'Deaktivieren') %>"
                       style="background:#1A253C;">
-                    <i class="bi bi-pause-circle text-white"></i>
-                    <span class="listing-action-text text-white"><%= t('buyer.history.btn.pause', 'Pausieren') %></span>
+                    <i class="bi bi-stop-circle text-white"></i>
+                    <span class="listing-action-text text-white"><%= t('buyer.history.btn.deactivate', 'Deaktivieren') %></span>
                   </button>
                 </form>
 
               <% } %>
 
-              <% if (item.status == 4 && item.visible == 0) { %>
+              <% if (item.status == 3 && item.visible == 0) { %>
                 <form method="POST" action="/buyer/toggle-listing/<%= item.id %>"
                       onsubmit="return confirm('<%= t('buyer.history.confirm.resume','Möchtest du dieses Inserat wieder online stellen?').replace(/'/g, '\\\'') %>')">
+                  <input type="hidden" name="target" value="online">
+                  <input type="hidden" name="return_tab" value="online">
                   <button type="submit"
                       class="btn btn-primary"
                       title="<%= t('buyer.history.btn.resume', 'Online stellen') %>"
@@ -412,6 +453,36 @@
                       style="background:#1A253C;">
                     <i class="bi bi-play-circle text-white"></i>
                     <span class="listing-action-text text-white"><%= t('buyer.history.btn.resume', 'Online stellen') %></span>
+                  </button>
+                </form>
+
+                <form method="POST" action="/buyer/toggle-listing/<%= item.id %>"
+                      onsubmit="return confirm('<%= t('buyer.history.confirm.deactivate','Möchtest du dieses Inserat wirklich deaktivieren?').replace(/'/g, '\\\'') %>')">
+                  <input type="hidden" name="target" value="deactivate">
+                  <input type="hidden" name="return_tab" value="deactivate">
+                  <button type="submit"
+                      class="btn btn-primary"
+                      title="<%= t('buyer.history.btn.deactivate', 'Deaktivieren') %>"
+                      aria-label="<%= t('buyer.history.btn.deactivate', 'Deaktivieren') %>"
+                      style="background:#1A253C;">
+                    <i class="bi bi-stop-circle text-white"></i>
+                    <span class="listing-action-text text-white"><%= t('buyer.history.btn.deactivate', 'Deaktivieren') %></span>
+                  </button>
+                </form>
+              <% } %>
+
+              <% if (item.status == 4 && (item.visible == 0 || item.visible == 2)) { %>
+                <form method="POST" action="/buyer/toggle-listing/<%= item.id %>"
+                      onsubmit="return confirm('<%= (item.visible == 2 ? t('buyer.history.confirm.to_paused','Möchtest du dieses Inserat zurück zu Angehalten verschieben?') : t('buyer.history.confirm.resume','Möchtest du dieses Inserat wieder online stellen?')).replace(/'/g, '\\\'') %>')">
+                  <input type="hidden" name="target" value="<%= item.visible == 2 ? 'paused' : 'online' %>">
+                  <input type="hidden" name="return_tab" value="<%= item.visible == 2 ? 'paused' : 'online' %>">
+                  <button type="submit"
+                      class="btn btn-primary"
+                      title="<%= item.visible == 2 ? t('buyer.history.btn.to_paused', 'Zu Angehalten') : t('buyer.history.btn.resume', 'Online stellen') %>"
+                      aria-label="<%= item.visible == 2 ? t('buyer.history.btn.to_paused', 'Zu Angehalten') : t('buyer.history.btn.resume', 'Online stellen') %>"
+                      style="background:#1A253C;">
+                    <i class="bi <%= item.visible == 2 ? 'bi-arrow-counterclockwise' : 'bi-play-circle' %> text-white"></i>
+                    <span class="listing-action-text text-white"><%= item.visible == 2 ? t('buyer.history.btn.to_paused', 'Zu Angehalten') : t('buyer.history.btn.resume', 'Online stellen') %></span>
                   </button>
                 </form>
               <% } %>
@@ -434,7 +505,36 @@
 
   <div class="tab-pane fade show active">
     <% if (activeTab === "online") renderCards(onlineListings) %>
-    <% if (activeTab === "drafts") renderCards(offlineListings) %>
+    <% if (activeTab === "drafts") { %>
+      <% renderCards(offlineListings) %>
+      <%
+        const draftsNoSlotRoutes = Array.from(new Set(
+          (offlineListings || [])
+            .map(item => String(item.entityRoute || '').toLowerCase())
+            .filter(route => {
+              const catId = Number((submitOnlineCategoryIdByRoute && submitOnlineCategoryIdByRoute[route]) || 0);
+              if (!catId) return false;
+              const slots = Number((submitOnlineRemainingByCategory && submitOnlineRemainingByCategory[catId]) || 0);
+              return slots <= 0;
+            })
+        ));
+      %>
+      <% if (draftsNoSlotRoutes.length > 0) { %>
+        <div class="alert alert-warning mt-3">
+          <div class="fw-semibold mb-1">
+            <%= t('buyer.history.no_slots_notice_title', 'Für folgende Kategorien sind aktuell keine freien Slots mehr verfügbar:') %>
+          </div>
+          <div class="mb-2">
+            <span style="font-size: 24px;"><b><%= draftsNoSlotRoutes.map(r => entityLabel(r)).join(', ') %></b></span>
+          </div>
+          <div>
+            <a href="/buyer/sold" class="tiny-link"><%= t('buyer.history.buy_more_slots', 'Weitere Slots kaufen') %></a>
+            <span> <%= t('buyer.history.or', 'oder') %> </span>
+            <a href="/contact" class="tiny-link"><%= t('buyer.history.contact_support', 'Support kontaktieren') %></a>
+          </div>
+        </div>
+      <% } %>
+    <% } %>
     <% if (activeTab === "review") renderCards(reviewListings) %>
     <% if (activeTab === "paused") renderCards(pausedListings) %>
     <% if (activeTab === "deactivate") renderCards(deactivateListings) %>

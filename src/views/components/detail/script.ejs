@@ -16,7 +16,8 @@
 %>
 <script>
   document.addEventListener("DOMContentLoaded", function () {
-    if (/^\/watches(\/|$)/i.test(location.pathname)) {
+    const canonicalRoute = '<%= String((currentEntity && currentEntity.route) || "").toLowerCase() %>';
+    if (canonicalRoute === 'watches') {
       const detailCol = document.querySelector('.product-single-container .row > .col-md-5');
       if (detailCol) detailCol.style.marginTop = '30px';
     }
@@ -120,7 +121,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const btn          = document.getElementById('bookmarkBtn');
     const itemId       = '<%= item.id %>';  // bleibt so
     // FALLBACK: Entity-Route entweder aus EJS, oder aus der URL ziehen
-    let entityRoute = '<%= item.entityRoute || "" %>';
+    let entityRoute = '<%= (currentEntity && currentEntity.route) || item.entityRoute || "" %>';
     if (!entityRoute) {
       // window.location.pathname → "/cars/123/...". Zerlegen:
       const segments = window.location.pathname.split('/').filter(Boolean);
@@ -239,8 +240,11 @@ document.addEventListener("DOMContentLoaded", function () {
 
     <script>
   function magnify(imgID, zoom) {
-    const img   = document.getElementById(imgID);
+    const img = document.getElementById(imgID);
+    if (!img || !img.parentElement) return;
+
     const glass = img.parentElement.querySelector('.img-magnifier-glass');
+    if (!glass) return;
 
     // Hintergrund neu setzen (wird auch nach src-Change korrekt)
     function setGlassBG() {
@@ -286,6 +290,7 @@ document.addEventListener("DOMContentLoaded", function () {
   // Beispiel changeImage-Funktion, um Hauptbild zu tauschen
   function changeImage(thumb) {
     const main = document.getElementById('mainImage');
+    if (!main || !thumb) return;
     main.src = thumb.src;
     // Hintergrund der Lupe frisch setzen
     const event = new Event('mouseenter');
@@ -459,7 +464,7 @@ document.addEventListener("DOMContentLoaded", () => {
     price: data.price,
     imageUrl: data.imageUrl,
     route: data.route,
-    url: `/${data.route}/${data.id}/${slug}`
+    url: `/${data.route}/${slug}-${data.id}`
   };
 
   let list = [];
@@ -475,7 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {
-  const route = (location.pathname.split('/').filter(Boolean)[0] || '').toLowerCase();
+  const route = '<%= String((currentEntity && currentEntity.route) || "").toLowerCase() %>';
   const ITEM  = <%- JSON.stringify(item || {}) %>;
 
   // ===== i18n helpers =====
@@ -535,7 +540,7 @@ const NO  = (C.no  || (I18N?.translations?.common?.no)  || 'No');
   const brandTile = (brand, label) => {
     if (!brand) return '';
     const slug = toSlug(brand);
-    const logo = slug ? `https://herando.com/images/cms/brands/${slug}.jpg` : null;
+    const logo = slug ? `/images/cms/brands/${slug}.jpg` : null;
     return `
       <div class="col">
         <div class="d-flex align-items-center">
@@ -818,9 +823,16 @@ const colorMap = {
       : '';
 
     const price = ITEM.priceFormatted || IDX.price || '';
+    const builtRaw = (ITEM.year ?? IDX.built ?? '');
+    const builtStr = String(builtRaw).trim();
+    const builtValue =
+      builtStr &&
+      builtStr !== '0' &&
+      builtStr.toLowerCase() !== 'null'
+        ? builtStr
+        : '';
 
     const cols = [
-      iconCol('geo-alt',      LP.location || 'Ort',            IDX.location),
       iconCol('house',        LP.type     || 'Immobilientyp',  IDX.type),
       iconCol('aspect-ratio', LP.living   || 'Wohnfläche',     IDX.living),
       iconCol('rulers',       LP.lot      || 'Grundstück',     IDX.lot),
@@ -828,7 +840,9 @@ const colorMap = {
       iconCol('door-closed',  LP.bedrooms || 'Schlafzimmer', IDX.bedrooms),   // statt bed
       iconCol('droplet-fill', LP.baths    || 'Badezimmer',   IDX.baths),
 
-      iconCol('calendar3',    LP.built    || 'Baujahr',        IDX.built),
+      iconCol('calendar3',    LP.built    || 'Baujahr',        builtValue),
+      iconCol('cash-coin',    LP.price    || 'Preis',          price),
+      iconCol('geo-alt',      LP.location || 'Ort',            IDX.location),
       // Land mit Flagge als HTML
       country ? `
         <div class="col">
@@ -839,8 +853,7 @@ const colorMap = {
               <div class="fw-semibold">${country}</div>
             </div>
           </div>
-        </div>` : '',
-      iconCol('cash-coin',    LP.price    || 'Preis',          price)
+        </div>` : ''
     ];
     return renderGrid(cols);
   }
@@ -1035,24 +1048,56 @@ const colorMap = {
     const toggleBtn = document.getElementById("toggleDescription");
     const descShort = document.getElementById("descriptionShort");
     const fadeOverlay = document.getElementById("fadeOverlay");
+    const descriptionContainer = descShort ? descShort.closest(".description-container") : null;
+    const descriptionSection = descriptionContainer ? (descriptionContainer.closest(".p-3") || descriptionContainer) : null;
 
-    let expanded = false;
+    if (!toggleBtn || !descShort || !fadeOverlay || !descriptionSection) return;
+
+    let expanded = !descShort.classList.contains("collapsed-text");
 
     // 🔸 Texte aus Übersetzungen holen
     const showMoreText = "<%= t('offers.details.show_more', { fallback: 'Mehr anzeigen' }) %>";
     const showLessText = "<%= t('offers.details.show_less', { fallback: 'Weniger anzeigen' }) %>";
 
-    toggleBtn.addEventListener("click", function() {
-      expanded = !expanded;
+    const getScrollOffset = () => {
+      const fixedHeader = document.querySelector("header.fixed-top, .navbar.fixed-top, .fixed-top, .sticky-top");
+      return fixedHeader ? fixedHeader.getBoundingClientRect().height + 16 : 16;
+    };
 
-      if (expanded) {
-        descShort.classList.remove("collapsed-text");
-        fadeOverlay.style.display = "none";
-        toggleBtn.textContent = showLessText;
+    const getDescriptionTop = () => {
+      const targetTop = descriptionSection.getBoundingClientRect().top + window.scrollY - getScrollOffset();
+      return Math.max(targetTop, 0);
+    };
+
+    const jumpToDescriptionAnchor = () => {
+      window.scrollTo(0, getDescriptionTop());
+    };
+
+    const setExpandedState = () => {
+      descShort.classList.remove("collapsed-text");
+      fadeOverlay.style.display = "none";
+      toggleBtn.textContent = showLessText;
+      expanded = true;
+    };
+
+    const setCollapsedState = () => {
+      descShort.classList.add("collapsed-text");
+      fadeOverlay.style.display = "block";
+      toggleBtn.textContent = showMoreText;
+      expanded = false;
+    };
+
+    // Stabiler Anker für "Beschreibung", damit immer dorthin gescrollt wird.
+    if (!descriptionSection.id) {
+      descriptionSection.id = "description-anchor";
+    }
+
+    toggleBtn.addEventListener("click", function() {
+      if (!expanded) {
+        setExpandedState();
       } else {
-        descShort.classList.add("collapsed-text");
-        fadeOverlay.style.display = "block";
-        toggleBtn.textContent = showMoreText;
+        jumpToDescriptionAnchor();
+        setCollapsedState();
       }
     });
   });

@@ -16,16 +16,26 @@
 
 .product-single-thumbnails {
     display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
     overflow-x: auto;
+    overflow-y: hidden;
     gap: 5px;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scroll-snap-type: x proximity;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
 }
 
 .product-single-thumbnails img {
+    flex: 0 0 auto;
     width: 100px;
     height: 100px;
     object-fit: cover;
     cursor: pointer;
     border: 1px solid transparent;
+    scroll-snap-align: center;
 }
 
 .product-single-thumbnails img:hover {
@@ -71,6 +81,7 @@
     display: flex;
     align-items: center;
     margin-top: 20px;
+    gap: 8px;
 }
 
 .thumbnail-slider button {
@@ -78,7 +89,10 @@
     border: none;
     font-size: 24px;
     cursor: pointer;
+    flex: 0 0 auto;
 }
+
+
 
 .thumbnail-slider button:disabled {
     color: #ccc;
@@ -93,6 +107,39 @@
 
     .col-md-5{
         margin-top: 10px !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .thumbnail-slider {
+        gap: 0;
+        display: block;
+    }
+
+    .thumbnail-slider button {
+        display: none;
+    }
+
+    .product-single-thumbnails {
+        gap: 8px;
+        padding-bottom: 6px;
+        scroll-snap-type: x mandatory;
+    }
+
+    .product-single-thumbnails img {
+        width: 92px;
+        height: 72px;
+        border-radius: 8px;
+        scroll-snap-align: start;
+    }
+
+    /* Native Scrollbar dezent/ausblenden (Touch bleibt aktiv) */
+    .product-single-thumbnails::-webkit-scrollbar {
+        display: none;
+    }
+
+    .product-single-thumbnails {
+        scrollbar-width: none;
     }
 }
 

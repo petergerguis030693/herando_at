@@ -3,27 +3,27 @@
   
   <div class="prodGrid">
     <div class="prodItem">
-      <a href="/cars">
+      <a href="<%= typeof entityPath === 'function' ? entityPath('cars') : '/cars' %>">
       <img src="/assets/cars-kategorie.jpg" alt="Cars">
       <div class="overlay">
         <h4><%= t('category.cars') %></h4>
       </div>
     </div></a>
     <div class="prodItem">
-      <a href="/watches">
+      <a href="<%= typeof entityPath === 'function' ? entityPath('watches') : '/watches' %>">
       <img src="/assets/watches-kategorie.jpg" alt="Watches">
       <div class="overlay">
         <h4><%= t('category.watches') %></h4>
       </div>
     </div></a>
-    <a href="/yachts">
+    <a href="<%= typeof entityPath === 'function' ? entityPath('yachts') : '/yachts' %>">
     <div class="prodItem">
       <img src="/assets/yacht-kategorie.jpg" alt="Yachts">
       <div class="overlay">
         <h4><%= t('category.yachts') %></h4>
       </div>
     </div></a>
-    <a href="/properties">
+    <a href="<%= typeof entityPath === 'function' ? entityPath('properties') : '/properties' %>">
     <div class="prodItem">
       <img src="/assets/properties-kategorie.jpg" alt="Properties">
       <div class="overlay">

@@ -1,12 +1,32 @@
 <!DOCTYPE html>
-<html lang="de">
+<%
+  const SUPPORTED_LANGS = ['de', 'en', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
+  const rawLang = String(
+    (typeof lang !== 'undefined' && lang) ||
+    (typeof locale !== 'undefined' && locale) ||
+    (typeof currentLang !== 'undefined' && currentLang) ||
+    'de'
+  ).toLowerCase();
+  const shortLang = rawLang.split(/[-_]/)[0];
+  const activeLang = SUPPORTED_LANGS.includes(shortLang) ? shortLang : 'de';
+  const BASE_URL = (typeof siteBaseUrl !== 'undefined' && siteBaseUrl) ? siteBaseUrl : 'https://www.herando.com';
+  const xDefaultLang = (typeof domainDefaultLang !== 'undefined' && domainDefaultLang) ? domainDefaultLang : 'de';
+  const PAGE_PATH = '/auth/register';
+  const canonicalUrl = `${BASE_URL}${activeLang === 'de' ? '' : `/${activeLang}`}${PAGE_PATH}`;
+  const hrefFor = (code) => `${BASE_URL}${code === 'de' ? '' : `/${code}`}${PAGE_PATH}`;
+%>
+<html lang="<%= activeLang %>">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title><%= headerTitle %> | Herando</title>
   <meta name="description" content="<%= t('register.meta.description', 'Registrieren Sie sich kostenlos bei Herando und inserieren oder kaufen Sie Luxusgüter – Autos, Immobilien, Yachten & Uhren.') %>" />
   <meta name="robots" content="index, follow" />
-  <link rel="canonical" href="https://www.herando.com/auth/register" />
+  <link rel="canonical" href="<%= canonicalUrl %>" />
+  <% SUPPORTED_LANGS.forEach((code) => { %>
+    <link rel="alternate" href="<%= hrefFor(code) %>" hreflang="<%= code %>" />
+  <% }) %>
+  <link rel="alternate" href="<%= hrefFor(xDefaultLang) %>" hreflang="x-default" />
   <link rel="shortcut icon" href="/assets/herando-weblogo.svg" type="image/x-icon" />
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet" />

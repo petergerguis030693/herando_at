@@ -1,44 +1,45 @@
+<%
+  const siteBase = siteBaseUrl || 'https://www.herando.com';
+  const toAbsUrl = (url, fallback = '') => {
+    const val = String(url || fallback || '');
+    if (!val) return siteBase + '/';
+    if (/^https?:\/\//i.test(val)) return val;
+    return `${siteBase}${val.startsWith('/') ? val : `/${val}`}`;
+  };
+
+  const canonicalUrl = toAbsUrl(seo?.canonical_url, seoCanonicalUrl || '/');
+  const ogImage = toAbsUrl(seo?.og_image, ogDefaultImage || '/assets/og-image.jpg');
+  const hreflangMap = (seoHreflangUrls && Object.keys(seoHreflangUrls).length)
+    ? seoHreflangUrls
+    : { de: `${siteBase}/` };
+  const xDefaultUrl = toAbsUrl(seoXDefaultUrl || canonicalUrl);
+%>
+
 <title><%= seo?.title || "Herando – Luxus-Autos, Yachten, Immobilien & Uhren" %></title>
 
 <meta name="description" content="<%= seo?.meta_description || 'Entdecken Sie über 100.000 Premium-Angebote: Luxus-Autos, exklusive Yachten, Immobilien & Uhren bei Herando.' %>">
-<meta name="robots" content="<%= seo?.robots || 'index, follow' %>">
+<meta name="robots" content="<%= seo?.robots || 'noindex, nofollow' %>">
 
-<link rel="canonical" href="<%= seo?.canonical_url || 'https://www.herando.com/' %>" />
+<link rel="canonical" href="<%= canonicalUrl %>" />
 
-<%
-  const LANGS = {
-    de: "https://www.herando.com/",
-    en: "https://www.herando.com/en/",
-    es: "https://www.herando.com/es/",
-    fr: "https://www.herando.com/fr/",
-    it: "https://www.herando.com/it/",
-    nl: "https://www.herando.com/nl/",
-    tr: "https://www.herando.com/tr/",
-    cs: "https://www.herando.com/cs/",
-    ru: "https://www.herando.com/ru/",
-    ja: "https://www.herando.com/ja/",
-    pl: "https://www.herando.com/pl/"
-  };
-%>
-
-<% Object.entries(LANGS).forEach(([code, url]) => { %>
-<link rel="alternate" hreflang="<%= code %>" href="<%= url %>" />
+<% Object.entries(hreflangMap).forEach(([code, url]) => { %>
+<link rel="alternate" hreflang="<%= code %>" href="<%= toAbsUrl(url) %>" />
 <% }) %>
 
-<link rel="alternate" hreflang="x-default" href="<%= seo?.canonical_url || 'https://www.herando.com/' %>" />
+<link rel="alternate" hreflang="x-default" href="<%= xDefaultUrl %>" />
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta property="og:title" content="<%= seo?.og_title || seo?.title || 'Herando – Luxus-Autos, Yachten, Immobilien & Uhren' %>">
 <meta property="og:description" content="<%= seo?.og_description || seo?.meta_description || 'Entdecken Sie über 100.000 Premium-Angebote weltweit.' %>">
-<meta property="og:image" content="<%= seo?.og_image || 'https://www.herando.com/assets/og-image.jpg' %>">
-<meta property="og:url" content="<%= seo?.canonical_url || 'https://www.herando.com/' %>">
+<meta property="og:image" content="<%= ogImage %>">
+<meta property="og:url" content="<%= canonicalUrl %>">
 <meta property="og:type" content="website">
 
 <meta name="twitter:card" content="<%= seo?.twitter_card || 'summary_large_image' %>">
 <meta name="twitter:title" content="<%= seo?.og_title || seo?.title || 'Herando – Luxus-Autos, Yachten, Immobilien & Uhren' %>">
 <meta name="twitter:description" content="<%= seo?.og_description || seo?.meta_description || 'Entdecken Sie über 100.000 Premium-Angebote weltweit.' %>">
-<meta name="twitter:image" content="<%= seo?.og_image || 'https://www.herando.com/assets/og-image.jpg' %>">
+<meta name="twitter:image" content="<%= ogImage %>">
 
 <% if (seo?.structured_data_json) { %>
 <script type="application/ld+json">
@@ -50,8 +51,8 @@
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "Herando",
-  "url": "https://www.herando.com/",
-  "logo": "https://www.herando.com/assets/herando-weblogo.svg"
+  "url": "<%= siteBase %>/",
+  "logo": "<%= toAbsUrl(siteLogoUrl || '/assets/herando-weblogo.svg') %>"
 }
 </script>
 <% } %>

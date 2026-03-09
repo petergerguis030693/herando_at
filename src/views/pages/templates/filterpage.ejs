@@ -49,6 +49,33 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
     opacity: 1 !important;
 }
 
+.md-title {
+    font-size: 26px;
+}
+
+.md-card > h3,
+.fp-card > h3,
+.fp-card__title {
+    font-size: 26px;
+}
+
+.bodytype-placeholder-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  height: 48px;
+  margin-bottom: 6px;
+  color: #64748b;
+  font-size: 28px;
+  line-height: 1;
+  letter-spacing: 3px;
+}
+
+.bodytype-card input[type="checkbox"]:checked + .bodytype-placeholder-icon {
+  color: #0f172a;
+}
+
 .btn-ghost:hover{
   color: white; 
 }
@@ -138,11 +165,11 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
   <div class="fp-head">
   <div class="fp-title"><%= t('filters.title', 'Erweiterte Suche') %> – <%= currentEntity.name %></div>
     <div class="fp-actions">
-      <a href="/<%= currentEntity.route %>"><%= BACK %></a>
+      <a href="<%= typeof entityPath === 'function' ? entityPath(currentEntity.route) : '/' + currentEntity.route %>"><%= BACK %></a>
     </div>
   </div>
 
-  <form id="fp-form" method="get" action="/<%= currentEntity.route %>">
+  <form id="fp-form" method="get" action="<%= typeof entityPath === 'function' ? entityPath(currentEntity.route) : '/' + currentEntity.route %>">
 
     <!-- =========================================================
          CARS: Basis + Technik + Innen + Extras
@@ -186,23 +213,32 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
     <% (filters.cartypes || []).forEach(ct => {
         const checked = (selectedFilters.cartype||[]).map(String).includes(String(ct.id));
         // Dateiname immer aus deutschem Basislabel (unabhängig von aktiver Sprache)
-        const fileBase = (ct.baseName || ct.name || '').toLowerCase()
+        const baseLabel = String(ct.baseName || ct.name || '');
+        const lowerBase = baseLabel.toLowerCase();
+        const isOther = lowerBase.includes('sonstig');
+        const isVanMinibus = lowerBase.includes('van') || lowerBase.includes('minibus') || String(ct.id) === '254';
+        const fileBase = baseLabel.toLowerCase()
           .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
           .trim();
-        const fileName = fileBase
+        const rawFileName = fileBase
           .replace(/\s+/g, '_')     // Leerzeichen zu Unterstrich
           .replace(/ä/g, 'ae')
           .replace(/ö/g, 'oe')
           .replace(/ü/g, 'ue')
           .replace(/ß/g, 'ss')
           .replace(/[^a-z0-9_]/g, ''); // Nur sichere Zeichen
+        const fileName = isVanMinibus ? 'sonstiges' : rawFileName;
     %>
       <label class="bodytype-card">
         <input type="checkbox" name="cartype" value="<%= ct.id %>" <%= checked ? 'checked' : '' %> />
-        <img 
-          src="/assets/<%= fileName %>.png" 
-          alt="<%= ct.name %>" 
-          style="width:auto; height:auto; margin-bottom:6px;">
+        <% if (isOther) { %>
+          <span class="bodytype-placeholder-icon" aria-hidden="true">...</span>
+        <% } else { %>
+          <img 
+            src="/assets/<%= fileName %>.png" 
+            alt="<%= ct.name %>" 
+            style="width:auto; height:auto; margin-bottom:6px;">
+        <% } %>
         <span style="width: 150px;" class="span"><%= ct.name %></span>
       </label>
     <% }) %>
@@ -250,26 +286,57 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
   </div>
 </div>
 
+<!-- Baujahr -->
+<div class="md-col-3">
+  <label class="md-label"><%= t('buyer.listing.car.year','Baujahr') %></label>
+  <div class="md-range">
+    <select name="yearMin" id="fCarYearMin">
+      <option value=""><%= t('labels.common.from','von') %></option>
+      <% for (let y = currentYear; y >= startYear; y--) { %>
+        <option value="<%= y %>"
+          <%= (selectedFilters.yearMin || []).map(String).includes(String(y)) ? 'selected' : '' %>>
+          <%= y %>
+        </option>
+      <% } %>
+    </select>
+    <span class="sep">–</span>
+    <select name="yearMax" id="fCarYearMax">
+      <option value=""><%= t('labels.common.to','bis') %></option>
+      <% for (let y = currentYear; y >= startYear; y--) { %>
+        <option value="<%= y %>"
+          <%= (selectedFilters.yearMax || []).map(String).includes(String(y)) ? 'selected' : '' %>>
+          <%= y %>
+        </option>
+      <% } %>
+    </select>
+  </div>
+</div>
+
 
 
 
 
         <!-- HU -->
-        <div class="md-col-3">
-          <label class="md-label"><%= t('filters.cars.hu_to','HU/AU bis') %></label>
-          <div class="md-select">
-            <select name="nextHuYear" id="fNextHu">
-              <option value=""><%= t('labels.common.any','Beliebig') %></option>
-
-              <% (filters.nextHuYears || [])
-                  .filter(y => Number(y) > 0)
-                  .forEach(y => { %>
-                <option value="<%= y %>"
-                  <%= (selectedFilters.nextHuYear || []).map(String).includes(String(y)) ? 'selected' : '' %>>
-                  <%= y %>
-                </option>
-              <% }) %>
-            </select>
+        <div class="md-col-6">
+          <label class="md-label"><%= t('filters.cars.hu_to','HU/AU') %></label>
+          <div class="md-range">
+            <input
+              type="number"
+              name="nextHuYearMin"
+              min="1900"
+              max="2100"
+              step="1"
+              value="<%= (selectedFilters.nextHuYearMin || [])[0] || '' %>"
+              placeholder="<%= t('labels.common.from','von') %>">
+            <span class="sep">-</span>
+            <input
+              type="number"
+              name="nextHuYearMax"
+              min="1900"
+              max="2100"
+              step="1"
+              value="<%= (selectedFilters.nextHuYearMax || [])[0] || '' %>"
+              placeholder="<%= t('labels.common.to','bis') %>">
           </div>
         </div>
 
@@ -339,7 +406,7 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
 
     <!-- ====== TECHNISCHE DATEN (Cars) ====== -->
 <section class="fp-card">
-  <h3><%= t('filters.cars.section_tech', 'Technische Daten') %></h3>
+  <h3 class="md-title"><%= t('filters.cars.section_tech', 'Technische Daten') %></h3>
 
   <!-- Kraftstoffart -->
   <div class="td-row">
@@ -350,7 +417,7 @@ const SHOWR = t('filters.actions.show_results', 'Ergebnisse anzeigen');
              const on = (selectedFilters.fuel||[]).map(String).includes(String(f.id)); %>
           <label class="chip-x <%= on?'active':'' %>">
             <input type="checkbox" name="fuel" value="<%= f.id %>" <%= on?'checked':'' %> />
-            <span><%= f.name %></span>
+            <span><%= t('filters.cars.fuel.' + f.id, f.name) %></span>
           </label>
         <% }) %>
       </div>
@@ -1850,6 +1917,21 @@ document.addEventListener("DOMContentLoaded", () => {
   </div>
 </div>
 
+    <div class="md-col-4">
+  <label class="md-label"><%= t('filters.realestate.stage','Bauphase') %></label>
+  <div class="md-select">
+    <select name="stage" id="fStage">
+      <option value=""><%= t('labels.common.any','Beliebig') %></option>
+      <% (filters.stages || []).forEach(stage => { %>
+        <option value="<%= stage.id %>" 
+          <%= (selectedFilters.stage || []).map(String).includes(String(stage.id)) ? 'selected' : '' %>>
+          <%= stage.name %>
+        </option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
 
     <!-- Land -->
     <div class="md-col-4">
@@ -1919,20 +2001,7 @@ document.addEventListener("DOMContentLoaded", () => {
       </div>
     </div>
 
-    <div class="md-col-4">
-  <label class="md-label"><%= t('filters.realestate.stage','Bauphase') %></label>
-  <div class="md-select">
-    <select name="stage" id="fStage">
-      <option value=""><%= t('labels.common.any','Beliebig') %></option>
-      <% (filters.stages || []).forEach(stage => { %>
-        <option value="<%= stage.id %>" 
-          <%= (selectedFilters.stage || []).map(String).includes(String(stage.id)) ? 'selected' : '' %>>
-          <%= stage.name %>
-        </option>
-      <% }) %>
-    </select>
-  </div>
-</div>
+
 
 
 
@@ -2112,7 +2181,7 @@ document.addEventListener("DOMContentLoaded", () => {
           name="model"
           id="fModel"
           class="md-input"
-          placeholder="Modell eingeben..."
+          placeholder="<%= t('filters.yacht.model_placeholder', 'Modell eingeben...') %>"
           value="<%= (selectedFilters.model && selectedFilters.model[0]) ? selectedFilters.model[0] : '' %>"
           style="height: 37px;"
         >
@@ -2162,7 +2231,7 @@ document.addEventListener("DOMContentLoaded", () => {
         <span class="sep">-</span>
         <input type="number" name="priceMax" min="0" step="1000" 
           value="<%= (selectedFilters.priceMax||[])[0] || '' %>" 
-          placeholder="<%= t('labels.year.to','bis') %>">
+          placeholder="<%= t('labels.price.to','bis') %>">
       </div>
     </div>
 
@@ -2185,7 +2254,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- ====== ANTRIEB ====== -->
 <section class="md-card">
-  <h3 style="margin-bottom: 30px;"><b>Technische Daten</b></h3>
+  <h3 class="md-title" style="margin-bottom: 30px;"><b><%= t('filters.yacht.section_technical_data', 'Technische Daten') %></b></h3>
   <h3 class="md-title"><%= t('filters.yacht.section_engine','Antrieb') %></h3>
   <div class="md-grid">
 
@@ -2200,9 +2269,9 @@ document.addEventListener("DOMContentLoaded", () => {
       max="10" 
       step="1"
       value="<%= (selectedFilters.engines_count_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="engines_count_max" 
@@ -2210,7 +2279,7 @@ document.addEventListener("DOMContentLoaded", () => {
       max="10" 
       step="1"
       value="<%= (selectedFilters.engines_count_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2225,16 +2294,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="10"
       value="<%= (selectedFilters.power_kw_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="power_kw_max" 
       min="0" 
       step="10"
       value="<%= (selectedFilters.power_kw_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2249,16 +2318,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="50"
       value="<%= (selectedFilters.hours_run_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="hours_run_max" 
       min="0" 
       step="50"
       value="<%= (selectedFilters.hours_run_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2270,7 +2339,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- Mindestgeschwindigkeit in km/h -->
 <div class="md-col-6">
-  <label class="md-label">Mindestgeschwindigkeit in km/h</label>
+  <label class="md-label"><%= t('filters.yacht.speed.min.kmh', 'Mindestgeschwindigkeit in km/h') %></label>
   <div class="md-range" style="margin-top:4px;">
     <input 
       type="number" 
@@ -2278,21 +2347,21 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="1"
       value="<%= (selectedFilters.cruising_speed_min||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.from','von') %>">
-    <span class="sep">–</span>
+      placeholder="<%= t('labels.common.from','von') %>">
+    <span class="sep">-</span>
     <input 
       type="number" 
       name="cruising_speed_max"
       min="0" 
       step="1"
       value="<%= (selectedFilters.cruising_speed_max||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.to','bis') %>">
+      placeholder="<%= t('labels.common.to','bis') %>">
   </div>
 </div>
 
 <!-- Mindestgeschwindigkeit in kn -->
 <div class="md-col-6">
-  <label class="md-label">Mindestgeschwindigkeit in kn</label>
+  <label class="md-label"><%= t('filters.yacht.speed.min.kn', 'Mindestgeschwindigkeit in kn') %></label>
   <div class="md-range" style="margin-top:4px;">
     <input 
       type="number" 
@@ -2300,21 +2369,21 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.cruising_speed_kn_min||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.from','von') %>">
-    <span class="sep">–</span>
+      placeholder="<%= t('labels.common.from','von') %>">
+    <span class="sep">-</span>
     <input 
       type="number" 
       name="cruising_speed_kn_max"
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.cruising_speed_kn_max||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.to','bis') %>">
+      placeholder="<%= t('labels.common.to','bis') %>">
   </div>
 </div>
 
 <!-- Maximale Geschwindigkeit in km/h -->
 <div class="md-col-6" style="margin-top:10px;">
-  <label class="md-label">Maximale Geschwindigkeit in km/h</label>
+  <label class="md-label"><%= t('filters.yacht.speed.max.kmh', 'Maximale Geschwindigkeit in km/h') %></label>
   <div class="md-range" style="margin-top:4px;">
     <input 
       type="number" 
@@ -2322,21 +2391,21 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="1"
       value="<%= (selectedFilters.max_speed_min||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.from','von') %>">
-    <span class="sep">–</span>
+      placeholder="<%= t('labels.common.from','von') %>">
+    <span class="sep">-</span>
     <input 
       type="number" 
       name="max_speed_max"
       min="0" 
       step="1"
       value="<%= (selectedFilters.max_speed_max||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.to','bis') %>">
+      placeholder="<%= t('labels.common.to','bis') %>">
   </div>
 </div>
 
 <!-- Maximale Geschwindigkeit in kn -->
 <div class="md-col-6" style="margin-top:10px;">
-  <label class="md-label">Maximale Geschwindigkeit in kn</label>
+  <label class="md-label"><%= t('filters.yacht.speed.max.kn', 'Maximale Geschwindigkeit in kn') %></label>
   <div class="md-range" style="margin-top:4px;">
     <input 
       type="number" 
@@ -2344,15 +2413,15 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.max_speed_kn_min||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.from','von') %>">
-    <span class="sep">–</span>
+      placeholder="<%= t('labels.common.from','von') %>">
+    <span class="sep">-</span>
     <input 
       type="number" 
       name="max_speed_kn_max"
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.max_speed_kn_max||[])[0] || '' %>"
-      placeholder="<%= t('labels.year.to','bis') %>">
+      placeholder="<%= t('labels.common.to','bis') %>">
   </div>
 </div>
 
@@ -2374,16 +2443,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="100"
       value="<%= (selectedFilters.tank_volume_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="tank_volume_max" 
       min="0" 
       step="100"
       value="<%= (selectedFilters.tank_volume_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2398,16 +2467,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="1"
       value="<%= (selectedFilters.displacement_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="displacement_max" 
       min="0" 
       step="1"
       value="<%= (selectedFilters.displacement_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2440,16 +2509,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.width_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="width_max" 
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.width_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2464,16 +2533,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.length_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="length_max" 
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.length_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2488,16 +2557,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.draft_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="draft_max" 
       min="0" 
       step="0.1"
       value="<%= (selectedFilters.draft_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2512,16 +2581,16 @@ document.addEventListener("DOMContentLoaded", () => {
       min="0" 
       step="100"
       value="<%= (selectedFilters.water_tankage_min||[])[0] || '' %>"
-      placeholder="von"
+      placeholder="<%= t('labels.common.from','von') %>"
       style="width: 45%;">
-    <span class="sep" style="margin: 0 5px;">bis</span>
+    <span class="sep" style="margin: 0 5px;">-</span>
     <input 
       type="number" 
       name="water_tankage_max" 
       min="0" 
       step="100"
       value="<%= (selectedFilters.water_tankage_max||[])[0] || '' %>"
-      placeholder="bis"
+      placeholder="<%= t('labels.common.to','bis') %>"
       style="width: 45%;">
   </div>
 </div>
@@ -2546,7 +2615,7 @@ document.addEventListener("DOMContentLoaded", () => {
           value="<%= (selectedFilters.cabins_min||[])[0] || '' %>"
           placeholder="<%= t('labels.cabins.from','von') %>"
           style="width:45%;">
-        <span class="sep" style="margin:0 5px;">bis</span>
+        <span class="sep" style="margin:0 5px;">-</span>
         <input 
           type="number" 
           id="fCabinsMax"
@@ -2581,17 +2650,17 @@ document.addEventListener("DOMContentLoaded", () => {
     ========================================================== -->
     <% if (currentEntity.route === 'lifestyles') { %>
     <section class="md-card">
-      <h3 class="md-title">Lifestyle-Filter</h3>
+      <h3 class="md-title"><%= t('buyer.listing.lifestyle.title', 'Lifestyle-Filter') %></h3>
       <div class="md-grid">
 
 <!-- KATEGORIE -->
 <div class="md-col-4">
-  <label class="md-label">Kategorie</label>
+  <label class="md-label"><%= t('buyer.listing.lifestyle.category', 'Kategorie') %></label>
   <div class="md-select">
     <select name="lifestyleType" id="fLifeType">
-      <option value="">Beliebig</option>
+      <option value=""><%= ANY %></option>
       <% (filters.lifestyleTypes || []).forEach(l => { %>
-        <option value="<%= l.id %>"><%= l.name %></option>
+        <option value="<%= l.id %>" <%= (selectedFilters.lifestyleType||[]).map(String).includes(String(l.id)) ? 'selected' : '' %>><%= t('lifestyle.brand.' + l.id, l.name) %></option>
       <% }) %>
     </select>
   </div>
@@ -2599,21 +2668,29 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <!-- UNTERKATEGORIE -->
 <div class="md-col-4">
-  <label class="md-label">Unterkategorie</label>
+  <label class="md-label"><%= t('buyer.listing.lifestyle.subcategory', 'Unterkategorie') %></label>
   <div class="md-select">
-    <select name="lifestyleSubcategory" id="fLifeSub" disabled>
-      <option value="">Beliebig</option>
+    <select
+      name="lifestyleSubcategory"
+      id="fLifeSub"
+      <%= !(filters.lifestyleSubcategories && filters.lifestyleSubcategories.length) ? 'disabled' : '' %>>
+      <option value=""><%= ANY %></option>
+      <% (filters.lifestyleSubcategories || []).forEach(sc => { %>
+        <option value="<%= sc.id %>" <%= (selectedFilters.lifestyleSubcategory||[]).map(String).includes(String(sc.id)) ? 'selected' : '' %>><%= t('lifestyle.subcategory.' + sc.id, sc.name) %></option>
+      <% }) %>
     </select>
   </div>
 </div>
 
 <script>
 document.getElementById('fLifeType').addEventListener('change', async function () {
+  const anyText = <%- JSON.stringify(ANY) %>;
+  const errorText = <%- JSON.stringify(t('errors.lifestyle_subcategory_load', 'Fehler beim Laden der Unterkategorien:')) %>;
   const brandId = this.value;
   const subSelect = document.getElementById('fLifeSub');
 
   // Reset dropdown
-  subSelect.innerHTML = '<option value="">Beliebig</option>';
+  subSelect.innerHTML = `<option value="">${anyText}</option>`;
   subSelect.disabled = true;
 
   // Wenn nichts ausgewählt → fertig
@@ -2636,7 +2713,7 @@ document.getElementById('fLifeType').addEventListener('change', async function (
     subSelect.disabled = false;
 
   } catch(err) {
-    console.error("Fehler beim Laden der Unterkategorien:", err);
+    console.error(errorText, err);
   }
 });
 </script>
@@ -2645,32 +2722,32 @@ document.getElementById('fLifeType').addEventListener('change', async function (
 
     <!-- PREIS -->
     <div class="md-col-4">
-      <label class="md-label">Preis (€)</label>
+      <label class="md-label"><%= t('labels.common.price', 'Preis (€)') %></label>
       <div class="md-range">
-        <input type="number" name="priceMin" min="0" step="100" placeholder="von">
-        <span class="sep">bis</span>
-        <input type="number" name="priceMax" min="0" step="100" placeholder="bis">
+        <input type="number" name="priceMin" min="0" step="100" value="<%= (selectedFilters.priceMin||[])[0] || '' %>" placeholder="<%= t('labels.price.from', 'von') %>">
+        <span class="sep">-</span>
+        <input type="number" name="priceMax" min="0" step="100" value="<%= (selectedFilters.priceMax||[])[0] || '' %>" placeholder="<%= t('labels.price.to', 'bis') %>">
       </div>
     </div>
 
 
     <!-- ORT / PLZ -->
     <div class="md-col-6">
-      <label class="md-label">Ort / PLZ</label>
+      <label class="md-label"><%= t('filters.realestate.location', 'Ort / PLZ') %></label>
       <div class="md-input">
-        <input type="text" name="location" placeholder="Beliebig">
+        <input type="text" name="location" value="<%= (selectedFilters.location||[])[0] || '' %>" placeholder="<%= ANY %>">
       </div>
     </div>
 
 
     <!-- LAND -->
     <div class="md-col-6">
-      <label class="md-label">Land</label>
+      <label class="md-label"><%= t('labels.common.country', 'Land') %></label>
       <div class="md-select">
         <select name="country">
-          <option value="">Beliebig</option>
+          <option value=""><%= ANY %></option>
           <% (filters.countries || []).forEach(c => { %>
-            <option value="<%= c.id %>"><%= c.name %></option>
+            <option value="<%= c.id %>" <%= (selectedFilters.country||[]).map(String).includes(String(c.id)) ? 'selected' : '' %>><%= t('country.' + c.id, c.name) %></option>
           <% }) %>
         </select>
       </div>
@@ -2747,7 +2824,7 @@ document.getElementById('fLifeType').addEventListener('change', async function (
 
     <!-- ====== Bottom Bar ====== -->
     <div class="fp-bottom">
-<a class="btn btn-ghost" id="fp-reset" href="/<%= currentEntity.route %>/filters">
+<a class="btn btn-ghost" id="fp-reset" href="<%= typeof entityPath === 'function' ? entityPath(currentEntity.route, 'filters') : '/' + currentEntity.route + '/filters' %>">
   <%= t('common.reset','Zurücksetzen') %>
 </a>
 
@@ -2775,7 +2852,7 @@ document.getElementById('fLifeType').addEventListener('change', async function (
     (location.pathname.split('/')[1] || 'cars');
     
 
-  // KEYS: für watches → brand_id/model_id, sonst brand/model
+  // KEYS: überall einheitlich brand/model
   const brandKey = 'brand';
   const modelKey = 'model';
 
@@ -2803,10 +2880,6 @@ document.getElementById('fLifeType').addEventListener('change', async function (
 
     // ----- Kompatibilitäts-Synonyme (nur Frontend) -----
     if (entity === 'watches') {
-      // brand_id/model_id zusätzlich mitsenden (für Backends die das erwarten)
-      const b = p.get('brand'); if (b) p.append('brand_id', b);
-      const m = p.get('model'); if (m) p.append('model_id', m);
-
       // functions / functions[] beide füllen
       const fn1 = p.getAll('functions');
       const fn2 = p.getAll('functions[]');
@@ -2904,7 +2977,7 @@ const updateCountDebounced = debounce(updateCount, 150);
 // ----- MODELS (abhängig von Entity) -----
 async function loadModels(preselectValue) {
   if (!brandSel?.value || !modelSel) return;
-  const qs = new URLSearchParams({ brand_id: brandSel.value, brand: brandSel.value });
+  const qs = new URLSearchParams({ brand: brandSel.value });
   const rows = await fetch(`/api/${entity}/models?` + qs.toString())
                 .then(r => r.ok ? r.json() : [])
                 .catch(() => []);
@@ -2964,15 +3037,25 @@ function syncModelEnabled() {
   });
   modelSel?.addEventListener('change', updateCountDebounced);
 
+  const actionPath = (() => {
+    try {
+      const action = form.getAttribute('action') || location.pathname;
+      const u = new URL(action, location.origin);
+      return (u.pathname || '/').replace(/\/+$/, '') || '/';
+    } catch {
+      return `/${entity}`;
+    }
+  })();
+
   form.addEventListener('submit', (e) => {
     e.preventDefault(); e.stopPropagation();
     const p = collectAllParams();
-    location.href = `/${entity}?` + p.toString();
+    location.href = `${actionPath}?` + p.toString();
   });
 
   applyBtn?.addEventListener('click', () => {
     const p = collectAllParams();
-    location.href = `/${entity}?` + p.toString();
+    location.href = `${actionPath}?` + p.toString();
   });
 
   resetBtn?.addEventListener('click', () => {

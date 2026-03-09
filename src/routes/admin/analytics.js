@@ -3,6 +3,7 @@
 
 const express = require('express');
 const db = require('../../db');
+const { ensureActivityLogTable } = require('../../service/activity-log');
 const router = express.Router();
 
 /* ------------------------ Utils ------------------------ */
@@ -37,6 +38,14 @@ function parseRange(q) {
     from = new Date(to.getTime() - 180 * 24 * 3600 * 1000);
   }
   return { from: startOfDay(from), to: endOfDay(to) };
+}
+function normCountry(v) {
+  const s = String(v || '').trim().toUpperCase();
+  return s || 'UNKNOWN';
+}
+function sqlCountryExpr(alias = 's') {
+  const a = alias ? `${alias}.` : '';
+  return `COALESCE(NULLIF(${a}country_code,''), 'UNKNOWN')`;
 }
 
 /* ------------------------ HTML Dashboard ------------------------ */
@@ -82,12 +91,13 @@ router.get('/', async (req, res, next) => {
 
     const [topClicks] = await db.query(
       `
-      SELECT COALESCE(target_url, CONCAT(path, ' [', element, ']')) AS target,
+      SELECT path,
+             COALESCE(target_url, CONCAT('[', COALESCE(element,'element'), '] ', COALESCE(element_text,''))) AS target,
              COUNT(*) AS clicks
         FROM visit_events
        WHERE event_type='click'
          AND created_at BETWEEN ? AND ?
-       GROUP BY COALESCE(target_url, CONCAT(path, ' [', element, ']'))
+       GROUP BY path, COALESCE(target_url, CONCAT('[', COALESCE(element,'element'), '] ', COALESCE(element_text,'')))
        ORDER BY clicks DESC
        LIMIT 50
       `,
@@ -123,7 +133,7 @@ router.get('/', async (req, res, next) => {
     res.render('admin/admin-analytics', {
       headerTitle: 'Analytics',
       currentUrl: req.originalUrl,
-      active: 'Analytics',
+      active: 'analytics',
       kpis,
       topPages,
       topClicks,
@@ -142,18 +152,58 @@ router.get('/summary.json', async (req, res, next) => {
   try {
     const { from, to } = parseRange(req.query);
     const fromSql = toSql(from), toSqlStr = toSql(to);
+    const rangeMs = Math.max(1, to.getTime() - from.getTime());
+    const prevTo = new Date(from.getTime() - 1);
+    const prevFrom = new Date(prevTo.getTime() - rangeMs);
+    const prevFromSql = toSql(prevFrom), prevToSql = toSql(prevTo);
 
     const [[kpis]] = await db.query(
       `
       SELECT
         (SELECT COUNT(*) FROM visit_pageviews WHERE started_at BETWEEN ? AND ?) AS pageviews,
         (SELECT COUNT(DISTINCT session_id) FROM visit_pageviews WHERE started_at BETWEEN ? AND ?) AS sessions,
-        (SELECT ROUND(AVG(duration_ms)/1000,1) FROM visit_pageviews WHERE started_at BETWEEN ? AND ? AND duration_ms IS NOT NULL) AS avg_time_s
+        (SELECT ROUND(AVG(duration_ms)/1000,1) FROM visit_pageviews WHERE started_at BETWEEN ? AND ? AND duration_ms IS NOT NULL) AS avg_time_s,
+        (SELECT COUNT(*) FROM visit_events WHERE created_at BETWEEN ? AND ?) AS events_total,
+        (SELECT ROUND(
+           SUM(CASE WHEN x.pv_cnt=1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) * 100, 1)
+           FROM (SELECT session_id, COUNT(*) AS pv_cnt
+                   FROM visit_pageviews
+                  WHERE started_at BETWEEN ? AND ?
+                  GROUP BY session_id) x) AS bounce_rate
       `,
-      [fromSql, toSqlStr, fromSql, toSqlStr, fromSql, toSqlStr]
+      [
+        fromSql, toSqlStr,
+        fromSql, toSqlStr,
+        fromSql, toSqlStr,
+        fromSql, toSqlStr,
+        fromSql, toSqlStr
+      ]
     );
 
-    const [series] = await db.query(
+    const [[prevKpis]] = await db.query(
+      `
+      SELECT
+        (SELECT COUNT(*) FROM visit_pageviews WHERE started_at BETWEEN ? AND ?) AS pageviews,
+        (SELECT COUNT(DISTINCT session_id) FROM visit_pageviews WHERE started_at BETWEEN ? AND ?) AS sessions,
+        (SELECT ROUND(AVG(duration_ms)/1000,1) FROM visit_pageviews WHERE started_at BETWEEN ? AND ? AND duration_ms IS NOT NULL) AS avg_time_s,
+        (SELECT COUNT(*) FROM visit_events WHERE created_at BETWEEN ? AND ?) AS events_total,
+        (SELECT ROUND(
+           SUM(CASE WHEN x.pv_cnt=1 THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0) * 100, 1)
+           FROM (SELECT session_id, COUNT(*) AS pv_cnt
+                   FROM visit_pageviews
+                  WHERE started_at BETWEEN ? AND ?
+                  GROUP BY session_id) x) AS bounce_rate
+      `,
+      [
+        prevFromSql, prevToSql,
+        prevFromSql, prevToSql,
+        prevFromSql, prevToSql,
+        prevFromSql, prevToSql,
+        prevFromSql, prevToSql
+      ]
+    );
+
+    const [viewsSeries] = await db.query(
       `
       SELECT DATE(started_at) AS day, COUNT(*) AS views
         FROM visit_pageviews
@@ -164,7 +214,62 @@ router.get('/summary.json', async (req, res, next) => {
       [fromSql, toSqlStr]
     );
 
-    res.json({ range: { from: fromSql, to: toSqlStr }, kpis, series });
+    const [sessionsSeries] = await db.query(
+      `
+      SELECT DATE(last_seen) AS day, COUNT(*) AS sessions
+        FROM visit_sessions
+       WHERE last_seen BETWEEN ? AND ?
+       GROUP BY day
+       ORDER BY day
+      `,
+      [fromSql, toSqlStr]
+    );
+
+    const normDay = (v) => {
+      if (v instanceof Date && !Number.isNaN(v.getTime())) return v.toISOString().slice(0, 10);
+      const s = String(v || '');
+      return s.length >= 10 ? s.slice(0, 10) : s;
+    };
+    const viewMap = new Map(viewsSeries.map(r => [normDay(r.day), Number(r.views || 0)]));
+    const sessionMap = new Map(sessionsSeries.map(r => [normDay(r.day), Number(r.sessions || 0)]));
+    const dayList = Array.from(new Set([...viewMap.keys(), ...sessionMap.keys()])).sort();
+    const series = dayList.map(day => ({
+      day,
+      views: viewMap.get(day) || 0,
+      sessions: sessionMap.get(day) || 0
+    }));
+
+    const current = {
+      ...kpis,
+      pageviews: Number(kpis?.pageviews || 0),
+      sessions: Number(kpis?.sessions || 0),
+      avg_time_s: Number(kpis?.avg_time_s || 0),
+      events_total: Number(kpis?.events_total || 0),
+      bounce_rate: Number(kpis?.bounce_rate || 0)
+    };
+    current.pages_per_session = current.sessions > 0
+      ? Math.round((current.pageviews / current.sessions) * 100) / 100
+      : 0;
+
+    const previous = {
+      ...prevKpis,
+      pageviews: Number(prevKpis?.pageviews || 0),
+      sessions: Number(prevKpis?.sessions || 0),
+      avg_time_s: Number(prevKpis?.avg_time_s || 0),
+      events_total: Number(prevKpis?.events_total || 0),
+      bounce_rate: Number(prevKpis?.bounce_rate || 0)
+    };
+    previous.pages_per_session = previous.sessions > 0
+      ? Math.round((previous.pageviews / previous.sessions) * 100) / 100
+      : 0;
+
+    res.json({
+      range: { from: fromSql, to: toSqlStr },
+      previous_range: { from: prevFromSql, to: prevToSql },
+      kpis: current,
+      previous_kpis: previous,
+      series
+    });
   } catch (err) { next(err); }
 });
 
@@ -199,12 +304,13 @@ router.get('/top-clicks.json', async (req, res, next) => {
 
     const [rows] = await db.query(
       `
-      SELECT COALESCE(target_url, CONCAT(path, ' [', element, ']')) AS target,
+      SELECT path,
+             COALESCE(target_url, CONCAT('[', COALESCE(element,'element'), '] ', COALESCE(element_text,''))) AS target,
              COUNT(*) AS clicks
         FROM visit_events
        WHERE event_type='click'
          AND created_at BETWEEN ? AND ?
-       GROUP BY COALESCE(target_url, CONCAT(path, ' [', element, ']'))
+       GROUP BY path, COALESCE(target_url, CONCAT('[', COALESCE(element,'element'), '] ', COALESCE(element_text,'')))
        ORDER BY clicks DESC
        LIMIT ?
       `,
@@ -273,6 +379,9 @@ router.get('/sessions.json', async (req, res, next) => {
              DATE_FORMAT(s.first_seen, '%Y-%m-%d %H:%i:%s') AS first_seen,
              DATE_FORMAT(s.last_seen,  '%Y-%m-%d %H:%i:%s') AS last_seen,
              INET6_NTOA(s.ip) AS ip,
+             COALESCE(s.device_type, '') AS device_type,
+             COALESCE(s.browser, '') AS browser,
+             COALESCE(s.os, '') AS os,
              s.utm_source, s.utm_medium, s.utm_campaign,
              (SELECT COUNT(*) FROM visit_pageviews pv WHERE pv.session_id=s.id) AS pv_count
         FROM visit_sessions s
@@ -282,6 +391,131 @@ router.get('/sessions.json', async (req, res, next) => {
       `,
       [fromSql, toSqlStr, limit]
     );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// GET /admin/analytics/activity.json
+router.get('/activity.json', async (req, res, next) => {
+  try {
+    await ensureActivityLogTable();
+    const { from, to } = parseRange(req.query);
+    const fromSql = toSql(from), toSqlStr = toSql(to);
+    const limit = clamp(req.query.limit || 100, { min: 1, max: 500 });
+
+    const actorRaw = String(req.query.actor || '').trim().toLowerCase();
+    const actor = (actorRaw === 'admin' || actorRaw === 'customer') ? actorRaw : '';
+    const userId = Number.parseInt(String(req.query.user_id || ''), 10);
+    const role = Number.parseInt(String(req.query.role || ''), 10);
+    const method = String(req.query.method || '').trim().toUpperCase();
+    const pathLike = String(req.query.path || '').trim();
+
+    const where = ['a.created_at BETWEEN ? AND ?'];
+    const params = [fromSql, toSqlStr];
+
+    if (actor) {
+      where.push('a.actor_type = ?');
+      params.push(actor);
+    }
+    if (Number.isInteger(userId) && userId > 0) {
+      where.push('a.actor_user_id = ?');
+      params.push(userId);
+    }
+    if (Number.isInteger(role)) {
+      where.push('a.actor_role = ?');
+      params.push(role);
+    }
+    if (method) {
+      where.push('a.method = ?');
+      params.push(method);
+    }
+    if (pathLike) {
+      where.push('a.path LIKE ?');
+      params.push(`%${pathLike}%`);
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT a.id,
+             DATE_FORMAT(a.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+             a.actor_type,
+             a.actor_user_id,
+             a.actor_role,
+             a.method,
+             a.path,
+             a.status_code,
+             a.duration_ms,
+             a.payload_json,
+             COALESCE(CONCAT(u.firstname, ' ', u.lastname), u.email, '') AS actor_name
+        FROM activity_log a
+   LEFT JOIN users u ON u.id = a.actor_user_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY a.created_at DESC
+       LIMIT ?
+      `,
+      [...params, limit]
+    );
+
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// GET /admin/analytics/click-events.json
+router.get('/click-events.json', async (req, res, next) => {
+  try {
+    const { from, to } = parseRange(req.query);
+    const fromSql = toSql(from), toSqlStr = toSql(to);
+    const limit = clamp(req.query.limit || 100, { min: 1, max: 500 });
+
+    const actorRaw = String(req.query.actor || '').trim().toLowerCase();
+    const actor = (actorRaw === 'admin' || actorRaw === 'customer') ? actorRaw : '';
+    const userId = Number.parseInt(String(req.query.user_id || ''), 10);
+    const role = Number.parseInt(String(req.query.role || ''), 10);
+    const pathLike = String(req.query.path || '').trim();
+
+    const where = ['ve.event_type = \'click\'', 've.created_at BETWEEN ? AND ?'];
+    const params = [fromSql, toSqlStr];
+
+    if (actor === 'admin') {
+      where.push('u.role IN (7,8,9)');
+    } else if (actor === 'customer') {
+      where.push('(u.role IS NULL OR u.role NOT IN (7,8,9))');
+    }
+    if (Number.isInteger(userId) && userId > 0) {
+      where.push('ve.user_id = ?');
+      params.push(userId);
+    }
+    if (Number.isInteger(role)) {
+      where.push('u.role = ?');
+      params.push(role);
+    }
+    if (pathLike) {
+      where.push('ve.path LIKE ?');
+      params.push(`%${pathLike}%`);
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT ve.id,
+             DATE_FORMAT(ve.created_at, '%Y-%m-%d %H:%i:%s') AS created_at,
+             ve.user_id,
+             u.role,
+             COALESCE(CONCAT(u.firstname, ' ', u.lastname), u.email, '') AS user_name,
+             ve.path,
+             ve.target_url,
+             ve.element,
+             ve.element_id,
+             ve.element_text,
+             ve.meta
+        FROM visit_events ve
+   LEFT JOIN users u ON u.id = ve.user_id
+       WHERE ${where.join(' AND ')}
+       ORDER BY ve.created_at DESC
+       LIMIT ?
+      `,
+      [...params, limit]
+    );
+
     res.json(rows);
   } catch (err) { next(err); }
 });
@@ -397,6 +631,237 @@ router.get('/entry-exit.json', async (req, res, next) => {
     );
 
     res.json({ entries, exits });
+  } catch (err) { next(err); }
+});
+
+/* ------------------------ Deep-Dive Auswertung ------------------------ */
+
+// GET /admin/analytics/country-overview.json
+router.get('/country-overview.json', async (req, res, next) => {
+  try {
+    const { from, to } = parseRange(req.query);
+    const fromSql = toSql(from), toSqlStr = toSql(to);
+    const limit = clamp(req.query.limit || 100, { min: 1, max: 250 });
+
+    const [sessionRows] = await db.query(
+      `
+      SELECT ${sqlCountryExpr('s')} AS country, COUNT(*) AS sessions
+        FROM visit_sessions s
+       WHERE s.last_seen BETWEEN ? AND ?
+       GROUP BY ${sqlCountryExpr('s')}
+       ORDER BY sessions DESC
+       LIMIT ?
+      `,
+      [fromSql, toSqlStr, limit]
+    );
+
+    const [pvRows] = await db.query(
+      `
+      SELECT ${sqlCountryExpr('s')} AS country,
+             COUNT(*) AS pageviews,
+             ROUND(AVG(pv.duration_ms)/1000, 1) AS avg_time_s
+        FROM visit_pageviews pv
+        JOIN visit_sessions s ON s.id = pv.session_id
+       WHERE pv.started_at BETWEEN ? AND ?
+       GROUP BY ${sqlCountryExpr('s')}
+      `,
+      [fromSql, toSqlStr]
+    );
+
+    const [evRows] = await db.query(
+      `
+      SELECT ${sqlCountryExpr('s')} AS country,
+             COUNT(*) AS events
+        FROM visit_events ve
+        JOIN visit_sessions s ON s.id = ve.session_id
+       WHERE ve.created_at BETWEEN ? AND ?
+       GROUP BY ${sqlCountryExpr('s')}
+      `,
+      [fromSql, toSqlStr]
+    );
+
+    const pvMap = new Map(pvRows.map(r => [normCountry(r.country), r]));
+    const evMap = new Map(evRows.map(r => [normCountry(r.country), r]));
+
+    const rows = sessionRows.map(r => {
+      const key = normCountry(r.country);
+      const pv = pvMap.get(key) || {};
+      const ev = evMap.get(key) || {};
+      return {
+        country: key,
+        sessions: Number(r.sessions || 0),
+        pageviews: Number(pv.pageviews || 0),
+        events: Number(ev.events || 0),
+        avg_time_s: Number(pv.avg_time_s || 0)
+      };
+    });
+
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// GET /admin/analytics/country-pages.json?country=AT
+router.get('/country-pages.json', async (req, res, next) => {
+  try {
+    const { from, to } = parseRange(req.query);
+    const fromSql = toSql(from), toSqlStr = toSql(to);
+    const limit = clamp(req.query.limit || 50, { min: 1, max: 200 });
+    const country = normCountry(req.query.country);
+
+    if (!country || country === 'UNKNOWN' && !String(req.query.country || '').trim()) {
+      return res.json([]);
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT pv.path,
+             COUNT(*) AS views,
+             COUNT(DISTINCT pv.session_id) AS sessions,
+             ROUND(AVG(pv.duration_ms)/1000, 1) AS avg_time_s
+        FROM visit_pageviews pv
+        JOIN visit_sessions s ON s.id = pv.session_id
+       WHERE pv.started_at BETWEEN ? AND ?
+         AND ${sqlCountryExpr('s')} = ?
+       GROUP BY pv.path
+       ORDER BY views DESC
+       LIMIT ?
+      `,
+      [fromSql, toSqlStr, country, limit]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// GET /admin/analytics/country-clicks.json?country=AT
+router.get('/country-clicks.json', async (req, res, next) => {
+  try {
+    const { from, to } = parseRange(req.query);
+    const fromSql = toSql(from), toSqlStr = toSql(to);
+    const limit = clamp(req.query.limit || 50, { min: 1, max: 200 });
+    const country = normCountry(req.query.country);
+
+    if (!country || country === 'UNKNOWN' && !String(req.query.country || '').trim()) {
+      return res.json([]);
+    }
+
+    const [rows] = await db.query(
+      `
+      SELECT ve.path,
+             COALESCE(ve.target_url, CONCAT('[', COALESCE(ve.element,'element'), '] ', COALESCE(ve.element_text,''))) AS target,
+             COUNT(*) AS clicks
+        FROM visit_events ve
+        JOIN visit_sessions s ON s.id = ve.session_id
+       WHERE ve.event_type = 'click'
+         AND ve.created_at BETWEEN ? AND ?
+         AND ${sqlCountryExpr('s')} = ?
+       GROUP BY ve.path, COALESCE(ve.target_url, CONCAT('[', COALESCE(ve.element,'element'), '] ', COALESCE(ve.element_text,'')))
+       ORDER BY clicks DESC
+       LIMIT ?
+      `,
+      [fromSql, toSqlStr, country, limit]
+    );
+    res.json(rows);
+  } catch (err) { next(err); }
+});
+
+// GET /admin/analytics/page-drilldown.json?path=/cars
+router.get('/page-drilldown.json', async (req, res, next) => {
+  try {
+    const { from, to } = parseRange(req.query);
+    const fromSql = toSql(from), toSqlStr = toSql(to);
+    const limit = clamp(req.query.limit || 20, { min: 1, max: 200 });
+    const path = String(req.query.path || '').trim();
+    if (!path) {
+      return res.json({
+        path: '',
+        summary: { views: 0, sessions: 0, avg_time_s: 0, exits: 0, exit_rate: 0 },
+        countries: [],
+        clicks: [],
+        referrers: []
+      });
+    }
+
+    const [[summary]] = await db.query(
+      `
+      SELECT
+        COUNT(*) AS views,
+        COUNT(DISTINCT pv.session_id) AS sessions,
+        ROUND(AVG(pv.duration_ms)/1000, 1) AS avg_time_s,
+        SUM(CASE WHEN pv.is_exit = 1 THEN 1 ELSE 0 END) AS exits
+      FROM visit_pageviews pv
+      WHERE pv.path = ?
+        AND pv.started_at BETWEEN ? AND ?
+      `,
+      [path, fromSql, toSqlStr]
+    );
+
+    const [countries] = await db.query(
+      `
+      SELECT ${sqlCountryExpr('s')} AS country,
+             COUNT(*) AS views,
+             COUNT(DISTINCT pv.session_id) AS sessions,
+             ROUND(AVG(pv.duration_ms)/1000, 1) AS avg_time_s
+        FROM visit_pageviews pv
+        JOIN visit_sessions s ON s.id = pv.session_id
+       WHERE pv.path = ?
+         AND pv.started_at BETWEEN ? AND ?
+       GROUP BY ${sqlCountryExpr('s')}
+       ORDER BY views DESC
+       LIMIT ?
+      `,
+      [path, fromSql, toSqlStr, limit]
+    );
+
+    const [clicks] = await db.query(
+      `
+      SELECT COALESCE(target_url, CONCAT('[', COALESCE(element,'element'), '] ', COALESCE(element_text,''))) AS target,
+             COUNT(*) AS clicks
+        FROM visit_events
+       WHERE event_type = 'click'
+         AND path = ?
+         AND created_at BETWEEN ? AND ?
+       GROUP BY COALESCE(target_url, CONCAT('[', COALESCE(element,'element'), '] ', COALESCE(element_text,'')))
+       ORDER BY clicks DESC
+       LIMIT ?
+      `,
+      [path, fromSql, toSqlStr, limit]
+    );
+
+    const [referrers] = await db.query(
+      `
+      SELECT referer, COUNT(*) AS hits
+        FROM visit_pageviews
+       WHERE path = ?
+         AND started_at BETWEEN ? AND ?
+         AND referer IS NOT NULL AND referer <> ''
+       GROUP BY referer
+       ORDER BY hits DESC
+       LIMIT ?
+      `,
+      [path, fromSql, toSqlStr, limit]
+    );
+
+    const views = Number(summary?.views || 0);
+    const exits = Number(summary?.exits || 0);
+
+    res.json({
+      path,
+      summary: {
+        views,
+        sessions: Number(summary?.sessions || 0),
+        avg_time_s: Number(summary?.avg_time_s || 0),
+        exits,
+        exit_rate: views > 0 ? Math.round((exits / views) * 1000) / 10 : 0
+      },
+      countries: countries.map(r => ({
+        country: normCountry(r.country),
+        views: Number(r.views || 0),
+        sessions: Number(r.sessions || 0),
+        avg_time_s: Number(r.avg_time_s || 0)
+      })),
+      clicks: clicks.map(r => ({ target: r.target || '–', clicks: Number(r.clicks || 0) })),
+      referrers: referrers.map(r => ({ referer: r.referer || '–', hits: Number(r.hits || 0) }))
+    });
   } catch (err) { next(err); }
 });
 

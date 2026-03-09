@@ -54,6 +54,32 @@
   .note-hint {
     margin-left: 0 !important;
   }
+
+  .listing-price-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .listing-price-input-wrap,
+  .listing-currency-wrap,
+  .listing-month-select {
+    width: 100% !important;
+    flex: 1 1 auto;
+  }
+
+  .listing-split-select {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .listing-split-select .me-2 {
+    margin-right: 0 !important;
+  }
+
+  .listing-alert {
+    min-width: 0 !important;
+    width: min(92vw, 520px);
+  }
 }
 
 .form-control:focus {
@@ -84,9 +110,26 @@
   margin-left: 5px;
 }
 
-.col-md-3 {
-    flex: 0 0 auto;
-    width: 10%;
+.listing-price-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.listing-price-input-wrap {
+  width: 220px;
+  max-width: 100%;
+  flex: 0 0 220px;
+}
+
+.listing-currency-wrap {
+  width: 120px;
+  max-width: 100%;
+  flex: 0 0 120px;
+}
+
+.listing-month-select {
+  width: 150px;
 }
 
 /* Yacht speed fields: always one row, fixed alignment */
@@ -119,20 +162,27 @@
   }
 }
 
+@media (min-width: 768px) {
+    .col-md-3 {
+        flex: 0 0 auto;
+        width: 12% !important;
+    }
+}
+
                </style>
 <body>
 
 
   <!-- Flash-Messages -->
   <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
-    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle listing-alert"
          role="alert" style="z-index:1050;min-width:300px;">
       <%= errorMessage %>
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<%= t('global.close', 'Schließen') %>"></button>
     </div>
   <% } %>
   <% if (typeof successMessage !== 'undefined' && successMessage) { %>
-    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle"
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle listing-alert"
          role="alert" style="z-index:1050;min-width:300px;">
       <%= successMessage %>
       <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<%= t('global.close', 'Schließen') %>"></button>
@@ -206,9 +256,9 @@
       * <%= t('buyer.listing.general.price') %>
     </label>
 
-    <div class="col-md-7 d-flex align-items-center gap-3">
+    <div class="col-md-7 listing-price-controls">
       <!-- Preisfeld -->
-      <div style="width: 220px;">
+      <div class="listing-price-input-wrap">
         <input
           id="priceFormatted"
           type="text"
@@ -236,7 +286,7 @@
       </div>
 
       <!-- Währung -->
-      <div style="width: 120px;">
+      <div class="listing-currency-wrap">
         <select id="currency" name="currency" class="form-select">
           <% currencies.forEach(cur => { %>
             <option value="<%= cur %>" <%= cur === 'EUR' ? 'selected' : '' %>>
@@ -791,9 +841,9 @@ document.getElementById('brandSelect').addEventListener('change', async function
     <!-- 🚗 Erstzulassung -->
     <div class="col-md-4">
       <label class="form-label d-block"><%= t('buyer.listing.car.firstreg') %></label>
-      <div class="d-flex">
+      <div class="d-flex listing-split-select">
 
-        <select name="firstregistration_month" class="form-select me-2" style="width: 150px;">
+        <select name="firstregistration_month" class="form-select me-2 listing-month-select">
           <option value="" selected><%= t('global.form.month') %></option>
           <% months.forEach((m, i) => { %>
             <option value="<%= i + 1 %>"><%= m %></option>
@@ -813,9 +863,9 @@ document.getElementById('brandSelect').addEventListener('change', async function
     <!-- 🔧 Nächste HU -->
     <div class="col-md-4">
       <label class="form-label d-block"><%= t('buyer.listing.car.maininspection') %></label>
-      <div class="d-flex">
+      <div class="d-flex listing-split-select">
 
-        <select name="maininspection_month" class="form-select me-2" style="width: 150px;">
+        <select name="maininspection_month" class="form-select me-2 listing-month-select">
           <option value="" selected><%= t('global.form.month') %></option>
           <% months.forEach((m, i) => { %>
             <option value="<%= i + 1 %>"><%= m %></option>
@@ -838,7 +888,7 @@ document.getElementById('brandSelect').addEventListener('change', async function
       <select id="quality" name="quality" class="form-select">
         <option value="" selected>---</option>
         <% extras.shape.forEach(o => { %>
-          <option value="<%= o.value %>"><%= o.label %></option>
+          <option value="<%= o.value %>"><%= t('filters.cars.shape.' + o.value, o.label) %></option>
         <% }) %>
       </select>
     </div>
@@ -853,8 +903,8 @@ document.getElementById('brandSelect').addEventListener('change', async function
       <select id="cartype" name="cartype" class="form-select" required>
         <option value="" selected>---</option>
         <% extras.cartype.forEach(o => { %>
-          <option value="<%= o.value %>">
-            <%= t('attribute.cars.cartype.' + o.value) %>
+        <option value="<%= o.value %>">
+            <%= t('attribute.cars.cartype.' + o.value, o.label) %>
           </option>
         <% }) %>
       </select>

@@ -1,194 +1,529 @@
-  <%- include('../partials/header-admin') %>
-
+<%- include('../partials/header-admin') %>
+<%
+  const snap = (typeof snapshot24h !== 'undefined' && snapshot24h) ? snapshot24h : {};
+  const customers = Array.isArray(recentCustomers) ? recentCustomers : [];
+  const pkgBookings = Array.isArray(recentPackageBookings) ? recentPackageBookings : [];
+  const adPkgOrders = Array.isArray(recentUserPackageOrders) ? recentUserPackageOrders : [];
+  const pages24 = Array.isArray(topPages24h) ? topPages24h : [];
+  const refs24 = Array.isArray(topReferrers24h) ? topReferrers24h : [];
+  const invRecent = Array.isArray(recentInvoices) ? recentInvoices : [];
+  const ents = Array.isArray(entieties) ? entieties : [];
+  const created24ByType = (typeof listingsCreatedLast24ByType === 'object' && listingsCreatedLast24ByType) ? listingsCreatedLast24ByType : {};
+  const acc = (typeof accountingSummary !== 'undefined' && accountingSummary) ? accountingSummary : {};
+  const money = (v) => Number(v || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const num = (v) => Number(v || 0).toLocaleString('de-DE');
+  const customerLabel = (u) => {
+    const name = [u.firstname, u.lastname].filter(Boolean).join(' ').trim();
+    return name || u.company || u.email || `#${u.id}`;
+  };
+%>
 
 <div class="d-flex">
-  <!-- Sidebar -->
   <aside class="sidebar bg-light p-3" style="width: 250px;">
-    <%- include('./sidebar', { active: active }) %>
+    <%- include('./sidebar', { active: active, role: role }) %>
   </aside>
 
-  
+  <main class="main-content flex-fill px-4 py-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+      <div>
+        <% if (gender === 2) { %>
+          <h3 class="mb-1">Willkommen, Herr <%= userName %></h3>
+        <% } else if (gender === 1) { %>
+          <h3 class="mb-1">Willkommen, Frau <%= userName %></h3>
+        <% } else if (gender === 3) { %>
+          <h3 class="mb-1">Guten Tag, <%= userName %></h3>
+        <% } else { %>
+          <h3 class="mb-1">Willkommen, <%= userName %></h3>
+        <% } %>
+        <div class="text-muted">Admin-Übersicht mit Live-Daten der letzten 24 Stunden (Besucher gesamt über alle getrackten Zugriffe).</div>
+      </div>
+      <div class="d-flex gap-2">
+        <a href="/admin/analytics" class="btn btn-outline-primary">
+          <i class="bi bi-graph-up me-1"></i> Analytics
+        </a>
+        <a href="/admin/accounting" class="btn btn-primary">
+          <i class="bi bi-receipt me-1"></i> Buchhaltung
+        </a>
+      </div>
+    </div>
 
-        <!-- Main Content -->
-        <main class="main-content flex-fill">
-            <div class="content">
-              <!-- HTML / EJS -->
-              <div class="welcome-banner">
-                <div class="welcome-text">
-                  <% if (gender === 2) { %>
-                    <h4>Willkommen, Herr <%= userName %>!</h4>
-                  <% } else if (gender === 1) { %>
-                    <h4>Willkommen, Frau <%= userName %>!</h4>
-                  <% } else if (gender === 3) { %>
-                    <h4>Guten Tag, <%= userName %>!</h4>
-                  <% } else { %>
-                    <h4>Willkommen, <%= userName %>!</h4>
-                  <% } %>
-                  <p>Willkommen zurück!</p>
-                </div>
-                <div class="welcome-icon">
-                  <!-- Du kannst hier dein eigenes Diagramm-SVG oder ein <img> verwenden -->
-                  <svg width="120" height="120" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <!-- Beispiel eines einfachen Balkendiagramm-Icons -->
-                    <rect x="3" y="13" width="4" height="8" rx="1" fill="#fff" fill-opacity="0.8"/>
-                    <rect x="10" y="8" width="4" height="13" rx="1" fill="#fff" fill-opacity="0.8"/>
-                    <rect x="17" y="4" width="4" height="17" rx="1" fill="#fff" fill-opacity="0.8"/>
-                  </svg>
-                </div>
-              </div><BR><BR>
+    <div class="row g-3 mb-4">
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Besucher (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(snap.visitors_24h) %></div>
+            <div class="small text-muted">Davon bekannte Nutzer: <%= num(snap.known_visitors_24h) %></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Pageviews (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(snap.pageviews_24h) %></div>
+            <div class="small text-muted">Events: <%= num(snap.events_24h) %></div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Neue Kunden (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(snap.new_customers_24h) %></div>
+            <div class="small text-muted">Neu registriert</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Inserate erstellt (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(snap.listings_created_24h_total) %></div>
+            <div class="small text-muted">Über alle Kategorien</div>
+          </div>
+        </div>
+      </div>
 
-              <div class="row">
-                  <!-- Erstes Chart: Neue Registrierungen -->
-                  <div class="col-md-4 mb-4">
-                      <div class="card h-100">
-                          <div class="card-header bg-herando text-white">
-                        Neue Registrierungen (7 Tage)
-                      </div>
-                      <div class="card-body">
-                        <canvas id="chartUsers"></canvas>
-                      </div>
-                    </div>
-                  </div>
-                
-                  <!-- Zweites Chart: Umsatz -->
-                  <div class="col-md-4 mb-4">
-                      <div class="card h-100">
-                          <div class="card-header bg-herando text-white">
-                              Umsatz pro Monat
-                      </div>
-                      <div class="card-body">
-                        <canvas id="chartRevenue"></canvas>
-                      </div>
-                    </div>
-                  </div>
-                
-                  <!-- Drittes Chart: Listings -->
-                  <div class="col-md-4 mb-4">
-                    <div class="card h-100">
-                      <div class="card-header bg-herando text-white">
-                        Aktive Inserate nach Kategorie
-                      </div>
-                      <div class="card-body">
-                        <canvas id="chartListings"></canvas>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                
-                
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Listing-Pakete neu (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(snap.new_listing_packages_24h) %></div>
+            <div class="small text-muted">`selected_packages`</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Werbe-Pakete neu (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(snap.new_marketing_packages_24h) %></div>
+            <div class="small text-muted">`user_package_orders`</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Rechnungen (24h)</div>
+            <div class="fs-4 fw-bold"><%= num(snap.invoices_24h) %></div>
+            <div class="small text-muted">Heute + letzte 24h Bewegungen</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-6 col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="text-muted small">Umsatz (24h)</div>
+            <div class="fs-4 fw-bold"><%= money(snap.revenue_24h) %> €</div>
+            <div class="small text-muted">Aus `orders` + `packages`</div>
+          </div>
+        </div>
+      </div>
+    </div>
 
-                <div class="row mt-4">
-                  <% entieties.forEach(ent => { %>
-                    <div class="col-md-3 mb-3">
-                      <div class="card text-white border-0" style="
-                        background-image: url('https://picsum.photos/seed/<%= ent.table_name %>/400/200');
-                        background-size: cover;
-                        background-position: center;
-                        height: 200px;
-                      ">
-                        <div class="card-body d-flex flex-column justify-content-end bg-dark bg-opacity-50 p-2" style="height: 100%;">
-                          <h5 class="card-title mb-1"><%= ent.name %></h5>
-                          <a href="/admin/listings?category=<%= ent.table_name %>" class="btn btn-light btn-sm">
-                            Zu <%= ent.name %>
-                          </a>
-                        </div>
-                      </div>
-                    </div>
-                  <% }) %>
-                </div>
-                                  
-
+    <div class="row g-3 mt-1" style="margin-bottom: 50px;">
+      <% ents.forEach((ent) => { %>
+        <div class="col-md-6 col-xl-3">
+          <div class="card text-white border-0 shadow-sm" style="background-image:url('https://picsum.photos/seed/<%= ent.table_name %>/480/220'); background-size:cover; background-position:center; min-height:190px;">
+            <div class="card-body d-flex flex-column justify-content-end bg-dark bg-opacity-50">
+              <h5 class="card-title mb-1"><%= ent.name %></h5>
+              <div class="small mb-2">Aktiv: <%= num((listingsByType || {})[ent.name]) %> | Neu 24h: <%= num(created24ByType[ent.name]) %></div>
+              <a href="/admin/listings?category=<%= ent.table_name %>" class="btn btn-light btn-sm">Zu <%= ent.name %></a>
             </div>
-        </main>
+          </div>
+        </div>
+      <% }) %>
+    </div>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-          fetch('/admin/api/stats')
-            .then(res => res.json())
-            .then(({ usersPerDay, listingsByType, revenuePerMonth }) => {
-              console.log('usersPerDay:', usersPerDay);
-      
-              // 1) Neue User pro Tag
-              const ctxUsers = document
-                .getElementById('chartUsers')
-                .getContext('2d');
-              new Chart(ctxUsers, {
-                type: 'line',
-                data: {
-                  labels: usersPerDay.map(r => r.date),
-                  datasets: [{
-                    label: 'Neue User',
-                    data: usersPerDay.map(r => r.count),
-                    fill: false,
-                    tension: 0.1,
-                    borderColor: '#080422',
-                    backgroundColor: '#080422'
-                  }]
-                },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: { beginAtZero: true }
-                  }
-                }
-              });
-      
-              // 2) Umsatz pro Monat
-              const ctxRevenue = document
-                .getElementById('chartRevenue')
-                .getContext('2d');
-              new Chart(ctxRevenue, {
-                type: 'bar',
-                data: {
-                  labels: revenuePerMonth.map(r => r.month),
-                  datasets: [{
-                    label: 'Umsatz (€)',
-                    data: revenuePerMonth.map(r => r.revenue),
-                    backgroundColor: '#080422'
-                  }]
-                },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false,
-                  scales: {
-                    y: { beginAtZero: true }
-                  }
-                }
-              });
-      
-              // 3) Aktive Inserate nach Kategorie
-              const ctxListings = document
-                .getElementById('chartListings')
-                .getContext('2d');
-              new Chart(ctxListings, {
-                type: 'pie',
-                data: {
-                  labels: Object.keys(listingsByType),
-                  datasets: [{
-                    data: Object.values(listingsByType),
-                    backgroundColor: [
-                      '#080422','#4e73df','#1cc88a','#36b9cc'
-                    ]
-                  }]
-                },
-                options: {
-                  responsive: true,
-                  maintainAspectRatio: false
-                }
-              });
-            })
-            .catch(err => {
-              console.error('Statistik‑Fehler:', err);
-            });
-        });
-      </script>
-      
+    <div class="row g-3 mb-4">
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-herando text-white">Neue Registrierungen (7 Tage)</div>
+          <div class="card-body" style="min-height: 260px;">
+            <canvas id="chartUsers"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-herando text-white">Umsatz pro Monat</div>
+          <div class="card-body" style="min-height: 260px;">
+            <canvas id="chartRevenue"></canvas>
+          </div>
+        </div>
+      </div>
+      <div class="col-lg-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header bg-herando text-white">Aktive Inserate nach Kategorie</div>
+          <div class="card-body" style="min-height: 260px;">
+            <canvas id="chartListings"></canvas>
+          </div>
+        </div>
+      </div>
+    </div>
 
 
-</body>
 
-</html>
+    <div class="row g-3 mb-4">
+      <div class="col-xl-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Neu registrierte Kunden (letzte 10)</span>
+            <a href="/admin/users" class="btn btn-sm btn-outline-secondary">Alle Benutzer</a>
+          </div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Kunde</th>
+                    <th>E-Mail</th>
+                    <th>Registriert</th>
+                    <th>Zuletzt online</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!customers.length) { %>
+                    <tr><td colspan="5" class="text-center text-muted py-3">Keine Kundendaten gefunden.</td></tr>
+                  <% } %>
+                  <% customers.forEach((u) => { %>
+                    <tr>
+                      <td><%= u.id %></td>
+                      <td>
+                        <a href="/admin/users/<%= u.id %>/edit" class="text-decoration-none"><%= customerLabel(u) %></a>
+                        <div class="small text-muted">Sessions: <%= num(u.analytics_sessions) %></div>
+                      </td>
+                      <td class="text-truncate" style="max-width: 220px;"><%= u.email || '–' %></td>
+                      <td><%= u.created || '–' %></td>
+                      <td><%= u.last_online || '–' %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Neu gebuchte Listing-Pakete (letzte 10)</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Kunde</th>
+                    <th>Paket</th>
+                    <th>Kategorie</th>
+                    <th>Gebucht am</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!pkgBookings.length) { %>
+                    <tr><td colspan="5" class="text-center text-muted py-3">Keine Paketbuchungen gefunden.</td></tr>
+                  <% } %>
+                  <% pkgBookings.forEach((r) => { %>
+                    <tr>
+                      <td><%= r.id %></td>
+                      <td>
+                        <a href="/admin/users/<%= r.user_id %>/edit" class="text-decoration-none"><%= r.customer_name %></a>
+                        <div class="small text-muted text-truncate" style="max-width: 200px;"><%= r.email || '–' %></div>
+                      </td>
+                      <td class="text-truncate" style="max-width: 220px;"><%= r.package_name || r.package_id || '–' %></td>
+                      <td><%= r.category_name || '–' %></td>
+                      <td><%= r.created_at || r.start_date || '–' %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-xl-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Neu gebuchte Werbe-/Userpackages (letzte 10)</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>Kunde</th>
+                    <th>Paket</th>
+                    <th>Status</th>
+                    <th>Start</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!adPkgOrders.length) { %>
+                    <tr><td colspan="5" class="text-center text-muted py-3">Keine Werbe-/Userpackage-Buchungen gefunden.</td></tr>
+                  <% } %>
+                  <% adPkgOrders.forEach((r) => { %>
+                    <tr>
+                      <td><%= r.id %></td>
+                      <td class="text-truncate" style="max-width: 170px;"><a href="/admin/users/<%= r.user_id %>/edit" class="text-decoration-none"><%= r.customer_name %></a></td>
+                      <td class="text-truncate" style="max-width: 200px;"><%= r.package_name || '–' %></td>
+                      <td><span class="badge text-bg-<%= r.status === 'paid' ? 'success' : (r.status === 'pending' ? 'warning' : 'secondary') %>"><%= r.status %></span></td>
+                      <td><%= r.start_date || '–' %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Top-Seiten (24h)</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>Seite</th>
+                    <th class="text-end">Views</th>
+                    <th class="text-end">Ø Zeit</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!pages24.length) { %>
+                    <tr><td colspan="3" class="text-center text-muted py-3">Noch keine Pageview-Daten in den letzten 24h.</td></tr>
+                  <% } %>
+                  <% pages24.forEach((r) => { %>
+                    <tr>
+                      <td class="text-truncate" style="max-width: 260px;" title="<%= r.path %>"><%= r.path %></td>
+                      <td class="text-end"><%= num(r.views) %></td>
+                      <td class="text-end"><%= (r.avg_time_s == null ? '–' : Number(r.avg_time_s).toLocaleString('de-DE', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + 's') %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="card-footer bg-transparent">
+            <a href="/admin/analytics" class="btn btn-sm btn-outline-primary">Mehr Analytics</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Referrer (24h)</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0 align-middle">
+                <thead>
+                  <tr>
+                    <th>Referrer</th>
+                    <th class="text-end">Hits</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!refs24.length) { %>
+                    <tr><td colspan="2" class="text-center text-muted py-3">Keine Referrer-Daten in den letzten 24h.</td></tr>
+                  <% } %>
+                  <% refs24.forEach((r) => { %>
+                    <tr>
+                      <td class="text-truncate" style="max-width: 280px;" title="<%= r.referer %>"><%= r.referer %></td>
+                      <td class="text-end"><%= num(r.hits) %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-4">
+      <div class="col-xl-5">
+        <div class="card shadow-sm h-100">
+          <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Buchhaltung Schnellüberblick</span>
+            <a href="/admin/accounting" class="btn btn-sm btn-outline-primary">Zur Buchhaltung</a>
+          </div>
+          <div class="card-body">
+            <div class="row g-3">
+              <div class="col-6">
+                <div class="border rounded p-3 h-100">
+                  <div class="text-muted small">Gesamt Rechnungen</div>
+                  <div class="fs-5 fw-bold"><%= num(acc.total_invoices) %></div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 h-100">
+                  <div class="text-muted small">Gesamt Umsatz</div>
+                  <div class="fs-5 fw-bold"><%= money(acc.total_revenue) %> €</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 h-100">
+                  <div class="text-muted small">Rechnungen (30 Tage)</div>
+                  <div class="fs-5 fw-bold"><%= num(acc.invoices_30d) %></div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 h-100">
+                  <div class="text-muted small">Umsatz (30 Tage)</div>
+                  <div class="fs-5 fw-bold"><%= money(acc.revenue_30d) %> €</div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 h-100">
+                  <div class="text-muted small">Rechnungen heute</div>
+                  <div class="fs-5 fw-bold"><%= num(acc.invoices_today) %></div>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="border rounded p-3 h-100">
+                  <div class="text-muted small">Umsatz heute</div>
+                  <div class="fs-5 fw-bold"><%= money(acc.revenue_today) %> €</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-4">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Neue Inserate nach Kategorie (24h)</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>Kategorie</th>
+                    <th class="text-end">Neu (24h)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% const createdRows = Object.entries(created24ByType); %>
+                  <% if (!createdRows.length) { %>
+                    <tr><td colspan="2" class="text-center text-muted py-3">Keine Kategorien gefunden.</td></tr>
+                  <% } %>
+                  <% createdRows.forEach(([label, cnt]) => { %>
+                    <tr>
+                      <td><%= label %></td>
+                      <td class="text-end"><%= num(cnt) %></td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-xl-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-header">Letzte Rechnungen</div>
+          <div class="card-body p-0">
+            <div class="table-responsive">
+              <table class="table table-sm mb-0">
+                <thead>
+                  <tr>
+                    <th>Nr.</th>
+                    <th class="text-end">Betrag</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% if (!invRecent.length) { %>
+                    <tr><td colspan="2" class="text-center text-muted py-3">Keine Rechnungen gefunden.</td></tr>
+                  <% } %>
+                  <% invRecent.forEach((r) => { %>
+                    <tr>
+                      <td class="text-truncate" style="max-width: 140px;" title="<%= r.document %>"><%= r.document %></td>
+                      <td class="text-end"><%= money(r.amount) %> €</td>
+                    </tr>
+                  <% }) %>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  fetch('/admin/api/stats')
+    .then((res) => {
+      if (!res.ok) throw new Error('Dashboard-Stats konnten nicht geladen werden.');
+      return res.json();
+    })
+    .then(({ usersPerDay = [], listingsByType = {}, revenuePerMonth = [] }) => {
+      const usersCanvas = document.getElementById('chartUsers');
+      const revenueCanvas = document.getElementById('chartRevenue');
+      const listingsCanvas = document.getElementById('chartListings');
+      if (!usersCanvas || !revenueCanvas || !listingsCanvas) return;
+
+      new Chart(usersCanvas.getContext('2d'), {
+        type: 'line',
+        data: {
+          labels: usersPerDay.map(r => r.date),
+          datasets: [{
+            label: 'Neue User',
+            data: usersPerDay.map(r => r.count),
+            fill: false,
+            tension: 0.2,
+            borderColor: '#080422',
+            backgroundColor: '#080422'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+        }
+      });
+
+      new Chart(revenueCanvas.getContext('2d'), {
+        type: 'bar',
+        data: {
+          labels: revenuePerMonth.map(r => r.month),
+          datasets: [{
+            label: 'Umsatz (€)',
+            data: revenuePerMonth.map(r => r.revenue),
+            backgroundColor: '#080422'
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+
+      new Chart(listingsCanvas.getContext('2d'), {
+        type: 'pie',
+        data: {
+          labels: Object.keys(listingsByType),
+          datasets: [{
+            data: Object.values(listingsByType),
+            backgroundColor: ['#080422','#4e73df','#1cc88a','#36b9cc','#f6c23e','#e74a3b']
+          }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+      });
+    })
+    .catch((err) => console.error('Dashboard-Statistik Fehler:', err));
+});
+</script>

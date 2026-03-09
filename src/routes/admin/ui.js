@@ -3,26 +3,186 @@
 
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
+const multer = require('multer');
 
 // ⬇️ Passen: falls dein DB-Modul woanders liegt, z.B. '../../src/config/db'
 const db = require('../../db');
 
 const SUPPORTED = ['de','en','fr','it','tr','ja','cs','ru','es','nl','pl'];
 const PAGE_SIZE = 25;
+const HOME_HERO_UPLOAD_DIR = path.join(__dirname, '../../../public/uploads/home-hero');
+const CATEGORY_HERO_UPLOAD_DIR = path.join(__dirname, '../../../public/uploads/category-hero');
+const DEFAULT_CATEGORY_HERO_FALLBACK = '/assets/cars.jpg';
+const CATEGORY_HERO_FALLBACKS = {
+  yachts: '/assets/yachten.jpg',
+  cars: '/assets/cars.jpg',
+  watches: '/assets/watches.jpg',
+  properties: '/assets/properties.jpg',
+  lifestyles: '/assets/lifestyle.png'
+};
+const HOME_HERO_SLIDES = [
+  {
+    index: 1,
+    label: 'Slide 1 (Immobilien)',
+    key: 'home_hero_slide1_image',
+    fallback: '/assets/herando-home-slider-luxusimmobilien.webp',
+    fileField: 'slide1_image_file',
+    pathField: 'slide1_image_path',
+    resetField: 'slide1_reset'
+  },
+  {
+    index: 2,
+    label: 'Slide 2 (Autos)',
+    key: 'home_hero_slide2_image',
+    fallback: '/assets/herando-home-slider-luxusautos.webp',
+    fileField: 'slide2_image_file',
+    pathField: 'slide2_image_path',
+    resetField: 'slide2_reset'
+  },
+  {
+    index: 3,
+    label: 'Slide 3 (Uhren)',
+    key: 'home_hero_slide3_image',
+    fallback: '/assets/herando-home-slider-luxusuhren.webp',
+    fileField: 'slide3_image_file',
+    pathField: 'slide3_image_path',
+    resetField: 'slide3_reset'
+  },
+  {
+    index: 4,
+    label: 'Slide 4 (Yachten)',
+    key: 'home_hero_slide4_image',
+    fallback: '/assets/herando-home-slider-luxusyachten.webp',
+    fileField: 'slide4_image_file',
+    pathField: 'slide4_image_path',
+    resetField: 'slide4_reset'
+  }
+];
+
+const homeHeroUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      try {
+        fs.mkdirSync(HOME_HERO_UPLOAD_DIR, { recursive: true });
+        cb(null, HOME_HERO_UPLOAD_DIR);
+      } catch (err) {
+        cb(err);
+      }
+    },
+    filename: (_req, file, cb) => {
+      const slide = HOME_HERO_SLIDES.find((s) => s.fileField === file.fieldname);
+      const base = slide ? `slide${slide.index}` : 'slide';
+      const rawExt = path.extname(file.originalname || '').toLowerCase();
+      const safeExt = /^[.][a-z0-9]+$/.test(rawExt) ? rawExt : '.webp';
+      cb(null, `home-hero-${base}-${Date.now()}-${Math.round(Math.random() * 1e6)}${safeExt}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+      return cb(new Error('Nur Bilddateien sind erlaubt.'));
+    }
+    cb(null, true);
+  }
+});
+
+const categoryHeroUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      try {
+        fs.mkdirSync(CATEGORY_HERO_UPLOAD_DIR, { recursive: true });
+        cb(null, CATEGORY_HERO_UPLOAD_DIR);
+      } catch (err) {
+        cb(err);
+      }
+    },
+    filename: (_req, file, cb) => {
+      const m = /^category_hero_(.+)$/i.exec(String(file.fieldname || ''));
+      const route = (m?.[1] || 'category').toLowerCase().replace(/[^a-z0-9_-]+/g, '-');
+      const rawExt = path.extname(file.originalname || '').toLowerCase();
+      const safeExt = /^[.][a-z0-9]+$/.test(rawExt) ? rawExt : '.webp';
+      cb(null, `category-hero-${route}-${Date.now()}-${Math.round(Math.random() * 1e6)}${safeExt}`);
+    }
+  }),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype || !file.mimetype.startsWith('image/')) {
+      return cb(new Error('Nur Bilddateien sind erlaubt.'));
+    }
+    cb(null, true);
+  }
+});
 
 // Hilfsfunktion: sicheres Lesen von body-Feldern (verhindert undefined)
 const val = (x) => (typeof x === 'string' ? x : (x ?? '')).trim();
+const normalizeImagePath = (input) => {
+  const value = val(input);
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  return value.startsWith('/') ? value : `/${value}`;
+};
+
+async function getHomeHeroImageRows() {
+  return getUiTranslationRows(HOME_HERO_SLIDES.map((s) => s.key));
+}
+
+async function upsertUiTranslationAllLocales(key, value) {
+  const columns = SUPPORTED.map((c) => `\`${c}\``).join(', ');
+  const placeholders = SUPPORTED.map(() => '?').join(', ');
+  const updates = SUPPORTED.map((c) => `\`${c}\` = VALUES(\`${c}\`)`).join(', ');
+  const sameValueAllLocales = SUPPORTED.map(() => value);
+
+  await db.query(
+    `INSERT INTO ui_translations (\`key\`, ${columns})
+     VALUES (?, ${placeholders})
+     ON DUPLICATE KEY UPDATE ${updates}`,
+    [key, ...sameValueAllLocales]
+  );
+}
+
+async function getUiTranslationRows(keys) {
+  if (!Array.isArray(keys) || !keys.length) return [];
+  const placeholders = keys.map(() => '?').join(',');
+  const [rows] = await db.query(
+    `SELECT \`key\`, de
+       FROM ui_translations
+      WHERE \`key\` IN (${placeholders})`,
+    keys
+  );
+  return rows;
+}
+
+async function getAdminEntentiesBasic() {
+  const [rows] = await db.query(
+    `SELECT id, name, route
+       FROM ententies
+      WHERE route IS NOT NULL AND route <> ''
+      ORDER BY name ASC`
+  );
+  return rows;
+}
+
+const getCategoryHeroFallback = (route) =>
+  CATEGORY_HERO_FALLBACKS[String(route || '').toLowerCase()] || DEFAULT_CATEGORY_HERO_FALLBACK;
+const getCategoryHeroKey = (route) => `category_hero_image_${String(route || '').toLowerCase()}`;
 
 /**
  * LISTE: /admin/ui (mit Suche, Vorschau-Sprache, Pagination)
  * Query-Parameter:
- *   - q: Key-Suche (LIKE)
+ *   - q_key: Suche nur im Key (LIKE)
+ *   - q_text: Suche in allen Sprachtexten (LIKE)
  *   - preview: Sprachcode für Vorschau-Spalte (default 'de')
  *   - page: Seite (1-basiert)
  */
 router.get('/', async (req, res, next) => {
   try {
-    const q = val(req.query.q || '');
+    const qLegacy = val(req.query.q || '');
+    let qKey = val(req.query.q_key || '');
+    let qText = val(req.query.q_text || '');
+    if (qLegacy && !qKey && !qText) qKey = qLegacy;
+
     const preview = SUPPORTED.includes(String(req.query.preview || '').toLowerCase())
       ? String(req.query.preview).toLowerCase()
       : 'de';
@@ -31,9 +191,15 @@ router.get('/', async (req, res, next) => {
 
     const where = [];
     const params = [];
-    if (q) {
+    if (qKey) {
       where.push('`key` LIKE ?');
-      params.push(`%${q}%`);
+      params.push(`%${qKey}%`);
+    }
+    if (qText) {
+      const like = `%${qText}%`;
+      const textCols = SUPPORTED.map((c) => `\`${c}\``);
+      where.push(`(${textCols.map((col) => `${col} LIKE ?`).join(' OR ')})`);
+      params.push(...textCols.map(() => like));
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
@@ -55,7 +221,9 @@ router.get('/', async (req, res, next) => {
 
     res.render('admin/ui-translations/index', {
       items: rows,
-      q,
+      q: qLegacy || qKey || qText,
+      qKey,
+      qText,
       preview,
       page,
       totalPages,
@@ -87,6 +255,136 @@ router.get('/new', (req, res) => {
     currentUrl: req.url, 
     active: 'ui-translations',
   });
+});
+
+/**
+ * Home-Carousel-Bilder (Admin): /admin/ui/home-hero
+ */
+router.get('/home-hero', async (req, res, next) => {
+  try {
+    const rows = await getHomeHeroImageRows();
+    const byKey = Object.fromEntries(rows.map((r) => [r.key, val(r.de)]));
+
+    res.render('admin/ui-translations/home-hero', {
+      slides: HOME_HERO_SLIDES.map((slide) => ({
+        ...slide,
+        currentPath: byKey[slide.key] || slide.fallback,
+        isCustom: Boolean(byKey[slide.key] && byKey[slide.key] !== slide.fallback)
+      })),
+      saved: req.query.saved === '1',
+      headerTitle: 'Startseite: Slider-Bilder',
+      login_user: req.user,
+      currentUrl: req.url,
+      active: 'home-hero'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post(
+  '/home-hero',
+  homeHeroUpload.fields(HOME_HERO_SLIDES.map((slide) => ({ name: slide.fileField, maxCount: 1 }))),
+  async (req, res, next) => {
+    try {
+      const rows = await getHomeHeroImageRows();
+      const currentByKey = Object.fromEntries(rows.map((r) => [r.key, val(r.de)]));
+
+      for (const slide of HOME_HERO_SLIDES) {
+        const uploaded = req.files?.[slide.fileField]?.[0];
+        const manualPath = normalizeImagePath(req.body?.[slide.pathField]);
+        const resetRequested = String(req.body?.[slide.resetField] || '') === '1';
+
+        let nextPath = currentByKey[slide.key] || slide.fallback;
+        if (manualPath) nextPath = manualPath;
+        if (resetRequested) nextPath = slide.fallback;
+        if (uploaded?.filename) nextPath = `/uploads/home-hero/${uploaded.filename}`;
+
+        await upsertUiTranslationAllLocales(slide.key, nextPath);
+      }
+
+      res.redirect('/admin/ui/home-hero?saved=1');
+    } catch (err) {
+      next(err);
+    }
+  }
+);
+
+/**
+ * Kategorie-Hero-Bilder (Admin): /admin/ui/category-hero
+ */
+router.get('/category-hero', async (req, res, next) => {
+  try {
+    const entities = await getAdminEntentiesBasic();
+    const keys = entities.map((e) => getCategoryHeroKey(e.route));
+    const rows = await getUiTranslationRows(keys);
+    const byKey = Object.fromEntries(rows.map((r) => [r.key, val(r.de)]));
+
+    res.render('admin/ui-translations/category-hero', {
+      categories: entities.map((entity) => {
+        const route = String(entity.route || '').toLowerCase();
+        const key = getCategoryHeroKey(route);
+        const fallback = getCategoryHeroFallback(route);
+        const currentPath = byKey[key] || fallback;
+        return {
+          id: entity.id,
+          name: entity.name || route,
+          route,
+          key,
+          fallback,
+          currentPath,
+          isCustom: Boolean(byKey[key] && byKey[key] !== fallback),
+          fileField: `category_hero_${route}`,
+          pathField: `category_hero_path_${route}`,
+          resetField: `category_hero_reset_${route}`
+        };
+      }),
+      saved: req.query.saved === '1',
+      headerTitle: 'Kategorien: Hero-Bilder',
+      login_user: req.user,
+      currentUrl: req.url,
+      active: 'category-hero'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/category-hero', categoryHeroUpload.any(), async (req, res, next) => {
+  try {
+    const entities = await getAdminEntentiesBasic();
+    const rows = await getUiTranslationRows(entities.map((e) => getCategoryHeroKey(e.route)));
+    const currentByKey = Object.fromEntries(rows.map((r) => [r.key, val(r.de)]));
+    const uploadedByField = Object.create(null);
+
+    for (const file of (req.files || [])) {
+      if (file && file.fieldname) uploadedByField[file.fieldname] = file;
+    }
+
+    for (const entity of entities) {
+      const route = String(entity.route || '').toLowerCase();
+      const key = getCategoryHeroKey(route);
+      const fallback = getCategoryHeroFallback(route);
+      const fileField = `category_hero_${route}`;
+      const pathField = `category_hero_path_${route}`;
+      const resetField = `category_hero_reset_${route}`;
+
+      const uploaded = uploadedByField[fileField];
+      const manualPath = normalizeImagePath(req.body?.[pathField]);
+      const resetRequested = String(req.body?.[resetField] || '') === '1';
+
+      let nextPath = currentByKey[key] || fallback;
+      if (manualPath) nextPath = manualPath;
+      if (resetRequested) nextPath = fallback;
+      if (uploaded?.filename) nextPath = `/uploads/category-hero/${uploaded.filename}`;
+
+      await upsertUiTranslationAllLocales(key, nextPath);
+    }
+
+    res.redirect('/admin/ui/category-hero?saved=1');
+  } catch (err) {
+    next(err);
+  }
 });
 
 /**

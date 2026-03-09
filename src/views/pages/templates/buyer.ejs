@@ -378,7 +378,7 @@
       const col = document.createElement('div');
       col.className = 'col-6';
       col.innerHTML = `
-        <a href="/${route}/${id}/${encodeURIComponent(item.title)}" class="text-decoration-none text-dark">
+        <a href="/${route}/${encodeURIComponent(item.title)}-${id}" class="text-decoration-none text-dark">
           <div class="card border-0 shadow-sm rounded-4 overflow-hidden h-100">
             <div class="ratio ratio-4x3">
               <img src="${item.mainpictureUrl || '/assets/default-placeholder.png'}"

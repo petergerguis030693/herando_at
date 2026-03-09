@@ -360,7 +360,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="showcaseBadge">${LABEL_POPULAR}</div>
             </div>
             <div class="showcaseInfo">
-              <h5><a href="https://herando.at/${cat.route}/${item.reference}/${slug}">${shortTitle}</a></h5>
+              <h5><a href="<%= localizedPath ? localizedPath('/') : '/' %>${cat.route}/${item.reference}/${slug}">${shortTitle}</a></h5>
               ${renderInfo(cat.route, item)}
               <p class="showcasePrice">${price} €</p>
             </div>

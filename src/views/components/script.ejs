@@ -11,6 +11,19 @@
 %>
 
   <script>window.currentEntityRoute = "<%= currentEntity.route %>";</script>
+  <script>
+  window.herandoLoadTranslateFiltersData = window.herandoLoadTranslateFiltersData || (() => {
+    let memo = null;
+    return () => {
+      if (memo) return memo;
+      const query = window.location.search.substring(1);
+      memo = fetch(`/api/<%= currentEntity.route %>/translate-filters?${query}`)
+        .then((res) => (res.ok ? res.json() : {}))
+        .catch(() => ({}));
+      return memo;
+    };
+  })();
+  </script>
 
 <script>
 document.addEventListener("DOMContentLoaded", () => {
@@ -18,10 +31,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const titleEl = document.getElementById("dynamicTitle");
   if (!titleEl) return;
 
-  const query = window.location.search.substring(1);
-
-  fetch(`/api/<%= currentEntity.route %>/translate-filters?${query}`)
-    .then(res => res.json())
+  window.herandoLoadTranslateFiltersData()
     .then(data => {
 
       // * nur echte Labels verwenden *
@@ -119,9 +129,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let abortCtrl = null;
   let timer = null;
+  const actionPath = (() => {
+    const raw = String(form.getAttribute("action") || "").trim();
+    if (!raw) return window.location.pathname;
+    try { return new URL(raw, window.location.origin).pathname; }
+    catch { return raw.startsWith("/") ? raw : window.location.pathname; }
+  })();
+  const entityRoute = String(form.dataset.entityRoute || "").trim()
+    || (window.location.pathname.split("/").filter(Boolean)[0] || "");
 
   async function updateCountOnly() {
-    const entityRoute = window.location.pathname.split("/")[1];
     const params = new URLSearchParams(new FormData(form));
     const url = `/api/${entityRoute}/count?${params.toString()}`;
 
@@ -148,14 +165,13 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   async function reloadResults() {
-    const entityRoute = window.location.pathname.split("/")[1];
     const params = new URLSearchParams(new FormData(form));
 
     if (abortCtrl) abortCtrl.abort();
     abortCtrl = new AbortController();
 
     try {
-      const htmlRes = await fetch(`${window.location.pathname}?${params.toString()}`, {
+      const htmlRes = await fetch(`${actionPath}?${params.toString()}`, {
         signal: abortCtrl.signal
       });
       const html = await htmlRes.text();
@@ -209,10 +225,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const container = document.querySelector(".active-filters");
   if (!container) return;
 
-  const query = window.location.search.substring(1);
-
-  fetch(`/api/<%= currentEntity.route %>/translate-filters?${query}`)
-    .then(res => res.json())
+  window.herandoLoadTranslateFiltersData()
     .then(data => {
 
       Object.entries(data).forEach(([key, label]) => {
@@ -281,6 +294,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       });
 
       modelSelect.disabled = models.length === 0;
+      document.dispatchEvent(new CustomEvent('filters:modelsLoaded'));
 
     } catch (err) {
       console.error("Model loader:", err);
@@ -325,7 +339,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const title = encodeURIComponent($clone.find('p').first().text().trim());
         const id    = $clone.data('id') || '';
 
-        const href  = `/${route}/${id}/${title}`;
+        const href  = `/${route}/${title}-${id}`;
         const $card = $('<div>')
           .addClass('cardPeter mb-4 me-4')
           .append($clone.html());
@@ -345,12 +359,31 @@ document.addEventListener("DOMContentLoaded", async () => {
   if (!btn) return;
 
   btn.addEventListener('click', () => {
-    const entity = document.querySelector('.filter-bar').dataset.entity;
+    const entity = document.querySelector('.filter-bar')?.dataset?.entity;
+    if (!entity) return;
 
-    // komplette aktuelle Query übernehmen
-    const qs = window.location.search;
+    const params = new URLSearchParams();
+    const form = document.getElementById('quickFilters');
+    if (form) {
+      const fd = new FormData(form);
+      for (const [key, value] of fd.entries()) {
+        const v = String(value == null ? '' : value).trim();
+        if (!v) continue;
+        params.append(key, v);
+      }
+    }
 
-    window.location.href = `/${entity}/filters${qs}`;
+    const current = new URLSearchParams(window.location.search);
+    ['limit', 'sort', 'view'].forEach((key) => {
+      if (params.has(key)) return;
+      const v = String(current.get(key) || '').trim();
+      if (!v) return;
+      params.set(key, v);
+    });
+    params.set('hp', '1');
+
+    const qs = params.toString();
+    window.location.href = qs ? `/${entity}/filters?${qs}` : `/${entity}/filters`;
   });
 })();
 </script>

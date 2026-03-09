@@ -8,7 +8,7 @@
   const yachtType = yachtTypeLabels[item.yachttype] || null;
 %>
 
-<a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>"
+<a href="<%= detailHref %>"
    class="lux-card lux-yacht-card">
 
   <!-- IMAGE -->

@@ -9,6 +9,21 @@ const normalize = (r) => {
   if (["lifestyle","lifestyles"].includes(x)) return "lifestyles";
   return x;
 };
+
+const canonicalEntityRoute = (r) => {
+  const x = normalize(r);
+  if (x === "autos") return "cars";
+  return x;
+};
+
+const entityHref = (route, suffix = "") => {
+  const canonical = canonicalEntityRoute(route);
+  const base = typeof entityPath === "function" ? entityPath(canonical) : `/${canonical}`;
+  const s = String(suffix || "");
+  if (!s) return base;
+  if (s.startsWith("?")) return `${base}${s}`;
+  return `${base}/${s.replace(/^\/+/, "")}`;
+};
 %>
 
 <style>
@@ -25,12 +40,12 @@ const normalize = (r) => {
 }
 </style>
 
-<div class="info-bar">
+<!--<div class="info-bar">
   <p>
     <img src="/assets/herando-nur-schrift.png" alt="Herando" style="width:auto; height: 25px;">
     <span><%= t('header.info_bar.tagline') %></span>
   </p>
-</div>
+</div>-->
 
 <nav class="navbar navbar-expand-xl bg-white py-3 flexen" style="position:relative;">
   <div class="container d-flex justify-content-between align-items-center">
@@ -124,7 +139,7 @@ const normalize = (r) => {
 
       <div class="d-flex align-items-center">
 
-        <a class="nav-link text-uppercase" href="/<%= cat.route %>">
+        <a class="nav-link text-uppercase" href="<%= entityHref(cat.route) %>">
           <%= t('category.' + cat.route, cat.name).toUpperCase() %>
         </a>
 
@@ -151,7 +166,7 @@ const normalize = (r) => {
   <% }) %>
 
   <li class="nav-item position-static meNU">
-    <a class="nav-link text-uppercase" href="https://herando.com/de/investment">
+    <a class="nav-link text-uppercase" href="https://www.herando.com/de/investment">
       <%= t('category.investment', 'Investment').toUpperCase() %>
     </a>
   </li>
@@ -180,13 +195,14 @@ const normalize = (r) => {
 <div class="mobile-menu-inner">
   <ul class="mobile-nav">
     <% sortedEntities.forEach(cat => { 
+        const catNorm = normalize(cat.route);
         // Mega Menu Daten holen
         const menu = getMegaMenu(cat.route); %>
 
       <li class="mobile-item">
         <div class="d-flex justify-content-between align-items-center mobile-link-header">
           
-          <a href="/<%= cat.route %>" class="w-100">
+          <a href="<%= entityHref(cat.route) %>" class="w-100">
             <%= t('category.' + cat.route, cat.name) %>
           </a>
 
@@ -208,28 +224,28 @@ const normalize = (r) => {
                 <h6 class="fw-bold mb-3"><%= t('mobile.brands','Marken') %></h6>
                 <ul class="list-unstyled text-start">
                   
-                  <% if (cat.route === 'autos') { %>
+                  <% if (catNorm === 'autos') { %>
                     <% [ { slug: "lamborghini", name: "Lamborghini" }, { slug: "mercedes-benz", name: "Mercedes-Benz" }, { slug: "ferrari", name: "Ferrari" }, { slug: "porsche", name: "Porsche" } ].forEach(b => { %>
-                      <li><a class="dropdown-item" href="/autos/<%= b.slug %>"><%= b.name %></a></li>
+                      <li><a class="dropdown-item" href="<%= entityHref('cars', b.slug) %>"><%= b.name %></a></li>
                     <% }) %>
                     <li>
-                      <a class="dropdown-item fw-bold" href="/autos">
+                      <a class="dropdown-item fw-bold" href="<%= entityHref('cars') %>">
                         <%= t('mobile.show_all_brands','Alle Marken anzeigen') %>
                       </a>
                     </li>              
-                  <% } else if (cat.route === 'watches') { %>
+                  <% } else if (catNorm === 'watches') { %>
                     <% [ { slug: "patek-philippe", name: "Patek Philippe" }, { slug: "rolex", name: "Rolex" }, { slug: "breitling", name: "Breitling" }, { slug: "iwc", name: "IWC" } ].forEach(b => { %>
-                      <li><a class="dropdown-item" href="/watches/<%= b.slug %>"><%= b.name %></a></li>
+                      <li><a class="dropdown-item" href="<%= entityHref('watches', b.slug) %>"><%= b.name %></a></li>
                     <% }) %>
-                    <li><a class="dropdown-item fw-bold" href="/watches">Alle Marken anzeigen</a></li>
+                    <li><a class="dropdown-item fw-bold" href="<%= entityHref('watches') %>">Alle Marken anzeigen</a></li>
                     
-                  <% } else if (cat.route === 'yachts') { %>
+                  <% } else if (catNorm === 'yachts') { %>
                     <% [ { slug: "sunseeker", name: "Sunseeker" }, { slug: "princess", name: "Princess" }, { slug: "azimut-yachts", name: "Azimut Yachts" }, { slug: "benetti", name: "Benetti" } ].forEach(b => { %>
-                      <li><a class="dropdown-item" href="/yachts/<%= b.slug %>"><%= b.name %></a></li>
+                      <li><a class="dropdown-item" href="<%= entityHref('yachts', b.slug) %>"><%= b.name %></a></li>
                     <% }) %>
-                    <li><a class="dropdown-item fw-bold" href="/yachts">Alle Marken anzeigen</a></li>
+                    <li><a class="dropdown-item fw-bold" href="<%= entityHref('yachts') %>">Alle Marken anzeigen</a></li>
 
-                    <% } else if (cat.route === 'properties') { %>
+                    <% } else if (catNorm === 'properties') { %>
 
                       <% [
                         { slug: "10", key: "category.properties.finca", fallback: "Finca" },
@@ -239,7 +255,7 @@ const normalize = (r) => {
                       ].forEach(i => { %>
 
                         <li>
-                          <a class="dropdown-item" href="/properties?propertytype=<%= i.slug %>">
+                          <a class="dropdown-item" href="<%= entityHref('properties', '?propertytype=' + i.slug) %>">
                             <%= t(i.key, i.fallback) %>
                           </a>
                         </li>
@@ -247,7 +263,7 @@ const normalize = (r) => {
                       <% }) %>
 
                       <li>
-                        <a class="dropdown-item fw-bold" href="/properties">
+                        <a class="dropdown-item fw-bold" href="<%= entityHref('properties') %>">
                           <%= t('mobile.show_all_investmenttypes','Alle Investmenttypen anzeigen') %>
                         </a>
                       </li>
@@ -255,9 +271,9 @@ const normalize = (r) => {
                   
                   <% } else { %>
                     <% menu.brands.forEach(b => { %>
-                      <li><a class="dropdown-item" href="/<%= cat.route %>/<%= b.toLowerCase().replace(/\s+/g,'-') %>"><%= b %></a></li>
+                      <li><a class="dropdown-item" href="<%= entityHref(cat.route, b.toLowerCase().replace(/\s+/g,'-')) %>"><%= b %></a></li>
                     <% }) %>
-                    <li><a class="dropdown-item fw-bold" href="/<%= cat.route %>">Alle Marken anzeigen</a></li>
+                    <li><a class="dropdown-item fw-bold" href="<%= entityHref(cat.route) %>">Alle Marken anzeigen</a></li>
                   <% } %>
                 </ul>
               </div>
@@ -266,77 +282,77 @@ const normalize = (r) => {
   <h6 class="fw-bold mb-3"><%= t('mobile.categories','Kategorien') %></h6>
   <ul class="list-unstyled">
 
-    <% if (cat.route === 'autos') { %>
+    <% if (catNorm === 'autos') { %>
 
-      <li><a class="dropdown-item" href="/autos?cartype=1&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=1&hp=1') %>">
         <%= t('category.autos.coupe','Coupé') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/autos?cartype=2&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=2&hp=1') %>">
         <%= t('category.autos.convertible','Cabrio') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/autos?cartype=3&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=3&hp=1') %>">
         <%= t('category.autos.sedan','Limousine') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/autos?cartype=6&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('cars', '?cartype=6&hp=1') %>">
         <%= t('category.autos.pickup','Pickup') %>
       </a></li>
 
 
-    <% } else if (cat.route === 'watches') { %>
+    <% } else if (catNorm === 'watches') { %>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=1&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=1&hp=1') %>">
         <%= t('category.watches.wristwatch','Armbanduhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=2&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=2&hp=1') %>">
         <%= t('category.watches.pocketwatch','Taschenuhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=3&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=3&hp=1') %>">
         <%= t('category.watches.tableclock','Tischuhr') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/watches?watchtype=4&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('watches', '?watchtype=4&hp=1') %>">
         <%= t('category.watches.antique','Antike Uhr') %>
       </a></li>
 
 
-    <% } else if (cat.route === 'yachts') { %>
+    <% } else if (catNorm === 'yachts') { %>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=1&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=1&hp=1') %>">
         <%= t('category.yachts.motor','Motor Yachts') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=10&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=10&hp=1') %>">
         <%= t('category.yachts.flybridge','Flybridge') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=14&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=14&hp=1') %>">
         <%= t('category.yachts.cabin','Kajütboot') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/yachts?yachttype=15&hp=1">
+      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=15&hp=1') %>">
         <%= t('category.yachts.catamaran','Katamaran') %>
       </a></li>
 
 
-    <% } else if (cat.route === 'properties') { %>
-      <li><a class="dropdown-item" href="/properties?investmenttype=1">
+    <% } else if (catNorm === 'properties') { %>
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=1') %>">
         <%= t('category.properties.residential','Wohnimmobilie') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=2">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=2') %>">
         <%= t('category.properties.hotel','Hotels & Gastronomie') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=3">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=3') %>">
         <%= t('category.properties.commercial','Gewerbe') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="/properties?investmenttype=4">
+      <li><a class="dropdown-item" href="<%= entityHref('properties', '?investmenttype=4') %>">
         <%= t('category.properties.land','Grundstück') %>
       </a></li>
 
@@ -352,7 +368,7 @@ const normalize = (r) => {
 
     <!-- Show all categories -->
     <li>
-      <a class="dropdown-item fw-bold" href="/<%= cat.route %>/filters?hp=1">
+      <a class="dropdown-item fw-bold" href="<%= entityHref(cat.route, 'filters?hp=1') %>">
         <%= t('mobile.show_all_categories','Alle Kategorien anzeigen') %>
       </a>
     </li>
@@ -369,7 +385,7 @@ const normalize = (r) => {
 
     <li class="mobile-item">
       <div class="d-flex justify-content-between align-items-center mobile-link-header">
-        <a href="https://herando.com/de/investment" class="w-100">
+        <a href="<%= localizedPath ? localizedPath('/investment', currentLang) : '/investment' %>" class="w-100">
           <%= t('category.investment', 'Investment') %>
         </a>
       </div>

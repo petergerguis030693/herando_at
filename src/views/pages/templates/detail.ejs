@@ -55,6 +55,29 @@ tr {
   <div class="row">
     <!-- Bilder-Spalte -->
     <div class="col-md-6">
+      <nav aria-label="breadcrumb" class="mb-3">
+        <a href="/" class="text-decoration-none">
+          <i class="bi bi-house-door-fill breadcrumb-icon"></i>
+        </a>
+        <i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
+
+        <a href="<%= typeof entityPath === 'function' ? entityPath(currentEntity.route) : '/' + currentEntity.route %>">
+          <% if (currentEntity.route === "cars") { %>
+            <i class="bi bi-car-front-fill breadcrumb-icon"></i>
+          <% } else if (currentEntity.route === "watches") { %>
+            <i class="bi bi-watch breadcrumb-icon"></i>
+          <% } else if (currentEntity.route === "properties") { %>
+            <i class="bi bi-house-door-fill breadcrumb-icon"></i>
+          <% } else if (currentEntity.route === "yachts") { %>
+            <i class="bi bi-life-preserver breadcrumb-icon"></i>
+          <% } %>
+          <%= t("categories." + currentEntity.route) %>
+        </a>
+
+        <i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
+        <span><%= (item.title || "").replace(/<\/?h1[^>]*>/gi, '').replace(/&lt;\/?h1[^&]*&gt;/gi, '').trim() %></span>
+      </nav>
+
       <div class="product-single-images">
         <img id="mainImage"
             src="<%= item.imageUrl %>"
@@ -327,31 +350,10 @@ function show(i) {
 
     <div class="col-md-5">
       <h1 class="product-single-title mb-2"><%= item.title %></h1>
-      <a href="/" class="text-decoration-none">
-        <i class="bi bi-house-door-fill breadcrumb-icon"></i>
-      </a>
-      <i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
-
-<a href="/<%= currentEntity.route %>">
-  <% if (currentEntity.route === "cars") { %>
-    <i class="bi bi-car-front-fill breadcrumb-icon"></i>
-  <% } else if (currentEntity.route === "watches") { %>
-    <i class="bi bi-watch breadcrumb-icon"></i>
-  <% } else if (currentEntity.route === "properties") { %>
-    <i class="bi bi-house-door-fill breadcrumb-icon"></i>
-  <% } else if (currentEntity.route === "yachts") { %>
-    <i class="bi bi-life-preserver breadcrumb-icon"></i> <!-- Ersatz für Yacht -->
-  <% } %>
-  <%= t("categories." + currentEntity.route) %>
-</a>
-
-<i class="bi bi-chevron-right mx-1 breadcrumb-separator"></i>
-<span><%= (item.title || "").replace(/<\/?h1[^>]*>/gi, '').replace(/&lt;\/?h1[^&]*&gt;/gi, '').trim() %></span>
-
       <p class="text-muted mb-3"><%- item.subtitle || '' %></p>
       <p class="product-single-price fs-4 fw-bold mb-4">
         <% if (item.price && Number(item.price) > 0) { %>
-          <%= convertPrice(item.price) %>
+          <%= item.priceFormatted || convertPrice(item.price, null, item.currency || 'EUR') %>
         <% } else { %>
               <%= t('common.price_on_request', 'Preis auf Anfrage') %>
         <% } %>
@@ -641,6 +643,13 @@ const detailSlug = slugifyLocal(item.name);
     .replace(/--+/g, '-')
     // Bindestriche am Anfang/Ende weg
     .replace(/^-|-$/g, '');
+
+  const detailPath = (() => {
+    const slugPart = cleanSlug || item.slug || '';
+    const suffix = slugPart ? `${slugPart}-${item.id}` : String(item.id);
+    if (typeof entityPath === 'function') return entityPath(currentEntity.route, suffix);
+    return `/${currentEntity.route}/${suffix}`;
+  })();
 %>
 
 
@@ -661,7 +670,7 @@ const detailSlug = slugifyLocal(item.name);
                     <!-- Honeypot (Anti-Spam) -->
                     <input type="text" id="hp_field" name="hp_field" style="display:none">
                     <input type="hidden" name="listingUrl" id="listingUrl"
-       value="https://www.herando.at/<%= currentEntity.route %>/<%= item.id %>/<%- cleanSlug %>">
+       value="<%= seoCanonicalUrl || ((siteBaseUrl || '') + detailPath) %>">
                     <input type="hidden" name="phone" id="modalPhoneFull">
 
 
@@ -1355,7 +1364,7 @@ const equipmentIcons = {
       <div class="carousel-inner">
         <% for (let i = 0; i < similarItems.length; i += 4) { %>
           <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-            <div class="row g-3">
+            <div class="row g-3" style="justify-content: left;">
               <% similarItems.slice(i, i + 4).forEach(item => { %>
                 <div class="col-md-3">
                   <div class="card h-100 shadow-sm border-0">
@@ -1435,7 +1444,7 @@ const equipmentIcons = {
         <div class="carousel-inner">
           <% for (let i = 0; i < group.items.length; i += 4) { %>
             <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-              <div class="row g-3">
+              <div class="row g-3" style="justify-content: left;">
                 <% group.items.slice(i, i + 4).forEach(prod => { %>
                   <div class="col-md-3">
                     <div class="card h-100 shadow-sm border-0">
@@ -1453,11 +1462,11 @@ const equipmentIcons = {
                         <% if (prod.model) { %>
                           <p class="small text-muted text-truncate"><%= prod.model %></p>
                         <% } %>
-                        <% if (prod.price) { %>
-                          <p class="fs-6 fw-bold text-success mb-2">
-                            <%= convertPrice(prod.price) %>
-                          </p>
-                        <% } %>
+                        <p class="fs-6 fw-bold text-success mb-2">
+                          <%= (prod.price != null && Number(prod.price) > 0)
+                                ? (prod.priceFormatted || convertPrice(prod.price, null, prod.currency || 'EUR'))
+                                : t('common.price_on_request','Preis auf Anfrage') %>
+                        </p>
                         <div class="d-flex flex-wrap small text-dark">
                           <% if (prod.transmission) { %>
                             <span class="me-3"><i class="bi bi-gear me-1"></i> <%= prod.transmission %></span>
@@ -1897,29 +1906,33 @@ const colorMap = {
 </div>
 
 <%
-  // ===== FEATURE-BADGES =====
-  const watchFeaturesMap = {
-    function_chronograph: t('watches.feature.chronograph', 'Chronograph'),
-    function_date: t('watches.feature.date', 'Datum'),
-    function_day: t('watches.feature.day', 'Wochentag'),
-    function_month: t('watches.feature.month', 'Monat'),
-    function_year: t('watches.feature.year', 'Jahresanzeige'),
-    function_moonphase: t('watches.feature.moonphase', 'Mondphase'),
-    function_gmt: t('watches.feature.gmt', 'GMT / Zweite Zeitzone'),
-    function_alarm: t('watches.feature.alarm', 'Alarm'),
-    function_minuterepeater: t('watches.feature.minuterepeater', 'Minutenrepetition'),
-    feature_tourbillon: t('watches.feature.tourbillon', 'Tourbillon'),
-    feature_diamondsbezel: t('watches.feature.diamondsbezel', 'Diamantlünette'),
-    feature_chronometer: t('watches.feature.chronometer', 'Chronometer-Zertifikat'),
-    feature_limited_edition: t('watches.feature.limited_edition', 'Limitierte Edition'),
-    feature_skeletonized: t('watches.feature.skeletonized', 'Skelettiert'),
-    feature_solar: t('watches.feature.solar', 'Solar'),
-    feature_smartwatch: t('watches.feature.smartwatch', 'Smartwatch'),
-    feature_waterresistant: t('watches.feature.waterresistant', 'Wasserdicht'),
-    feature_luminescenthands: t('watches.feature.luminescenthands', 'Leuchtzeiger'),
-    feature_luminescentnumerals: t('watches.feature.luminescentnumerals', 'Leuchtziffern')
+  // ===== FEATURE/FUNCTION-BADGES =====
+  const watchLabelOverrides = {
+    function_4year: t('watches.feature.4year', 'Schaltjahresanzeige'),
+    feature_screwedcrone: t('watches.feature.screwedcrone', 'Verschraubte Krone'),
+    feature_display_back: t('watches.feature.display_back', 'Sichtboden')
   };
-  const selectedWatchFeatures = Object.keys(watchFeaturesMap).filter(k => item[k] == 1);
+
+  const watchFlagKeys = Object.keys(item || {}).filter((key) => /^(feature_|function_)/.test(key));
+  const isEnabledWatchFlag = (value) => value === 1 || value === '1' || value === true;
+
+  const watchFeaturesMap = watchFlagKeys.reduce((acc, field) => {
+    const cleanKey = field.replace(/^(feature_|function_)/, '');
+    const humanLabel = cleanKey
+      .split('_')
+      .map((part) => {
+        const upperPart = part.toUpperCase();
+        if (upperPart === 'GMT' || upperPart === 'PVD') return upperPart;
+        if (part === '4year') return '4-Year';
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      })
+      .join(' ');
+
+    acc[field] = watchLabelOverrides[field] || t(`watches.feature.${cleanKey}`, humanLabel);
+    return acc;
+  }, {});
+
+  const selectedWatchFeatures = watchFlagKeys.filter((field) => isEnabledWatchFlag(item[field]));
 %>
 
 <% if (selectedWatchFeatures.length) { %>
@@ -1984,7 +1997,7 @@ const colorMap = {
       <div class="carousel-inner">
         <% for (let i = 0; i < similarItems.length; i += 4) { %>
           <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-            <div class="row g-3">
+            <div class="row g-3" style="justify-content: left;">
               <% similarItems.slice(i, i + 4).forEach(item => { %>
                 <div class="col-md-3">
                   <div class="card h-100 shadow-sm border-0">
@@ -2066,7 +2079,7 @@ const colorMap = {
         <div class="carousel-inner">
           <% for (let i = 0; i < group.items.length; i += 4) { %>
             <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-              <div class="row g-3">
+              <div class="row g-3" style="justify-content: left;">
                 <% group.items.slice(i, i + 4).forEach(prod => { %>
                   <div class="col-md-3">
                     <div class="card h-100 shadow-sm border-0">
@@ -2086,11 +2099,11 @@ const colorMap = {
                         <% if (prod.model) { %>
                           <p class="small text-muted text-truncate"><%= prod.model %></p>
                         <% } %>
-                        <% if (prod.price) { %>
-                          <p class="fs-6 fw-bold text-success mb-2">
-                            <%= new Intl.NumberFormat('de-DE').format(prod.price) %> €
-                          </p>
-                        <% } %>
+                        <p class="fs-6 fw-bold text-success mb-2">
+                          <%= (prod.price != null && Number(prod.price) > 0)
+                                ? (prod.priceFormatted || convertPrice(prod.price, null, prod.currency || 'EUR'))
+                                : t('common.price_on_request','Preis auf Anfrage') %>
+                        </p>
                       </div>
 
                       <div class="card-footer bg-white small text-muted d-flex align-items-center">
@@ -2257,8 +2270,16 @@ const qualityMap = {
       <% } %>
 
 
-      <% if (item.year) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.year_built', 'Baujahr') %></td><td><%= item.year %></td></tr>
+      <%
+        const propertyYearRaw = item.year;
+        const propertyYearStr = propertyYearRaw == null ? '' : String(propertyYearRaw).trim();
+        const hasValidPropertyYear =
+          propertyYearStr !== '' &&
+          propertyYearStr !== '0' &&
+          propertyYearStr.toLowerCase() !== 'null';
+      %>
+      <% if (hasValidPropertyYear) { %>
+        <tr><td class="fw-semibold text-muted"><%= t('properties.year_built', 'Baujahr') %></td><td><%= propertyYearStr %></td></tr>
       <% } %>
 
       <% if (item.monument_protection) { %>
@@ -2359,7 +2380,7 @@ const qualityMap = {
       <div class="carousel-inner">
         <% for (let i = 0; i < similarItems.length; i += 4) { %>
           <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-            <div class="row g-3">
+            <div class="row g-3" style="justify-content: left;">
               <% similarItems.slice(i, i + 4).forEach(item => { %>
                 <div class="col-md-3">
                   <div class="card h-100 shadow-sm border-0">
@@ -2440,7 +2461,7 @@ const qualityMap = {
           <div class="carousel-inner">
             <% for (let i = 0; i < group.items.length; i += 4) { %>
               <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-                <div class="row g-3">
+                <div class="row g-3" style="justify-content: left;">
                   <% group.items.slice(i, i + 4).forEach(prod => { %>
                     <div class="col-md-3">
                       <div class="card h-100 shadow-sm border-0">
@@ -2459,7 +2480,7 @@ const qualityMap = {
                           <h6 class="fw-bold text-truncate mb-1"><%= prod.name %></h6>
                           <p class="fs-6 fw-bold text-success mb-2">
                             <%= (prod.price && prod.price > 0)
-                                  ? new Intl.NumberFormat('de-DE').format(prod.price) + ' €'
+                                  ? (prod.priceFormatted || convertPrice(prod.price, null, prod.currency || 'EUR'))
                                   : t('common.price_on_request','Preis auf Anfrage') %>
                           </p>
 
@@ -2657,7 +2678,7 @@ const qualityMap = {
       <div class="carousel-inner">
         <% for (let i = 0; i < similarItems.length; i += 4) { %>
           <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-            <div class="row g-3">
+            <div class="row g-3" style="justify-content: left;">
               <% similarItems.slice(i, i + 4).forEach(item => { %>
                 <div class="col-md-3">
                   <div class="card h-100 shadow-sm border-0">
@@ -2738,7 +2759,7 @@ const qualityMap = {
         <div class="carousel-inner">
           <% for (let i = 0; i < group.items.length; i += 4) { %>
             <div class="carousel-item <%= i === 0 ? 'active' : '' %>">
-              <div class="row g-3">
+              <div class="row g-3" style="justify-content: left;">
                 <% group.items.slice(i, i + 4).forEach(prod => { %>
                   <div class="col-md-3">
                     <div class="card h-100 shadow-sm border-0">
@@ -2758,7 +2779,7 @@ const qualityMap = {
 
                           <p class="fs-6 fw-bold text-success mb-2">
                             <%= (prod.price && prod.price > 0)
-                                  ? new Intl.NumberFormat('de-DE').format(prod.price) + ' €'
+                                  ? (prod.priceFormatted || convertPrice(prod.price, null, prod.currency || 'EUR'))
                                   : t('common.price_on_request','Preis auf Anfrage') %>
                           </p>
 
@@ -3005,51 +3026,16 @@ const qualityMap = {
 
 
 
-<div id="lightboxOverlay" style="
-     display:none;
-     position:fixed;
-     top:0; left:0;
-     width:100%; height:100%;
-     background:rgba(0,0,0,0.8);
-     align-items:center;
-     justify-content:center;
-     z-index:10000;">
-  <div id="lightboxContainer" style="
-       position:relative;
-       width:100%; height:100%;
-       background:#000;
-       display:flex;
-       align-items:center;
-       justify-content:center;">
-    <span id="lightboxClose" style="
-          position:absolute;
-          top:10px; right:10px;
-          font-size:2rem;
-          color:#fff;
-          cursor:pointer;
-          user-select:none;">×</span>
-    <span id="lightboxPrev" style="
-          position:absolute;
-          top:50%;
-          left:10px;
-          transform:translateY(-50%);
-          font-size:2rem;
-          color:#fff;
-          cursor:pointer;
-          user-select:none;">❮</span>
-    <img id="lightboxImage" src="" style="
-         max-width:100%;
-         max-height:100%;
-         object-fit:contain;" />
-    <span id="lightboxNext" style="
-          position:absolute;
-          top:50%;
-          right:10px;
-          transform:translateY(-50%);
-          font-size:2rem;
-          color:#fff;
-          cursor:pointer;
-          user-select:none;">❯</span>
+<div id="lightboxOverlay" aria-hidden="true">
+  <div id="lightboxContainer" role="dialog" aria-modal="true" aria-label="Bildansicht">
+    <button id="lightboxClose" type="button" aria-label="Schließen">×</button>
+    <button id="lightboxPrev" type="button" aria-label="Vorheriges Bild">
+      <i class="bi bi-chevron-left" aria-hidden="true"></i>
+    </button>
+    <img id="lightboxImage" src="" alt="" />
+    <button id="lightboxNext" type="button" aria-label="Nächstes Bild">
+      <i class="bi bi-chevron-right" aria-hidden="true"></i>
+    </button>
   </div>
 </div>
 <script>
@@ -3067,18 +3053,54 @@ const qualityMap = {
 
   let currentIndex = 0;
   const overlay  = document.getElementById('lightboxOverlay');
+  const container = document.getElementById('lightboxContainer');
   const imgEl    = document.getElementById('lightboxImage');
   const btnPrev  = document.getElementById('lightboxPrev');
   const btnNext  = document.getElementById('lightboxNext');
   const btnClose = document.getElementById('lightboxClose');
-  if (!overlay || !imgEl || !btnPrev || !btnNext || !btnClose || !pics.length) return;
+  if (!overlay || !container || !imgEl || !btnPrev || !btnNext || !btnClose || !pics.length) return;
+  if (overlay.parentElement !== document.body) {
+    document.body.appendChild(overlay);
+  }
+  imgEl.setAttribute('draggable', 'false');
+
+  let prevBodyOverflow = '';
+  let prevBodyOverscroll = '';
+  let prevHtmlOverflow = '';
+  let prevHtmlOverscroll = '';
+
+  function lockPageScroll() {
+    prevBodyOverflow = document.body.style.overflow;
+    prevBodyOverscroll = document.body.style.overscrollBehavior;
+    prevHtmlOverflow = document.documentElement.style.overflow;
+    prevHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.overscrollBehavior = 'none';
+    document.documentElement.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+  }
+
+  function unlockPageScroll() {
+    document.body.style.overflow = prevBodyOverflow;
+    document.body.style.overscrollBehavior = prevBodyOverscroll;
+    document.documentElement.style.overflow = prevHtmlOverflow;
+    document.documentElement.style.overscrollBehavior = prevHtmlOverscroll;
+  }
 
   function showLightbox(idx) {
+    const wasOpen = overlay.style.display === 'flex';
     currentIndex = idx;
     imgEl.src = pics[currentIndex];
+    overlay.setAttribute('aria-hidden', 'false');
     overlay.style.display = 'flex';
+    if (!wasOpen) lockPageScroll();
   }
-  function hideLightbox()    { overlay.style.display = 'none'; }
+  function hideLightbox()    {
+    overlay.style.display = 'none';
+    overlay.setAttribute('aria-hidden', 'true');
+    unlockPageScroll();
+  }
   function showPrev()        { showLightbox((currentIndex - 1 + pics.length) % pics.length); }
   function showNext()        { showLightbox((currentIndex + 1) % pics.length); }
 
@@ -3093,11 +3115,52 @@ const qualityMap = {
 
   // 3) Overlay-Klick schließt, Pfeile und X wie gehabt
   overlay.addEventListener('click', e => e.target === overlay && hideLightbox());
+  container.addEventListener('click', e => e.target === container && hideLightbox());
   btnPrev.addEventListener('click', e => { e.stopPropagation(); showPrev(); });
   btnNext.addEventListener('click', e => { e.stopPropagation(); showNext(); });
   btnClose.addEventListener('click', hideLightbox);
 
-  // 4) Tastatur-Navigation
+  // 4) Swipe-Navigation in der Lightbox (Mobile/Tablet)
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchActive = false;
+
+  container.addEventListener('touchstart', e => {
+    if (overlay.style.display !== 'flex') return;
+    if (!e.touches || e.touches.length !== 1) {
+      touchActive = false;
+      return;
+    }
+    touchStartX = e.touches[0].clientX;
+    touchStartY = e.touches[0].clientY;
+    touchActive = true;
+  }, { passive: true });
+
+  container.addEventListener('touchend', e => {
+    if (!touchActive || overlay.style.display !== 'flex') return;
+    const t = e.changedTouches && e.changedTouches[0];
+    touchActive = false;
+    if (!t) return;
+
+    const dx = t.clientX - touchStartX;
+    const dy = t.clientY - touchStartY;
+
+    if (Math.abs(dx) < 40) return;
+    if (Math.abs(dy) > 80) return;
+
+    if (dx < 0) showNext();
+    else showPrev();
+  }, { passive: true });
+
+  container.addEventListener('touchcancel', () => {
+    touchActive = false;
+  }, { passive: true });
+
+  container.addEventListener('touchmove', e => {
+    if (overlay.style.display === 'flex') e.preventDefault();
+  }, { passive: false });
+
+  // 5) Tastatur-Navigation
   document.addEventListener('keydown', e => {
     if (overlay.style.display === 'flex') {
       if (e.key === 'Escape') hideLightbox();
@@ -3129,7 +3192,7 @@ document.getElementById("reportForm").addEventListener("submit", async function(
 
     itemTitle: `<%= item.title %>`,
     itemId: `<%= item.id %>`,
-    itemUrl: `https://herando.at/<%= currentEntity.route %>/<%= item.id %>/<%= item.slug %>`
+    itemUrl: `<%= seoCanonicalUrl || ((siteBaseUrl || '') + detailPath) %>`
   };
 
   const res = await fetch("/report-listing", {

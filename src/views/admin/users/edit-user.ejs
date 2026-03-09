@@ -211,36 +211,57 @@
         </div>
       </fieldset>
 
-      <!-- Zusatzpakete -->
       <fieldset class="border rounded p-3 mb-4">
-        <legend class="w-auto px-2">Zusatzleistungen</legend>
-        <select id="users_package_id" name="users_package_id" class="form-select form-select-sm">
-          <option value="">– Bitte wählen –</option>
-          <% usersPackages.forEach(up => { %>
-            <option value="<%= up.id %>" <%= data.users_package_id==up.id?'selected':'' %>>
-              <%= up.name %> – €<%= (up.price_cents/100).toFixed(2) %> 
-              (<%= up.duration_weeks %> Woche<%= up.duration_weeks>1?'n':'' %>)
-            </option>
-          <% }) %>
-        </select>
+        <legend class="w-auto px-2">Zusatzleistungen &amp; Inserat-Auswahl</legend>
+        <p class="text-muted mb-3">
+          Diese Zuordnung wird auf einer separaten Seite verwaltet, damit die Benutzerbearbeitung übersichtlich bleibt.
+        </p>
+        <% if (data.id) { %>
+          <a href="/admin/users/<%= data.id %>/addons" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-grid-3x3-gap"></i> Zusatzleistungen öffnen
+          </a>
+        <% } else { %>
+          <div class="alert alert-secondary mb-0">
+            Bitte zuerst den Benutzer speichern. Danach kannst du Zusatzleistungen und Inserate separat zuordnen.
+          </div>
+        <% } %>
       </fieldset>
 
-      <!-- Inserat auswählen -->
-      <fieldset class="border rounded p-3 mb-4">
-        <legend class="w-auto px-2">Inserat auswählen</legend>
-        <div class="mb-3">
-          <label for="item_id" class="form-label">Inserat (optional)</label>
-          <select id="item_id" name="item_id" class="form-select form-select-sm">
-            <option value="">– Kein Inserat auswählen –</option>
-            <% listings.forEach(listing => { %>
-              <option value="<%= listing.id %>"
-                <%= data.item_id == listing.id ? 'selected' : '' %>>
-                [<%= listing.type %>] <%= listing.title %> (#<%= listing.id %>)
-              </option>
-            <% }) %>
-          </select>
-        </div>
-      </fieldset>
+      <% if (data.id) { %>
+        <fieldset class="border rounded p-3 mb-4">
+          <legend class="w-auto px-2">Login-Sperre</legend>
+          <% const _failedAttempts = Number(data.admin_login_failed_attempts || 0); %>
+          <% const _locked = Number(data.admin_login_locked || 0) === 1; %>
+
+          <div class="d-flex flex-wrap align-items-center gap-3">
+            <% if (_locked) { %>
+              <span class="badge text-bg-danger">Gesperrt</span>
+            <% } else { %>
+              <span class="badge text-bg-success">Nicht gesperrt</span>
+            <% } %>
+
+            <span class="text-muted">
+              Fehlversuche: <strong><%= _failedAttempts %></strong>
+            </span>
+
+            <div class="ms-auto">
+              <button type="submit"
+                      class="btn btn-outline-warning btn-sm"
+                      formaction="/admin/users/<%= data.id %>/unlock-admin-login"
+                      formmethod="POST"
+                      formnovalidate
+                      onclick="return confirm('Login-Sperre für diesen Benutzer wirklich aufheben?')"
+                      <%= (!_locked && _failedAttempts === 0) ? 'disabled' : '' %>>
+                <i class="bi bi-unlock"></i> Login entsperren
+              </button>
+            </div>
+          </div>
+
+          <div class="small text-muted mt-2">
+            Hebt die temporäre Login-Sperre auf und setzt den Fehlversuchs-Zähler zurück.
+          </div>
+        </fieldset>
+      <% } %>
 
 
       <button type="submit" class="btn btn-primary">

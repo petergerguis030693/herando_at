@@ -21,7 +21,7 @@ document.addEventListener("DOMContentLoaded", () => {
       text: "Find your dream property around the world."
     },
     "/lifestyles": {
-      img: "/assets/lifestyle.jpg",
+      img: "/assets/lifestyle.png",
       caption: "Luxury Lifestyle",
       text: "Experience the world of luxury lifestyle."
     }
@@ -34,10 +34,14 @@ document.addEventListener("DOMContentLoaded", () => {
       const heroImage = document.getElementById("heroImage");
       const heroCaption = document.getElementById("heroCaption");
       const heroText = document.getElementById("heroText");
+      const hasImage = heroImage && String(heroImage.getAttribute("src") || "").trim() !== "";
+      const hasCaption = heroCaption && String(heroCaption.textContent || "").trim() !== "";
+      const hasText = heroText && String(heroText.textContent || "").trim() !== "";
 
-      if (heroImage) heroImage.src = heroContent[key].img;
-      if (heroCaption) heroCaption.textContent = heroContent[key].caption;
-      if (heroText) heroText.textContent = heroContent[key].text;
+      // Server-/Admin-Werte nicht überschreiben; nur als Fallback setzen.
+      if (heroImage && !hasImage) heroImage.src = heroContent[key].img;
+      if (heroCaption && !hasCaption) heroCaption.textContent = heroContent[key].caption;
+      if (heroText && !hasText) heroText.textContent = heroContent[key].text;
 
       break; // erstes Match reicht
     }
@@ -49,6 +53,124 @@ document.addEventListener("DOMContentLoaded", () => {
   if (!form) return;
 
   const route = window.currentEntityRoute || '';
+  const actionPath = (() => {
+    const raw = String(form.getAttribute('action') || '').trim();
+    if (!raw) return window.location.pathname;
+    try { return new URL(raw, window.location.origin).pathname; }
+    catch { return raw.startsWith('/') ? raw : window.location.pathname; }
+  })();
+  const currentQuery = new URLSearchParams(window.location.search);
+  const TECH_KEYS = ['limit', 'sort', 'view'];
+
+  function appendNonEmpty(params, key, value) {
+    if (value == null) return;
+    const v = String(value).trim();
+    if (!v) return;
+    params.append(String(key), v);
+  }
+
+  function buildCleanParams({ resetPage = true } = {}) {
+    const params = new URLSearchParams();
+    const fd = new FormData(form);
+
+    for (const [key, value] of fd.entries()) {
+      appendNonEmpty(params, key, value);
+    }
+
+    TECH_KEYS.forEach((key) => {
+      if (params.has(key)) return;
+      currentQuery.getAll(key).forEach((value) => appendNonEmpty(params, key, value));
+    });
+
+    if (resetPage) params.set('hp', '1');
+    return params;
+  }
+
+  function navigateWithFilters({ resetPage = true } = {}) {
+    const params = buildCleanParams({ resetPage });
+    const qs = params.toString();
+    location.href = qs ? `${actionPath}?${qs}` : actionPath;
+  }
+
+  const FACET_SELECT_MAP = {
+    brand: '#fBrand',
+    model: '#fModel',
+    country: '#fCountry',
+    cartype: '#fCarType',
+    year: ['#fYearMin', '#fYearMax'],
+    registrationYear: ['#fRegistrationYearMin', '#fRegistrationYearMax'],
+    watchtype: '#fWatchType',
+    gender: '#fGender',
+    propertytype: '#fPropertyType',
+    investmenttype: '#fInvestmentType',
+    stage: '#fStage',
+    quality: '#fQuality',
+    yachttype: '#fYachtType',
+    lifestyleType: '#fLifeType',
+    lifestyleSubcategory: '#fLifeSub'
+  };
+
+  const ROUTE_FACET_KEYS = {
+    cars: ['brand', 'model', 'country', 'cartype', 'year', 'registrationYear'],
+    watches: ['brand', 'model', 'country', 'watchtype', 'gender'],
+    properties: ['country', 'propertytype', 'investmenttype', 'stage', 'quality'],
+    yachts: ['brand', 'country', 'yachttype'],
+    lifestyles: ['lifestyleType', 'lifestyleSubcategory', 'country']
+  };
+
+  function applySelectAvailability(select, allowedValues) {
+    if (!select || !(select instanceof HTMLSelectElement)) return;
+    const allowed = new Set((allowedValues || []).map(v => String(v)));
+
+    let hasAvailable = false;
+    for (const opt of Array.from(select.options)) {
+      const value = String(opt.value || '');
+      if (!value) {
+        opt.hidden = false;
+        opt.disabled = false;
+        continue;
+      }
+      const keep = allowed.has(value);
+      opt.hidden = !keep;
+      opt.disabled = !keep;
+      if (keep) hasAvailable = true;
+    }
+
+    if (select.value && !allowed.has(String(select.value))) {
+      select.value = '';
+    }
+
+    const brandSelected = String(form.querySelector('#fBrand')?.value || '').trim();
+    const modelNeedsBrand = select.id === 'fModel' && !brandSelected;
+    select.disabled = modelNeedsBrand || !hasAvailable;
+  }
+
+  function applyFacetAvailability(available) {
+    const keys = ROUTE_FACET_KEYS[route] || [];
+    keys.forEach((key) => {
+      if (!Object.prototype.hasOwnProperty.call(available, key)) return;
+      const mapValue = FACET_SELECT_MAP[key];
+      if (!mapValue) return;
+      const selectors = Array.isArray(mapValue) ? mapValue : [mapValue];
+      selectors.forEach((selector) => {
+        const select = form.querySelector(selector);
+        if (!select) return;
+        applySelectAvailability(select, available[key]);
+      });
+    });
+  }
+
+  async function refreshFacetAvailability() {
+    if (!route) return;
+    const params = buildCleanParams({ resetPage: false });
+    params.delete('hp');
+    const qs = params.toString();
+    const url = `/api/${route}/facet-availability${qs ? `?${qs}` : ''}`;
+    const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+    if (!resp.ok) return;
+    const payload = await resp.json();
+    applyFacetAvailability(payload?.available || {});
+  }
 
   function ensureOption(select, val, labelFn) {
     if (!val) return;
@@ -126,40 +248,73 @@ if (['cars', 'watches', 'yachts'].includes(route)) {
     const elecId = electric ? electric.id : '';
 
     const urlFuelAll = qp.getAll('fuel');
-    if (elecId && urlFuelAll.includes(String(elecId))) elec.checked = true;
+    if (elec && elecId && urlFuelAll.includes(String(elecId))) elec.checked = true;
 
-    const syncFuel = () => hiddenFuel.value = (elec.checked && elecId) ? elecId : '';
+    const syncFuel = () => {
+      if (!hiddenFuel) return;
+      if (elec && elec.checked && elecId) {
+        hiddenFuel.disabled = false;
+        hiddenFuel.value = String(elecId);
+        return;
+      }
+      hiddenFuel.value = '';
+      hiddenFuel.disabled = true;
+    };
     elec && elec.addEventListener('change', syncFuel);
     syncFuel();
   }
 
-      // Cars: Oldtimer-Sync (20+ Jahre)
-if (route === 'cars') {
-  const old = form.querySelector('#onlyOldtimer');
-  const hiddenOld = form.querySelector('#hiddenOldtimer');
+  // Cars: Oldtimer aus URL in Checkbox spiegeln
+  if (route === 'cars') {
+    const old = form.querySelector('#onlyOldtimer');
+    if (old && qp.get('onlyOldtimer') === '1') {
+      old.checked = true;
+    }
+  }
 
-  if (!old || !hiddenOld) return;
+  // Nur gesetzte Filter in die URL übernehmen (keine leeren key= Werte)
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    navigateWithFilters({ resetPage: true });
+  });
 
-  const qpOnlyOldtimer = qp.get('onlyOldtimer');
-  if (qpOnlyOldtimer === '1') old.checked = true;
+  // AJAX-Facets: sofort Optionen anpassen, aber ohne Seiten-Reload.
+  let facetTimer = null;
+  form.addEventListener('change', (e) => {
+    const target = e.target;
+    if (!(target instanceof HTMLElement)) return;
+    const isSelectable =
+      target.matches('select') ||
+      target.matches('input[type="checkbox"]') ||
+      target.matches('input[type="radio"]');
+    if (!isSelectable) return;
 
-  const syncOld = () => {
-    hiddenOld.value = old.checked ? '1' : '';
-  };
+    if (facetTimer) clearTimeout(facetTimer);
+    facetTimer = setTimeout(() => {
+      refreshFacetAvailability().catch(() => {});
+    }, 140);
 
-  old.addEventListener('change', syncOld);
-  syncOld();
-}
+    if (target.id === 'fBrand') {
+      setTimeout(() => {
+        refreshFacetAvailability().catch(() => {});
+      }, 420);
+    }
+  });
 
+  document.addEventListener('filters:modelsLoaded', () => {
+    refreshFacetAvailability().catch(() => {});
+  });
 
+  refreshFacetAvailability().catch(() => {});
 
   // Button "Mehr Filter"
   const btnMore = document.getElementById('openFilterPage');
   if (btnMore) {
     btnMore.addEventListener('click', () => {
-      const params = new URLSearchParams(new FormData(form));
-      const base = location.pathname.replace(/\/$/, '');
-      location.href = `${base}/filters?${params.toString()}`;
+      const params = buildCleanParams({ resetPage: true });
+      const base = actionPath.replace(/\/$/, '');
+      const qs = params.toString();
+      location.href = qs ? `${base}/filters?${qs}` : `${base}/filters`;
     });
   }
 })();
@@ -324,8 +479,8 @@ if (!/^\/cars(\/|$)/.test(window.location.pathname)) return;
       }
     });
 
-    // Entfernt alle H1 auf /cars
-    document.querySelectorAll('h1').forEach(h1 => h1.remove());
+    // Entfernt ggf. unerwuenschte H1, laesst aber den Seiten-Titel stehen
+    document.querySelectorAll('h1:not(#dynamicTitle)').forEach(h1 => h1.remove());
   }
 
   if (document.readyState === 'loading') {
@@ -359,8 +514,8 @@ if (!/^\/cars(\/|$)/.test(window.location.pathname)) return;
       });
     });
 
-    // Entfernt alle H1 auf /yachts
-    document.querySelectorAll('h1').forEach(h1 => h1.remove());
+    // Entfernt ggf. unerwuenschte H1, laesst aber den Seiten-Titel stehen
+    document.querySelectorAll('h1:not(#dynamicTitle)').forEach(h1 => h1.remove());
   }
 
   if (document.readyState === 'loading') {
@@ -390,8 +545,8 @@ if (!/^\/properties(\/|$)/.test(window.location.pathname)) return;
       });
     });
 
-    // Entfernt alle H1 auf /yachts
-    document.querySelectorAll('h1').forEach(h1 => h1.remove());
+    // Entfernt ggf. unerwuenschte H1, laesst aber den Seiten-Titel stehen
+    document.querySelectorAll('h1:not(#dynamicTitle)').forEach(h1 => h1.remove());
   }
 
   if (document.readyState === 'loading') {
@@ -534,4 +689,3 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   }
 });
-

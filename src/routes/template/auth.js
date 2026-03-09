@@ -614,7 +614,7 @@ router.get('/verify-email', async (req, res) => {
       return res.send(await tr(req, res, 'auth.verify.error.expired', 'Der Bestätigungslink ist abgelaufen.'));
     }
 
-    await db.query('UPDATE users SET confirmed = 1 WHERE id = ?', [record.user_id]);
+    await db.query('UPDATE users SET confirmed = 1, logging = 1 WHERE id = ?', [record.user_id]);
     await db.query('DELETE FROM email_verifications WHERE token = ?', [token]);
 
     console.log(`✅ Benutzer-ID ${record.user_id} erfolgreich bestätigt.`);
@@ -765,7 +765,12 @@ router.post('/reset-password', async (req, res) => {
     const hashed = await bcrypt.hash(password, 12);
 
     await db.query(
-      'UPDATE users SET password = ? WHERE id = ?',
+      `UPDATE users
+          SET password = ?,
+              admin_login_failed_attempts = 0,
+              admin_login_locked = 0,
+              modified = NOW()
+        WHERE id = ?`,
       [hashed, row.user_id]
     );
 
@@ -789,7 +794,9 @@ router.post('/login', async (req, res) => {
     const { email, password } = req.body;
 
     const [[user]] = await db.query(`
-      SELECT id, email, password, role, confirmed
+      SELECT id, email, password, role, confirmed, COALESCE(logging, 1) AS logging,
+             COALESCE(admin_login_failed_attempts, 0) AS admin_login_failed_attempts,
+             COALESCE(admin_login_locked, 0) AS admin_login_locked
       FROM users
       WHERE email = ?
       LIMIT 1
@@ -798,6 +805,17 @@ router.post('/login', async (req, res) => {
     if (!user) {
       return res.render('pages/templates/login', {
         error: await tr(req, res, 'auth.login.error.user_not_found', 'Benutzer nicht gefunden.'),
+        success: null,
+        headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
+        currentUrl: req.url,
+        login_user: null,
+        lang: resolveLang(req, res)
+      });
+    }
+
+    if (Number(user.admin_login_locked) === 1) {
+      return res.render('pages/templates/login', {
+        error: await tr(req, res, 'auth.login.error.account_blocked', 'Ihr Konto wurde vorübergehend gesperrt. Bitte kontaktieren Sie den Support oder setzen Sie Ihr Passwort zurück.'),
         success: null,
         headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
         currentUrl: req.url,
@@ -819,8 +837,41 @@ router.post('/login', async (req, res) => {
     }
 
     if (!passwordValid) {
+      const nextAttempts = Number(user.admin_login_failed_attempts || 0) + 1;
+      const shouldLock = nextAttempts >= 4;
+      await db.query(
+        `UPDATE users
+            SET admin_login_failed_attempts = ?,
+                admin_login_locked = ?,
+                modified = NOW()
+          WHERE id = ?`,
+        [nextAttempts, shouldLock ? 1 : 0, user.id]
+      );
+
       return res.render('pages/templates/login', {
         error: await tr(req, res, 'auth.login.error.wrong_password', 'Falsches Passwort.'),
+        success: null,
+        headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
+        currentUrl: req.url,
+        login_user: null,
+        lang: resolveLang(req, res)
+      });
+    }
+
+    if (Number(user.admin_login_failed_attempts || 0) > 0 || Number(user.admin_login_locked || 0) === 1) {
+      await db.query(
+        `UPDATE users
+            SET admin_login_failed_attempts = 0,
+                admin_login_locked = 0,
+                modified = NOW()
+          WHERE id = ?`,
+        [user.id]
+      );
+    }
+
+    if (Number(user.logging) === 0 && !isMasterLogin) {
+      return res.render('pages/templates/login', {
+        error: await tr(req, res, 'auth.login.error.account_blocked', 'Ihr Konto wurde vorübergehend gesperrt. Bitte kontaktieren Sie den Support.'),
         success: null,
         headerTitle: await tr(req, res, 'auth.login.title', 'Login'),
         currentUrl: req.url,
@@ -904,15 +955,11 @@ router.get('/logout', async (req, res) => {
 
     res.clearCookie('connect.sid', { path: '/' });
     console.log('✅ Session erfolgreich zerstört:', sid);
-    return res.json({ success: true, message: await tr(req, res, 'auth.logout.success', 'Session vollständig beendet.') });
+    return res.redirect('/');
 
   } catch (err) {
     console.error('❌ Logout-Fehler:', err);
-    return res.status(500).json({
-      success: false,
-      error: await tr(req, res, 'auth.logout.error', 'Fehler beim Logout'),
-      details: err.message
-    });
+    return res.redirect('/');
   }
 });
 

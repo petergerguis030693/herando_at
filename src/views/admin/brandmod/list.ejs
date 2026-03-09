@@ -28,28 +28,39 @@
     <!-- Tabs -->
     <ul class="nav nav-tabs" role="tablist">
       <li class="nav-item">
-        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#brands">Marken</button>
+        <button class="nav-link <%= activeTab === 'brands' ? 'active' : '' %>" data-bs-toggle="tab" data-bs-target="#brands">Marken</button>
       </li>
       <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#models">Modelle</button>
+        <button class="nav-link <%= activeTab === 'models' ? 'active' : '' %>" data-bs-toggle="tab" data-bs-target="#models">Modelle</button>
       </li>
       <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#brandSeo">Brand SEO</button>
+        <button class="nav-link <%= activeTab === 'brandSeo' ? 'active' : '' %>" data-bs-toggle="tab" data-bs-target="#brandSeo">Brand SEO</button>
       </li>
       <li class="nav-item">
-        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#modelSeo">Model SEO</button>
+        <button class="nav-link <%= activeTab === 'modelSeo' ? 'active' : '' %>" data-bs-toggle="tab" data-bs-target="#modelSeo">Model SEO</button>
       </li>
     </ul>
 
     <div class="tab-content mt-3">
 
       <!-- ===================== MARKEN ===================== -->
-      <div class="tab-pane fade show active" id="brands">
+      <div class="tab-pane fade <%= activeTab === 'brands' ? 'show active' : '' %>" id="brands">
         <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#modalBrand">
           Neue Marke
         </button>
 
-        <input id="searchBrands" class="form-control mb-3" placeholder="Marken suchen...">
+        <form method="GET" action="/admin/modbrand" class="row g-2 mb-3">
+          <input type="hidden" name="tab" value="brands">
+          <input type="hidden" name="modelSearch" value="<%= modelSearch || '' %>">
+          <input type="hidden" name="modelPage" value="<%= currentModelPage || 1 %>">
+          <div class="col-md-8">
+            <input id="searchBrands" name="brandSearch" class="form-control" placeholder="Marken suchen..." value="<%= brandSearch || '' %>">
+          </div>
+          <div class="col-auto d-flex gap-2">
+            <button type="submit" class="btn btn-outline-primary">Suchen</button>
+            <a class="btn btn-outline-secondary" href="/admin/modbrand?tab=brands&modelSearch=<%= encodeURIComponent(modelSearch || '') %>&modelPage=<%= currentModelPage || 1 %>">Reset</a>
+          </div>
+        </form>
 
 
         <table class="table table-bordered">
@@ -60,7 +71,12 @@
             </tr>
           </thead>
           <tbody>
-          <% brands.forEach(b => { %>
+          <% if (!brandRows || !brandRows.length) { %>
+            <tr>
+              <td colspan="2" class="text-muted">Keine Marken gefunden.</td>
+            </tr>
+          <% } %>
+          <% (brandRows || []).forEach(b => { %>
             <tr data-id="<%= b.id %>" data-name="<%= b.name %>" data-entitieid="<%= b.type %>">
               <td><%= b.name %></td>
               <td>
@@ -72,6 +88,53 @@
           <% }) %>
           </tbody>
         </table>
+
+        <%
+          const brandPagerBase = new URLSearchParams();
+          brandPagerBase.set('tab', 'brands');
+          if (brandSearch) brandPagerBase.set('brandSearch', brandSearch);
+          if (modelSearch) brandPagerBase.set('modelSearch', modelSearch);
+          if (currentModelPage) brandPagerBase.set('modelPage', String(currentModelPage));
+          const buildBrandPageUrl = (p) => {
+            const q = new URLSearchParams(brandPagerBase.toString());
+            q.set('brandPage', String(p));
+            return `/admin/modbrand?${q.toString()}`;
+          };
+          const brandPageStart = Math.max(1, (currentBrandPage || 1) - 2);
+          const brandPageEnd = Math.min(brandTotalPages || 1, (currentBrandPage || 1) + 2);
+        %>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div class="text-muted">
+            <strong><%= brandTotal || 0 %></strong> Marken
+            (<%= perPage || 50 %> pro Seite)
+            • Seite <strong><%= currentBrandPage || 1 %></strong> von <strong><%= brandTotalPages || 1 %></strong>
+          </div>
+          <div class="btn-group" role="group" aria-label="Marken Pagination">
+            <a class="btn btn-outline-secondary <%= (currentBrandPage || 1) <= 1 ? 'disabled' : '' %>"
+               href="<%= buildBrandPageUrl(Math.max(1, (currentBrandPage || 1) - 1)) %>">&laquo;</a>
+            <% if (brandPageStart > 1) { %>
+              <a class="btn btn-outline-secondary" href="<%= buildBrandPageUrl(1) %>">1</a>
+              <% if (brandPageStart > 2) { %>
+                <button type="button" class="btn btn-outline-secondary" disabled>…</button>
+              <% } %>
+            <% } %>
+            <% for (let p = brandPageStart; p <= brandPageEnd; p++) { %>
+              <% if (p === (currentBrandPage || 1)) { %>
+                <button type="button" class="btn btn-primary" disabled><%= p %></button>
+              <% } else { %>
+                <a class="btn btn-outline-secondary" href="<%= buildBrandPageUrl(p) %>"><%= p %></a>
+              <% } %>
+            <% } %>
+            <% if (brandPageEnd < (brandTotalPages || 1)) { %>
+              <% if (brandPageEnd < (brandTotalPages || 1) - 1) { %>
+                <button type="button" class="btn btn-outline-secondary" disabled>…</button>
+              <% } %>
+              <a class="btn btn-outline-secondary" href="<%= buildBrandPageUrl(brandTotalPages || 1) %>"><%= brandTotalPages || 1 %></a>
+            <% } %>
+            <a class="btn btn-outline-secondary <%= (currentBrandPage || 1) >= (brandTotalPages || 1) ? 'disabled' : '' %>"
+               href="<%= buildBrandPageUrl(Math.min(brandTotalPages || 1, (currentBrandPage || 1) + 1)) %>">&raquo;</a>
+          </div>
+        </div>
       </div>
 
       <div class="modal fade" id="modalBrand" tabindex="-1">
@@ -101,12 +164,23 @@
 
 
       <!-- ===================== MODELLE ===================== -->
-      <div class="tab-pane fade" id="models">
+      <div class="tab-pane fade <%= activeTab === 'models' ? 'show active' : '' %>" id="models">
       <button class="btn btn-primary mb-3" data-bs-toggle="modal" data-bs-target="#modalModel">
         Neues Modell
       </button>
 
-      <input id="searchModels" class="form-control mb-3" placeholder="Modelle suchen...">
+      <form method="GET" action="/admin/modbrand" class="row g-2 mb-3">
+        <input type="hidden" name="tab" value="models">
+        <input type="hidden" name="brandSearch" value="<%= brandSearch || '' %>">
+        <input type="hidden" name="brandPage" value="<%= currentBrandPage || 1 %>">
+        <div class="col-md-8">
+          <input id="searchModels" name="modelSearch" class="form-control" placeholder="Modelle suchen..." value="<%= modelSearch || '' %>">
+        </div>
+        <div class="col-auto d-flex gap-2">
+          <button type="submit" class="btn btn-outline-primary">Suchen</button>
+          <a class="btn btn-outline-secondary" href="/admin/modbrand?tab=models&brandSearch=<%= encodeURIComponent(brandSearch || '') %>&brandPage=<%= currentBrandPage || 1 %>">Reset</a>
+        </div>
+      </form>
 
 
         <table class="table table-bordered">
@@ -118,7 +192,12 @@
             </tr>
           </thead>
           <tbody>
-          <% models.forEach(m => { %>
+          <% if (!modelRows || !modelRows.length) { %>
+            <tr>
+              <td colspan="3" class="text-muted">Keine Modelle gefunden.</td>
+            </tr>
+          <% } %>
+          <% (modelRows || []).forEach(m => { %>
             <tr data-id="<%= m.id %>" data-brandid="<%= m.brand_id %>">
               <td><%= m.brand_name %></td>
               <td><%= m.name %></td>
@@ -130,6 +209,53 @@
           <% }) %>
           </tbody>
         </table>
+
+        <%
+          const modelPagerBase = new URLSearchParams();
+          modelPagerBase.set('tab', 'models');
+          if (modelSearch) modelPagerBase.set('modelSearch', modelSearch);
+          if (brandSearch) modelPagerBase.set('brandSearch', brandSearch);
+          if (currentBrandPage) modelPagerBase.set('brandPage', String(currentBrandPage));
+          const buildModelPageUrl = (p) => {
+            const q = new URLSearchParams(modelPagerBase.toString());
+            q.set('modelPage', String(p));
+            return `/admin/modbrand?${q.toString()}`;
+          };
+          const modelPageStart = Math.max(1, (currentModelPage || 1) - 2);
+          const modelPageEnd = Math.min(modelTotalPages || 1, (currentModelPage || 1) + 2);
+        %>
+        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+          <div class="text-muted">
+            <strong><%= modelTotal || 0 %></strong> Modelle
+            (<%= perPage || 50 %> pro Seite)
+            • Seite <strong><%= currentModelPage || 1 %></strong> von <strong><%= modelTotalPages || 1 %></strong>
+          </div>
+          <div class="btn-group" role="group" aria-label="Modelle Pagination">
+            <a class="btn btn-outline-secondary <%= (currentModelPage || 1) <= 1 ? 'disabled' : '' %>"
+               href="<%= buildModelPageUrl(Math.max(1, (currentModelPage || 1) - 1)) %>">&laquo;</a>
+            <% if (modelPageStart > 1) { %>
+              <a class="btn btn-outline-secondary" href="<%= buildModelPageUrl(1) %>">1</a>
+              <% if (modelPageStart > 2) { %>
+                <button type="button" class="btn btn-outline-secondary" disabled>…</button>
+              <% } %>
+            <% } %>
+            <% for (let p = modelPageStart; p <= modelPageEnd; p++) { %>
+              <% if (p === (currentModelPage || 1)) { %>
+                <button type="button" class="btn btn-primary" disabled><%= p %></button>
+              <% } else { %>
+                <a class="btn btn-outline-secondary" href="<%= buildModelPageUrl(p) %>"><%= p %></a>
+              <% } %>
+            <% } %>
+            <% if (modelPageEnd < (modelTotalPages || 1)) { %>
+              <% if (modelPageEnd < (modelTotalPages || 1) - 1) { %>
+                <button type="button" class="btn btn-outline-secondary" disabled>…</button>
+              <% } %>
+              <a class="btn btn-outline-secondary" href="<%= buildModelPageUrl(modelTotalPages || 1) %>"><%= modelTotalPages || 1 %></a>
+            <% } %>
+            <a class="btn btn-outline-secondary <%= (currentModelPage || 1) >= (modelTotalPages || 1) ? 'disabled' : '' %>"
+               href="<%= buildModelPageUrl(Math.min(modelTotalPages || 1, (currentModelPage || 1) + 1)) %>">&raquo;</a>
+          </div>
+        </div>
       </div>
 
       <div class="modal fade" id="modalModel" tabindex="-1">
@@ -159,7 +285,7 @@
 
 
       <!-- ===================== BRAND SEO ===================== -->
-      <div class="tab-pane fade" id="brandSeo">
+      <div class="tab-pane fade <%= activeTab === 'brandSeo' ? 'show active' : '' %>" id="brandSeo">
         <form id="brandSeoForm">
           <div class="row g-2 mb-2">
             <div class="col">
@@ -193,7 +319,7 @@
       </div>
 
       <!-- ===================== MODEL SEO ===================== -->
-      <div class="tab-pane fade" id="modelSeo">
+      <div class="tab-pane fade <%= activeTab === 'modelSeo' ? 'show active' : '' %>" id="modelSeo">
         <form id="modelSeoForm">
           <div class="row g-2 mb-2">
             <div class="col">
@@ -296,9 +422,17 @@ document.addEventListener('DOMContentLoaded', () => {
 document.addEventListener('DOMContentLoaded', () => {
 
   async function postForm(form, url) {
+    const body = new URLSearchParams();
+    for (const [key, value] of new FormData(form).entries()) {
+      body.append(key, value);
+    }
+
     const res = await fetch(url, {
       method: 'POST',
-      body: new FormData(form)
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+      },
+      body
     });
 
     if (!res.ok) {
@@ -321,26 +455,74 @@ document.addEventListener('DOMContentLoaded', () => {
       postForm(e.target, '/admin/modbrand/models/new');
     });
 
-});
-</script>
+  async function postUrl(url, data) {
+    const body = new URLSearchParams();
+    Object.entries(data || {}).forEach(([key, value]) => {
+      body.append(key, value == null ? '' : String(value));
+    });
 
-<script>
-function liveTableSearch(inputId, tableSelector) {
-  const input = document.getElementById(inputId);
-  const rows  = document.querySelectorAll(tableSelector + ' tbody tr');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded;charset=UTF-8'
+      },
+      body
+    });
 
-  input.addEventListener('input', function () {
-    const term = this.value.toLowerCase();
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(text || 'Fehler beim Speichern');
+    }
+  }
 
-    rows.forEach(row => {
-      const text = row.innerText.toLowerCase();
-      row.style.display = text.includes(term) ? '' : 'none';
+  document.querySelectorAll('.btnEditModel').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const tr = btn.closest('tr');
+      if (!tr) return;
+
+      const id = tr.dataset.id;
+      const brandId = tr.dataset.brandid;
+      const currentName = (tr.children[1]?.innerText || '').trim();
+      const nextName = prompt('Modellname bearbeiten', currentName);
+
+      if (nextName === null) return;
+      if (!nextName.trim()) {
+        alert('Bitte einen Modellnamen eingeben.');
+        return;
+      }
+
+      try {
+        await postUrl(`/admin/modbrand/models/${id}/edit`, {
+          brandId,
+          name: nextName.trim()
+        });
+        location.reload();
+      } catch (err) {
+        alert(err.message || 'Fehler beim Bearbeiten');
+      }
     });
   });
-}
 
-document.addEventListener('DOMContentLoaded', () => {
-  liveTableSearch('searchBrands', '#brands table');
-  liveTableSearch('searchModels', '#models table');
+  document.querySelectorAll('.btnDeleteModel').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const tr = btn.closest('tr');
+      if (!tr) return;
+
+      const id = tr.dataset.id;
+      const modelName = (tr.children[1]?.innerText || '').trim();
+      const ok = confirm(`Modell wirklich löschen?\n${modelName || `ID ${id}`}`);
+      if (!ok) return;
+
+      try {
+        await postUrl(`/admin/modbrand/models/${id}/delete`, {});
+        location.reload();
+      } catch (err) {
+        alert(err.message || 'Fehler beim Löschen');
+      }
+    });
+  });
+
 });
 </script>

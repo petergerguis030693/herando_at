@@ -1,0 +1,126 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-fill container py-4">
+    <h1 class="h3 mb-3"><%= job?.id ? 'Stelle bearbeiten' : 'Neue Stelle anlegen' %></h1>
+
+    <% if (messages?.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+    <% if (messages?.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+
+    <form method="POST" action="<%= action %>" enctype="multipart/form-data">
+      <div class="row g-3">
+        <div class="col-md-8">
+          <label class="form-label" for="title">Titel *</label>
+          <input
+            id="title"
+            name="title"
+            type="text"
+            class="form-control"
+            required
+            value="<%= job?.title || '' %>"
+          >
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label" for="slug">Slug (optional)</label>
+          <input
+            id="slug"
+            name="slug"
+            type="text"
+            class="form-control"
+            value="<%= job?.slug || '' %>"
+            placeholder="wird aus Titel erzeugt"
+          >
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label" for="location">Standort</label>
+          <input id="location" name="location" type="text" class="form-control" value="<%= job?.location || '' %>">
+        </div>
+
+        <div class="col-md-4">
+          <label class="form-label" for="department">Abteilung</label>
+          <input id="department" name="department" type="text" class="form-control" value="<%= job?.department || '' %>">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label" for="employment_type">Anstellung</label>
+          <input id="employment_type" name="employment_type" type="text" class="form-control" value="<%= job?.employment_type || '' %>" placeholder="z. B. Vollzeit">
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label" for="workplace_type">Arbeitsmodell</label>
+          <input id="workplace_type" name="workplace_type" type="text" class="form-control" value="<%= job?.workplace_type || '' %>" placeholder="z. B. Hybrid">
+        </div>
+
+        <div class="col-12">
+          <label class="form-label" for="short_description">Kurzbeschreibung</label>
+          <textarea id="short_description" name="short_description" rows="3" class="form-control"><%= job?.short_description || '' %></textarea>
+        </div>
+
+        <div class="col-12">
+          <label class="form-label" for="description">Aufgaben & Position *</label>
+          <textarea id="description" name="description" rows="7" class="form-control" required><%= job?.description || '' %></textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label" for="requirements">Anforderungen</label>
+          <textarea id="requirements" name="requirements" rows="6" class="form-control"><%= job?.requirements || '' %></textarea>
+        </div>
+
+        <div class="col-md-6">
+          <label class="form-label" for="benefits">Benefits</label>
+          <textarea id="benefits" name="benefits" rows="6" class="form-control"><%= job?.benefits || '' %></textarea>
+        </div>
+
+        <div class="col-md-5">
+          <label class="form-label" for="image">Bild</label>
+          <input id="image" name="image" type="file" class="form-control" accept=".jpg,.jpeg,.png,.webp">
+          <% if (job?.image_url) { %>
+            <div class="mt-2">
+              <img src="<%= job.image_url %>" alt="Job Bild" style="max-width: 240px; border-radius: 10px; border: 1px solid #ddd;">
+            </div>
+          <% } %>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label" for="sort_order">Sortierung</label>
+          <input id="sort_order" name="sort_order" type="number" class="form-control" value="<%= Number(job?.sort_order || 0) %>">
+        </div>
+
+        <div class="col-md-4 d-flex align-items-end">
+          <div class="form-check mb-2">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              value="1"
+              id="is_active"
+              name="is_active"
+              <%= Number(job?.is_active ?? 1) === 1 ? 'checked' : '' %>
+            >
+            <label class="form-check-label" for="is_active">
+              Stelle aktiv auf `/jobs` anzeigen
+            </label>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="small text-muted">
+            Bei aktiven Stellen wird die KI-Übersetzung nach dem Speichern automatisch gestartet.
+          </div>
+        </div>
+      </div>
+
+      <div class="mt-4 d-flex gap-2">
+        <button type="submit" class="btn btn-primary">Speichern</button>
+        <a href="/admin/jobs" class="btn btn-outline-secondary">Abbrechen</a>
+      </div>
+    </form>
+  </main>
+</div>

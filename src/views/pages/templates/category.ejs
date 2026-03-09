@@ -6,15 +6,7 @@
 <link rel="stylesheet" href="/css/product-cards/properties.css">
 <link rel="stylesheet" href="/css/product-cards/yachts.css">
 <link rel="stylesheet" href="/css/product-cards/lifestyles.css">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Prata&display=swap" rel="stylesheet">
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<link
-  href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css"
-  rel="stylesheet"
-/>
-<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 
 <%
   const heroByEntity = {
@@ -39,25 +31,30 @@
       text: "Find your dream property around the world."
     },
     lifestyles: {
-      img: "/assets/lifestyle.jpg",
+      img: "/assets/lifestyle.png",
       caption: "Luxury Lifestyle",
       text: "Experience the world of luxury lifestyle."
     }
   };
 
   const heroKey = (currentEntity && currentEntity.route ? String(currentEntity.route).toLowerCase() : "");
-  const heroData = heroByEntity[heroKey] || {
+  const heroBaseData = heroByEntity[heroKey] || {
     img: "/assets/cars.jpg",
     caption: "Luxury",
     text: ""
+  };
+  const heroImageKey = heroKey ? `category_hero_image_${heroKey}` : "";
+  const heroData = {
+    ...heroBaseData,
+    img: (heroImageKey && typeof t === 'function')
+      ? t(heroImageKey, heroBaseData.img)
+      : heroBaseData.img
   };
 %>
 <link rel="preload" as="image" href="<%= heroData.img %>">
 
 <section id="heroSection" class="hero-section">
   <img id="heroImage" src="<%= heroData.img %>" alt="<%= heroData.caption %>" class="hero-image" fetchpriority="high" loading="eager">
-  <div id="heroCaption" class="hero-caption"><%= heroData.caption %></div>
-  <div id="heroText" class="hero-text"><%= heroData.text %></div>
 </section>
 
  
@@ -192,6 +189,9 @@
   const allowedLimits = new Set(['32', '60', '120']);
   const fallbackLimit = '32';
   const selectEl = document.getElementById('itemsPerPage');
+  const setLimitCookie = (value) => {
+    document.cookie = `itemsPerPage=${value}; Path=/; Max-Age=${60 * 60 * 24 * 180}; SameSite=Lax`;
+  };
 
   const savedRaw = localStorage.getItem('itemsPerPage');
   const saved = (savedRaw && allowedLimits.has(savedRaw)) ? savedRaw : null;
@@ -201,21 +201,23 @@
 
   const url = new URL(window.location.href);
   const urlLimit = url.searchParams.get('limit');
+  const hasValidUrlLimit = !!(urlLimit && allowedLimits.has(urlLimit));
   const renderedLimit = (selectEl && allowedLimits.has(selectEl.value)) ? selectEl.value : null;
 
-  // Kein Seiten-Reload mehr: wir normalisieren nur URL/State.
   let effectiveLimit = fallbackLimit;
-  if (urlLimit && allowedLimits.has(urlLimit)) effectiveLimit = urlLimit;
+  if (hasValidUrlLimit) effectiveLimit = urlLimit;
   else if (saved) effectiveLimit = saved;
   else if (renderedLimit) effectiveLimit = renderedLimit;
 
-  if (!urlLimit || !allowedLimits.has(urlLimit)) {
+  if (!hasValidUrlLimit) {
     url.searchParams.set('limit', effectiveLimit);
+    if (!url.searchParams.get('hp')) url.searchParams.set('hp', '1');
     window.history.replaceState({}, '', url.toString());
   }
 
   if (selectEl) selectEl.value = effectiveLimit;
   localStorage.setItem('itemsPerPage', effectiveLimit);
+  setLimitCookie(effectiveLimit);
 })();
 </script>
 
@@ -224,6 +226,7 @@ function updateLimit(limit){
   const allowedLimits = new Set(['32', '60', '120']);
   const safeLimit = allowedLimits.has(String(limit)) ? String(limit) : '32';
   localStorage.setItem('itemsPerPage', safeLimit);
+  document.cookie = `itemsPerPage=${safeLimit}; Path=/; Max-Age=${60 * 60 * 24 * 180}; SameSite=Lax`;
 
   const url = new URL(window.location.href);
   url.searchParams.set('limit', safeLimit);

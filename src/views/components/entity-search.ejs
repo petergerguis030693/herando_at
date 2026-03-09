@@ -111,13 +111,34 @@ textarea {
   border: 1px solid #ccc;
 }
 
+/* Einheitliche Schriftfarbe (außer Modelle-Felder) */
+.filter-tag,
+.filter-tag .x,
+.fi-check,
+.filter-bar .fi-label,
+.filter-bar .fi-input input:not([name="model"]),
+.filter-bar .filter-input:not([name="model"]),
+.filter-bar .fi-select select:not([name="model"]),
+.filter-bar .fi-select select:not([name="model"]) option,
+.filter-bar .dropdown-toggle,
+.filter-bar .dropdown-toggle i,
+.filter-bar .dropdown-item,
+.filter-bar .dropdown-item i {
+  color: #0f172a !important;
+}
+
 
 
 </style>
 
 
 <section class="filter-bar shell" data-entity="<%= currentEntity.route %>">
-  <form method="get" action="" class="filter-form" id="quickFilters">
+  <form
+    method="get"
+    action="<%= typeof entityPath === 'function' ? entityPath(currentEntity.route) : '/' + currentEntity.route %>"
+    class="filter-form"
+    id="quickFilters"
+    data-entity-route="<%= currentEntity.route %>">
     <div class="filter-grid" style="padding: 20px;">
 
       <!-- Marke / Modell – für cars, watches, yachts -->
@@ -158,21 +179,78 @@ textarea {
       <!-- cars: Erstzulassung, Kilometer -->
       <% if (currentEntity.route === 'cars') { %>
       <div class="fi">
-        <label class="fi-label"><%= t('filter.first_reg_from') %></label>
-        <div class="fi-select">
-          <select name="yearMin" id="fYearMin">
-            <option value=""><%= t('common.any') %></option>
-            <% (filters.registrationYears || []).forEach(y => { 
-                const val = (y && typeof y === 'object' && 'year' in y) ? y.year : y; %>
-              <option value="<%= val %>"
-                <%= (selectedFilters.yearMin||[]).map(String).includes(String(val)) ? 'selected' : '' %>>
-                <%= val %>
-              </option>
-            <% }) %>
-          </select>
-          <i class="bi bi-chevron-down"></i>
+        <label class="fi-label"><%= t('cars.first_registration', 'Erstzulassung') %></label>
+        <div class="fi-range">
+          <div class="fi-select" style="flex:1;">
+            <select name="registrationYearMin" id="fRegistrationYearMin">
+              <option value=""><%= t('labels.price.from','von') %></option>
+              <% (filters.registrationYears || []).forEach(y => {
+                  const val = (y && typeof y === 'object' && 'year' in y) ? y.year : y; %>
+                <% if (Number(val) > 0) { %>
+                <option value="<%= val %>"
+                  <%= (selectedFilters.registrationYearMin||[]).map(String).includes(String(val)) ? 'selected' : '' %>>
+                  <%= val %>
+                </option>
+                <% } %>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+          <span class="sep">–</span>
+          <div class="fi-select" style="flex:1;">
+            <select name="registrationYearMax" id="fRegistrationYearMax">
+              <option value=""><%= t('labels.price.to','bis') %></option>
+              <% (filters.registrationYears || []).forEach(y => {
+                  const val = (y && typeof y === 'object' && 'year' in y) ? y.year : y; %>
+                <% if (Number(val) > 0) { %>
+                <option value="<%= val %>"
+                  <%= (selectedFilters.registrationYearMax||[]).map(String).includes(String(val)) ? 'selected' : '' %>>
+                  <%= val %>
+                </option>
+                <% } %>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
         </div>
       </div>
+
+       <!--<div class="fi">
+       <label class="fi-label"><%= t('buyer.listing.car.year','Baujahr') %></label>
+        <div class="fi-range">
+          <div class="fi-select" style="flex:1;">
+            <select name="yearMin" id="fYearMin">
+              <option value=""><%= t('labels.price.from','von') %></option>
+              <% (filters.years || []).forEach(y => {
+                  const val = (y && typeof y === 'object' && 'year' in y) ? y.year : y; %>
+                <% if (Number(val) > 0) { %>
+                <option value="<%= val %>"
+                  <%= (selectedFilters.yearMin||[]).map(String).includes(String(val)) ? 'selected' : '' %>>
+                  <%= val %>
+                </option>
+                <% } %>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+          <span class="sep">–</span>
+          <div class="fi-select" style="flex:1;">
+            <select name="yearMax" id="fYearMax">
+              <option value=""><%= t('labels.price.to','bis') %></option>
+              <% (filters.years || []).forEach(y => {
+                  const val = (y && typeof y === 'object' && 'year' in y) ? y.year : y; %>
+                <% if (Number(val) > 0) { %>
+                <option value="<%= val %>"
+                  <%= (selectedFilters.yearMax||[]).map(String).includes(String(val)) ? 'selected' : '' %>>
+                  <%= val %>
+                </option>
+                <% } %>
+              <% }) %>
+            </select>
+            <i class="bi bi-chevron-down"></i>
+          </div>
+        </div>
+      </div>-->
 
       <div class="fi">
         <label class="fi-label"><%= t('filter.km_upto') %></label>
@@ -181,6 +259,22 @@ textarea {
             <option value=""><%= t('common.any') %></option>
             <% [5000,10000,20000,30000,50000,75000,100000,150000,200000,300000].forEach(km => { %>
               <option value="<%= km %>" <%= (selectedFilters.mileageMax||[]).map(String).includes(String(km)) ? 'selected' : '' %>><%= km.toLocaleString('de-DE') %></option>
+            <% }) %>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+
+      <div class="fi">
+        <label class="fi-label"><%= t('filters.cars.cartype','Karosserieform') %></label>
+        <div class="fi-select">
+          <select name="cartype" id="fCarType">
+            <option value=""><%= t('common.any') %></option>
+            <% (filters.cartypes||[]).forEach(ct => { %>
+              <option value="<%= ct.id %>"
+                <%= (selectedFilters.cartype||[]).map(String).includes(String(ct.id)) ? 'selected' : '' %>>
+                <%= t('attribute.cars.cartype.' + ct.id, ct.name) %>
+              </option>
             <% }) %>
           </select>
           <i class="bi bi-chevron-down"></i>
@@ -223,19 +317,32 @@ textarea {
   </div>
 </div>
 
+<div class="fi">
+  <label class="fi-label"><%= t('filters.realestate.stage','Bauphase') %></label>
+  <div class="fi-select">
+    <select name="stage" id="fStage">
+      <option value=""><%= t('labels.common.any','Beliebig') %></option>
+      <% (filters.stages || []).forEach(stage => { %>
+        <option value="<%= stage.id %>" <%= (selectedFilters.stage||[]).map(String).includes(String(stage.id)) ? 'selected' : '' %>>
+          <%= stage.name %>
+        </option>
+      <% }) %>
+    </select>
+    <i class="bi bi-chevron-down"></i>
+  </div>
+</div>
+
 <!-- Baujahr (von/bis) -->
-<div class="fi-row">
-  <div class="fi">
-    <label class="fi-label"><%= t('filters.yacht.year','Baujahr') %></label>
-    <div class="fi-range">
-      <input type="number" name="yearMin" min="1800" max="2025" step="1"
-        value="<%= (selectedFilters.yearMin||[])[0] || '' %>"
-        placeholder="<%= t('labels.price.from','von') %>">
-      <span class="sep">–</span>
-      <input type="number" name="yearMax" min="1800" max="2025" step="1"
-        value="<%= (selectedFilters.yearMax||[])[0] || '' %>"
-            placeholder="<%= t('labels.price.to','bis') %>">
-    </div>
+<div class="fi">
+  <label class="fi-label"><%= t('filters.yacht.year','Baujahr') %></label>
+  <div class="fi-range">
+    <input type="number" name="yearMin" min="1800" max="2025" step="1"
+      value="<%= (selectedFilters.yearMin||[])[0] || '' %>"
+      placeholder="<%= t('labels.price.from','von') %>">
+    <span class="sep">–</span>
+    <input type="number" name="yearMax" min="1800" max="2025" step="1"
+      value="<%= (selectedFilters.yearMax||[])[0] || '' %>"
+      placeholder="<%= t('labels.price.to','bis') %>">
   </div>
 </div>
 
@@ -332,14 +439,41 @@ textarea {
 <% } %>
 
 
-      <% if (currentEntity.route === 'watches') { %>
+      <% if (currentEntity.route === 'watches') {
+           const selectedWatchTypes = (selectedFilters.watchtype || []).map(String);
+           const watchTypeFallback = [
+             { id: '1',   name: t('category.watches.wristwatch', 'Armbanduhr') },
+             { id: '2',   name: t('category.watches.pocketwatch', 'Taschenuhr') },
+             { id: '3',   name: t('category.watches.tableclock', 'Tischuhr') },
+             { id: '4',   name: t('category.watches.antique', 'Antike Uhr') },
+             { id: '5',   name: t('category.watches.standuhr', 'Standuhr') },
+             { id: '6',   name: t('category.watches.wanduhr', 'Wanduhr') },
+             { id: '255', name: t('category.watches.sonstiges', 'Sonstige Uhren') }
+           ];
+           const watchTypeOptions = (() => {
+             const merged = [];
+             const seen = new Set();
+             const pushOption = (opt) => {
+               const id = String(opt?.id ?? '').trim();
+               if (!id || seen.has(id)) return;
+               seen.add(id);
+               merged.push({
+                 id,
+                 name: String(opt?.name || opt?.label || id)
+               });
+             };
+             (filters.watchTypes || []).forEach(pushOption);
+             watchTypeFallback.forEach(pushOption);
+             return merged;
+           })();
+      %>
       <div class="fi">
         <label class="fi-label"><%= t('filter.watch.type') %></label>
         <div class="fi-select">
           <select name="watchtype" id="fWatchType">
             <option value=""><%= t('common.any') %></option>
-            <% (filters.watchTypes||[]).forEach(wt => { %>
-              <option value="<%= wt.id %>" <%= (selectedFilters.watchtype||[]).map(String).includes(String(wt.id)) ? 'selected' : '' %>><%= wt.name %></option>
+            <% watchTypeOptions.forEach(wt => { %>
+              <option value="<%= wt.id %>" <%= selectedWatchTypes.includes(String(wt.id)) ? 'selected' : '' %>><%= wt.name %></option>
             <% }) %>
           </select>
           <i class="bi bi-chevron-down"></i>
@@ -357,7 +491,7 @@ textarea {
         </div>
       </div>
       <div class="fi">
-  <label class="fi-label"><%= t('filter.reference','Referenznummer') %></label>
+  <label class="fi-label"><%= t('buyer.listing.reference_number','Referenznummer') %></label>
   <div class="fi-input">
     <input type="text" name="reference" placeholder="<%= t('common.any') %>"
            value="<%= (selectedFilters.reference || [])[0] || '' %>">
@@ -368,10 +502,10 @@ textarea {
 <% if (currentEntity.route === 'lifestyles') { %>
 
 <div class="fi">
-  <label class="fi-label">Kategorie</label>
+  <label class="fi-label"><%= t('buyer.listing.lifestyle.category','Kategorie') %></label>
   <div class="fi-select">
     <select name="lifestyleType" id="fLifeType">
-      <option value="">Beliebig</option>
+      <option value=""><%= t('labels.common.any','Beliebig') %></option>
       <% (filters.lifestyleTypes || []).forEach(lt => { %>
         <option value="<%= lt.id %>" 
           <%= (selectedFilters.lifestyleType||[]).map(String).includes(String(lt.id)) ? 'selected' : '' %>>
@@ -383,11 +517,11 @@ textarea {
 </div>
 
 <div class="fi">
-  <label class="fi-label">Unterkategorie</label>
+  <label class="fi-label"><%= t('buyer.listing.lifestyle.subcategory','Unterkategorie') %></label>
   <div class="fi-select">
     <select name="lifestyleSubcategory" id="fLifeSub"
       <%= !(filters.lifestyleSubcategories && filters.lifestyleSubcategories.length) ? 'disabled' : '' %>>
-      <option value="">Beliebig</option>
+      <option value=""><%= t('labels.common.any','Beliebig') %></option>
       <% (filters.lifestyleSubcategories || []).forEach(sc => { %>
         <option value="<%= sc.id %>" 
           <%= (selectedFilters.lifestyleSubcategory||[]).map(String).includes(String(sc.id)) ? 'selected' : '' %>>
@@ -453,8 +587,8 @@ textarea {
 
       <div class="fi fi-row">
         <% if (currentEntity.route === 'cars') { %>
-          <label class="fi-check"><input type="checkbox" id="onlyElectric"><span><%= t('cars.only_electric') %></span></label>
-          <label class="fi-check"><input type="checkbox" id="onlyOldtimer" name="onlyOldtimer" value="1"><span><%= t('cars.only_oldtimer','Oldtimer') %></span></label>
+          <label class="fi-check"><input type="checkbox" id="onlyElectric"><span style="font-size: 18px;"><b><%= t('cars.only_electric') %></b></span></label>
+          <label class="fi-check"><input type="checkbox" id="onlyOldtimer" name="onlyOldtimer" value="1"><span style="font-size: 18px;"><b><%= t('cars.only_oldtimer','Oldtimer') %></b></span></label>
         <% } %>
       </div>
 
@@ -469,32 +603,32 @@ textarea {
         <button class="btn btn-light border shadow-sm d-flex align-items-center" 
                 type="button" id="sortingDropdown" data-bs-toggle="dropdown" aria-expanded="false">
           <i class="bi bi-funnel me-2"></i>
-          Sortieren
+          <%= t('sorting.label', 'Sortieren') %>
         </button>
 
         <ul class="dropdown-menu dropdown-menu-end shadow-sm" aria-labelledby="sortingDropdown">
           <li>
           <a class="dropdown-item dropdown-items <%= sort === 'price_asc' ? 'active' : '' %>"
             href="?<%= new URLSearchParams({...req.query, sort: 'price_asc'}).toString() %>">
-              <i class="bi bi-arrow-up me-2"></i> Preis aufsteigend
+              <i class="bi bi-arrow-up me-2"></i> <%= t('sorting.price_asc', 'Preis aufsteigend') %>
             </a>
           </li>
           <li>
           <a class="dropdown-item dropdown-items <%= sort === 'price_desc' ? 'active' : '' %>"
             href="?<%= new URLSearchParams({...req.query, sort: 'price_desc'}).toString() %>">
-              <i class="bi bi-arrow-down me-2"></i> Preis absteigend
+              <i class="bi bi-arrow-down me-2"></i> <%= t('sorting.price_desc', 'Preis absteigend') %>
             </a>
           </li>
           <li>
             <a class="dropdown-item dropdown-items <%= sort === 'newest' ? 'active' : '' %>"
               href="?<%= new URLSearchParams({...req.query, sort: 'newest'}).toString() %>">
-              <i class="bi bi-clock me-2"></i> Neueste
+              <i class="bi bi-clock me-2"></i> <%= t('sorting.newest', 'Neueste') %>
             </a>
           </li>
           <li>
               <a class="dropdown-item dropdown-items <%= sort === 'popularity' ? 'active' : '' %>"
                 href="?<%= new URLSearchParams({...req.query, sort: 'popularity'}).toString() %>">
-              <i class="bi bi-heart-fill me-2 text-danger"></i> Beliebtheit
+              <i class="bi bi-heart-fill me-2 text-danger"></i> <%= t('sorting.popularity', 'Beliebtheit') %>
             </a>
           </li>
         </ul>

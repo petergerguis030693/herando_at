@@ -13,6 +13,16 @@ const MySQLStore   = require('express-mysql-session')(session);
 
 
 const db           = require('./src/db');
+const {
+  ensureActivityLogTable,
+  detectActorType,
+  getClientIp,
+  sanitizePayload,
+  writeActivityLog
+} = require('./src/service/activity-log');
+const {
+  localizeEntityPath
+} = require('./src/service/entity-route-slugs');
 
 const trackRouter    = require('./src/routes/track');
 const adminRouter    = require('./src/routes/admin');
@@ -22,6 +32,10 @@ require('./src/cron/commercialPackageReminder');
   
 const app = express(); 
 app.disable('x-powered-by');
+
+ensureActivityLogTable().catch((err) => {
+  console.error('❌ activity_log table init failed:', err?.message || err);
+});
 const geoip = require('geoip-lite');
 const CATEGORY_MAP = {
   cars: {
@@ -45,9 +59,206 @@ const CATEGORY_MAP = {
 const TRUSTED_APP_HOSTS = new Set([
   'herando.at',
   'www.herando.at',
+  'herando.es',
+  'www.herando.es',
+  'herando.cz',
+  'www.herando.cz',
+  'herando.ch',
+  'www.herando.ch',
+  'herando.de',
+  'www.herando.de',
+  'herando.jp',
+  'www.herando.jp',
+  'herando.tr',
+  'www.herando.tr',
+  'herando.ru',
+  'www.herando.ru',
+  'herando.fr',
+  'www.herando.fr',
+  'herando.it',
+  'www.herando.it',
+  'herando.nl',
+  'www.herando.nl',
+  'herando.pl',
+  'www.herando.pl',
+  'herando.uk',
+  'www.herando.uk',
   'herando.com',
   'www.herando.com'
 ]);
+
+const DOMAIN_PROFILES = {
+  default: { lang: 'de', country: 'AT', currency: 'EUR', siteCode: 'default' },
+  es: { lang: 'es', country: 'ES', currency: 'EUR', siteCode: 'es' },
+  cz: { lang: 'cs', country: 'CZ', currency: 'CZK', siteCode: 'cz' },
+  ch: { lang: 'de', country: 'CH', currency: 'CHF', siteCode: 'ch' },
+  de: { lang: 'de', country: 'DE', currency: 'EUR', siteCode: 'de' },
+  jp: { lang: 'ja', country: 'JP', currency: 'JPY', siteCode: 'jp' },
+  tr: { lang: 'tr', country: 'TR', currency: 'TRY', siteCode: 'tr' },
+  ru: { lang: 'ru', country: 'RU', currency: 'RUB', siteCode: 'ru' },
+  fr: { lang: 'fr', country: 'FR', currency: 'EUR', siteCode: 'fr' },
+  it: { lang: 'it', country: 'IT', currency: 'EUR', siteCode: 'it' },
+  nl: { lang: 'nl', country: 'NL', currency: 'EUR', siteCode: 'nl' },
+  pl: { lang: 'pl', country: 'PL', currency: 'PLN', siteCode: 'pl' },
+  uk: { lang: 'en', country: 'GB', currency: 'GBP', siteCode: 'uk' }
+};
+
+const DOMAIN_DEFAULTS = new Map([
+  ['herando.at', DOMAIN_PROFILES.default],
+  ['www.herando.at', DOMAIN_PROFILES.default],
+  ['herando.com', DOMAIN_PROFILES.default],
+  ['www.herando.com', DOMAIN_PROFILES.default],
+  ['herando.es', DOMAIN_PROFILES.es],
+  ['www.herando.es', DOMAIN_PROFILES.es],
+  ['herando.cz', DOMAIN_PROFILES.cz],
+  ['www.herando.cz', DOMAIN_PROFILES.cz],
+  ['herando.ch', DOMAIN_PROFILES.ch],
+  ['www.herando.ch', DOMAIN_PROFILES.ch],
+  ['herando.de', DOMAIN_PROFILES.de],
+  ['www.herando.de', DOMAIN_PROFILES.de],
+  ['herando.jp', DOMAIN_PROFILES.jp],
+  ['www.herando.jp', DOMAIN_PROFILES.jp],
+  ['herando.tr', DOMAIN_PROFILES.tr],
+  ['www.herando.tr', DOMAIN_PROFILES.tr],
+  ['herando.ru', DOMAIN_PROFILES.ru],
+  ['www.herando.ru', DOMAIN_PROFILES.ru],
+  ['herando.fr', DOMAIN_PROFILES.fr],
+  ['www.herando.fr', DOMAIN_PROFILES.fr],
+  ['herando.it', DOMAIN_PROFILES.it],
+  ['www.herando.it', DOMAIN_PROFILES.it],
+  ['herando.nl', DOMAIN_PROFILES.nl],
+  ['www.herando.nl', DOMAIN_PROFILES.nl],
+  ['herando.pl', DOMAIN_PROFILES.pl],
+  ['www.herando.pl', DOMAIN_PROFILES.pl],
+  ['herando.uk', DOMAIN_PROFILES.uk],
+  ['www.herando.uk', DOMAIN_PROFILES.uk]
+]);
+
+function normalizeHost(rawHost) {
+  return String(rawHost || '')
+    .trim()
+    .toLowerCase()
+    .split(',')[0]
+    .trim()
+    .replace(/:\d+$/, '');
+}
+
+function getRequestHost(req) {
+  const forwarded = normalizeHost(req.get('x-forwarded-host') || req.headers['x-forwarded-host']);
+  const direct = normalizeHost(req.hostname || req.get('host'));
+  return forwarded || direct;
+}
+
+function resolveDomainProfile(req) {
+  const host = getRequestHost(req) || 'www.herando.com';
+
+  if (DOMAIN_DEFAULTS.has(host)) {
+    return { host, ...DOMAIN_DEFAULTS.get(host) };
+  }
+
+  if (host.endsWith('.es')) {
+    return { host, ...DOMAIN_PROFILES.es };
+  }
+
+  if (host.endsWith('.cz')) {
+    return { host, ...DOMAIN_PROFILES.cz };
+  }
+
+  if (host.endsWith('.ch')) {
+    return { host, ...DOMAIN_PROFILES.ch };
+  }
+
+  if (host.endsWith('.de')) {
+    return { host, ...DOMAIN_PROFILES.de };
+  }
+
+  if (host.endsWith('.jp')) {
+    return { host, ...DOMAIN_PROFILES.jp };
+  }
+
+  if (host.endsWith('.tr')) {
+    return { host, ...DOMAIN_PROFILES.tr };
+  }
+
+  if (host.endsWith('.ru')) {
+    return { host, ...DOMAIN_PROFILES.ru };
+  }
+
+  if (host.endsWith('.fr')) {
+    return { host, ...DOMAIN_PROFILES.fr };
+  }
+
+  if (host.endsWith('.it')) {
+    return { host, ...DOMAIN_PROFILES.it };
+  }
+
+  if (host.endsWith('.nl')) {
+    return { host, ...DOMAIN_PROFILES.nl };
+  }
+
+  if (host.endsWith('.pl')) {
+    return { host, ...DOMAIN_PROFILES.pl };
+  }
+
+  if (host.endsWith('.uk')) {
+    return { host, ...DOMAIN_PROFILES.uk };
+  }
+
+  return { host, ...DOMAIN_PROFILES.default };
+}
+
+function getCookieDomainForHost(host) {
+  const normalized = normalizeHost(host);
+  if (!normalized) return null;
+  if (normalized === 'localhost') return null;
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(normalized)) return null;
+
+  const parts = normalized.split('.');
+  if (parts.length < 2) return null;
+  return `.${parts.slice(-2).join('.')}`;
+}
+
+function buildLangCookieOptions(req) {
+  const options = {
+    maxAge: 180 * 24 * 60 * 60 * 1000, // 180 Tage
+    httpOnly: false,
+    sameSite: 'Lax',
+    secure: true,
+    path: '/'
+  };
+
+  const cookieDomain = getCookieDomainForHost(getRequestHost(req));
+  if (cookieDomain) {
+    options.domain = cookieDomain;
+  }
+
+  return options;
+}
+
+function getRequestProto(req) {
+  const forwardedProto = String(req.get('x-forwarded-proto') || req.headers['x-forwarded-proto'] || '')
+    .split(',')[0]
+    .trim()
+    .toLowerCase();
+  if (forwardedProto === 'https' || forwardedProto === 'http') return forwardedProto;
+  return req.secure ? 'https' : 'http';
+}
+
+function stripLangPrefixFromPath(pathname) {
+  const path = String(pathname || '/');
+  return path.replace(/^\/[a-z]{2}(?=\/|$)/i, '') || '/';
+}
+
+function buildLocalizedPath(pathname, lang) {
+  const normalizedLang = String(lang || 'de').toLowerCase();
+  const cleanPath = String(pathname || '/').startsWith('/') ? String(pathname || '/') : `/${pathname}`;
+  const pathNoPrefix = stripLangPrefixFromPath(cleanPath);
+  const localizedEntityPath = localizeEntityPath(pathNoPrefix, normalizedLang);
+
+  if (normalizedLang === 'de') return localizedEntityPath || '/';
+  if (localizedEntityPath === '/' || !localizedEntityPath) return `/${normalizedLang}/`;
+  return `/${normalizedLang}${localizedEntityPath}`;
+}
 
 function getSafeBackPath(req, fallback = '/') {
   const referer = req.get('Referer') || req.get('Referrer');
@@ -55,10 +266,10 @@ function getSafeBackPath(req, fallback = '/') {
 
   try {
     const parsed = new URL(referer);
-    const hostHeader = String(req.get('host') || '').toLowerCase();
+    const hostHeader = getRequestHost(req);
     const trustedHosts = new Set([...TRUSTED_APP_HOSTS, hostHeader].filter(Boolean));
 
-    if (!trustedHosts.has(parsed.host.toLowerCase())) {
+    if (!trustedHosts.has(normalizeHost(parsed.host))) {
       return fallback;
     }
 
@@ -258,6 +469,56 @@ app.use(async (req, res, next) => {
   }
 });
 
+// Aktivitaets-Log fuer eingeloggte Nutzer (Admin + Kunde)
+app.use((req, res, next) => {
+  const userId = Number(req.session?.userId || 0);
+  if (!Number.isInteger(userId) || userId <= 0) return next();
+
+  const role = Number(req.session?.role || req.user?.role || 0);
+  const actorType = detectActorType(role);
+  const path = String(req.originalUrl || req.url || '/');
+  const method = String(req.method || 'GET').toUpperCase();
+
+  // Keine statischen/Tracking-Endpunkte loggen
+  if (path.startsWith('/assets/') || path.startsWith('/uploads/') || path.startsWith('/images/')) return next();
+  if (path.startsWith('/public/') || path.startsWith('/css/') || path.startsWith('/js/')) return next();
+  if (path.startsWith('/track') || path.startsWith('/analytics/track')) return next();
+  if (path === '/favicon.ico' || path === '/robots.txt') return next();
+
+  // Alles loggen fuer eingeloggte User (GET + POST + ...)
+  const payloadSource = method === 'GET'
+    ? { query: req.query || null }
+    : { query: req.query || null, body: req.body || null };
+
+  const started = Date.now();
+  const payload = sanitizePayload(payloadSource);
+  let finished = false;
+
+  const flush = () => {
+    if (finished) return;
+    finished = true;
+    const durationMs = Date.now() - started;
+    writeActivityLog({
+      actorUserId: userId,
+      actorRole: role || null,
+      actorType,
+      method,
+      path,
+      statusCode: res.statusCode || 0,
+      durationMs,
+      ip: getClientIp(req),
+      userAgent: req.headers['user-agent'] || null,
+      payload
+    }).catch((err) => {
+      console.error('❌ activity_log write failed:', err?.message || err);
+    });
+  };
+
+  res.on('finish', flush);
+  res.on('close', flush);
+  next();
+});
+
 async function enrichUserPackage(req, res, next) {
   try {
     if (!req.session?.userId) {
@@ -300,8 +561,35 @@ const COUNTRY_TO_LANG = {
   NL: 'nl',
   PL: 'pl'
 };
+
 app.use((req, res, next) => {
-  console.log('🧠 FINAL SESSION.lang =', req.session.lang, '| URL:', req.originalUrl);
+  const domainProfile = resolveDomainProfile(req);
+  req.domainProfile = domainProfile;
+
+  if (req.session) {
+    if (!req.session.lang) req.session.lang = domainProfile.lang;
+    if (!req.session.country) req.session.country = domainProfile.country;
+    if (!req.session.currency) req.session.currency = domainProfile.currency;
+  }
+
+  const activeLang = req.session?.lang || domainProfile.lang;
+  const activeCountry = req.session?.country || domainProfile.country;
+  const activeCurrency = req.session?.currency || domainProfile.currency;
+
+  res.locals.domainHost = domainProfile.host;
+  res.locals.domainSite = domainProfile.siteCode;
+  res.locals.isSpanishDomain = domainProfile.siteCode === 'es';
+  res.locals.lang = activeLang;
+  res.locals.country = activeCountry;
+  res.locals.currency = activeCurrency;
+
+  next();
+});
+
+app.use((req, res, next) => {
+  if (process.env.DEBUG_SESSION_LANG === 'true') {
+    console.log('🧠 FINAL SESSION.lang =', req.session.lang, '| URL:', req.originalUrl);
+  }
   next();
 });
 
@@ -390,6 +678,40 @@ app.use((req, res, next) => {
   next();
 });
 
+app.use((req, res, next) => {
+  const domainProfile = req.domainProfile || DOMAIN_PROFILES.default;
+  const activeLang = normalizeToSupportedLang(req.session?.lang || res.locals.lang || domainProfile.lang || 'de');
+  const host = getRequestHost(req) || 'www.herando.com';
+  const proto = getRequestProto(req);
+  const siteBaseUrl = `${proto}://${host}`;
+
+  const originalPath = String(req.originalUrl || req.url || '/').split('?')[0].split('#')[0] || '/';
+  const canonicalPath = buildLocalizedPath(originalPath, activeLang);
+
+  const hreflangUrls = {};
+  SUPPORTED_LANGS.forEach((code) => {
+    hreflangUrls[code] = `${siteBaseUrl}${buildLocalizedPath(originalPath, code)}`;
+  });
+
+  const domainDefaultLang = normalizeToSupportedLang(domainProfile.lang || 'de');
+  const xDefaultUrl = `${siteBaseUrl}${buildLocalizedPath(originalPath, domainDefaultLang)}`;
+
+  res.locals.siteHost = host;
+  res.locals.siteBaseUrl = siteBaseUrl;
+  res.locals.seoCanonicalUrl = `${siteBaseUrl}${canonicalPath}`;
+  res.locals.seoHreflangUrls = hreflangUrls;
+  res.locals.seoXDefaultUrl = xDefaultUrl;
+  res.locals.domainDefaultLang = domainDefaultLang;
+  res.locals.ogDefaultImage = `${siteBaseUrl}/assets/og-image.jpg`;
+  res.locals.siteLogoUrl = `${siteBaseUrl}/assets/herando-weblogo.svg`;
+  res.locals.localizedPath = (pathname, langOverride) => {
+    const finalLang = normalizeToSupportedLang(langOverride || activeLang);
+    return buildLocalizedPath(pathname || '/', finalLang);
+  };
+
+  next();
+});
+
 
 /** 4) Manuelle Switch-Route */
 app.get('/lang/:code', (req, res) => {
@@ -418,15 +740,8 @@ app.get('/lang/:code', (req, res) => {
     console.log(`🏳️ Land geändert zu: ${req.session.country}`);
   }
 
-  // Sprache als Cookie speichern
-  res.cookie('lang', lang, {
-    maxAge: 180 * 24 * 60 * 60 * 1000, // 180 Tage
-    httpOnly: false,
-    sameSite: 'Lax',
-    secure: true,
-    path: '/',
-    domain: '.herando.at'
-  });
+  // Sprache als Cookie speichern (domain-dynamisch)
+  res.cookie('lang', lang, buildLangCookieOptions(req));
 
   console.log('🌍 [SWITCH] /lang/:code aufgerufen →', lang);
   console.log('➡️ Session:', {
@@ -487,9 +802,10 @@ app.use(async (req, res, next) => {
 
 /* 🌍 Globale Variablen für Templates */
 app.use((req, res, next) => {
-  res.locals.lang = req.session.lang || 'de';
-  res.locals.currency = req.session.currency || 'EUR';
-  res.locals.country = req.session.country || 'AT';
+  const profile = req.domainProfile || DOMAIN_PROFILES.default;
+  res.locals.lang = req.session?.lang || profile.lang || 'de';
+  res.locals.currency = req.session?.currency || profile.currency || 'EUR';
+  res.locals.country = req.session?.country || profile.country || 'AT';
   next();
 });
 
@@ -505,33 +821,39 @@ global.exchangeRates = {
   timestamp: 0,
   currencies: ["EUR"]
 };
+let inFlightExchangeRatesFetch = null;
 
 
 async function loadFrankfurterRates() {
   console.log("🔄 Lade Wechselkurse von Frankfurter.app ...");
 
+  const response = await fetch("https://api.frankfurter.app/latest?from=EUR");
+  if (!response.ok) {
+    throw new Error("HTTP " + response.status);
+  }
+
+  const data = await response.json();
+  if (!data?.rates || typeof data.rates !== "object" || !Object.keys(data.rates).length) {
+    throw new Error("Leere oder ungueltige API-Antwort");
+  }
+
+  // data.rates = { USD: 1.07 , GBP: 0.85 ... }
+  return data.rates;
+}
+
+async function loadFrankfurterRatesCoalesced() {
+  if (inFlightExchangeRatesFetch) {
+    return inFlightExchangeRatesFetch;
+  }
+
+  inFlightExchangeRatesFetch = (async () => {
+    return loadFrankfurterRates();
+  })();
+
   try {
-    const response = await fetch("https://api.frankfurter.app/latest?from=EUR");
-
-    if (!response.ok) {
-      throw new Error("HTTP " + response.status);
-    }
-
-    const data = await response.json();
-
-    // data.rates = { USD: 1.07 , GBP: 0.85 ... }
-    return data.rates;
-
-  } catch (err) {
-    console.error("❌ Frankfurter API Fehler:", err.message);
-
-    // 💥 Fallback (ABSTURZ-SICHER)
-    return {
-      USD: 1.07,
-      GBP: 0.85,
-      CHF: 0.98,
-      JPY: 165
-    };
+    return await inFlightExchangeRatesFetch;
+  } finally {
+    inFlightExchangeRatesFetch = null;
   }
 }
 
@@ -544,44 +866,69 @@ app.use(async (req, res, next) => {
     if (!req.session.currency) req.session.currency = "EUR";
     const userCurrency = req.session.currency;
 
-    // 1x pro Stunde neu laden
+    // Live-Fetch je Request; bei API-Fehler fallback auf letzten erfolgreichen Stand im RAM.
     const now = Date.now();
-    const oneHour = 60 * 60 * 1000;
-
-    if (!global.exchangeRates.timestamp || now - global.exchangeRates.timestamp > oneHour) {
-      const rates = await loadFrankfurterRates();
-
+    try {
+      const liveRates = await loadFrankfurterRatesCoalesced();
       global.exchangeRates = {
-        rates,
-        currencies: Object.keys(rates).concat("EUR"),
+        rates: liveRates,
+        currencies: Object.keys(liveRates).concat("EUR"),
         timestamp: now
       };
-
-      console.log(`💱 Frankfurter-Kurse geladen – ${Object.keys(rates).length} Währungen`);
+      console.log(`💱 Frankfurter Live-Kurse geladen – ${Object.keys(liveRates).length} Währungen`);
+    } catch (err) {
+      console.error("❌ Frankfurter API Fehler:", err.message);
+      if (global.exchangeRates?.rates && Object.keys(global.exchangeRates.rates).length) {
+        console.warn("⚠️ Verwende letzte erfolgreiche Wechselkurse aus RAM-Cache");
+      } else {
+        global.exchangeRates = {
+          rates: {
+            USD: 1.07,
+            GBP: 0.85,
+            CHF: 0.98,
+            JPY: 165
+          },
+          currencies: ["USD", "GBP", "CHF", "JPY", "EUR"],
+          timestamp: now
+        };
+        console.warn("⚠️ Kein Live-Kurs verfügbar, verwende statischen Notfall-Fallback");
+      }
     }
 
     const rates = global.exchangeRates.rates;
 
     // Preis-Konverter
-    res.locals.convertPrice = (priceEUR, toCurrency = userCurrency) => {
-      if (!priceEUR || isNaN(priceEUR)) return "—";
+    // Signatur:
+    // convertPrice(amount, toCurrency = userCurrency, fromCurrency = 'EUR')
+    res.locals.convertPrice = (amount, toCurrency = userCurrency, fromCurrency = "EUR") => {
+      const value = Number(amount);
+      if (!Number.isFinite(value) || value <= 0) return "—";
 
-      if (toCurrency === "EUR") {
-        return new Intl.NumberFormat("de-DE", {
-          style: "currency",
-          currency: "EUR"
-        }).format(priceEUR);
+      const target = String(toCurrency || userCurrency || "EUR").toUpperCase();
+      const source = String(fromCurrency || "EUR").toUpperCase();
+
+      let targetAmount = value;
+      if (source !== target) {
+        let amountInEur = value;
+        if (source !== "EUR") {
+          const sourceRate = Number(rates[source]);
+          if (!Number.isFinite(sourceRate) || sourceRate <= 0) return "—";
+          amountInEur = value / sourceRate;
+        }
+
+        if (target === "EUR") {
+          targetAmount = amountInEur;
+        } else {
+          const targetRate = Number(rates[target]);
+          if (!Number.isFinite(targetRate) || targetRate <= 0) return "—";
+          targetAmount = amountInEur * targetRate;
+        }
       }
-
-      const rate = rates[toCurrency];
-      if (!rate) return "—";
-
-      const converted = priceEUR * rate;
 
       return new Intl.NumberFormat("de-DE", {
         style: "currency",
-        currency: toCurrency
-      }).format(converted);
+        currency: target
+      }).format(targetAmount);
     };
 
     res.locals.currency = userCurrency;

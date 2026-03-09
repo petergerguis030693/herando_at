@@ -22,6 +22,11 @@
         <%= error %>
       </div>
     <% } %>
+    <% if (message) { %>
+      <div class="alert alert-success">
+        <%= message %>
+      </div>
+    <% } %>
 
     <form action="/admin/login" method="POST">
       <div class="mb-3">
@@ -50,6 +55,9 @@
           id="togglePassword"
           style="top: 38px; right: 12px; cursor:pointer;"
         ></i>
+      </div>
+      <div class="mb-3 text-end">
+        <a href="/admin/forgot-password" class="small text-decoration-none">Passwort vergessen?</a>
       </div>
       <div class="d-grid">
         <button type="submit" class="btn btn-dark">Anmelden</button>

@@ -90,6 +90,10 @@ body {
   font-weight: 600;
 }
 
+.fp-actions a:hover {
+  color: #c39052;
+}
+
 .fp-card {
   background: #fff;
   border: 1px solid var(--line);

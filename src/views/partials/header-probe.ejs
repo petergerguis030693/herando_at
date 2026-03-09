@@ -203,6 +203,9 @@ document.addEventListener('DOMContentLoaded', () => {
       stats: statsAccepted,
       expiresAt: Date.now() + duration
     }));
+    window.dispatchEvent(new CustomEvent('herando:cookie-consent-changed', {
+      detail: { stats: !!statsAccepted }
+    }));
     close();
   }
 

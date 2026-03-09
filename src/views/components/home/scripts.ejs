@@ -1,5 +1,55 @@
 
 <script>
+  window.HERANDO_ENTITY_ROUTE_MAP = <%- JSON.stringify(
+    Object.fromEntries(
+      (entieties || []).map((e) => [
+        e.route,
+        (typeof localizedEntityRoute === 'function'
+          ? localizedEntityRoute(e.route, (typeof currentLang !== 'undefined' ? currentLang : lang))
+          : e.route)
+      ])
+    )
+  ) %>;
+
+  window.herandoEntityUrl = function herandoEntityUrl(route, suffix) {
+    const input = String(route || '').toLowerCase();
+    const canonical = (input === 'autos' || input === 'auto') ? 'cars' : input;
+    const publicRoute = (window.HERANDO_ENTITY_ROUTE_MAP && window.HERANDO_ENTITY_ROUTE_MAP[canonical]) || canonical;
+    const s = String(suffix || '');
+    if (!s) return '/' + publicRoute;
+    if (s.startsWith('?')) return '/' + publicRoute + s;
+    return '/' + publicRoute + '/' + s.replace(/^\/+/, '');
+  };
+</script>
+
+<script>
+  window.__herandoFetchCache = window.__herandoFetchCache || new Map();
+  window.herandoFetchJsonCached = function herandoFetchJsonCached(url, fallback) {
+    const key = String(url || '').trim();
+    if (!key) return Promise.resolve(fallback);
+    const cache = window.__herandoFetchCache;
+    if (cache.has(key)) return cache.get(key);
+    const req = fetch(key, { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : fallback))
+      .catch(() => fallback);
+    cache.set(key, req);
+    return req;
+  };
+</script>
+
+<script>
+  window.herandoSetSectionVisibility = function herandoSetSectionVisibility(id, visible) {
+    const section = document.getElementById(id);
+    if (!section) return;
+    if (visible) {
+      section.style.removeProperty("display");
+      return;
+    }
+    section.style.setProperty("display", "none", "important");
+  };
+</script>
+
+<script>
 document.addEventListener("DOMContentLoaded", () => {
 
   const LABEL_POPULAR = <%- JSON.stringify(t('label_popular','BELIEBT')) %>;
@@ -26,6 +76,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const cartypeLabels = {
         1: t("car.transmission.manual", "Schaltgetriebe"),
         2: t("car.transmission.automatic", "Automatik"),
+        3: t("car.transmission.automatic", "Automatik"),
         6: t("car.transmission.automatic", "Automatik"),
         255: t("car.transmission.manual", "Schaltgetriebe")
       };
@@ -37,7 +88,8 @@ document.addEventListener("DOMContentLoaded", () => {
         4: t("car.fuel.hybrid", "Hybrid")
       };
 
-      const cartypeName = cartypeLabels[it.cartype] || null;
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      const cartypeName = cartypeLabels[gearboxValue] || null;
       const fuelName = fuelLabels[it.fuel] || null;
 
       if (cartypeName)
@@ -175,26 +227,43 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ===================================
      🔄 Carousel Loader (bleibt gleich)
      =================================== */
+  const REQUIRED_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const orderedCategories = REQUIRED_ROUTES
+    .map((route) => categories.find((cat) => cat.route === route))
+    .filter(Boolean);
+
+  if (orderedCategories.length !== REQUIRED_ROUTES.length) {
+    window.herandoSetSectionVisibility("myUniqueProducts", false);
+    return;
+  }
+
   Promise.all(
-    categories.map(cat =>
-      fetch(`/api/catalog_ads/${cat.id}`).then(res => res.ok ? res.json() : [])
+    orderedCategories.map(cat =>
+      window.herandoFetchJsonCached(`/api/catalog_ads/${cat.id}`, [])
     )
   )
   .then(resultsPerCategory => {
+    const fullSetCount = Math.min(...resultsPerCategory.map((arr) => Array.isArray(arr) ? arr.length : 0));
+    if (!Number.isFinite(fullSetCount) || fullSetCount <= 0) {
+      window.herandoSetSectionVisibility("myUniqueProducts", false);
+      return;
+    }
+    window.herandoSetSectionVisibility("myUniqueProducts", true);
+
     const slidesContainer = document.querySelector("#myUniqueProducts .my-carousel-slides");
     const dotsContainer   = document.querySelector("#myUniqueProducts .my-carousel-nav-dots");
     const prevBtn         = document.querySelector("#myUniqueProducts .my-carousel-prev");
     const nextBtn         = document.querySelector("#myUniqueProducts .my-carousel-next");
+    if (!slidesContainer || !dotsContainer || !prevBtn || !nextBtn) return;
 
-    const slideCount = Math.max(...resultsPerCategory.map(arr => arr.length));
+    const slideCount = fullSetCount;
 
     Array.from({ length: slideCount }).forEach((_, slideIdx) => {
 
       let slideHTML = `<div class="my-carousel-slide" data-slide-index="${slideIdx}">`;
 
-      categories.forEach((cat, catIdx) => {
+      orderedCategories.forEach((cat, catIdx) => {
         const item = resultsPerCategory[catIdx][slideIdx];
-        if (!item) return;
 
         const slug = (item.title || "")
           .toLowerCase()
@@ -215,7 +284,7 @@ document.addEventListener("DOMContentLoaded", () => {
           <div class="card-peter">
             <div class="image-bild">
               <div class="bild background">
-                <a href="/${cat.route}/${item.reference}/${slug}">
+                <a href="${window.herandoEntityUrl(cat.route, '/' + item.reference + '/' + slug)}">
                   <img src="${item.imageUrl}" alt="${item.title}" loading="lazy" decoding="async">
               </div>
               <!--<div class="height"><p>${LABEL_POPULAR}</p></div>-->
@@ -250,8 +319,9 @@ document.addEventListener("DOMContentLoaded", () => {
       });
     });
 
-    prevBtn.addEventListener("click", () => {
+    prevBtn?.addEventListener("click", () => {
       const active = dotsContainer.querySelector("button.active");
+      if (!active) return;
       let idx = +active.dataset.slide;
       idx = idx > 0 ? idx - 1 : slideCount - 1;
       slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
@@ -259,8 +329,9 @@ document.addEventListener("DOMContentLoaded", () => {
       dotsContainer.querySelector(`button[data-slide="${idx}"]`).classList.add("active");
     });
 
-    nextBtn.addEventListener("click", () => {
+    nextBtn?.addEventListener("click", () => {
       const active = dotsContainer.querySelector("button.active");
+      if (!active) return;
       let idx = +active.dataset.slide;
       idx = (idx + 1) % slideCount;
       slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
@@ -270,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
   })
   .catch(err => {
     console.error("Fehler beim Laden der Inserate:", err);
-    slidesContainer.innerHTML = `<p class="text-center text-danger">${ERR_LOADING_OFFERS}</p>`;
+    window.herandoSetSectionVisibility("myUniqueProducts", false);
   });
 
 });
@@ -287,32 +358,46 @@ document.addEventListener("DOMContentLoaded", () => {
   ) %>;
 
   const ORDER = ["cars","watches","properties","yachts"];
+  const orderedCategories = ORDER
+    .map((route) => categories.find((cat) => cat.route === route))
+    .filter(Boolean);
 
   const tabletWrapper = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-slides");
   const tabletDots    = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-nav-dots");
   const tPrev         = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-prev");
   const tNext         = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-next");
+  const tabletSurface = document.querySelector("#myUniqueProducts-tablet .tablet-carousel");
 
   if (!tabletWrapper || !tabletDots || !tPrev || !tNext) {
     console.warn("Tablet-Carousel DOM-Struktur nicht gefunden");
     return;
   }
 
+  if (orderedCategories.length !== ORDER.length) {
+    window.herandoSetSectionVisibility("myUniqueProducts-tablet", false);
+    return;
+  }
+
   // Alle API-Kategorien laden
   Promise.all(
-    categories.map(c =>
-      fetch(`/api/catalog_ads/${c.id}`)
-        .then(r => r.ok ? r.json() : [])
+    orderedCategories.map(c =>
+      window.herandoFetchJsonCached(`/api/catalog_ads/${c.id}`, [])
         .then(arr => arr.map(x => ({ ...x, route: c.route }))) // Route fixen
     )
   )
   .then(results => {
+    const fullSetCount = Math.min(...results.map((arr) => Array.isArray(arr) ? arr.length : 0));
+    if (!Number.isFinite(fullSetCount) || fullSetCount <= 0) {
+      window.herandoSetSectionVisibility("myUniqueProducts-tablet", false);
+      return;
+    }
+    window.herandoSetSectionVisibility("myUniqueProducts-tablet", true);
 
     // 1) Ergebnisse gesammelt nach Route
     const perRoute = {};
     results.forEach((arr, i) => {
-      const route = categories[i].route;
-      perRoute[route] = arr || [];
+      const route = orderedCategories[i].route;
+      perRoute[route] = (arr || []).slice(0, fullSetCount);
     });
 
     // 2) Arrays in ORDER-Reihenfolge aufbauen
@@ -320,11 +405,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 3) Interleaving pro Index: C1,W1,P1,Y1,C2,W2,P2,Y2,...
     const flat = [];
-    const maxLen = Math.max(...orderedArrays.map(a => a.length));
-    for (let i = 0; i < maxLen; i++) {
+    for (let i = 0; i < fullSetCount; i++) {
       for (let rIndex = 0; rIndex < ORDER.length; rIndex++) {
         const item = orderedArrays[rIndex][i];
-        if (item) flat.push(item);
+        flat.push(item);
       }
     }
 
@@ -354,7 +438,7 @@ document.addEventListener("DOMContentLoaded", () => {
         html += `
           <div class="card-peter">
             <div class="image-bild">
-              <a href="/${item.route}/${item.reference}/${slug}">
+              <a href="${window.herandoEntityUrl(item.route, '/' + item.reference + '/' + slug)}">
                 <img src="${item.imageUrl}" alt="${item.title || ''}" loading="lazy" decoding="async">
               </a>
             </div>
@@ -378,9 +462,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // 6) Navigation
     function goTo(idx) {
-      const slide = tabletWrapper.querySelector('.tablet-carousel-slide');
-      const slideWidth = slide ? slide.getBoundingClientRect().width : tabletWrapper.clientWidth;
-      tabletWrapper.style.transform = `translateX(-${idx * slideWidth}px)`;
+      tabletWrapper.style.transform = `translateX(-${idx * 100}%)`;
       tabletDots.querySelectorAll("button").forEach(b => b.classList.remove("active"));
       const dot = tabletDots.querySelector(`[data-slide="${idx}"]`);
       if (dot) dot.classList.add("active");
@@ -407,6 +489,37 @@ document.addEventListener("DOMContentLoaded", () => {
       goTo(idx);
     });
 
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchActive = false;
+    const swipeTarget = tabletSurface || tabletWrapper;
+    swipeTarget.addEventListener("touchstart", (e) => {
+      const t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      touchActive = true;
+    }, { passive: true });
+
+    swipeTarget.addEventListener("touchend", (e) => {
+      if (!touchActive) return;
+      touchActive = false;
+      const t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (Math.abs(dx) < 40) return;
+      if (Math.abs(dx) <= Math.abs(dy)) return;
+      if (dx > 0) tPrev.click();
+      else tNext.click();
+    }, { passive: true });
+
+    swipeTarget.addEventListener("touchcancel", () => {
+      touchActive = false;
+    }, { passive: true });
+
+    goTo(0);
+
     window.addEventListener("resize", () => {
       const active = tabletDots.querySelector("button.active");
       const idx = active ? +active.dataset.slide : 0;
@@ -414,7 +527,10 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
   })
-  .catch(err => console.error("Tablet-Carousel Fehler:", err));
+  .catch(err => {
+    console.error("Tablet-Carousel Fehler:", err);
+    window.herandoSetSectionVisibility("myUniqueProducts-tablet", false);
+  });
 
 });
 </script>
@@ -423,16 +539,16 @@ document.addEventListener("DOMContentLoaded", () => {
 <script>
   // Datenquelle (Beispiel wie im Screenshot – einfach erweitern)
   const BRAND_ITEMS = [
-    { label:'Rolex',          href:'/watches/rolex' },
-    { label:'Patek Philippe', href:'/watches/patek-philippe' },
-    { label:'Breitling',      href:'/watches/breitling' },
-    { label:'Porsche',        href:'/cars/porsche' },
-    { label:'Lamborghini',    href:'/cars/lamborghini' },
-    { label:'Ferrari',        href:'/cars/ferrari' },
-    { label:'Mercedes-Benz',  href:'/cars/mercedes-benz' },
-    { label:'Dominator',           href:'/yachts/dominator' },
-    { label:'Sanlorenzo',             href:'/yachts/sanlorenzo' },
-    { label:'Sunseeker',             href:'/yachts/sunseeker' },
+    { label:'Rolex',          route:'watches', slug:'rolex' },
+    { label:'Patek Philippe', route:'watches', slug:'patek-philippe' },
+    { label:'Breitling',      route:'watches', slug:'breitling' },
+    { label:'Porsche',        route:'cars', slug:'porsche' },
+    { label:'Lamborghini',    route:'cars', slug:'lamborghini' },
+    { label:'Ferrari',        route:'cars', slug:'ferrari' },
+    { label:'Mercedes-Benz',  route:'cars', slug:'mercedes-benz' },
+    { label:'Dominator',      route:'yachts', slug:'dominator' },
+    { label:'Sanlorenzo',     route:'yachts', slug:'sanlorenzo' },
+    { label:'Sunseeker',      route:'yachts', slug:'sunseeker' },
 
   ];
 
@@ -460,7 +576,7 @@ document.addEventListener("DOMContentLoaded", () => {
       slide.innerHTML = `
         <div class="bcar-grid">
           ${group.map(b => `
-            <a class="bcar-chip" href="${b.href}">${b.label}</a>
+            <a class="bcar-chip" href="${window.herandoEntityUrl(b.route, '/' + b.slug)}">${b.label}</a>
           `).join('')}
         </div>`;
       slidesWrap.appendChild(slide);
@@ -535,10 +651,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const categories = <%- JSON.stringify(
     entieties.map(e => ({ id: e.id, route: e.route }))
   ) %>;
+  const REQUIRED_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const orderedCategories = REQUIRED_ROUTES
+    .map((route) => categories.find((cat) => cat.route === route))
+    .filter(Boolean);
 
   const mobileSlidesContainer = document.querySelector("#myUniqueProducts-mobile .mobile-carousel-slides");
   const prevBtnMobile         = document.querySelector("#myUniqueProducts-mobile .mobile-carousel-prev");
   const nextBtnMobile         = document.querySelector("#myUniqueProducts-mobile .mobile-carousel-next");
+  const mobileViewport        = document.querySelector("#myUniqueProducts-mobile .mobile-carousel");
 
   // === Mehrsprachige Kurzinfos ===
   function renderKurzinfos(entRoute, it, t) {
@@ -554,6 +675,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const cartypeLabels = {
         1: t('car.transmission.manual', 'Schaltgetriebe'),
         2: t('car.transmission.automatic', 'Automatik'),
+        3: t('car.transmission.automatic', 'Automatik'),
         6: t('car.transmission.automatic', 'Automatik'),
         255: t('car.transmission.manual', 'Schaltgetriebe')
       };
@@ -564,7 +686,8 @@ document.addEventListener("DOMContentLoaded", () => {
         4: t('car.fuel.hybrid', 'Hybrid')
       };
 
-      if (cartypeLabels[it.cartype]) html += `<span class="info-item"><i class="bi bi-gear-fill"></i> ${cartypeLabels[it.cartype]}</span>`;
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      if (cartypeLabels[gearboxValue]) html += `<span class="info-item"><i class="bi bi-gear-fill"></i> ${cartypeLabels[gearboxValue]}</span>`;
       if (it.mileage) html += `<span class="info-item"><i class="bi bi-speedometer2"></i> ${new Intl.NumberFormat('de-DE').format(it.mileage)} km</span>`;
       if (fuelLabels[it.fuel]) html += `<span class="info-item"><i class="bi bi-fuel-pump"></i> ${fuelLabels[it.fuel]}</span>`;
       if (it.firstregistration)
@@ -624,19 +747,28 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 // === Inserate laden (mobile) ===
+if (orderedCategories.length !== REQUIRED_ROUTES.length) {
+  window.herandoSetSectionVisibility("myUniqueProducts-mobile", false);
+  return;
+}
+
 Promise.all(
-  categories.map(cat =>
-    fetch(`/api/catalog_ads/${cat.id}`).then(res => res.ok ? res.json() : [])
+  orderedCategories.map(cat =>
+    window.herandoFetchJsonCached(`/api/catalog_ads/${cat.id}`, [])
   )
 )
 .then(resultsPerCategory => {
-  const maxItems = Math.max(...resultsPerCategory.map(arr => arr.length));
+  const fullSetCount = Math.min(...resultsPerCategory.map((arr) => Array.isArray(arr) ? arr.length : 0));
+  if (!Number.isFinite(fullSetCount) || fullSetCount <= 0) {
+    window.herandoSetSectionVisibility("myUniqueProducts-mobile", false);
+    return;
+  }
+  window.herandoSetSectionVisibility("myUniqueProducts-mobile", true);
 
-  for (let i = 0; i < maxItems; i++) {
-    for (let catIdx = 0; catIdx < categories.length; catIdx++) {
-      const cat = categories[catIdx];
+  for (let i = 0; i < fullSetCount; i++) {
+    for (let catIdx = 0; catIdx < orderedCategories.length; catIdx++) {
+      const cat = orderedCategories[catIdx];
       const item = resultsPerCategory[catIdx][i];
-      if (!item) continue;
 
       const slug = (item.title || "")
         .toLowerCase()
@@ -663,7 +795,7 @@ Promise.all(
         <div class="mobile-carousel-slide">
           <div class="offer-card ${cat.route}">
             <div class="bild">
-              <a href="/${cat.route}/${item.reference}/${slug}">
+              <a href="${window.herandoEntityUrl(cat.route, '/' + item.reference + '/' + slug)}">
                 <img src="${item.imageUrl}" alt="${item.title}" loading="lazy" decoding="async">
               </a>
             </div>
@@ -681,38 +813,60 @@ Promise.all(
 })
 .catch(err => {
   console.error("Fehler beim Laden der Inserate (Mobile):", err);
-  mobileSlidesContainer.innerHTML = `<p class="text-center text-danger">${ERR_LOADING_OFFERS}</p>`;
+  window.herandoSetSectionVisibility("myUniqueProducts-mobile", false);
 });
 
 
   let currentIndex = 0;
   function updateSlidePosition() {
-    const slide = mobileSlidesContainer.querySelector('.mobile-carousel-slide');
-    const slideWidth = slide ? slide.getBoundingClientRect().width : mobileSlidesContainer.clientWidth;
+    const slideWidth = mobileViewport
+      ? mobileViewport.getBoundingClientRect().width
+      : mobileSlidesContainer.getBoundingClientRect().width;
     mobileSlidesContainer.style.transform = `translateX(-${currentIndex * slideWidth}px)`;
   }
 
   prevBtnMobile.addEventListener("click", () => {
+    if (!mobileSlidesContainer.children.length) return;
     currentIndex = currentIndex > 0 ? currentIndex - 1 : mobileSlidesContainer.children.length - 1;
     updateSlidePosition();
   });
 
   nextBtnMobile.addEventListener("click", () => {
+    if (!mobileSlidesContainer.children.length) return;
     currentIndex = (currentIndex + 1) % mobileSlidesContainer.children.length;
     updateSlidePosition();
   });
 
   // === Swipe-Gesten ===
   let startX = 0;
-  mobileSlidesContainer.addEventListener("touchstart", e => {
-    startX = e.touches[0].clientX;
-  });
-  mobileSlidesContainer.addEventListener("touchend", e => {
-    const diffX = e.changedTouches[0].clientX - startX;
-    if (diffX > 50) prevBtnMobile.click();
-    if (diffX < -50) nextBtnMobile.click();
-  });
+  let startY = 0;
+  let touchActive = false;
+  const mobileSwipeTarget = mobileViewport || mobileSlidesContainer;
+  mobileSwipeTarget.addEventListener("touchstart", e => {
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    startX = t.clientX;
+    startY = t.clientY;
+    touchActive = true;
+  }, { passive: true });
+  mobileSwipeTarget.addEventListener("touchend", e => {
+    if (!touchActive) return;
+    touchActive = false;
+    if (!mobileSlidesContainer.children.length) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.abs(dx) < 40) return;
+    if (Math.abs(dx) <= Math.abs(dy)) return;
+    if (dx > 0) prevBtnMobile.click();
+    else nextBtnMobile.click();
+  }, { passive: true });
+  mobileSwipeTarget.addEventListener("touchcancel", () => {
+    touchActive = false;
+  }, { passive: true });
 
+  updateSlidePosition();
   window.addEventListener("resize", () => updateSlidePosition());
 });
 </script>
@@ -736,6 +890,7 @@ document.addEventListener("DOMContentLoaded", () => {
       const cartypeLabels = {
         1: t("car.transmission.manual", "Schaltgetriebe"),
         2: t("car.transmission.automatic", "Automatik"),
+        3: t("car.transmission.automatic", "Automatik"),
         6: t("car.transmission.automatic", "Automatik"),
         255: t("car.transmission.manual", "Schaltgetriebe")
       };
@@ -745,7 +900,8 @@ document.addEventListener("DOMContentLoaded", () => {
         3: t("car.fuel.electric", "Elektro"),
         4: t("car.fuel.hybrid", "Hybrid")
       };
-      const cartypeName = cartypeLabels[it.cartype] || null;
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      const cartypeName = cartypeLabels[gearboxValue] || null;
       const fuelName = fuelLabels[it.fuel] || null;
 
       let firstReg = null;
@@ -848,8 +1004,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const prev   = section.querySelector(".my-carousel-prev");
     const next   = section.querySelector(".my-carousel-next");
 
-    fetch(`/api/advert_inserat/${ent.id}`)
-      .then(r => r.json())
+    window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
       .then(items => {
         const groups = [];
         for (let i = 0; i < items.length; i += 4) groups.push(items.slice(i, i + 4));
@@ -865,7 +1020,7 @@ document.addEventListener("DOMContentLoaded", () => {
               <div class="offer-card ${ent.route}">
                 <div class="bild"><img src="${it.imageUrl}" alt="${title}" loading="lazy" decoding="async"></div>
                 <div class="info" style="padding:12px;">
-                  <a href="/${ent.route}/${it.reference}/${it.slug}" 
+                  <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + it.slug)}" 
                      style="font-size:14pt; font-weight:bold; text-decoration:none; color:inherit; display:block; margin-bottom:6px;">
                     ${shortTitle}
                   </a>
@@ -917,9 +1072,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const slides = section.querySelector(".mobile-carousel-slides");
     const prev   = section.querySelector(".mobile-carousel-prev");
     const next   = section.querySelector(".mobile-carousel-next");
+    const viewport = section.querySelector(".mobile-carousel");
 
-fetch(`/api/advert_inserat/${ent.id}`)
-  .then(r => r.json())
+window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
   .then(items => {
     items.forEach((it, idx) => {
       // 💰 Preislogik mit Fallback + Währungskennung
@@ -940,13 +1095,13 @@ fetch(`/api/advert_inserat/${ent.id}`)
       slides.innerHTML += `
         <div class="mobile-carousel-slide" data-slide="${idx}">
           <div class="offer-card ${ent.route}">
-            <a href="/${ent.route}/${it.reference}/${it.slug}">
+            <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + it.slug)}">
             <div class="bild">
               <img src="${it.imageUrl}" alt="${title}" loading="lazy" decoding="async">
             </div>
             </a>
             <div class="info" style="padding:12px;">
-              <a href="/${ent.route}/${it.reference}/${it.slug}" 
+              <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + it.slug)}" 
                  style="font-size:14pt; font-weight:bold; text-decoration:none; color:inherit; display:block; margin-bottom:6px;">
                 ${shortTitle}
               </a>
@@ -958,23 +1113,50 @@ fetch(`/api/advert_inserat/${ent.id}`)
     });
 
         let current = 0;
+        const slideCount = items.length;
         function goTo(i) {
-          if (i < 0) i = items.length - 1;
-          if (i >= items.length) i = 0;
+          if (!slideCount) return;
+          if (i < 0) i = slideCount - 1;
+          if (i >= slideCount) i = 0;
           current = i;
-          slides.style.transform = `translateX(-${i*100}%)`;
+          const slideWidth = viewport
+            ? viewport.getBoundingClientRect().width
+            : slides.getBoundingClientRect().width;
+          slides.style.transform = `translateX(-${i * slideWidth}px)`;
         }
 
         prev.addEventListener("click", () => goTo(current - 1));
         next.addEventListener("click", () => goTo(current + 1));
 
         let startX = 0;
-        slides.addEventListener("touchstart", e => startX = e.touches[0].clientX);
-        slides.addEventListener("touchend", e => {
-          const endX = e.changedTouches[0].clientX;
-          if (endX - startX > 50) goTo(current - 1);
-          if (startX - endX > 50) goTo(current + 1);
-        });
+        let startY = 0;
+        let touchActive = false;
+        const swipeSurface = viewport || slides;
+        swipeSurface.addEventListener("touchstart", e => {
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          startX = t.clientX;
+          startY = t.clientY;
+          touchActive = true;
+        }, { passive: true });
+        swipeSurface.addEventListener("touchend", e => {
+          if (!touchActive) return;
+          touchActive = false;
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          const dx = t.clientX - startX;
+          const dy = t.clientY - startY;
+          if (Math.abs(dx) < 40) return;
+          if (Math.abs(dx) <= Math.abs(dy)) return;
+          if (dx > 0) goTo(current - 1);
+          else goTo(current + 1);
+        }, { passive: true });
+        swipeSurface.addEventListener("touchcancel", () => {
+          touchActive = false;
+        }, { passive: true });
+
+        goTo(0);
+        window.addEventListener("resize", () => goTo(current));
       });
   });
 });
@@ -984,7 +1166,7 @@ fetch(`/api/advert_inserat/${ent.id}`)
 document.addEventListener("DOMContentLoaded", () => {
 
   function isTablet() {
-    return window.innerWidth <= 1199 && window.innerWidth >= 900;
+    return window.innerWidth <= 1199 && window.innerWidth >= 767;
   }
   if (!isTablet()) return;
 
@@ -1029,7 +1211,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   /* ===============================
           TABLET CAROUSEL
-     3 Inserate = 1 Slide
+     2 Inserate = 1 Slide
   =============================== */
   entieties.forEach(ent => {
 
@@ -1039,9 +1221,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const slides = section.querySelector(".tablet-carousel-slides");
     const prevBtn = section.querySelector(".tablet-carousel-prev");
     const nextBtn = section.querySelector(".tablet-carousel-next");
+    const swipeSurface = section.querySelector(".tablet-carousel-track") || section.querySelector(".tablet-carousel") || slides;
 
-    fetch(`/api/advert_inserat/${ent.id}`)
-      .then(r => r.json())
+    window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
       .then(items => {
 
         const groups = [];
@@ -1049,6 +1231,7 @@ document.addEventListener("DOMContentLoaded", () => {
         for (let i = 0; i < items.length; i += itemsPerSlide) {
           groups.push(items.slice(i, i + itemsPerSlide));
         }
+        if (!groups.length) return;
 
         groups.forEach((group, sIdx) => {
           let html = `<div class="tablet-carousel-slide" data-slide="${sIdx}">`;
@@ -1064,13 +1247,13 @@ document.addEventListener("DOMContentLoaded", () => {
             html += `
               <div class="offer-card ${ent.route}">
                 <div class="bild">
-                  <a href="/${ent.route}/${it.reference}/${it.slug}">
+                  <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + it.slug)}">
                     <img src="${it.imageUrl}" alt="${title}" loading="lazy" decoding="async">
                   </a>
                 </div>
 
                 <div class="info" style="padding:10px;">
-                  <a href="/${ent.route}/${it.reference}/${makeSlug(it.title)}"
+                  <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + makeSlug(it.title))}"
                      style="font-size:13pt; font-weight:600; text-decoration:none; color:inherit; display:block; margin-bottom:6px;">
                       ${shortTitle}
                   </a>
@@ -1093,13 +1276,40 @@ document.addEventListener("DOMContentLoaded", () => {
           if (i < 0) i = groups.length - 1;
           if (i >= groups.length) i = 0;
           currentSlide = i;
-          const slide = slides.querySelector('.tablet-carousel-slide');
-          const slideWidth = slide ? slide.getBoundingClientRect().width : slides.clientWidth;
-          slides.style.transform = `translateX(-${i * slideWidth}px)`;
+          slides.style.transform = `translateX(-${i * 100}%)`;
         }
 
         prevBtn.addEventListener("click", () => goToSlide(currentSlide - 1));
         nextBtn.addEventListener("click", () => goToSlide(currentSlide + 1));
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchActive = false;
+        swipeSurface.addEventListener("touchstart", (e) => {
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          touchStartX = t.clientX;
+          touchStartY = t.clientY;
+          touchActive = true;
+        }, { passive: true });
+
+        swipeSurface.addEventListener("touchend", (e) => {
+          if (!touchActive) return;
+          touchActive = false;
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          const dx = t.clientX - touchStartX;
+          const dy = t.clientY - touchStartY;
+          if (Math.abs(dx) < 40) return;
+          if (Math.abs(dx) <= Math.abs(dy)) return;
+          if (dx > 0) goToSlide(currentSlide - 1);
+          else goToSlide(currentSlide + 1);
+        }, { passive: true });
+        swipeSurface.addEventListener("touchcancel", () => {
+          touchActive = false;
+        }, { passive: true });
+
+        goToSlide(0);
 
         window.addEventListener("resize", () => {
           goToSlide(currentSlide);
@@ -1183,6 +1393,7 @@ function makeSlug(str) {
       const cartypeLabels = {
         1: t('car.transmission.manual', 'Schaltgetriebe'),
         2: t('car.transmission.automatic', 'Automatik'),
+        3: t('car.transmission.automatic', 'Automatik'),
         6: t('car.transmission.automatic', 'Automatik'),
         255: t('car.transmission.manual', 'Schaltgetriebe')
       };
@@ -1193,7 +1404,8 @@ function makeSlug(str) {
         4: t('car.fuel.hybrid', 'Hybrid')
       };
 
-      const cartypeName = cartypeLabels[it.cartype] || null;
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      const cartypeName = cartypeLabels[gearboxValue] || null;
       const fuelName = fuelLabels[it.fuel] || null;
       let firstReg = null;
 
@@ -1296,8 +1508,7 @@ function makeSlug(str) {
     const nextBtn = carouselSection.querySelector(".my-carousel-next");
     if (!slides || !dots) return;
 
-    fetch(`/api/advert_inserat/${ent.id}`)
-      .then(r => r.ok ? r.json() : [])
+    window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
       .then(items => {
         const groups = [];
         for (let i = 0; i < items.length; i += 4) groups.push(items.slice(i, i + 4));
@@ -1320,7 +1531,7 @@ function makeSlug(str) {
 
             html += `
               <div class="card-peter">
-              <a href="/${ent.route}/${it.reference}/${makeSlug(it.title)}" style="flex:1; text-decoration:none; color:inherit;">
+              <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + makeSlug(it.title))}" style="flex:1; text-decoration:none; color:inherit;">
                   <div class="bild"><img src="${it.imageUrl}" alt="${it.title}" loading="lazy" decoding="async"></div>
                   <div class="info" style="width: 330px;">
                     <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-top:8px;">
@@ -1425,16 +1636,48 @@ function makeSlug(str) {
     const detectEntitie = (it) => {
       if (it.entitieId) return Number(it.entitieId);
       const s = ((it.imageUrl || it.url || "") + "").toLowerCase();
-      if (s.includes("/cars/")      || s.includes("/auto"))      return 1; // Autos
-      if (s.includes("/watches/")   || s.includes("/uhr"))       return 2; // Uhren
-      if (s.includes("/yachts/")    || s.includes("/boot") || s.includes("/yacht")) return 3; // Yachten
-      if (s.includes("/properties/")|| s.includes("/immobil"))   return 4; // Immobilien
+      if (s.includes("/cars/") || s.includes("/auto") || s.includes("/autos/")) return 1; // Autos
+      if (
+        s.includes("/watches/") ||
+        s.includes("/uhr") ||
+        s.includes("/relojes/") ||
+        s.includes("/montres/") ||
+        s.includes("/orologi/") ||
+        s.includes("/saatler/")
+      ) return 2; // Uhren
+      if (
+        s.includes("/yachts/") ||
+        s.includes("/boot") ||
+        s.includes("/yacht") ||
+        s.includes("/boote/") ||
+        s.includes("/barcos/") ||
+        s.includes("/bateaux/") ||
+        s.includes("/barche/") ||
+        s.includes("/tekneler/")
+      ) return 3; // Yachten/Boote
+      if (
+        s.includes("/properties/") ||
+        s.includes("/immobil") ||
+        s.includes("/propiedades/") ||
+        s.includes("/proprietes/") ||
+        s.includes("/immobili/") ||
+        s.includes("/emlak/")
+      ) return 4; // Immobilien
       return 1; // Fallback
     };
 
     const idFromPath = (s) => {
-      const m = String(s || "").match(/\/(cars|watches|yachts|properties)\/(\d+)\b/i);
-      return m ? Number(m[2]) : null;
+      const m = String(s || "").toLowerCase().match(/\/([^/?#]+)\/(\d+)\b/);
+      if (!m) return null;
+      const route = m[1];
+      const known = new Set([
+        'cars', 'autos', 'auto',
+        'watches', 'uhren', 'relojes', 'montres', 'orologi', 'saatler',
+        'yachts', 'yacht', 'boote', 'yachten', 'barcos', 'bateaux', 'barche', 'tekneler',
+        'properties', 'immobilien', 'immobilie', 'propiedades', 'proprietes', 'immobili', 'emlak'
+      ]);
+      if (!known.has(route)) return null;
+      return Number(m[2]);
     };
 
     // robuster Key
@@ -1468,8 +1711,7 @@ function makeSlug(str) {
       if (window.app && window.app.debug) console.log("[RV] fetch translations", { entitieId: ent, ids, lang });
       const url = `/api/listing_tr_map?entitieId=${ent}&ids=${ids.join(",")}&lang=${encodeURIComponent(lang)}`;
       tasks.push(
-        fetch(url)
-          .then(r => r.ok ? r.json() : null)
+        window.herandoFetchJsonCached(url, null)
           .then(j => { if (j && j.titles) maps.set(ent, j.titles); })
           .catch(e => console.warn("[RV] tr fetch failed", ent, e))
       );

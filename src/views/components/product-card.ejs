@@ -2,7 +2,13 @@
   <div class="productContainer">
     <div class="productGrid d-flex flex-wrap" style="margin-top: 30px;">
       <% items.forEach(item => { %>
-        <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>">
+        <%
+          const detailSuffix = `${encodeURIComponent(item.title || '')}-${item.id}`;
+          const detailHref = item.detailPath || ((typeof entityPath === 'function')
+            ? entityPath(currentEntity.route, detailSuffix)
+            : `/${currentEntity.route}/${detailSuffix}`);
+        %>
+        <a href="<%= detailHref %>">
           <div class="cardPeter mb-4 me-4">
             <div class="imageBild">
               <div class="bild">

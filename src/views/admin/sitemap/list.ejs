@@ -1,0 +1,165 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h1 class="mb-1">Sitemap XML verwalten</h1>
+        <p class="text-muted mb-0">
+          Diese Einträge erscheinen in <code>/page-sitemap.xml</code>. Der Index ist unter <code>/sitemap_index.xml</code>.
+        </p>
+      </div>
+    </div>
+
+    <% if (flashSuccess) { %>
+      <div class="alert alert-success"><%= flashSuccess %></div>
+    <% } %>
+
+    <% if (flashError) { %>
+      <div class="alert alert-danger"><%= flashError %></div>
+    <% } %>
+
+    <div class="card mb-4">
+      <div class="card-header">Vorhandene Sitemap-Links</div>
+      <div class="card-body p-0">
+        <% if (!items || !items.length) { %>
+          <p class="text-muted p-3 mb-0">Noch keine Einträge vorhanden.</p>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>URL</th>
+                  <th>Lastmod</th>
+                  <th>Changefreq</th>
+                  <th>Priority</th>
+                  <th>Sort</th>
+                  <th>Aktiv</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% items.forEach(item => { %>
+                  <tr>
+                    <td>
+                      <input
+                        class="form-control form-control-sm"
+                        name="url"
+                        value="<%= item.url %>"
+                        required
+                        form="edit-<%= item.id %>"
+                      >
+                    </td>
+                    <td>
+                      <input
+                        class="form-control form-control-sm"
+                        type="date"
+                        name="lastmod"
+                        value="<%= item.lastmod %>"
+                        form="edit-<%= item.id %>"
+                      >
+                    </td>
+                    <td>
+                      <select class="form-select form-select-sm" name="changefreq" form="edit-<%= item.id %>">
+                        <option value=""></option>
+                        <% changefreqValues.forEach(freq => { %>
+                          <option value="<%= freq %>" <%= item.changefreq === freq ? 'selected' : '' %>><%= freq %></option>
+                        <% }) %>
+                      </select>
+                    </td>
+                    <td>
+                      <input
+                        class="form-control form-control-sm"
+                        type="number"
+                        name="priority"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value="<%= item.priority %>"
+                        form="edit-<%= item.id %>"
+                      >
+                    </td>
+                    <td>
+                      <input
+                        class="form-control form-control-sm"
+                        type="number"
+                        name="sort_order"
+                        value="<%= item.sort_order %>"
+                        form="edit-<%= item.id %>"
+                      >
+                    </td>
+                    <td class="text-center">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        name="is_active"
+                        value="1"
+                        <%= item.is_active ? 'checked' : '' %>
+                        form="edit-<%= item.id %>"
+                      >
+                    </td>
+                    <td>
+                      <div class="d-flex gap-2">
+                        <button class="btn btn-primary btn-sm" form="edit-<%= item.id %>">Speichern</button>
+                        <button class="btn btn-outline-danger btn-sm" form="delete-<%= item.id %>">Löschen</button>
+                      </div>
+                    </td>
+                  </tr>
+                  <form id="edit-<%= item.id %>" method="POST" action="/admin/sitemap/<%= item.id %>/edit"></form>
+                  <form
+                    id="delete-<%= item.id %>"
+                    method="POST"
+                    action="/admin/sitemap/<%= item.id %>/delete"
+                    onsubmit="return confirm('Eintrag wirklich löschen?')"
+                  ></form>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">Neuen Sitemap-Link anlegen</div>
+      <div class="card-body">
+        <form class="row g-3 align-items-end" method="POST" action="/admin/sitemap/new">
+          <div class="col-12 col-lg-5">
+            <label class="form-label">URL</label>
+            <input class="form-control" name="url" placeholder="/kontakt oder https://www.herando.com/kontakt" required>
+          </div>
+          <div class="col-6 col-lg-2">
+            <label class="form-label">Lastmod</label>
+            <input class="form-control" type="date" name="lastmod">
+          </div>
+          <div class="col-6 col-lg-2">
+            <label class="form-label">Changefreq</label>
+            <select class="form-select" name="changefreq">
+              <option value=""></option>
+              <% changefreqValues.forEach(freq => { %>
+                <option value="<%= freq %>"><%= freq %></option>
+              <% }) %>
+            </select>
+          </div>
+          <div class="col-6 col-lg-1">
+            <label class="form-label">Priority</label>
+            <input class="form-control" type="number" min="0" max="1" step="0.1" name="priority" value="0.5">
+          </div>
+          <div class="col-6 col-lg-1">
+            <label class="form-label">Sort</label>
+            <input class="form-control" type="number" name="sort_order" value="0">
+          </div>
+          <div class="col-6 col-lg-1">
+            <label class="form-label d-block">Aktiv</label>
+            <input class="form-check-input" type="checkbox" name="is_active" value="1" checked>
+          </div>
+          <div class="col-12">
+            <button class="btn btn-success">Eintrag erstellen</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,91 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-fill container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h1 class="h3 m-0">Bewerbungen</h1>
+      <a href="/admin/jobs" class="btn btn-outline-dark">Zur Job-Übersicht</a>
+    </div>
+
+    <% if (messages?.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+    <% if (messages?.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+
+    <form class="row g-2 align-items-end mb-3" method="get" action="/admin/jobs/applications">
+      <div class="col-md-4">
+        <label for="job_id" class="form-label">Stelle</label>
+        <select id="job_id" name="job_id" class="form-select">
+          <option value="">Alle Stellen</option>
+          <% (jobs || []).forEach((job) => { %>
+            <option value="<%= job.id %>" <%= Number(filters?.job_id || 0) === Number(job.id) ? 'selected' : '' %>>
+              <%= job.title %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label for="status" class="form-label">Status</label>
+        <select id="status" name="status" class="form-select">
+          <option value="">Alle Status</option>
+          <% ['new','in_review','interview','accepted','rejected'].forEach((status) => { %>
+            <option value="<%= status %>" <%= String(filters?.status || '') === status ? 'selected' : '' %>><%= status %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="col-md-3">
+        <label for="q" class="form-label">Suche</label>
+        <input id="q" name="q" class="form-control" value="<%= filters?.q || '' %>" placeholder="Name, Mail, Stelle">
+      </div>
+
+      <div class="col-md-2 d-flex gap-2">
+        <button type="submit" class="btn btn-primary w-100">Filtern</button>
+      </div>
+    </form>
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Datum</th>
+            <th>Stelle</th>
+            <th>Person</th>
+            <th>E-Mail</th>
+            <th>Land</th>
+            <th>Telefon</th>
+            <th>Status</th>
+            <th class="text-end">Aktion</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!applications || !applications.length) { %>
+            <tr>
+              <td colspan="8" class="text-center text-muted py-4">Keine Bewerbungen gefunden.</td>
+            </tr>
+          <% } %>
+
+          <% (applications || []).forEach((application) => { %>
+            <tr>
+              <td><%= new Date(application.created_at).toLocaleString('de-DE') %></td>
+              <td><%= application.job_title %></td>
+              <td><strong><%= application.first_name %> <%= application.last_name %></strong></td>
+              <td><a href="mailto:<%= application.email %>"><%= application.email %></a></td>
+              <td><%= application.country_name || '—' %></td>
+              <td><%= [application.phone_prefix, application.phone].filter(Boolean).join(' ') || '—' %></td>
+              <td><span class="badge text-bg-light border"><%= application.status %></span></td>
+              <td class="text-end">
+                <a href="/admin/jobs/applications/<%= application.id %>" class="btn btn-sm btn-outline-primary">Details</a>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>

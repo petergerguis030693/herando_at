@@ -23,3 +23,9 @@
     </div>
   </div>
 </nav>
+
+<script>
+  window.__herandoForceTracking = true;
+  window.__herandoActorRole = <%= (typeof role !== 'undefined' && role != null) ? Number(role) : 'null' %>;
+</script>
+<script src="/js/analytics-tracker.js" defer></script>

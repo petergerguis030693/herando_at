@@ -22,7 +22,7 @@
       <!-- CONTENT -->
       <% const renderItem = (item) => { 
             const pic = (item.pictures && item.pictures[0]) ? item.pictures[0].image : 'placeholder.jpg';
-            const url = `/${item.entityRoute}/${item.id}/${encodeURIComponent(item.title || '')}`;
+            const url = `/${item.entityRoute}/${encodeURIComponent(item.title || '')}-${item.id}`;
       %>
 
       <div class="cardPeter mb-4 me-4">

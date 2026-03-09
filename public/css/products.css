@@ -458,12 +458,18 @@
 
 .mobile-carousel-slides {
   display: flex;
+  width: 100%;
+  gap: 0;
   transition: transform 0.4s ease;
   will-change: transform;
+  touch-action: pan-y;
 }
 
 .mobile-carousel-slide {
+  width: 100%;
   min-width: 100%; /* 1 Inserat pro Slide */
+  flex: 0 0 100%;
+  box-sizing: border-box;
 }
 
 /* Pfeile IMMER sichtbar */
@@ -599,15 +605,25 @@
   display: flex;
   flex-direction: column;
   width: 100%;
+  min-width: 0;
+  max-width: none;
 }
 
 #myUniqueProducts-tablet .image-bild {
-  height: 220px;
+  width: 100%;
+  height: 400px;
   overflow: hidden;
   border-radius: 10px;
 }
 
+#myUniqueProducts-tablet .image-bild a {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 #myUniqueProducts-tablet .image-bild img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
@@ -616,6 +632,7 @@
 /* Entdecken Sie Herando – Tablet: Kartenhöhe automatisch */
 #myUniqueProducts-tablet .tablet-carousel-slide {
   align-items: start;
+  overflow: hidden;
 }
 
 #myUniqueProducts-tablet .card-peter {
@@ -633,21 +650,43 @@
 
 /* Pfeile */
 #myUniqueProducts-tablet .tablet-carousel-prev,
-#myUniqueProducts-tablet .tablet-carousel-next {
+#myUniqueProducts-tablet .tablet-carousel-next,
+.topOffersWrapper-tablet .tablet-carousel-prev,
+.topOffersWrapper-tablet .tablet-carousel-next {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0,0,0,0.5);
-  border: none;
-  color: #fff;
-  padding: 0.5rem 1rem;
+  width: 60px;
+  height: 60px;
+  border: 0;
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #000;
+  font-size: 22px;
+  line-height: 1;
   cursor: pointer;
-  font-size: 1.5rem;
-  z-index: 20;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .18);
+  z-index: 30;
+  opacity: 1;
+  pointer-events: auto;
 }
 
-#myUniqueProducts-tablet .tablet-carousel-prev { left: 10px; }
-#myUniqueProducts-tablet .tablet-carousel-next { right: 10px; }
+#myUniqueProducts-tablet .tablet-carousel-prev,
+.topOffersWrapper-tablet .tablet-carousel-prev { left: 10px; }
+#myUniqueProducts-tablet .tablet-carousel-next,
+.topOffersWrapper-tablet .tablet-carousel-next { right: 10px; }
+
+#myUniqueProducts-tablet .tablet-carousel-prev:hover,
+#myUniqueProducts-tablet .tablet-carousel-next:hover,
+.topOffersWrapper-tablet .tablet-carousel-prev:hover,
+.topOffersWrapper-tablet .tablet-carousel-next:hover {
+  transform: translateY(-50%) scale(1.05);
+  color: #0d3b8e;
+  box-shadow: 0 8px 22px rgba(13, 110, 253, .18);
+}
 
 /* Dots */
 #myUniqueProducts-tablet .tablet-carousel-nav-dots {
@@ -680,7 +719,7 @@
 /* ------------------------------
    TABLET MODE 1199px → 767px
 --------------------------------*/
-@media (max-width: 1199px) and (min-width: 900px) {
+@media (max-width: 1199px) and (min-width: 767px) {
 
   .topOffersWrapper-tablet {
     display: block;
@@ -699,30 +738,46 @@
 
   .tablet-carousel-slides {
     display: flex;
+    width: 100%;
+    gap: 0;
     transition: transform 0.4s ease;
+    will-change: transform;
+    touch-action: pan-y;
   }
 
   .tablet-carousel-slide {
+    width: 100%;
     min-width: 100%;
     flex: 0 0 100%;
-    display: flex;
-    justify-content: center;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: stretch;
     gap: 20px;
   }
 
   /* 2 Inserate nebeneinander */
   .tablet-carousel-slide .offer-card {
-    width: calc(50% - 20px);
+    width: 100%;
+    min-width: 0;
     background: #fff;
     border-radius: 10px;
     overflow: hidden;
+  }
+
+  /* Tablet-Pfeile sichtbar (überschreibt alte <=1023px hide-Regel) */
+  #myUniqueProducts-tablet .tablet-carousel-prev,
+  #myUniqueProducts-tablet .tablet-carousel-next,
+  .topOffersWrapper-tablet .tablet-carousel-prev,
+  .topOffersWrapper-tablet .tablet-carousel-next {
+    display: flex !important;
   }
 }
 
 /* ------------------------------
    MOBILE ≤ 766px
 --------------------------------*/
-@media (max-width: 899px) {
+@media (max-width: 766px) {
   .topOffersWrapper-mobile {
     display: block;
   }

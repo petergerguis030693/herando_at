@@ -134,8 +134,117 @@ async function ensureSession(req, res) {
 
 /* ------------------------ Track Endpoint ------------------------ */
 
+async function handleTrack(req, res) {
+  const { kind } = req.body || {};
+  if (!kind) return res.sendStatus(204);
+
+  const allowed = new Set(['pageview','pageleave','perf','click','search','custom']);
+  if (!allowed.has(kind)) return res.sendStatus(204);
+
+  const sessionId = await ensureSession(req, res);
+  const userId = req.session?.userId || null;
+
+  // PAGEVIEW
+  if (kind === 'pageview') {
+    const { pv_id, path, referer } = req.body;
+    if (!pv_id || !path) return res.sendStatus(400);
+
+    const first = await isFirstPageview(sessionId);
+
+    // Wenn eine neue Pageview kommt, war eine zuvor gesetzte Exit-Markierung in der
+    // Session nicht die tatsächliche letzte Seite.
+    await db.query(
+      `UPDATE visit_pageviews
+          SET is_exit = 0
+        WHERE session_id = ?
+          AND is_exit = 1`,
+      [sessionId]
+    );
+
+    await db.query(
+      `INSERT INTO visit_pageviews
+         (pv_id, session_id, user_id, path, referer, is_entry, started_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW())
+       ON DUPLICATE KEY UPDATE
+         user_id = COALESCE(visit_pageviews.user_id, VALUES(user_id)),
+         referer = COALESCE(visit_pageviews.referer, VALUES(referer))`,
+      [pv_id, sessionId, userId, path, referer || null, first ? 1 : 0]
+    );
+    return res.sendStatus(204);
+  }
+
+  // PAGELEAVE
+  if (kind === 'pageleave') {
+    const { pv_id, duration_ms } = req.body;
+    if (!pv_id) return res.sendStatus(204);
+    const dur = Math.max(0, parseInt(duration_ms || 0, 10));
+    await db.query(
+      `UPDATE visit_pageviews
+          SET ended_at = NOW(),
+              duration_ms = CASE
+                WHEN duration_ms IS NULL OR duration_ms < ? THEN ?
+                ELSE duration_ms
+              END,
+              is_exit = 1
+        WHERE pv_id = ?`,
+      [dur, dur, pv_id]
+    );
+    return res.sendStatus(204);
+  }
+
+  // PERFORMANCE (Web Vitals light)
+  if (kind === 'perf') {
+    const { pv_id, ttfb_ms, fcp_ms, lcp_ms, fid_ms, cls } = req.body;
+    if (!pv_id) return res.sendStatus(204);
+    await db.query(
+      `UPDATE visit_pageviews
+          SET ttfb_ms = ?, fcp_ms = ?, lcp_ms = ?, fid_ms = ?, cls = ?
+        WHERE pv_id = ?`,
+      [
+        ttfb_ms != null ? parseInt(ttfb_ms, 10) : null,
+        fcp_ms  != null ? parseInt(fcp_ms, 10)  : null,
+        lcp_ms  != null ? parseInt(lcp_ms, 10)  : null,
+        fid_ms  != null ? parseInt(fid_ms, 10)  : null,
+        cls     != null ? parseFloat(cls)       : null,
+        pv_id
+      ]
+    );
+    return res.sendStatus(204);
+  }
+
+  // EVENTS: click / search / custom
+  if (kind === 'click' || kind === 'search' || kind === 'custom') {
+    const {
+      pv_id, path, target_url, element, element_id, element_text,
+      meta, element_x, element_y, viewport_w, viewport_h
+    } = req.body;
+    if (!path) return res.sendStatus(400);
+
+    await db.query(
+      `INSERT INTO visit_events
+         (session_id, user_id, pv_id, event_type, path, target_url,
+          element, element_id, element_text, referer,
+          element_x, element_y, viewport_w, viewport_h,
+          meta)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        sessionId, userId, pv_id || null, kind, path, target_url || null,
+        element || null, element_id || null, element_text || null, req.get('referer') || null,
+        element_x != null ? parseInt(element_x, 10) : null,
+        element_y != null ? parseInt(element_y, 10) : null,
+        viewport_w != null ? parseInt(viewport_w, 10) : null,
+        viewport_h != null ? parseInt(viewport_h, 10) : null,
+        meta ? JSON.stringify(meta) : null
+      ]
+    );
+    return res.sendStatus(204);
+  }
+
+  return res.sendStatus(204);
+}
+
 /**
- * POST /analytics/track
+ * POST /track (auch kompatibel unter /analytics/track)
  * Body:
  *  - kind: 'pageview' | 'pageleave' | 'perf' | 'click' | 'search' | 'custom'
  *
@@ -146,105 +255,22 @@ async function ensureSession(req, res) {
  *  search:   { pv_id?, path, element_text: query, meta? }
  *  custom:   { pv_id?, path, meta: {} }
  */
-router.post('/track', async (req, res, next) => {
+async function trackHandler(req, res, next) {
   try {
-    const { kind } = req.body || {};
-    if (!kind) return res.sendStatus(204);
-
-    const allowed = new Set(['pageview','pageleave','perf','click','search','custom']);
-    if (!allowed.has(kind)) return res.sendStatus(204);
-
-    const sessionId = await ensureSession(req, res);
-    const userId = req.session?.userId || null;
-
-    // PAGEVIEW
-    if (kind === 'pageview') {
-      const { pv_id, path, referer } = req.body;
-      if (!pv_id || !path) return res.sendStatus(400);
-
-      const first = await isFirstPageview(sessionId);
-      await db.query(
-        `INSERT INTO visit_pageviews
-           (pv_id, session_id, user_id, path, referer, is_entry, started_at)
-         VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-        [pv_id, sessionId, userId, path, referer || null, first ? 1 : 0]
-      );
-      return res.sendStatus(204);
-    }
-
-    // PAGELEAVE
-    if (kind === 'pageleave') {
-      const { pv_id, duration_ms } = req.body;
-      if (!pv_id) return res.sendStatus(204);
-      await db.query(
-        `UPDATE visit_pageviews
-            SET ended_at = NOW(),
-                duration_ms = ?,
-                is_exit = 1
-          WHERE pv_id = ?`,
-        [Math.max(0, parseInt(duration_ms || 0, 10)), pv_id]
-      );
-      return res.sendStatus(204);
-    }
-
-    // PERFORMANCE (Web Vitals light)
-    if (kind === 'perf') {
-      const { pv_id, ttfb_ms, fcp_ms, lcp_ms, fid_ms, cls } = req.body;
-      if (!pv_id) return res.sendStatus(204);
-      await db.query(
-        `UPDATE visit_pageviews
-            SET ttfb_ms = ?, fcp_ms = ?, lcp_ms = ?, fid_ms = ?, cls = ?
-          WHERE pv_id = ?`,
-        [
-          ttfb_ms != null ? parseInt(ttfb_ms, 10) : null,
-          fcp_ms  != null ? parseInt(fcp_ms, 10)  : null,
-          lcp_ms  != null ? parseInt(lcp_ms, 10)  : null,
-          fid_ms  != null ? parseInt(fid_ms, 10)  : null,
-          cls     != null ? parseFloat(cls)       : null,
-          pv_id
-        ]
-      );
-      return res.sendStatus(204);
-    }
-
-    // EVENTS: click / search / custom
-    if (kind === 'click' || kind === 'search' || kind === 'custom') {
-      const {
-        pv_id, path, target_url, element, element_id, element_text,
-        meta, element_x, element_y, viewport_w, viewport_h
-      } = req.body;
-      if (!path) return res.sendStatus(400);
-
-      await db.query(
-        `INSERT INTO visit_events
-           (session_id, user_id, pv_id, event_type, path, target_url,
-            element, element_id, element_text, referer,
-            element_x, element_y, viewport_w, viewport_h,
-            meta)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          sessionId, userId, pv_id || null, kind, path, target_url || null,
-          element || null, element_id || null, element_text || null, req.get('referer') || null,
-          element_x != null ? parseInt(element_x, 10) : null,
-          element_y != null ? parseInt(element_y, 10) : null,
-          viewport_w != null ? parseInt(viewport_w, 10) : null,
-          viewport_h != null ? parseInt(viewport_h, 10) : null,
-          meta ? JSON.stringify(meta) : null
-        ]
-      );
-      return res.sendStatus(204);
-    }
-
-    return res.sendStatus(204);
+    return await handleTrack(req, res);
   } catch (err) {
     // Keine internen Fehler nach außen – aber sinnvoll loggen
     console.error('Analytics track error:', err);
-    res.sendStatus(204);
+    return res.sendStatus(204);
   }
-});
+}
+
+router.post('/track', trackHandler);
+router.post('/analytics/track', trackHandler);
 
 /* ------------------------ Optional: leichte Debug-Route ------------------------ */
-// GET /analytics/ping  → 200 (zum schnellen Health-Check)
+// GET /ping oder /analytics/ping  → 200 (zum schnellen Health-Check)
 router.get('/ping', (req, res) => res.json({ ok: true }));
+router.get('/analytics/ping', (req, res) => res.json({ ok: true }));
 
 module.exports = router;

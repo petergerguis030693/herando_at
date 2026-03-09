@@ -1,0 +1,100 @@
+<!-- views/admin/ui-translations/home-hero.ejs -->
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('../sidebar', { active: active }) %>
+  </aside>
+
+  <main class="flex-grow-1 p-3">
+    <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+      <h1 class="h4 mb-0"><%= headerTitle %></h1>
+      <a class="btn btn-outline-secondary btn-sm ms-auto" href="/admin/ui">UI-Texte öffnen</a>
+    </div>
+
+    <p class="text-muted mb-3">
+      Hier kannst du die 4 Bilder im Homepage-Carousel dynamisch ändern. Die Texte bleiben weiterhin unter
+      <code>UI-Texte</code> (Keys wie <code>carousel_slide1_title</code>).
+    </p>
+
+    <% if (saved) { %>
+      <div class="alert alert-success py-2">Slider-Bilder wurden gespeichert.</div>
+    <% } %>
+
+    <form method="post" action="/admin/ui/home-hero" enctype="multipart/form-data">
+      <div class="row g-3">
+        <% slides.forEach((slide) => { %>
+          <div class="col-12">
+            <div class="card">
+              <div class="card-body">
+                <div class="row g-3">
+                  <div class="col-lg-4">
+                    <label class="form-label fw-semibold"><%= slide.label %></label>
+                    <div class="border rounded p-2 bg-light">
+                      <img
+                        src="<%= slide.currentPath %>"
+                        alt="<%= slide.label %>"
+                        class="img-fluid rounded"
+                        style="max-height:180px; width:100%; object-fit:cover;"
+                        onerror="this.classList.add('d-none'); this.nextElementSibling.classList.remove('d-none');"
+                      >
+                      <div class="small text-danger d-none">Vorschau konnte nicht geladen werden.</div>
+                    </div>
+                    <div class="small mt-2 text-muted">
+                      Aktuell: <code><%= slide.currentPath %></code>
+                    </div>
+                    <div class="small text-muted">
+                      Key: <code><%= slide.key %></code>
+                      <% if (slide.isCustom) { %><span class="badge bg-success ms-1">Custom</span><% } %>
+                    </div>
+                  </div>
+
+                  <div class="col-lg-8">
+                    <div class="mb-3">
+                      <label class="form-label">Neues Bild hochladen</label>
+                      <input
+                        type="file"
+                        class="form-control"
+                        name="<%= slide.fileField %>"
+                        accept="image/*"
+                      >
+                      <div class="form-text">Upload überschreibt Pfad/Reset für diesen Slot.</div>
+                    </div>
+
+                    <div class="mb-3">
+                      <label class="form-label">Oder Bildpfad / URL setzen</label>
+                      <input
+                        type="text"
+                        class="form-control"
+                        name="<%= slide.pathField %>"
+                        value="<%= slide.currentPath %>"
+                        placeholder="/uploads/home-hero/datei.webp oder https://..."
+                      >
+                      <div class="form-text">Erlaubt lokale Pfade (beginnend mit <code>/</code>) oder externe URLs.</div>
+                    </div>
+
+                    <div class="form-check">
+                      <input
+                        class="form-check-input"
+                        type="checkbox"
+                        value="1"
+                        id="reset-<%= slide.index %>"
+                        name="<%= slide.resetField %>"
+                      >
+                      <label class="form-check-label" for="reset-<%= slide.index %>">
+                        Auf Standardbild zurücksetzen (<code><%= slide.fallback %></code>)
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+
+      <div class="d-flex gap-2 mt-3 flex-wrap">
+        <button class="btn btn-primary" type="submit">Slider-Bilder speichern</button>
+        <a class="btn btn-outline-secondary" href="/admin/ui">Zurück zu UI-Texten</a>
+      </div>
+    </form>
+  </main>
+</div>

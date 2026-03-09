@@ -39,11 +39,31 @@
     </header>
 
     <div class="content">
+      <%
+        const appendQs = (key, value) => {
+          const v = String(value ?? '').trim();
+          return v ? `&${key}=${encodeURIComponent(v)}` : '';
+        };
+        const searchLinkQs =
+          appendQs('searchId', searchId) +
+          appendQs('searchUserId', searchUserId) +
+          appendQs('searchTitle', searchTitle) +
+          appendQs('searchName', searchName) +
+          appendQs('searchCompany', searchCompany) +
+          appendQs('search', search); // Legacy-URL-Fallback
+        const filterLinkQs =
+          searchLinkQs +
+          appendQs('priceMin', priceMin) +
+          appendQs('priceMax', priceMax) +
+          appendQs('sort', sort);
+        const adTypeQs = appendQs('adType', adType);
+      %>
+
       <!-- Kategorien-Buttons -->
       <div class="btn-group mb-3" role="group" aria-label="Kategorien">
         <% entieties.forEach(e => { %>
           <a
-            href="?category=<%= e.route %>&state=<%= state %><%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+            href="?category=<%= e.route %>&state=<%= state %><%= adTypeQs %><%= filterLinkQs %>"
             class="btn btn-herando <%= category === e.route ? 'active' : '' %>">
             <%= e.name %>
           </a>
@@ -53,27 +73,27 @@
       <!-- Ad-Filter -->
       <div class="btn-group mb-3" role="group" aria-label="Ad-Filter">
         <a
-          href="?category=<%= category %>&state=<%= state %><%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          href="?category=<%= category %>&state=<%= state %><%= filterLinkQs %>"
           class="btn btn-outline-primary <%= !adType ? 'active' : 'btn-outline-secondary' %>">
           Alle Inserate
         </a>
         <a
-          href="?category=<%= category %>&state=<%= state %>&adType=catalog<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          href="?category=<%= category %>&state=<%= state %>&adType=catalog<%= filterLinkQs %>"
           class="btn btn-outline-primary <%= adType==='catalog' ? 'active' : 'btn-outline-secondary' %>">
            Slidershow-Startseite
         </a>
         <a
-          href="?category=<%= category %>&state=<%= state %>&adType=inserat<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          href="?category=<%= category %>&state=<%= state %>&adType=inserat<%= filterLinkQs %>"
           class="btn btn-outline-primary <%= adType==='inserat' ? 'active' : 'btn-outline-secondary' %>">
           Top-Slidershow
         </a>
         <a
-          href="?category=<%= category %>&state=<%= state %>&adType=slider<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          href="?category=<%= category %>&state=<%= state %>&adType=slider<%= filterLinkQs %>"
           class="btn btn-outline-primary <%= adType==='slider' ? 'active' : 'btn-outline-secondary' %>">
           Katalog
         </a>
         <a
-          href="?category=<%= category %>&state=<%= state %>&adType=katalog_slider<%= search ? '&search=' + encodeURIComponent(search) : '' %>"
+          href="?category=<%= category %>&state=<%= state %>&adType=katalog_slider<%= filterLinkQs %>"
           class="btn <%= adType === 'katalog_slider' ? 'btn-outline-primary active' : 'btn-outline-secondary' %>">
           Katalog-Slider
         </a>
@@ -83,25 +103,59 @@
       </div>
 
       <!-- Suche + Filter -->
-      <form method="GET" action="/admin/listings" class="d-flex align-items-end mb-3">
+      <form method="GET" action="/admin/listings" class="d-flex align-items-end mb-3 flex-wrap gap-2">
         <input type="hidden" name="category" value="<%= category %>">
         <input type="hidden" name="state"    value="<%= state %>">
+        <% if (adType) { %><input type="hidden" name="adType" value="<%= adType %>"><% } %>
 
-        <div class="input-group me-2">
-          <span class="input-group-text">Suche</span>
-          <input type="text" name="search" class="form-control"
-                 placeholder="Titel, ID oder beliebiges Feld"
-                 value="<%= search %>">
+        <div class="input-group" style="min-width:180px; max-width:240px;">
+          <span class="input-group-text">ID</span>
+          <input type="text" name="searchId" class="form-control"
+                 placeholder="Inserat-ID"
+                 value="<%= searchId || '' %>">
         </div>
-        <div class="w-100" style="height:1rem;"></div>
-        <div class="input-group me-2" style="min-width:300px; max-width:500px;">
+
+        <div class="input-group" style="min-width:180px; max-width:240px;">
+          <span class="input-group-text">UserID</span>
+          <input type="text" name="searchUserId" class="form-control"
+                 placeholder="Benutzer-ID"
+                 value="<%= searchUserId || '' %>">
+        </div>
+
+        <div class="input-group" style="min-width:320px; max-width:520px;">
+          <span class="input-group-text">Titel</span>
+          <input type="text" name="searchTitle" class="form-control"
+                 placeholder="Titel des Inserates"
+                 value="<%= searchTitle || '' %>">
+        </div>
+
+        <div class="input-group" style="min-width:260px; max-width:420px;">
+          <span class="input-group-text">Name</span>
+          <input type="text" name="searchName" class="form-control"
+                 placeholder="Vor- / Nachname"
+                 value="<%= searchName || '' %>">
+        </div>
+
+        <div class="input-group" style="min-width:260px; max-width:420px;">
+          <span class="input-group-text">Firma</span>
+          <input type="text" name="searchCompany" class="form-control"
+                 placeholder="Firmenname"
+                 value="<%= searchCompany || '' %>">
+        </div>
+
+        <% if (search && !searchId && !searchUserId && !searchTitle && !searchName && !searchCompany) { %>
+          <input type="hidden" name="search" value="<%= search %>">
+        <% } %>
+
+        <div class="input-group" style="min-width:300px; max-width:500px;">
           <span class="input-group-text">Preis</span>
           <input type="number" name="priceMin" class="form-control" placeholder="von"
                  value="<%= priceMin %>" min="0" step="0.1">
           <input type="number" name="priceMax" class="form-control" placeholder="bis"
                  value="<%= priceMax %>" min="0" step="0.1">
         </div>
-        <div class="btn-group me-2" role="group" aria-label="Sortierung">
+
+        <div class="btn-group" role="group" aria-label="Preis-Sortierung">
           <button type="submit" name="sort" value="price_asc"
                   class="btn btn-outline-primary <%= sort==='price_asc' ? 'active' : '' %>"
                   title="Preis aufsteigend">Preis ↑</button>
@@ -109,7 +163,23 @@
                   class="btn btn-outline-primary <%= sort==='price_desc' ? 'active' : '' %>"
                   title="Preis absteigend">Preis ↓</button>
         </div>
-        <button class="btn btn-primary me-2" type="submit">Filtern</button>
+
+        <div class="btn-group" role="group" aria-label="Datums-Sortierung">
+          <button type="submit" name="sort" value="created_desc"
+                  class="btn btn-outline-primary <%= sort==='created_desc' ? 'active' : '' %>"
+                  title="Einstelldatum neueste zuerst">Eingestellt ↓</button>
+          <button type="submit" name="sort" value="created_asc"
+                  class="btn btn-outline-primary <%= sort==='created_asc' ? 'active' : '' %>"
+                  title="Einstelldatum älteste zuerst">Eingestellt ↑</button>
+          <button type="submit" name="sort" value="modified_desc"
+                  class="btn btn-outline-primary <%= sort==='modified_desc' ? 'active' : '' %>"
+                  title="Aktualisiert neueste zuerst">Aktualisiert ↓</button>
+          <button type="submit" name="sort" value="modified_asc"
+                  class="btn btn-outline-primary <%= sort==='modified_asc' ? 'active' : '' %>"
+                  title="Aktualisiert älteste zuerst">Aktualisiert ↑</button>
+        </div>
+
+        <button class="btn btn-primary" type="submit">Filtern</button>
         <a href="/admin/listings?category=<%= category %>&state=<%= state %>"
            class="btn btn-outline-secondary">Zurücksetzen</a>
       </form>
@@ -117,12 +187,12 @@
       <!-- Status-Überschrift & Tabs -->
       <h1 class="h4 mb-3"><%= stateLabels[state] %> Inserate</h1>
 <ul id="stateTabs" class="nav nav-tabs mb-3">
-  <% states.forEach(st => { 
+  <% states.filter(st => Boolean(stateLabels[st])).forEach(st => { 
        const isActive = state === st;
   %>
     <li class="nav-item" data-state="<%= st %>">
       <a class="nav-link <%= isActive ? 'active' : '' %>"
-         href="?category=<%= category %>&state=<%= st %><%= search ? '&search='+encodeURIComponent(search) : '' %>">
+         href="?category=<%= category %>&state=<%= st %><%= adTypeQs %><%= filterLinkQs %>">
         <%= stateLabels[st] %>
         <% if (counts[st] > 0) { %>
           <span class="badge ms-1 <%= isActive ? 'bg-white text-dark border' : 'bg-dark text-white' %>">
@@ -136,7 +206,7 @@
 
 <script>
   document.addEventListener("DOMContentLoaded", () => {
-    const order = ["toapprove", "active", "pending", "all", "stopped", "ended", "deleted"];
+    const order = ["toapprove", "active", "pending", "all", "stopped", "ended", "rejected", "deleted"];
     const tabs = document.querySelector("#stateTabs");
     if (tabs) {
       const items = Array.from(tabs.querySelectorAll(".nav-item"));
@@ -175,11 +245,16 @@
                   <small class="text-muted mb-2">
                     Inserat-ID:<%= item.id %><br>
                     <% if (item.user_id) { %>
-                      User-ID: <a href="/admin/users?search=<%= item.user_id %>&status=active"><%= item.user_id %></a>
+                      User-ID: <a href="/admin/users?search_id=<%= item.user_id %>"><%= item.user_id %></a>
                     <% } %>
                   </small>
                   <% if (item.company_name) { %>
-                    <p class="small text-muted mb-1">Firma: <%= item.company_name %></p>
+                    <p class="small text-muted mb-1">
+                      Firma:
+                      <a href="/admin/users?search_company=<%= encodeURIComponent(item.company_name) %>">
+                        <%= item.company_name %>
+                      </a>
+                    </p>
                   <% } else if (item.user_firstname || item.user_lastname) { %>
                     <p class="small text-muted mb-1">
                       Nutzer: <%= [item.user_firstname, item.user_lastname].filter(Boolean).join(' ') %>
@@ -197,17 +272,35 @@
                   </p>
                   <p class="small text-muted mb-1">Erstellt: <%= new Date(item.created).toLocaleDateString('de-DE') %></p>
                   <p class="small text-muted mb-3">Aktualisiert: <%= new Date(item.modified).toLocaleDateString('de-DE') %></p>
+                  <% if (item.isAdActive && Array.isArray(item.activeAdPlacements) && item.activeAdPlacements.length) { %>
+                    <div class="mb-3">
+                      <span class="badge bg-success me-1">Werbung aktiv</span>
+                      <% item.activeAdPlacements.forEach((placement) => { %>
+                        <span class="badge bg-warning text-dark me-1"><%= placement.label %></span>
+                      <% }) %>
+                    </div>
+                  <% } %>
 
                   <form method="POST" action="/admin/listings/<%= category %>/<%= item.id %>/action" class="mt-auto">
                     <!-- Filter-Kontext mitschicken (für Redirects) -->
                     <input type="hidden" name="state"  value="<%= state %>">
                     <input type="hidden" name="search" value="<%= search %>">
+                    <input type="hidden" name="searchId" value="<%= searchId || '' %>">
+                    <input type="hidden" name="searchUserId" value="<%= searchUserId || '' %>">
+                    <input type="hidden" name="searchTitle" value="<%= searchTitle || '' %>">
+                    <input type="hidden" name="searchName" value="<%= searchName || '' %>">
+                    <input type="hidden" name="searchCompany" value="<%= searchCompany || '' %>">
                     <input type="hidden" name="adType" value="<%= adType %>">
 
                     <div class="d-flex flex-wrap align-items-center gap-2">
                       <% if (state !== 'active') { %>
                         <button type="submit" name="action" value="approve" class="btn btn-link p-0" title="Freigeben">
                           <i class="bi bi-check-circle fs-2 text-success"></i>
+                        </button>
+                      <% } %>
+                      <% if (state === 'toapprove') { %>
+                        <button type="submit" name="action" value="reject" class="btn btn-link p-0" title="Ablehnen">
+                          <i class="bi bi-x-circle fs-2 text-danger"></i>
                         </button>
                       <% } %>
                       <% if (state !== 'pending') { %>
@@ -290,6 +383,7 @@
 
           <form id="bulkForm" method="POST" action="/admin/listings/<%= category %>/bulk" class="d-flex gap-2 align-items-center">
             <button type="submit" name="action" value="approve" class="btn btn-success">veröff.</button>
+            <button type="submit" name="action" value="reject"  class="btn btn-outline-danger">ablehnen</button>
             <button type="submit" name="action" value="pend"    class="btn btn-outline-secondary">warten</button>
             <button type="submit" name="action" value="stop"    class="btn btn-secondary">stoppen</button>
             <button type="submit" name="action" value="delete"  class="btn btn-danger">löschen</button>
@@ -303,6 +397,11 @@
             <input type="hidden" name="category" value="<%= category %>">
             <input type="hidden" name="state"    value="<%= state %>">
             <input type="hidden" name="search"   value="<%= search %>">
+            <input type="hidden" name="searchId" value="<%= searchId || '' %>">
+            <input type="hidden" name="searchUserId" value="<%= searchUserId || '' %>">
+            <input type="hidden" name="searchTitle" value="<%= searchTitle || '' %>">
+            <input type="hidden" name="searchName" value="<%= searchName || '' %>">
+            <input type="hidden" name="searchCompany" value="<%= searchCompany || '' %>">
             <input type="hidden" name="adType"   value="<%= adType %>">
           </form>
         </div>
@@ -311,9 +410,8 @@
         <%
           const prevPage = currentPage - 1;
           const nextPage = currentPage + 1;
-          const searchParam = search ? '&search=' + encodeURIComponent(search) : '';
-          const prevUrl = `?category=${category}&state=${state}&page=${prevPage}${searchParam}`;
-          const nextUrl = `?category=${category}&state=${state}&page=${nextPage}${searchParam}`;
+          const prevUrl = `?category=${category}&state=${state}&page=${prevPage}${adTypeQs}${filterLinkQs}`;
+          const nextUrl = `?category=${category}&state=${state}&page=${nextPage}${adTypeQs}${filterLinkQs}`;
         %>
         <div class="d-flex justify-content-between align-items-center mt-4">
           <% if (currentPage > 1) { %>
@@ -719,7 +817,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       u.searchParams.set('page', '1');
 
-      ['priceMin','priceMax','search','sort'].forEach(k => {
+      ['priceMin','priceMax','search','searchId','searchUserId','searchTitle','searchName','searchCompany','sort'].forEach(k => {
         const v = u.searchParams.get(k);
         if (v === null || v === '') u.searchParams.delete(k);
       });
@@ -809,29 +907,83 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // --- Kalender Icon + Zeitraum Anzeige ---
 const wrapper = document.createElement('div');
-wrapper.className = 'd-flex align-items-center gap-2 mt-1';
+wrapper.className = 'd-flex align-items-center gap-2 mt-1 btn-ad-extra-wrap';
 
 const calendarBtn = document.createElement('button');
 calendarBtn.type = 'button';
-calendarBtn.className = 'btn btn-sm btn-outline-secondary p-1';
+calendarBtn.className = 'btn btn-sm btn-outline-secondary p-1 btn-ad-aux';
 calendarBtn.innerHTML = '<i class="bi bi-calendar-event fs-5"></i>';
+
+const moveUpBtn = document.createElement('button');
+moveUpBtn.type = 'button';
+moveUpBtn.className = 'btn btn-sm btn-outline-secondary p-1 btn-ad-aux';
+moveUpBtn.title = 'Nach links verschieben';
+moveUpBtn.innerHTML = '<i class="bi bi-arrow-left fs-5"></i>';
+
+const moveDownBtn = document.createElement('button');
+moveDownBtn.type = 'button';
+moveDownBtn.className = 'btn btn-sm btn-outline-secondary p-1 btn-ad-aux';
+moveDownBtn.title = 'Nach rechts verschieben';
+moveDownBtn.innerHTML = '<i class="bi bi-arrow-right fs-5"></i>';
 
 const info = document.createElement('div');
 info.className = 'small text-muted';
 
-wrapper.append(calendarBtn, info);
+wrapper.append(calendarBtn, moveUpBtn, moveDownBtn, info);
 group.appendChild(wrapper);
 
 const advertId = getAdvertIdFromCard(btn.closest('.card'));
 const adTypeNow = new URL(location.href).searchParams.get('adType');
+const grid = btn.closest('.row.row-cols-1.row-cols-sm-2.row-cols-md-3.g-4');
+const col = btn.closest('.col');
+const formatDateForInfo = (raw) => {
+  const iso = String(raw || '').split('T')[0];
+  const m = iso.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return iso || '';
+  return `${m[3]}.${m[2]}.${m[1]}`;
+};
+
+const movePlacement = async (direction) => {
+  if (!adTypeNow) { alert('Kein Ad-Typ aktiv.'); return; }
+  if (!advertId) { alert('Inserat-ID nicht gefunden.'); return; }
+
+  moveUpBtn.disabled = true;
+  moveDownBtn.disabled = true;
+
+  try {
+    const res = await fetch(`/admin/listings/<%= category %>/${advertId}/ad/move`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ adType: adTypeNow, direction })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) throw new Error(data.message || res.statusText || 'Fehler beim Verschieben');
+
+    if (data.moved && grid && col) {
+      if (direction === 'up' && col.previousElementSibling) {
+        grid.insertBefore(col, col.previousElementSibling);
+      } else if (direction === 'down' && col.nextElementSibling) {
+        grid.insertBefore(col.nextElementSibling, col);
+      }
+    }
+  } catch (e) {
+    alert('Fehler: ' + (e.message || 'Unbekannt'));
+  } finally {
+    moveUpBtn.disabled = false;
+    moveDownBtn.disabled = false;
+  }
+};
+
+moveUpBtn.onclick = () => movePlacement('up');
+moveDownBtn.onclick = () => movePlacement('down');
 
 // Zeitraum anzeigen
 fetch(`/admin/listings/<%= category %>/${advertId}/ad-period?adType=${adTypeNow}`)
   .then(r => r.json())
   .then(d => {
     if (d.from && d.to) {
-      const f = d.from.split('T')[0];
-      const t = d.to.split('T')[0];
+      const f = formatDateForInfo(d.from);
+      const t = formatDateForInfo(d.to);
       info.textContent = `Von ${f} bis ${t}`;
     } else {
       info.textContent = 'Kein Zeitraum gesetzt';
@@ -864,7 +1016,7 @@ calendarBtn.onclick = async () => {
       })
     });
 
-    info.textContent = `Von ${fromInput.value} bis ${toInput.value}`;
+    info.textContent = `Von ${formatDateForInfo(fromInput.value)} bis ${formatDateForInfo(toInput.value)}`;
     modal.hide();
   };
 };
@@ -878,9 +1030,9 @@ calendarBtn.onclick = async () => {
           const group = m.target.closest('.d-flex.flex-wrap.align-items-center.gap-2');
           if (!group) return;
           group.querySelectorAll('button, a').forEach(el => {
-            if (!el.classList.contains('btn-ad-toggle')) el.remove();
+            if (!el.classList.contains('btn-ad-toggle') && !el.classList.contains('btn-ad-aux')) el.remove();
           });
-          if (!group.querySelector('.btn-ad-toggle')) renderStarOnly(group);
+          if (!group.querySelector('.btn-ad-toggle') || !group.querySelector('.btn-ad-extra-wrap')) renderStarOnly(group);
         });
       });
       actionGroups.forEach(g => observer.observe(g, { childList: true }));

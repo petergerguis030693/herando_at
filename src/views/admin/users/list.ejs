@@ -18,6 +18,15 @@
   padding-right: 0 !important;
 }
 
+.customer-id-link {
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.customer-id-link:hover {
+  text-decoration: underline;
+}
+
 </style>
 
 <div class="d-flex">
@@ -37,7 +46,7 @@
     <!-- Ablaufende Verträge in diesem Monat -->
     <% if (renewals && renewals.length) { %>
       <div class="alert alert-warning mb-4">
-        <strong><%= renewals.length %> Vertrag<%= renewals.length > 1 ? 'e' : '' %> läuft/laufen diesen Monat ab:</strong>
+        <strong><%= renewals.length %> Marketing-Paket<%= renewals.length > 1 ? 'e' : '' %> läuft/laufen diesen Monat ab:</strong>
         <% renewals.forEach(u => { %>
           <span class="badge bg-danger me-1"><%= u.firstname %> <%= u.lastname %></span>
         <% }) %>
@@ -47,10 +56,15 @@
     <%
       const buildQuery = (patch = {}) => {
         const merged = {
-          search: search || '',
+          search_name: searchName || '',
+          search_company: searchCompany || '',
+          search_email: searchEmail || '',
+          search_id: searchId || '',
+          search_address: searchAddress || '',
           status: status || 'all',
           package: packageFilter || '',
           entity: entityFilter || '',
+          sort: (typeof sort !== 'undefined' && sort) ? sort : 'registered_desc',
           ...patch
         };
         const params = new URLSearchParams();
@@ -61,6 +75,14 @@
         const query = params.toString();
         return query ? `?${query}` : '?';
       };
+      const currentSort = (typeof sort !== 'undefined' && sort) ? sort : 'registered_desc';
+      const sortLabelMap = {
+        registered_desc: 'Registrierdatum absteigend',
+        registered_asc: 'Registrierdatum aufsteigend',
+        id_desc: 'ID absteigend',
+        id_asc: 'ID aufsteigend'
+      };
+      const currentSortLabel = sortLabelMap[currentSort] || sortLabelMap.registered_desc;
     %>
 
     <!-- Status-Filter Buttons -->
@@ -71,8 +93,8 @@
       <a href="<%= buildQuery({ status: 'active', page: null }) %>" class="btn <%= status==='active' ? 'btn-primary' : 'btn-outline-primary' %> me-2">
         Aktive
       </a>
-      <a href="<%= buildQuery({ status: 'expired', page: null }) %>" class="btn <%= status==='expired' ? 'btn-primary' : 'btn-outline-primary' %>">
-        Abgelaufen
+      <a href="<%= buildQuery({ status: 'inactive', page: null }) %>" class="btn <%= (status==='inactive' || status==='expired') ? 'btn-primary' : 'btn-outline-primary' %>">
+        Inaktive
       </a>
     </div>
 
@@ -105,8 +127,36 @@
 
 
 
+    <div class="mb-3">
+      <div class="fw-semibold mb-1">Sortierung</div>
+      <div class="small text-muted mb-2">Aktuell: <%= currentSortLabel %></div>
+      <div class="d-flex flex-wrap gap-2">
+        <a href="<%= buildQuery({ sort: 'registered_desc', page: null }) %>"
+          class="btn <%= currentSort === 'registered_desc' ? 'btn-primary' : 'btn-outline-primary' %>">
+          Registrierdatum <i class="bi bi-arrow-down ms-1"></i>
+        </a>
+        <a href="<%= buildQuery({ sort: 'registered_asc', page: null }) %>"
+          class="btn <%= currentSort === 'registered_asc' ? 'btn-primary' : 'btn-outline-primary' %>">
+          Registrierdatum <i class="bi bi-arrow-up ms-1"></i>
+        </a>
+        <a href="<%= buildQuery({ sort: 'id_desc', page: null }) %>"
+          class="btn <%= currentSort === 'id_desc' ? 'btn-primary' : 'btn-outline-primary' %>">
+          ID <i class="bi bi-arrow-down ms-1"></i>
+        </a>
+        <a href="<%= buildQuery({ sort: 'id_asc', page: null }) %>"
+          class="btn <%= currentSort === 'id_asc' ? 'btn-primary' : 'btn-outline-primary' %>">
+          ID <i class="bi bi-arrow-up ms-1"></i>
+        </a>
+        <a href="<%= buildQuery({ search_name: null, search_company: null, search_email: null, search_id: null, search_address: null, status: null, package: null, entity: null, sort: null, page: null }) %>"
+          class="btn btn-outline-secondary">
+          Zurücksetzen
+        </a>
+      </div>
+    </div>
+
+
     <!-- Suche -->
-    <form method="get" class="mb-4 d-flex">
+    <form method="get" class="mb-4">
       <input
         type="hidden"
         name="status"
@@ -123,13 +173,64 @@
         value="<%= entityFilter || '' %>"
       >
       <input
-        type="text"
-        name="search"
-        class="form-control me-2"
-        placeholder="Suche nach Firma, Vor‑ oder Nachname, E‑Mail, Straße, PLZ, Stadt …"
-        value="<%= search %>"
+        type="hidden"
+        name="sort"
+        value="<%= currentSort %>"
       >
-      <button type="submit" class="btn btn-primary">Suchen</button>
+      <div class="row g-2">
+        <div class="col-md-3">
+          <input
+            type="text"
+            name="search_name"
+            class="form-control"
+            placeholder="Vorname / Nachname"
+            value="<%= searchName || '' %>"
+          >
+        </div>
+        <div class="col-md-3">
+          <input
+            type="text"
+            name="search_company"
+            class="form-control"
+            placeholder="Firmenname"
+            value="<%= searchCompany || '' %>"
+          >
+        </div>
+        <div class="col-md-3">
+          <input
+            type="text"
+            name="search_email"
+            class="form-control"
+            placeholder="E-Mail"
+            value="<%= searchEmail || '' %>"
+          >
+        </div>
+        <div class="col-md-3">
+          <input
+            type="text"
+            name="search_id"
+            class="form-control"
+            placeholder="ID"
+            value="<%= searchId || '' %>"
+            inputmode="numeric"
+          >
+        </div>
+        <div class="col-md-6">
+          <input
+            type="text"
+            name="search_address"
+            class="form-control"
+            placeholder="Straße / PLZ / Stadt"
+            value="<%= searchAddress || '' %>"
+          >
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <button type="submit" class="btn btn-primary">Suchen</button>
+          <a href="<%= buildQuery({ search_name: null, search_company: null, search_email: null, search_id: null, search_address: null, page: null }) %>" class="btn btn-outline-secondary">
+            Suche leeren
+          </a>
+        </div>
+      </div>
     </form>
 
     <!-- Grid mit exakt 4 Spalten -->
@@ -137,9 +238,14 @@
   <% users.forEach(u => { %>
     <% 
       const isRenew = renewals && renewals.some(r => r.id === u.id);
-      const isactive = (new Date(u.ablaufdatum) >= new Date());
+      const isConfirmed = Number(u.confirmed) === 1;
+      const isLoginStopped = Number(u.logging) === 0;
+      const canLogin = isConfirmed && !isLoginStopped;
+      const isUserActive = isConfirmed;
+      const listingsTotal = Number(u.listings_drafts || 0) + Number(u.listings_online || 0) + Number(u.listings_paused || 0);
+      const hasListings = listingsTotal > 0;
     %>
-    <div class="card-grid-item">
+    <div class="card-grid-item" data-user-card data-user-id="<%= u.id %>">
       <div class="card h-100 shadow-sm card-hover <%= isRenew ? 'border border-danger' : '' %>">
         <div class="card-body">
 
@@ -150,8 +256,14 @@
           <% } %>
 
           <p>
-            <span class="badge <%= isactive ? 'bg-success' : 'bg-secondary' %> mb-2">
-              <%= isactive ? 'aktiv' : 'abgelaufen' %>
+            <span data-user-badge-active class="badge <%= isUserActive ? 'bg-success' : 'bg-secondary' %> mb-2">
+              <%= isUserActive ? 'aktiv' : 'inaktiv' %>
+            </span>
+            <span data-user-badge-email class="badge <%= isConfirmed ? 'bg-success' : 'bg-warning text-dark' %> mb-2">
+              <%= isConfirmed ? 'E-Mail bestätigt' : 'E-Mail offen' %>
+            </span>
+            <span data-user-badge-login class="badge <%= isLoginStopped ? 'bg-danger' : 'bg-info text-dark' %> mb-2">
+              <%= isLoginStopped ? 'Login gesperrt' : 'Login erlaubt' %>
             </span>
           </p>
 
@@ -167,7 +279,10 @@
           </p>
           <p class="mb-2">
             <i class="bi bi-person-badge me-2 text-success"></i>
-            Kundennummer: <%= u.id || '–' %>
+            Kundennummer:
+            <a href="/admin/users/<%= u.id %>/activity" class="customer-id-link">
+              <%= u.id || '–' %>
+            </a>
           </p>
           <p class="mb-2">
             <i class="bi bi-building me-2 text-success"></i>
@@ -217,85 +332,49 @@
             <div>Pausiert: <strong><%= u.listings_paused || 0 %></strong> (status 4 / visible 0)</div>
           </div>
 
-
-          <div class="mt-auto">
-            <% if (u.has_flatrate) { %>
-              <form action="/admin/users/<%= u.id %>/expire" method="post">
-                <button type="submit" class="btn btn-sm btn-danger w-100">
+          <div class="mt-auto d-grid gap-2">
+            <% if (canLogin) { %>
+              <form action="/admin/users/<%= u.id %>/expire" method="post" class="js-user-toggle-form" data-user-id="<%= u.id %>" data-action-type="expire">
+                <button type="submit" class="btn btn-sm btn-danger w-100 js-user-toggle-btn">
                   <i class="bi bi-x-circle me-1"></i> Stoppen
                 </button>
-                <a href="/admin/users/<%= u.id %>/edit" 
-                  class="btn btn-sm btn-secondary w-100 mt-2">
-                  <i class="bi bi-pencil-fill me-1"></i> Bearbeiten
-                </a>
-                <a href="/admin/users/<%= u.id %>/overview"
-                  class="btn btn-sm btn-primary w-100 mt-2">
-                  <i class="bi bi-eye me-1"></i> Overview
-                </a>
-                <a href="/admin/listings/users/<%= u.id %>/new-listing"
-                    class="btn btn-sm btn-success w-100 mt-2">
-                  <i class="bi bi-plus-circle me-1"></i> Neues Inserat
-                </a>
               </form>
             <% } else { %>
-              <!-- Aktivieren Button -->
-              <button type="button" 
-                      class="btn btn-sm btn-success w-100 open-activate-modal" 
-                      data-user-id="<%= u.id %>">
-                <i class="bi bi-check-circle me-1"></i> Aktivieren
-              </button>
+              <form action="/admin/users/<%= u.id %>/activate" method="post" class="js-user-toggle-form" data-user-id="<%= u.id %>" data-action-type="activate">
+                <button type="submit" class="btn btn-sm btn-success w-100 js-user-toggle-btn">
+                  <i class="bi bi-check-circle me-1"></i> Aktivieren
+                </button>
+              </form>
             <% } %>
+
+            <a href="/admin/users/<%= u.id %>/activity"
+              class="btn btn-sm btn-outline-primary w-100">
+              <i class="bi bi-activity me-1"></i> Aktivität
+            </a>
+
+            <a href="/admin/users/<%= u.id %>/edit" 
+              class="btn btn-sm btn-secondary w-100">
+              <i class="bi bi-pencil-fill me-1"></i> Bearbeiten
+            </a>
+
+            <% if (hasListings) { %>
+              <a href="/admin/users/<%= u.id %>/overview"
+                class="btn btn-sm btn-primary w-100">
+                <i class="bi bi-eye me-1"></i> Overview
+              </a>
+            <% } %>
+
+            <a href="/admin/listings/users/<%= u.id %>/new-listing"
+                class="btn btn-sm btn-success w-100">
+              <i class="bi bi-plus-circle me-1"></i> Neues Inserat
+            </a>
           </div>
 
         </div>
       </div>
-    </div>
+    </div> 
   <% }) %>
 </div>
-
-<!-- EIN gemeinsames Modal am Ende -->
-<div class="modal fade" id="activateModal" tabindex="-1" aria-labelledby="activateModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form id="activateForm" method="post">
-        <div class="modal-header">
-          <h5 class="modal-title" id="activateModalLabel">Flatrate aktivieren</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
-        </div>
-        <div class="modal-body">
-          <label for="flatrateType" class="form-label">Flatrate auswählen:</label>
-          <select name="flatrateType" id="flatrateType" class="form-select" required>
-            <option value="flatrate_all">Alle Inserate</option>
-            <option value="flatrate_cars">Autos</option>
-            <option value="flatrate_properties">Immobilien</option>
-            <option value="flatrate_watches">Uhren</option>
-            <option value="flatrate_yachts">Yachten</option>
-            <option value="flatrate_investments">Investments</option>
-          </select>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
-          <button type="submit" class="btn btn-success">Aktivieren</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', () => {
-  const activateModal = new bootstrap.Modal(document.getElementById('activateModal'));
-  const activateForm = document.getElementById('activateForm');
-
-  document.querySelectorAll('.open-activate-modal').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const userId = btn.getAttribute('data-user-id');
-      activateForm.action = `/admin/users/${userId}/activate`;
-      activateModal.show();
-    });
-  });
-});
-</script>
 
 
     <!-- Elliptische Pagination -->
@@ -339,4 +418,108 @@ document.addEventListener('DOMContentLoaded', () => {
     <% } %>
   </main>
 </div>
+<script>
+  (() => {
+    const currentStatusFilter = '<%= status || "all" %>';
+
+    function updateToggleForm(card, canLogin, userId) {
+      const container = card.querySelector('.mt-auto.d-grid');
+      const currentForm = container && container.querySelector('.js-user-toggle-form');
+      if (!container || !currentForm) return;
+
+      const nextAction = canLogin ? 'expire' : 'activate';
+      const actionUrl = `/admin/users/${userId}/${nextAction}`;
+      const btnClass = canLogin ? 'btn-danger' : 'btn-success';
+      const icon = canLogin ? 'bi-x-circle' : 'bi-check-circle';
+      const label = canLogin ? 'Stoppen' : 'Aktivieren';
+
+      currentForm.setAttribute('action', actionUrl);
+      currentForm.dataset.actionType = nextAction;
+      currentForm.innerHTML = `
+        <button type="submit" class="btn btn-sm ${btnClass} w-100 js-user-toggle-btn">
+          <i class="bi ${icon} me-1"></i> ${label}
+        </button>
+      `;
+    }
+
+    function updateBadges(card, { confirmed, logging }) {
+      const isConfirmed = Number(confirmed) === 1;
+      const isLoginStopped = Number(logging) === 0;
+      const isUserActive = isConfirmed;
+
+      const activeBadge = card.querySelector('[data-user-badge-active]');
+      const emailBadge = card.querySelector('[data-user-badge-email]');
+      const loginBadge = card.querySelector('[data-user-badge-login]');
+
+      if (activeBadge) {
+        activeBadge.className = `badge ${isUserActive ? 'bg-success' : 'bg-secondary'} mb-2`;
+        activeBadge.textContent = isUserActive ? 'aktiv' : 'inaktiv';
+      }
+      if (emailBadge) {
+        emailBadge.className = `badge ${isConfirmed ? 'bg-success' : 'bg-warning text-dark'} mb-2`;
+        emailBadge.textContent = isConfirmed ? 'E-Mail bestätigt' : 'E-Mail offen';
+      }
+      if (loginBadge) {
+        loginBadge.className = `badge ${isLoginStopped ? 'bg-danger' : 'bg-info text-dark'} mb-2`;
+        loginBadge.textContent = isLoginStopped ? 'Login gesperrt' : 'Login erlaubt';
+      }
+    }
+
+    function maybeHideByFilter(card, { confirmed }) {
+      const isActive = Number(confirmed) === 1;
+      if (currentStatusFilter === 'active' && !isActive) {
+        card.style.display = 'none';
+      }
+      if ((currentStatusFilter === 'inactive' || currentStatusFilter === 'expired') && isActive) {
+        card.style.display = 'none';
+      }
+    }
+
+    document.addEventListener('submit', async (event) => {
+      const form = event.target.closest('.js-user-toggle-form');
+      if (!form) return;
+
+      event.preventDefault();
+
+      const button = form.querySelector('.js-user-toggle-btn');
+      const card = form.closest('[data-user-card]');
+      const userId = form.dataset.userId;
+      if (!button || !card || !userId) return;
+
+      const originalHtml = button.innerHTML;
+      button.disabled = true;
+      button.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Speichern...';
+
+      try {
+        const response = await fetch(form.action, {
+          method: 'POST',
+          headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+          },
+          credentials: 'same-origin'
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok || !data.success) {
+          throw new Error(data.error || 'Aktion konnte nicht gespeichert werden.');
+        }
+
+        updateBadges(card, data);
+        updateToggleForm(card, Boolean(data.canLogin), userId);
+        maybeHideByFilter(card, data);
+      } catch (err) {
+        alert(err.message || 'Fehler bei der Aktion.');
+      } finally {
+        const latestButton = form.querySelector('.js-user-toggle-btn');
+        if (latestButton) {
+          latestButton.disabled = false;
+          if (latestButton.innerHTML.includes('spinner-border')) {
+            latestButton.innerHTML = originalHtml;
+          }
+        }
+      }
+    });
+  })();
+</script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>

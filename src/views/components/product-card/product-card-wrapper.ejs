@@ -1,22 +1,29 @@
+<%
+  const detailSuffix = `${encodeURIComponent(item.title || '')}-${item.id}`;
+  const detailHref = item.detailPath || ((typeof entityPath === 'function')
+    ? entityPath(currentEntity.route, detailSuffix)
+    : `/${currentEntity.route}/${detailSuffix}`);
+%>
+
 <% if (currentEntity.route === 'cars') { %>
 
-  <%- include('product-card-cars', { item }) %>
+  <%- include('product-card-cars', { item, detailHref }) %>
 
 <% } else if (currentEntity.route === 'watches') { %>
 
-  <%- include('product-card-watches', { item }) %>
+  <%- include('product-card-watches', { item, detailHref }) %>
 
 <% } else if (currentEntity.route === 'properties') { %>
 
-  <%- include('product-card-properties', { item }) %>
+  <%- include('product-card-properties', { item, detailHref }) %>
 
 <% } else if (currentEntity.route === 'yachts') { %>
 
-  <%- include('product-card-yachts', { item }) %>
+  <%- include('product-card-yachts', { item, detailHref }) %>
 
 <% } else if (currentEntity.route === 'lifestyles') { %>
 
-  <%- include('product-card-lifestyles', { item }) %>
+  <%- include('product-card-lifestyles', { item, detailHref }) %>
 
 <% } else { %>
 

@@ -9,6 +9,7 @@ const phpSerialize  = require('php-serialize');
 const { unserialize } = require('php-serialize');
 const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const moment = require('moment');
+const slugify = require('slugify');
 const { generateInvoice } = require('../../service/invoiceService');
 const nodemailer = require('nodemailer');
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
@@ -497,7 +498,7 @@ async function loadBuyerDashboardStats(userId, listingRows = null) {
       if (status === 3 && visible === 1) stats.online_listings += 1;
       if (visible === 0 && !isDeleted) stats.offline_listings += 1;
       if (status === 0 && visible === 0) stats.draft_listings += 1;
-      if (status === 4 && visible === 0) stats.paused_listings += 1;
+      if (status === 4 && [0, 2].includes(visible)) stats.paused_listings += 1;
       if (status === 3 && visible === 0) stats.review_listings += 1;
       if (isDeleted) stats.deleted_listings += 1;
     }
@@ -528,9 +529,9 @@ async function loadBuyerDashboardStats(userId, listingRows = null) {
           `SELECT
              SUM(CASE WHEN NOT (status = 9 AND visible = 0) THEN 1 ELSE 0 END) AS total_listings,
              SUM(CASE WHEN status = 3 AND visible = 1 THEN 1 ELSE 0 END) AS online_listings,
-             SUM(CASE WHEN visible = 0 AND NOT (status = 9 AND visible = 0) THEN 1 ELSE 0 END) AS offline_listings,
+             SUM(CASE WHEN visible IN (0, 2) AND NOT (status = 9 AND visible = 0) THEN 1 ELSE 0 END) AS offline_listings,
              SUM(CASE WHEN status = 0 AND visible = 0 THEN 1 ELSE 0 END) AS draft_listings,
-             SUM(CASE WHEN status = 4 AND visible = 0 THEN 1 ELSE 0 END) AS paused_listings,
+             SUM(CASE WHEN status = 4 AND visible IN (0, 2) THEN 1 ELSE 0 END) AS paused_listings,
              SUM(CASE WHEN status = 3 AND visible = 0 THEN 1 ELSE 0 END) AS review_listings,
              SUM(CASE WHEN status = 9 AND visible = 0 THEN 1 ELSE 0 END) AS deleted_listings,
              ${visitsExpr}
@@ -1433,8 +1434,12 @@ router.get('/zahlung/success', async (req, res, next) => {
       JOIN users u ON u.id = o.user_id
       JOIN countries c ON c.id = o.country_id
       LEFT JOIN country_tax_rates ctr ON ctr.country_id = o.country_id
-      LEFT JOIN selected_packages sp ON sp.order_id = o.id
-      LEFT JOIN ententies e ON e.id = sp.category_id
+      LEFT JOIN selected_packages sp
+        ON sp.order_id = o.id
+       AND sp.user_id = o.user_id
+       AND sp.package_id = o.package_id
+       AND sp.category_id = o.category_id
+      LEFT JOIN ententies e ON e.id = o.category_id
       WHERE o.id = ?
     `, [orderId]);
 
@@ -1497,7 +1502,7 @@ router.get('/zahlung/success', async (req, res, next) => {
         });
 
         const mailOptions = {
-          from: `"Herando" <${process.env.SMTP_USER}>`,
+          from: `"Herando Accounting" <accounting@herando.com>`,
           to: user.email,
           subject: subjectTxt.replace('{{id}}', orderId),
           html: `
@@ -2450,7 +2455,7 @@ router.get(
       }
       if (ent.route === 'lifestyles') {
         [lifestyleTypes] = await db.query(
-          `SELECT id, name FROM brands WHERE type = 5 ORDER BY name`
+          `SELECT id, name FROM brands WHERE type = 6 ORDER BY name`
         );
         if (lifestyleTypes.length) {
           const ids = lifestyleTypes.map(b => b.id);
@@ -3191,7 +3196,7 @@ console.log('==============================================');
 // 🔥 LIFESTYLES MUSS EIGENES IF SEIN
 if (ent.route === 'lifestyles') {
   [lifestyleTypes] = await db.query(
-    `SELECT id, name FROM brands WHERE type = 5 ORDER BY name`
+    `SELECT id, name FROM brands WHERE type = 6 ORDER BY name`
   );
 
   if (lifestyleTypes.length) {
@@ -3279,6 +3284,8 @@ console.log('🎯 Finaler Item-Wert Hull vorm Rendern:', item?.hull);
 });
 
 router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next) => {
+  let adminEditMode = false;
+  let adminEditReturnUrl = null;
   try {
     console.log('====================================================');
     console.log('✏️  EDIT-LISTING POST gestartet');
@@ -3289,6 +3296,9 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
     // ---------------------------------------------------------
     const userId = req.session.userId;
     const listingId = parseInt(req.params.id, 10);
+    const sessionRole = Number(req.session.role || 0);
+    const isAdminSession = [7, 8, 9].includes(sessionRole);
+    let effectiveOwnerUserId = Number(userId || 0);
 
     console.log("➡️ User:", userId, "Listing:", listingId);
 
@@ -3307,21 +3317,51 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
     // ---------------------------------------------------------
     const tables = ['properties','watches','cars','yachts','lifestyles'];
     let ent = null;
+    const adminGrant = req.session.adminListingEditGrant;
+    const nowMs = Date.now();
 
-    for (const t of tables) {
-      const [rows] = await db.query(
-        `SELECT id FROM \`${t}\` WHERE id = ? AND user_id = ?`,
-        [listingId, userId]
+    const adminGrantIsUsable =
+      isAdminSession &&
+      adminGrant &&
+      Number(adminGrant.listingId) === listingId &&
+      Number(adminGrant.adminUserId) === Number(userId) &&
+      Number(adminGrant.expiresAt || 0) > nowMs &&
+      tables.includes(String(adminGrant.table || ''));
+
+    if (adminGrantIsUsable) {
+      const [grantRows] = await db.query(
+        `SELECT id, user_id FROM \`${adminGrant.table}\` WHERE id = ? LIMIT 1`,
+        [listingId]
       );
-      if (rows.length) {
-        ent = { route: t, table: t };
-        break;
+
+      if (grantRows.length) {
+        ent = { route: adminGrant.table, table: adminGrant.table };
+        effectiveOwnerUserId = Number(grantRows[0].user_id || adminGrant.ownerUserId || 0);
+        adminEditMode = true;
+        adminEditReturnUrl = String(adminGrant.returnTo || '/admin/listings');
+        console.log('🛡️ Admin-Edit-Grant aktiv:', { ent, effectiveOwnerUserId, adminEditReturnUrl });
+      }
+    } else if (adminGrant && Number(adminGrant.expiresAt || 0) <= nowMs) {
+      delete req.session.adminListingEditGrant;
+    }
+
+    if (!ent) {
+      for (const t of tables) {
+        const [rows] = await db.query(
+          `SELECT id, user_id FROM \`${t}\` WHERE id = ? AND user_id = ?`,
+          [listingId, userId]
+        );
+        if (rows.length) {
+          ent = { route: t, table: t };
+          effectiveOwnerUserId = Number(rows[0].user_id || userId);
+          break;
+        }
       }
     }
 
     if (!ent) {
       req.session.errorMessage = "Inserat gehört Ihnen nicht.";
-      return res.redirect('/buyer');
+      return res.redirect(adminEditReturnUrl || '/buyer');
     }
 
     console.log("📌 Erkannte Kategorie:", ent);
@@ -3687,6 +3727,7 @@ if (ent.route === "properties") {
     // 🔥 NIEMALS vom Formular übernehmen
     delete req.body.status;
     delete req.body.visible;
+    delete req.body.user_id;
 
 
           // Aktuellen Status holen
@@ -3726,7 +3767,7 @@ if (ent.route === "properties") {
       SET ${setParts.join(', ')}
       WHERE id=? AND user_id=?`;
 
-    const params = [...values, serializedPics, listingId, userId];
+    const params = [...values, serializedPics, listingId, effectiveOwnerUserId];
 
     console.log("🧾 SQL:", sql);
     console.log("📦 PARAMS:", params);
@@ -3738,13 +3779,16 @@ if (ent.route === "properties") {
 
     console.log("✅ UPDATE erfolgreich!");
     req.session.successMessage = "Inserat erfolgreich bearbeitet.";
+    if (adminEditMode) {
+      delete req.session.adminListingEditGrant;
+    }
 
-    return res.redirect("/buyer/historie");
+    return res.redirect(adminEditMode ? (adminEditReturnUrl || '/admin/listings') : "/buyer/historie");
 
   } catch (err) {
     console.error("🔥 Fehler in edit-listing:", err);
     req.session.errorMessage = err.message;
-    return res.redirect(`/buyer/edit-listing/${req.params.id}`);
+    return res.redirect(adminEditMode ? (adminEditReturnUrl || '/admin/listings') : `/buyer/edit-listing/${req.params.id}`);
   }
 });
 
@@ -4170,7 +4214,7 @@ async function getUsedCountsByCategory(userId, entities) {
           WHERE user_id = ?
             AND (
               (status = 3 AND visible IN (0, 1))
-              OR (status = 4 AND visible = 0)
+              OR (status = 4 AND visible IN (0, 2))
               OR (status = 1 AND visible = 0)
             )`,
         [userId]
@@ -4194,6 +4238,37 @@ function buildRemainingByCategory(packages, usedByCategory) {
   }
   return remainingByCategory;
 }
+
+router.get('/preview/:entityRoute/:id', ensureAuthenticated, async (req, res, next) => {
+  try {
+    const userId = Number(req.session.userId || 0);
+    const entityRoute = String(req.params.entityRoute || '').toLowerCase();
+    const listingId = Number.parseInt(req.params.id, 10);
+
+    if (!WISHLIST_ALLOWED_TABLES.has(entityRoute) || !Number.isInteger(listingId) || listingId <= 0) {
+      return res.status(404).send('Artikel nicht gefunden');
+    }
+
+    const table = db.escapeId(entityRoute);
+    const [[row]] = await db.query(
+      `SELECT id, name, user_id, status, visible
+       FROM ${table}
+       WHERE id = ?
+       LIMIT 1`,
+      [listingId]
+    );
+
+    if (!row || Number(row.user_id) !== userId || Number(row.status) === 9) {
+      return res.status(404).send('Artikel nicht gefunden');
+    }
+
+    const safeSlug = slugify(String(row.name || ''), { lower: true, strict: true }) || String(row.id);
+    return res.redirect(`/${entityRoute}/${safeSlug}-${row.id}?preview=1`);
+  } catch (err) {
+    console.error('❌ Fehler in /buyer/preview/:entityRoute/:id:', err);
+    next(err);
+  }
+});
 
 router.get('/submit-online', async (req, res, next) => {
   try {
@@ -4426,7 +4501,7 @@ router.post('/submit-online', async (req, res, next) => {
     }
 
     console.log('🎉 Alles erfolgreich verarbeitet.');
-    req.session.successMessage = '✅ Inserate erfolgreich zur Prüfung eingereicht.';
+    req.session.successMessage = '✅ Inserat ist in Prüfung; das Inserat wird innerhalb der nächsten 24 Stunden veröffentlicht.';
     res.redirect('historie');
     console.log('--- ✅ ENDE /submit-online ---\n');
 
@@ -4495,6 +4570,13 @@ router.post('/toggle-listing/:id', ensureAuthenticated, async (req, res, next) =
   try {
     const userId = req.session.userId;
     const listingId = req.params.id;
+    const target = String(req.body?.target || '').toLowerCase().trim();
+    const returnTab = String(req.body?.return_tab || '').toLowerCase().trim();
+    const allowedTabs = new Set(['online', 'drafts', 'review', 'paused', 'deactivate', 'deleted', 'expired']);
+    const redirectToHistory = (fallbackTab) => {
+      const tab = allowedTabs.has(returnTab) ? returnTab : fallbackTab;
+      return res.redirect(tab ? `/buyer/historie?tab=${tab}` : '/buyer/historie');
+    };
 
     if (!userId) return res.redirect('/auth/login');
 
@@ -4511,6 +4593,62 @@ router.post('/toggle-listing/:id', ensureAuthenticated, async (req, res, next) =
       const status = Number(row.status);
       const visible = Number(row.visible);
 
+      // Explizite Zielzustände für tab-spezifische Buttons in buyer-historie.ejs
+      if (target === 'deactivate') {
+        if (status === 3 && visible === 1) {
+          await db.query(
+            `UPDATE \`${table}\`
+                SET status = 4, visible = 0
+              WHERE id = ? AND user_id = ?`,
+            [listingId, userId]
+          );
+          req.session.successMessage = '⏹️ Das Inserat wurde deaktiviert.';
+          return redirectToHistory('deactivate');
+        }
+        if (status === 3 && visible === 0) {
+          await db.query(
+            `UPDATE \`${table}\`
+                SET status = 4, visible = 2
+              WHERE id = ? AND user_id = ?`,
+            [listingId, userId]
+          );
+          req.session.successMessage = '⏹️ Das angehaltene Inserat wurde deaktiviert.';
+          return redirectToHistory('deactivate');
+        }
+        req.session.errorMessage = '⚠️ Dieses Inserat kann nicht deaktiviert werden.';
+        return redirectToHistory('deactivate');
+      }
+
+      if (target === 'paused') {
+        if (status === 4 && visible === 2) {
+          await db.query(
+            `UPDATE \`${table}\`
+                SET status = 3, visible = 0
+              WHERE id = ? AND user_id = ?`,
+            [listingId, userId]
+          );
+          req.session.successMessage = '⏸️ Das Inserat ist wieder bei Angehaltene.';
+          return redirectToHistory('paused');
+        }
+        req.session.errorMessage = '⚠️ Dieses Inserat kann nicht auf Angehalten gesetzt werden.';
+        return redirectToHistory('paused');
+      }
+
+      if (target === 'online') {
+        if ((status === 4 && visible === 0) || (status === 3 && visible === 0)) {
+          await db.query(
+            `UPDATE \`${table}\`
+                SET status = 3, visible = 1
+              WHERE id = ? AND user_id = ?`,
+            [listingId, userId]
+          );
+          req.session.successMessage = '✅ Das Inserat ist wieder online.';
+          return redirectToHistory('online');
+        }
+        req.session.errorMessage = '⚠️ Dieses Inserat kann nicht online gestellt werden.';
+        return redirectToHistory('online');
+      }
+
       // Online -> Deaktivieren
       if (status === 3 && visible === 1) {
         await db.query(
@@ -4520,7 +4658,7 @@ router.post('/toggle-listing/:id', ensureAuthenticated, async (req, res, next) =
           [listingId, userId]
         );
         req.session.successMessage = '⏸️ Das Inserat wurde pausiert.';
-        return res.redirect('/buyer/historie?tab=deactivate');
+        return redirectToHistory('deactivate');
       }
 
       // Angehalten -> Online (inkl. Legacy status=3, visible=0)
@@ -4532,15 +4670,15 @@ router.post('/toggle-listing/:id', ensureAuthenticated, async (req, res, next) =
           [listingId, userId]
         );
         req.session.successMessage = '✅ Das Inserat ist wieder online.';
-        return res.redirect('/buyer/historie?tab=online');
+        return redirectToHistory('online');
       }
 
       req.session.errorMessage = '⚠️ Dieser Status kann nicht umgeschaltet werden.';
-      return res.redirect('/buyer/historie');
+      return redirectToHistory('');
     }
 
     req.session.errorMessage = '❌ Inserat wurde nicht gefunden oder gehört Ihnen nicht.';
-    return res.redirect('/buyer/historie');
+    return redirectToHistory('');
   } catch (err) {
     console.error('❌ Fehler beim Umschalten des Inserat-Status:', err);
     next(err);
@@ -4914,7 +5052,7 @@ router.get('/historie', async (req, res, next) => {
       drafts:  listings.filter(i => i.status == 0),
       review:  listings.filter(i => [1, 2].includes(i.status)),
       paused: listings.filter(i => i.status == 3 && i.visible == 0),
-      deactivate: listings.filter(i => i.status == 4 && i.visible == 0),
+      deactivate: listings.filter(i => i.status == 4 && [0, 2].includes(Number(i.visible))),
       deleted: listings.filter(i => i.status == 9),
       expired: listings.filter(i => i.end_date && new Date(i.end_date) < today)
     };
@@ -4996,6 +5134,31 @@ router.get('/historie', async (req, res, next) => {
       item.placementEndDate = placement?.end_date || null;
     });
 
+    // =============================
+    // KONTINGENT FÜR "JETZT VERÖFFENTLICHEN" (Entwürfe)
+    // Gleiche Prüflogik-Basis wie /buyer/submit-online
+    // =============================
+    const [submitOnlineEntities] = await db.query(`
+      SELECT id, route, table_name
+      FROM ententies
+      ORDER BY id ASC
+    `);
+    const [submitOnlinePackages] = await db.query(`
+      SELECT category_id, max_listings, used_listings
+      FROM selected_packages
+      WHERE user_id = ? AND end_date > NOW()
+    `, [userId]);
+    const submitOnlineUsedByCategory = await getUsedCountsByCategory(userId, submitOnlineEntities);
+    const submitOnlineRemainingByCategory = buildRemainingByCategory(
+      submitOnlinePackages,
+      submitOnlineUsedByCategory
+    );
+    const submitOnlineCategoryIdByRoute = Object.fromEntries(
+      (submitOnlineEntities || [])
+        .filter(e => e?.route)
+        .map(e => [String(e.route).toLowerCase(), Number(e.id)])
+    );
+
 
     // =============================
     // SEO LADEN
@@ -5042,6 +5205,8 @@ router.get('/historie', async (req, res, next) => {
       priceFrom,
       priceTo,
       entityCounts,
+      submitOnlineRemainingByCategory,
+      submitOnlineCategoryIdByRoute,
 
       pagination: {
         total,
@@ -5579,7 +5744,7 @@ fs.writeFileSync(path.join(outDir, filename), pdfBytes);
 
 // 📧 MULTILANGUAGE EMAIL AN KUNDEN
 await transporter.sendMail({
-  from: `"Herando" <${process.env.SMTP_USER}>`,
+  from: `"Herando A.S." <accounting@herando.com>`,
   to: orderRec.partner_email,
   subject: subjectTxt.replace('{{id}}', orderRec.order_number),
   html: `
@@ -5642,7 +5807,7 @@ const upgradeAdminSystemNote = await tr(req, res, 'buyer.upgrade.admin.system_no
 
 await transporter.sendMail({
   from: `"Herando System" <${process.env.SMTP_USER}>`,
-  to: "fm@herando.com",
+  to: "accounting@herando.com",
   subject: upgradeAdminSubject,
   html: `
   <!DOCTYPE html>

@@ -1,0 +1,86 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-fill container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h1 class="h3 m-0">Jobs verwalten</h1>
+      <div class="d-flex gap-2">
+        <a href="/admin/jobs/applications" class="btn btn-outline-dark">
+          <i class="bi bi-person-lines-fill me-1"></i>Bewerbungen
+        </a>
+        <a href="/admin/jobs/new" class="btn btn-primary">
+          <i class="bi bi-plus-circle me-1"></i>Neue Stelle
+        </a>
+      </div>
+    </div>
+
+    <% if (messages?.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+    <% if (messages?.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+
+    <div class="table-responsive">
+      <table class="table table-striped align-middle">
+        <thead>
+          <tr>
+            <th>Titel</th>
+            <th>Standort</th>
+            <th>Anstellung</th>
+            <th>Status</th>
+            <th>Bewerbungen</th>
+            <th>Sort.</th>
+            <th class="text-end">Aktionen</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% if (!jobs || !jobs.length) { %>
+            <tr>
+              <td colspan="7" class="text-center text-muted py-4">Noch keine Jobs angelegt.</td>
+            </tr>
+          <% } %>
+
+          <% (jobs || []).forEach((job) => { %>
+            <tr>
+              <td>
+                <strong><%= job.title %></strong><br>
+                <small class="text-muted">/<%= job.slug %></small>
+              </td>
+              <td><%= job.location || '—' %></td>
+              <td><%= job.employment_type || '—' %></td>
+              <td>
+                <% if (Number(job.is_active) === 1) { %>
+                  <span class="badge text-bg-success">Aktiv</span>
+                <% } else { %>
+                  <span class="badge text-bg-secondary">Inaktiv</span>
+                <% } %>
+              </td>
+              <td>
+                <a href="/admin/jobs/applications?job_id=<%= job.id %>">
+                  <%= Number(job.application_count || 0) %>
+                </a>
+                <% if (Number(job.new_application_count || 0) > 0) { %>
+                  <span class="badge text-bg-warning ms-1"><%= Number(job.new_application_count) %> neu</span>
+                <% } %>
+              </td>
+              <td><%= Number(job.sort_order || 0) %></td>
+              <td class="text-end">
+                <a href="/jobs/<%= job.slug %>" class="btn btn-sm btn-outline-dark me-1" target="_blank" rel="noopener">Live</a>
+                <a href="/admin/jobs/<%= job.id %>/edit" class="btn btn-sm btn-outline-primary me-1">Bearbeiten</a>
+                <form action="/admin/jobs/<%= job.id %>/translate" method="POST" class="d-inline">
+                  <button type="submit" class="btn btn-sm btn-outline-secondary me-1">KI übersetzen</button>
+                </form>
+                <form action="/admin/jobs/<%= job.id %>/delete" method="POST" class="d-inline" onsubmit="return confirm('Stelle wirklich löschen?');">
+                  <button type="submit" class="btn btn-sm btn-outline-danger">Löschen</button>
+                </form>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    </div>
+  </main>
+</div>

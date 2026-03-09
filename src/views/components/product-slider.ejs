@@ -11,11 +11,11 @@
 %>
 
 <section class="product-scroller my-prod-section">
-<h2 id="dynamicTitle" class="content-title section-title" style="font-size:40px;">
+<h1 id="dynamicTitle" class="content-title section-title" style="font-size:40px;">
   <%= pageTitle %>
-</h2>
+</h1>
 
-<% if (slider && slider.length > 5) { %>
+<% if (slider && slider.length > 4) { %>
   <h2 class="section-title">
     <%= t('offers.section.top_offers.title', { fallback: 'Aktuelle Top Angebote' }) %>
   </h2>
@@ -39,6 +39,7 @@
   display: grid;
   gap: 16px;
   min-width: 100%;
+  flex: 0 0 100%;
   grid-template-columns: 1fr;
 }
 
@@ -195,6 +196,7 @@
      const cartypeLabels = {
        1: t('cars.gear.manual', 'Schaltgetriebe'),
        2: t('cars.gear.automatic', 'Automatik'),
+       3: t('cars.gear.automatic', 'Automatik'),
        6: t('cars.gear.automatic', 'Automatik'),
        255: t('cars.gear.manual', 'Schaltgetriebe')
      };
@@ -204,7 +206,8 @@
        3: t('cars.fuel.electric', 'Elektro'),
        4: t('cars.fuel.hybrid', 'Hybrid')
      };
-     const cartypeName = cartypeLabels[item.cartype] || item.cartype;
+     const gearboxValue = item.gearbox ?? item.transmission ?? item.cartype;
+     const cartypeName = cartypeLabels[gearboxValue] || null;
      const fuelName = fuelLabels[item.fuel] || item.fuel;
 
      let firstReg = null;
@@ -271,9 +274,12 @@
 
      const propertyTypeName = propertyTypeLabels[item.propertytype] || null;
      const roomsVal = (typeof item.rooms !== "undefined" ? item.rooms : item.bedrooms);
+     const detailHref = item.detailPath || ((typeof entityPath === 'function')
+       ? entityPath(currentEntity.route, `${safeTitle}-${item.id}`)
+       : `/${currentEntity.route}/${safeTitle}-${item.id}`);
 %>
-
-        <a href="/<%= currentEntity.route %>/<%= item.id %>/<%= safeTitle %>" class="product-link" style="text-decoration:none; color:inherit;">
+      <div class="slider-source-card" data-item-id="<%= item.id %>">
+        <a href="<%= detailHref %>" class="product-link" style="text-decoration:none; color:inherit;">
           <div class="product-item prItem" style="height:100%;">
             <img src="<%= item.imageUrl %>" alt="<%= item.title %>">
               <h3 title="<%= item.title %>" style="font-size: 14pt; margin-top: 12px">
@@ -290,9 +296,10 @@
                     <i class="bi bi-gear-fill"></i>
                     <%= t(
                       'cars.gear.' + 
-                      (item.cartype === 1 ? 'manual' :
-                      item.cartype === 2 ? 'automatic' :
-                      item.cartype === 6 ? 'automatic' :
+                      (Number(gearboxValue) === 1 ? 'manual' :
+                      Number(gearboxValue) === 2 ? 'automatic' :
+                      Number(gearboxValue) === 3 ? 'automatic' :
+                      Number(gearboxValue) === 6 ? 'automatic' :
                       'manual'),
                       cartypeName
                     ) %>
@@ -470,6 +477,7 @@
             </p>
           </div>
         </a>
+      </div>
       <% }) %>
   </div>
   <% } else { %>
@@ -503,7 +511,15 @@ document.addEventListener("DOMContentLoaded", () => {
   const nextBtn = document.getElementById("categoryProductNext");
   if (!slides || !source || !dotsWrap || !prevBtn || !nextBtn) return;
 
-  const cards = Array.from(source.children);
+  const rawCards = Array.from(source.children);
+  const seenCardIds = new Set();
+  const cards = rawCards.filter((card) => {
+    const cardId = String(card?.dataset?.itemId || "").trim();
+    if (!cardId) return true;
+    if (seenCardIds.has(cardId)) return false;
+    seenCardIds.add(cardId);
+    return true;
+  });
   if (!cards.length) return;
 
   let current = 0;
@@ -511,6 +527,9 @@ document.addEventListener("DOMContentLoaded", () => {
   let isDesktopMode = window.innerWidth >= 1100;
 
   function getStepWidth() {
+    if (isDesktopMode) {
+      return carousel.clientWidth || 0;
+    }
     const first = slides.querySelector(".my-carousel-slide");
     if (!first) return carousel.clientWidth || 0;
     const styles = window.getComputedStyle(slides);

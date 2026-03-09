@@ -18,8 +18,292 @@ const aiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 const AI_MODEL = process.env.OPENAI_MODEL || 'gpt-4.1-nano'; // oder dein Modell
 
 const TLOG = (process.env.TRANSLATION_LOGS !== '0');
+const MAX_TRANSLATION_INPUT_CHARS = (() => {
+  const n = parseInt(process.env.TRANSLATION_INPUT_MAX_CHARS || '12000', 10);
+  return Number.isInteger(n) && n > 0 ? n : 12000;
+})();
+const MAX_TRANSLATION_TITLE_INPUT_CHARS = (() => {
+  const n = parseInt(process.env.TRANSLATION_TITLE_INPUT_MAX_CHARS || '600', 10);
+  return Number.isInteger(n) && n > 0 ? n : 600;
+})();
+const TRANSLATION_DESC_CHUNK_CHARS = (() => {
+  const n = parseInt(process.env.TRANSLATION_DESC_CHUNK_CHARS || '1800', 10);
+  return Number.isInteger(n) && n >= 400 ? n : 1800;
+})();
+const MAX_TRANSLATION_OUTPUT_TOKENS = (() => {
+  const n = parseInt(process.env.TRANSLATION_MAX_OUTPUT_TOKENS || '8000', 10);
+  return Number.isInteger(n) && n >= 256 ? n : 8000;
+})();
+const MIN_TRANSLATION_SPLIT_CHARS = 220;
+const MAX_TRANSLATION_SPLIT_DEPTH = (() => {
+  const n = parseInt(process.env.TRANSLATION_MAX_SPLIT_DEPTH || '4', 10);
+  return Number.isInteger(n) && n >= 1 ? n : 4;
+})();
+const AI_ERROR_PREVIEW_CHARS = 500;
 
 function tlog(...args){ if (TLOG) console.log('[BULK-TRANSLATE]', ...args); }
+
+function clipText(value, max = MAX_TRANSLATION_INPUT_CHARS) {
+  const text = String(value ?? '');
+  if (text.length <= max) return text;
+  return text.slice(0, max);
+}
+
+function compactForLog(value, max = AI_ERROR_PREVIEW_CHARS) {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (text.length <= max) return text;
+  return `${text.slice(0, max)}...`;
+}
+
+function logAiParseError(scope, err, raw) {
+  console.error(`[AI ${scope}] JSON parse error: ${err.message}`, {
+    rawLength: String(raw ?? '').length,
+    preview: compactForLog(raw)
+  });
+}
+
+function extractFirstJsonObject(raw) {
+  const text = String(raw ?? '');
+  const start = text.indexOf('{');
+  if (start < 0) return null;
+
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+
+  for (let i = start; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (ch === '\\') {
+        escaped = true;
+        continue;
+      }
+      if (ch === '"') inString = false;
+      continue;
+    }
+
+    if (ch === '"') {
+      inString = true;
+      continue;
+    }
+
+    if (ch === '{') depth += 1;
+    if (ch === '}') {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+
+  return null;
+}
+
+function parseJsonObjectLoose(raw) {
+  const text = String(raw ?? '').trim();
+  if (!text) return null;
+
+  try {
+    return JSON.parse(text);
+  } catch (_) {
+    const candidate = extractFirstJsonObject(text);
+    if (!candidate || candidate === text) return null;
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      return null;
+    }
+  }
+}
+
+function splitTextByLimit(text, limit) {
+  const value = String(text ?? '');
+  if (!value) return [];
+  if (value.length <= limit) return [value];
+
+  const chunks = [];
+  let start = 0;
+
+  while (start < value.length) {
+    let end = Math.min(start + limit, value.length);
+    if (end < value.length) {
+      const window = value.slice(start, end);
+      const breakpoints = [
+        window.lastIndexOf('\n'),
+        window.lastIndexOf(' '),
+        window.lastIndexOf('>'),
+        window.lastIndexOf('.')
+      ];
+      const splitAt = Math.max(...breakpoints);
+      if (splitAt >= Math.floor(limit * 0.6)) end = start + splitAt + 1;
+    }
+    chunks.push(value.slice(start, end));
+    start = end;
+  }
+
+  return chunks.filter(Boolean);
+}
+
+function splitTextInHalf(text) {
+  const value = String(text ?? '');
+  if (value.length <= 1) return [value, ''];
+
+  const mid = Math.floor(value.length / 2);
+  let splitAt = mid;
+  const right = value.slice(mid);
+
+  const rightBreak = right.search(/[\s\n>]/);
+  if (rightBreak >= 0) {
+    splitAt = mid + rightBreak + 1;
+  } else {
+    const left = value.slice(0, mid);
+    const leftBreak = Math.max(left.lastIndexOf('\n'), left.lastIndexOf(' '), left.lastIndexOf('>'));
+    if (leftBreak > 0) splitAt = leftBreak + 1;
+  }
+
+  if (splitAt <= 0 || splitAt >= value.length) splitAt = mid;
+  return [value.slice(0, splitAt), value.slice(splitAt)];
+}
+
+function estimateCompletionTokens(textLength) {
+  const chars = Number(textLength) || 0;
+  const inputEstimate = Math.ceil(chars / 3);
+  const estimate = (inputEstimate * 3) + 512;
+  return Math.min(MAX_TRANSLATION_OUTPUT_TOKENS, Math.max(900, estimate));
+}
+
+async function translateChunkJson({ text, sourceLang, targetLang, fieldLabel }) {
+  const payload = {
+    sourceLang: sourceLang || 'auto',
+    targetLang,
+    text: String(text ?? '')
+  };
+  const system = `Du bist ein professioneller Übersetzer für Inserate.
+- Wenn sourceLang="auto", erkenne die Quellsprache.
+- Übersetze präzise und vollständig nach ${targetLang}.
+- Bewahre HTML-Tags, Zeilenumbrüche, Zahlen und Sonderzeichen exakt.
+- Antworte NUR als JSON: {"text":"..."}.`;
+
+  const resp = await aiClient.chat.completions.create({
+    model: AI_MODEL,
+    messages: [
+      { role: 'system', content: system },
+      { role: 'user', content: JSON.stringify(payload) }
+    ],
+    temperature: 0,
+    max_completion_tokens: estimateCompletionTokens(payload.text.length),
+    response_format: {
+      type: 'json_schema',
+      json_schema: {
+        name: 'translated_chunk',
+        strict: true,
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['text'],
+          properties: {
+            text: { type: 'string' }
+          }
+        }
+      }
+    }
+  });
+
+  const out = resp.choices?.[0]?.message?.content || '{}';
+  const finishReason = resp.choices?.[0]?.finish_reason;
+  if (finishReason === 'length') {
+    const err = new Error(`token limit reached (${fieldLabel})`);
+    err.code = 'TRUNCATED';
+    err.raw = out;
+    throw err;
+  }
+
+  const data = parseJsonObjectLoose(out);
+  if (!data || typeof data !== 'object' || typeof data.text !== 'string') {
+    const err = new Error(`invalid JSON object (${fieldLabel})`);
+    err.code = 'INVALID_JSON';
+    err.raw = out;
+    throw err;
+  }
+
+  return data.text;
+}
+
+async function translateTextRobust({ text, sourceLang, targetLang, fieldLabel, depth = 0 }) {
+  const value = String(text ?? '');
+  if (!value) return '';
+  if (depth > MAX_TRANSLATION_SPLIT_DEPTH) {
+    console.warn('[AI translateFields] Max split depth reached, keep original chunk', { field: fieldLabel, depth });
+    return value;
+  }
+
+  const isTopLevelDescription = depth === 0 && fieldLabel === 'description';
+  const parts = (isTopLevelDescription && value.length > TRANSLATION_DESC_CHUNK_CHARS)
+    ? splitTextByLimit(value, TRANSLATION_DESC_CHUNK_CHARS)
+    : [value];
+
+  const translatedParts = [];
+
+  for (let i = 0; i < parts.length; i += 1) {
+    const part = parts[i];
+    const label = parts.length > 1 ? `${fieldLabel}#${i + 1}/${parts.length}` : fieldLabel;
+
+    try {
+      translatedParts.push(await translateChunkJson({
+        text: part,
+        sourceLang,
+        targetLang,
+        fieldLabel: label
+      }));
+      continue;
+    } catch (err) {
+      if (err.code === 'TRUNCATED') {
+        console.warn('[AI translateFields] Response truncated by token limit', { field: label });
+      } else if (err.code === 'INVALID_JSON') {
+        logAiParseError('translateFields', err, err.raw);
+      } else {
+        console.error('[AI translateFields] chunk request failed', { field: label, message: err.message });
+      }
+
+      if (
+        (err.code === 'TRUNCATED' || err.code === 'INVALID_JSON')
+        && part.length > MIN_TRANSLATION_SPLIT_CHARS
+        && depth < MAX_TRANSLATION_SPLIT_DEPTH
+      ) {
+        const [left, right] = splitTextInHalf(part);
+        const leftTranslated = await translateTextRobust({
+          text: left,
+          sourceLang,
+          targetLang,
+          fieldLabel: `${label}.a`,
+          depth: depth + 1
+        });
+        const rightTranslated = await translateTextRobust({
+          text: right,
+          sourceLang,
+          targetLang,
+          fieldLabel: `${label}.b`,
+          depth: depth + 1
+        });
+        translatedParts.push(leftTranslated + rightTranslated);
+        continue;
+      }
+
+      if (err.code === 'TRUNCATED' || err.code === 'INVALID_JSON') {
+        console.warn('[AI translateFields] Keep original chunk after split fallback', { field: label });
+        translatedParts.push(part);
+        continue;
+      }
+
+      throw err;
+    }
+  }
+
+  return translatedParts.join('');
+}
 
 function getTargetLangs() {
   return (process.env.TRANSLATION_TARGET_LANGS || '')
@@ -36,56 +320,92 @@ function resolveTitleColumn(columns) {
 async function detectLanguage({ title, description }) {
   const text = [title || '', description || ''].join('\n').slice(0, 6000);
 
-  const resp = await aiClient.chat.completions.create({
-    model: AI_MODEL,
-    messages: [
-      { role: 'system', content: 'Return only JSON {"lang":"xx"} where xx is ISO 639-1.' },
-      { role: 'user',   content: text || ' ' }
-    ],
-    response_format: { type: 'json_object' }
-  });
+  const attempts = [
+    {
+      label: 'json_schema',
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'detected_language',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['lang'],
+            properties: {
+              lang: { type: 'string' }
+            }
+          }
+        }
+      }
+    },
+    {
+      label: 'json_object',
+      response_format: { type: 'json_object' }
+    }
+  ];
 
-  const out = resp.choices?.[0]?.message?.content || '{}';
-  try {
-    const obj = JSON.parse(out);
-    return (obj.lang || '').toLowerCase().slice(0, 2) || 'auto';
-  } catch (e) {
-    console.error('[AI detectLanguage] JSON parse error:', e, out);
-    return 'auto';
+  for (const attempt of attempts) {
+    try {
+      const resp = await aiClient.chat.completions.create({
+        model: AI_MODEL,
+        messages: [
+          { role: 'system', content: 'Return only JSON {"lang":"xx"} where xx is ISO 639-1.' },
+          { role: 'user', content: text || ' ' }
+        ],
+        response_format: attempt.response_format
+      });
+
+      const out = resp.choices?.[0]?.message?.content || '{}';
+      const obj = parseJsonObjectLoose(out);
+      if (!obj || typeof obj !== 'object') {
+        logAiParseError('detectLanguage', new Error(`invalid JSON object (${attempt.label})`), out);
+        continue;
+      }
+      return (String(obj.lang || '')).toLowerCase().slice(0, 2) || 'auto';
+    } catch (err) {
+      console.error(`[AI detectLanguage] request failed (${attempt.label}):`, err.message);
+    }
   }
+
+  return 'auto';
 }
 
-// ⬇️ translateFields – FIXED: text: { format: 'json' }
+// Übersetzt title/description robust und akzeptiert nur gültiges JSON.
 async function translateFields({ title, description, sourceLang, targetLang }) {
-  const system = `Du bist ein professioneller Übersetzer.
-- Wenn sourceLang="auto", erkenne die Quellsprache.
-- Übersetze präzise von ${sourceLang || 'auto'} nach ${targetLang}.
-- Stil & Bedeutung für Inserate beibehalten.
-- Antworte NUR als JSON: {"title":"...","description":"..."}.`;
+  const originalTitle = String(title ?? '');
+  const originalDescription = String(description ?? '');
+  const clippedTitle = clipText(originalTitle, MAX_TRANSLATION_TITLE_INPUT_CHARS);
+  const clippedDescription = clipText(originalDescription);
 
-  const user = `sourceLang: ${sourceLang || 'auto'}
-TITLE: ${title || ''}
-DESCRIPTION: ${description || ''}
-targetLang: ${targetLang}`;
+  let translatedTitle = originalTitle;
+  let translatedDescription = originalDescription;
 
-  const resp = await aiClient.chat.completions.create({
-    model: AI_MODEL,
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user',   content: user }
-    ],
-    response_format: { type: 'json_object' }
-  });
+  try {
+    translatedTitle = await translateTextRobust({
+      text: clippedTitle,
+      sourceLang: sourceLang || 'auto',
+      targetLang,
+      fieldLabel: 'title'
+    });
+  } catch (err) {
+    console.error('[AI translateFields] title translation failed:', err.message);
+    translatedTitle = originalTitle;
+  }
 
-  const out = resp.choices?.[0]?.message?.content || '{}';
-  let data = {};
-  try { data = JSON.parse(out); }
-  catch (e) { console.error('[AI translateFields] JSON parse error:', e, out); }
+  try {
+    translatedDescription = await translateTextRobust({
+      text: clippedDescription,
+      sourceLang: sourceLang || 'auto',
+      targetLang,
+      fieldLabel: 'description'
+    });
+  } catch (err) {
+    console.error('[AI translateFields] description translation failed:', err.message);
+    translatedDescription = originalDescription;
+  }
 
-  return {
-    title:       data.title ?? title ?? '',
-    description: data.description ?? description ?? ''
-  };
+  return { title: translatedTitle, description: translatedDescription };
 }
 
 // Middleware: Lade dynamische Entieties
@@ -124,7 +444,11 @@ async function loadPackages(req, res, next) {
 // Helper: eine ID übersetzen + Originalsprache/Originaltext persistieren
 async function translateOne({ id, table, ent }) {
   try {
-    const targetLangs = getTargetLangs();
+    const targetLangs = [...new Set(
+      getTargetLangs()
+        .map((lang) => String(lang || '').trim().toLowerCase())
+        .filter(Boolean)
+    )];
     if (!targetLangs.length) {
       console.warn('[TRANSLATE] target langs leer'); 
       // wir übersetzen zwar nicht, aber Originalsprache können wir trotzdem speichern:
@@ -166,27 +490,60 @@ async function translateOne({ id, table, ent }) {
 
     const originalTitle = row.title || '';
     const originalDesc  = row.description || '';
+    const sourceLc = String(source || '').toLowerCase();
+
+    const [existingRows] = await db.query(
+      `SELECT language, title, description
+         FROM listing_translations
+        WHERE entitie_id = ? AND advert_id = ?`,
+      [ent.id, id]
+    );
+    const existingByLang = new Map(
+      existingRows.map((r) => [String(r.language || '').toLowerCase(), r])
+    );
+    const sourceSnapshot = (sourceLc && sourceLc !== 'auto') ? existingByLang.get(sourceLc) : null;
+    const sourceUnchanged = !!sourceSnapshot
+      && String(sourceSnapshot.title ?? '') === originalTitle
+      && String(sourceSnapshot.description ?? '') === originalDesc;
+
+    let pendingTargetLangs = targetLangs.filter((lang) => !sourceLc || lang !== sourceLc);
+    if (sourceUnchanged) {
+      pendingTargetLangs = pendingTargetLangs.filter((lang) => !existingByLang.has(lang));
+      if (!pendingTargetLangs.length) {
+        console.log('[TRANSLATE] skip unchanged source + all target languages already present', { id, source: sourceLc });
+        return;
+      }
+      console.log('[TRANSLATE] unchanged source, translate only missing target languages', {
+        id,
+        source: sourceLc,
+        missing: pendingTargetLangs
+      });
+    }
 
     // (A) IMMER: Originalsprache + Originaltext in listing_translations sichern
     if (source && source !== 'auto') {
-      await db.query(
-        `INSERT INTO listing_translations
-           (entitie_id, advert_id, language, title, description)
-         VALUES (?, ?, ?, ?, ?)
-         ON DUPLICATE KEY UPDATE
-           title=VALUES(title),
-           description=VALUES(description),
-           updated_at=CURRENT_TIMESTAMP`,
-        [ent.id, id, source, originalTitle, originalDesc]
-      );
-      console.log('[TRANSLATE] saved ORIGINAL', { id, source, titlePreview: originalTitle.slice(0,60) });
+      if (!sourceUnchanged) {
+        await db.query(
+          `INSERT INTO listing_translations
+             (entitie_id, advert_id, language, title, description)
+           VALUES (?, ?, ?, ?, ?)
+           ON DUPLICATE KEY UPDATE
+             title=VALUES(title),
+             description=VALUES(description),
+             updated_at=CURRENT_TIMESTAMP`,
+          [ent.id, id, source, originalTitle, originalDesc]
+        );
+        console.log('[TRANSLATE] saved ORIGINAL', { id, source, titlePreview: originalTitle.slice(0,60) });
+      } else {
+        console.log('[TRANSLATE] ORIGINAL unchanged', { id, source });
+      }
     } else {
       // Fallback: wenn "auto", Original nicht einsortieren – dann nur Zielsprachen
       console.warn('[TRANSLATE] source=auto – Original nicht als Sprache gespeichert');
     }
 
     // (B) Zielsprachen übersetzen & speichern
-    for (const lang of targetLangs) {
+    for (const lang of pendingTargetLangs) {
       if (!lang) continue;
       if (source && lang.toLowerCase() === source.toLowerCase()) {
         console.log('[TRANSLATE] skip same', { id, lang });
@@ -253,6 +610,7 @@ router.post('/:category/bulk', loadEntities, async (req, res, next) => {
     const map = {
       approve: { status: 3, visible: 1 },
       pend:    { status: 7, visible: 0 },
+      reject:  { status: 8, keepVisible: true },
       stop:    { status: 3, visible: 0 },
       delete:  { status: 9, visible: 0 },
       restore: { status: 1, visible: 0 }
@@ -265,10 +623,17 @@ router.post('/:category/bulk', loadEntities, async (req, res, next) => {
 
     // Sofort UPDATE
     const placeholders = cleanIds.map(() => '?').join(',');
-    await db.query(
-      `UPDATE \`${table}\` SET status=?, visible=? WHERE id IN (${placeholders})`,
-      [m.status, m.visible, ...cleanIds]
-    );
+    if (m.keepVisible) {
+      await db.query(
+        `UPDATE \`${table}\` SET status=? WHERE id IN (${placeholders})`,
+        [m.status, ...cleanIds]
+      );
+    } else {
+      await db.query(
+        `UPDATE \`${table}\` SET status=?, visible=? WHERE id IN (${placeholders})`,
+        [m.status, m.visible, ...cleanIds]
+      );
+    }
     console.log('[BULK] Update OK', { count: cleanIds.length, action });
 
     // Sofort Redirect
@@ -327,6 +692,7 @@ router.post('/:category/:id/action', loadEntities, async (req, res, next) => {
     const map = {
       approve: { status: 3, visible: 1 },
       pend:    { status: 7, visible: 0 },
+      reject:  { status: 8, keepVisible: true },
       stop:    { status: 3, visible: 0 },
       delete:  { status: 9, visible: 0 },
       restore: { status: 1, visible: 0 }
@@ -338,10 +704,17 @@ router.post('/:category/:id/action', loadEntities, async (req, res, next) => {
     }
 
     // Update sofort
-    await db.query(
-      `UPDATE \`${table}\` SET status=?, visible=? WHERE id=?`,
-      [m.status, m.visible, id]
-    );
+    if (m.keepVisible) {
+      await db.query(
+        `UPDATE \`${table}\` SET status=? WHERE id=?`,
+        [m.status, id]
+      );
+    } else {
+      await db.query(
+        `UPDATE \`${table}\` SET status=?, visible=? WHERE id=?`,
+        [m.status, m.visible, id]
+      );
+    }
     console.log('[SINGLE] Update OK:', { id, action });
 
     // Redirect sofort
@@ -466,7 +839,9 @@ router.get('/:category/:id/ad-period', loadEntities, async (req, res) => {
   if (!src) return res.json({});
 
   const [[row]] = await db.query(`
-    SELECT start_date, end_date
+    SELECT
+      DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date,
+      DATE_FORMAT(end_date, '%Y-%m-%d')   AS end_date
     FROM ${src.table}
     WHERE entitie_id = ? AND ${src.fk} = ?
     ORDER BY id DESC

@@ -1,0 +1,163 @@
+<%- include('../../partials/header', { entieties, active: 'jobs' }) %>
+<link rel="stylesheet" href="/css/job-detail.css">
+
+<main class="job-detail-page">
+  <section class="job-detail-hero">
+    <div class="container job-detail-hero__grid">
+      <div class="job-detail-hero__content">
+        <p class="job-detail-hero__eyebrow"><%= jt('jobs.detail.hero_eyebrow', 'Stellenangebot') %></p>
+        <h1><%= job.title %></h1>
+
+        <div class="job-detail-hero__facts">
+          <% if (job.location) { %><span><%= job.location %></span><% } %>
+          <% if (job.department) { %><span><%= job.department %></span><% } %>
+          <% if (job.employment_type) { %><span><%= job.employment_type %></span><% } %>
+          <% if (job.workplace_type) { %><span><%= job.workplace_type %></span><% } %>
+        </div>
+
+        <% if (job.short_description) { %>
+          <p class="job-detail-hero__lead"><%= job.short_description %></p>
+        <% } %>
+      </div>
+
+      <% if (job.image_url) { %>
+        <div class="job-detail-hero__image">
+          <img src="<%= job.image_url %>" alt="<%= job.title %>" loading="lazy">
+        </div>
+      <% } %>
+    </div>
+  </section>
+
+  <section class="container job-detail-main">
+    <div class="job-detail-layout">
+      <article class="job-detail-copy">
+        <% if (job.description) { %>
+          <section class="job-section">
+            <h2><%= jt('jobs.detail.section.tasks', 'Aufgaben & Position') %></h2>
+            <div class="job-text"><%= job.description %></div>
+          </section>
+        <% } %>
+
+        <% if (job.requirements) { %>
+          <section class="job-section">
+            <h2><%= jt('jobs.detail.section.requirements', 'Was wir erwarten') %></h2>
+            <div class="job-text"><%= job.requirements %></div>
+          </section>
+        <% } %>
+
+        <% if (job.benefits) { %>
+          <section class="job-section">
+            <h2><%= jt('jobs.detail.section.benefits', 'Was wir bieten') %></h2>
+            <div class="job-text"><%= job.benefits %></div>
+          </section>
+        <% } %>
+      </article>
+
+      <aside class="job-apply-card" id="bewerben">
+        <h2><%= jt('jobs.apply.title', 'Jetzt bewerben') %></h2>
+        <p><%= jt('jobs.apply.subtitle', 'Laden Sie Ihre Unterlagen direkt hoch.') %></p>
+
+        <% if (formError) { %>
+          <div class="job-alert job-alert--error"><%= formError %></div>
+        <% } %>
+        <% if (formSuccess) { %>
+          <div class="job-alert job-alert--success"><%= formSuccess %></div>
+        <% } %>
+
+        <form method="post" action="/jobs/<%= job.slug %>/apply" enctype="multipart/form-data">
+          <label for="first_name"><%= jt('jobs.apply.label.first_name', 'Vorname *') %></label>
+          <input id="first_name" name="first_name" type="text" required value="<%= formData.first_name || '' %>">
+
+          <label for="last_name"><%= jt('jobs.apply.label.last_name', 'Nachname *') %></label>
+          <input id="last_name" name="last_name" type="text" required value="<%= formData.last_name || '' %>">
+
+          <label for="email"><%= jt('jobs.apply.label.email', 'E-Mail *') %></label>
+          <input id="email" name="email" type="email" required value="<%= formData.email || '' %>">
+
+          <label for="country_id"><%= jt('jobs.apply.label.country', 'Land *') %></label>
+          <select id="country_id" name="country_id" required>
+            <option value=""><%= jt('jobs.apply.placeholder.country', 'Bitte Land wählen') %></option>
+            <% (countries || []).forEach((country) => { %>
+              <option
+                value="<%= country.id %>"
+                data-prefix="<%= country.prefix || '' %>"
+                <%= String(formData.country_id || '') === String(country.id) ? 'selected' : '' %>
+              >
+                <%= country.name %> (<%= country.code %>)
+              </option>
+            <% }) %>
+          </select>
+
+          <label for="phone"><%= jt('jobs.apply.label.phone', 'Telefon') %></label>
+          <div class="job-phone-row">
+            <input
+              id="phone_prefix_display"
+              class="job-phone-prefix"
+              type="text"
+              readonly
+              value="<%= formData.phone_prefix || selectedCountryPrefix || '' %>"
+              placeholder="<%= jt('jobs.apply.placeholder.phone_prefix', 'Vorwahl') %>"
+            >
+            <input id="phone_prefix" name="phone_prefix" type="hidden" value="<%= formData.phone_prefix || selectedCountryPrefix || '' %>">
+            <input id="phone" name="phone" type="text" value="<%= formData.phone || '' %>">
+          </div>
+
+          <label for="message"><%= jt('jobs.apply.label.message', 'Nachricht') %></label>
+          <textarea id="message" name="message" rows="5"><%= formData.message || '' %></textarea>
+
+          <label for="resume"><%= jt('jobs.apply.label.resume', 'Lebenslauf (Pflicht) *') %></label>
+          <input id="resume" name="resume" type="file" required accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp">
+
+          <label for="cover_letter"><%= jt('jobs.apply.label.cover_letter', 'Bewerbungsschreiben') %></label>
+          <input id="cover_letter" name="cover_letter" type="file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp">
+
+          <label for="certificates"><%= jt('jobs.apply.label.certificates', 'Zeugnisse / Zertifikate') %></label>
+          <input id="certificates" name="certificates" type="file" multiple accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.webp">
+
+          <label class="job-check">
+            <input type="checkbox" name="privacy" value="1" required>
+            <%= jt('jobs.apply.privacy', 'Ich stimme der Verarbeitung meiner Bewerbungsdaten zu. *') %>
+          </label>
+
+          <button type="submit" class="job-apply-btn"><%= jt('jobs.apply.submit', 'Bewerbung senden') %></button>
+        </form>
+      </aside>
+    </div>
+  </section>
+</main>
+
+<%- include('../../partials/footer', { footerColumns }) %>
+
+<script>
+  (function () {
+    var country = document.getElementById('country_id');
+    var prefixDisplay = document.getElementById('phone_prefix_display');
+    var prefixHidden = document.getElementById('phone_prefix');
+    if (!country || !prefixDisplay || !prefixHidden) return;
+
+    function syncPrefix(force) {
+      var selected = country.options[country.selectedIndex];
+      var selectedPrefix = selected ? String(selected.getAttribute('data-prefix') || '').trim() : '';
+      if (!selectedPrefix) {
+        if (force) {
+          prefixDisplay.value = '';
+          prefixHidden.value = '';
+        }
+        return;
+      }
+
+      if (!prefixHidden.value || force) {
+        prefixDisplay.value = selectedPrefix;
+        prefixHidden.value = selectedPrefix;
+      } else {
+        prefixDisplay.value = prefixHidden.value;
+      }
+    }
+
+    country.addEventListener('change', function () {
+      syncPrefix(true);
+    });
+
+    syncPrefix(false);
+  })();
+</script>

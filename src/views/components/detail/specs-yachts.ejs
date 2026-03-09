@@ -32,13 +32,13 @@
       <div class="row">
         <% similarItems.forEach(sim => { %>
           <div class="col-md-3 mb-4">
-            <a href="/yachts/<%= sim.id %>/<%= sim.slug %>"
+            <a href="<%= typeof entityPath === 'function' ? entityPath('yachts', sim.slug + '-' + sim.id) : '/yachts/' + sim.slug + '-' + sim.id %>"
                class="text-decoration-none text-dark">
               <div class="card h-100">
                 <img src="<%= sim.imageUrl %>" class="card-img-top" alt="<%= sim.title %>">
                 <div class="card-body">
                   <h6 class="fw-bold"><%= sim.title %></h6>
-                  <p class="text-muted"><%= convertPrice(sim.price) %></p>
+                  <p class="text-muted"><%= sim.priceFormatted || convertPrice(sim.price, null, sim.currency || 'EUR') %></p>
                 </div>
               </div>
             </a>
@@ -55,13 +55,13 @@
       <div class="row">
         <% moreItems.forEach(m => { %>
           <div class="col-md-3 mb-4">
-            <a href="/yachts/<%= m.id %>/<%= m.slug %>"
+            <a href="<%= typeof entityPath === 'function' ? entityPath('yachts', m.slug + '-' + m.id) : '/yachts/' + m.slug + '-' + m.id %>"
                class="text-decoration-none text-dark">
               <div class="card h-100">
                 <img src="<%= m.imageUrl %>" class="card-img-top" alt="<%= m.title %>">
                 <div class="card-body">
                   <h6 class="fw-bold"><%= m.title %></h6>
-                  <p class="text-muted"><%= convertPrice(m.price) %></p>
+                  <p class="text-muted"><%= m.priceFormatted || convertPrice(m.price, null, m.currency || 'EUR') %></p>
                 </div>
               </div>
             </a>

@@ -1,0 +1,109 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-fill container py-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+      <h1 class="h3 m-0">Bewerbung #<%= application.id %></h1>
+      <a href="/admin/jobs/applications" class="btn btn-outline-dark">Zurück zur Liste</a>
+    </div>
+
+    <% if (messages?.success) { %>
+      <div class="alert alert-success"><%= messages.success %></div>
+    <% } %>
+    <% if (messages?.error) { %>
+      <div class="alert alert-danger"><%= messages.error %></div>
+    <% } %>
+
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card">
+          <div class="card-header"><strong>Kandidat</strong></div>
+          <div class="card-body">
+            <p class="mb-1"><strong>Name:</strong> <%= application.first_name %> <%= application.last_name %></p>
+            <p class="mb-1"><strong>E-Mail:</strong> <a href="mailto:<%= application.email %>"><%= application.email %></a></p>
+            <p class="mb-1"><strong>Land:</strong> <%= application.country_name || '—' %></p>
+            <p class="mb-1"><strong>Telefon:</strong> <%= [application.phone_prefix, application.phone].filter(Boolean).join(' ') || '—' %></p>
+            <p class="mb-1"><strong>Eingang:</strong> <%= new Date(application.created_at).toLocaleString('de-DE') %></p>
+            <hr>
+            <p class="mb-2"><strong>Nachricht:</strong></p>
+            <div class="border rounded p-2 bg-light" style="white-space: pre-line;"><%= application.message || '—' %></div>
+          </div>
+        </div>
+
+        <div class="card mt-3">
+          <div class="card-header"><strong>Unterlagen</strong></div>
+          <div class="card-body">
+            <p class="mb-2">
+              <strong>Lebenslauf:</strong>
+              <% if (resumePublicPath) { %>
+                <a href="<%= resumePublicPath %>" target="_blank" rel="noopener"><%= application.resume_name || 'Öffnen' %></a>
+              <% } else { %>
+                —
+              <% } %>
+            </p>
+
+            <p class="mb-2">
+              <strong>Bewerbungsschreiben:</strong>
+              <% if (coverPublicPath) { %>
+                <a href="<%= coverPublicPath %>" target="_blank" rel="noopener"><%= application.cover_letter_name || 'Öffnen' %></a>
+              <% } else { %>
+                —
+              <% } %>
+            </p>
+
+            <div>
+              <strong>Zertifikate:</strong>
+              <% if (!certificates || !certificates.length) { %>
+                <span> — </span>
+              <% } else { %>
+                <ul class="mb-0 mt-2">
+                  <% certificates.forEach((cert) => { %>
+                    <% const certUrl = cert.public_path || (cert.path ? ('/uploads/jobs/applications/' + cert.path.split('/').pop()) : null); %>
+                    <li>
+                      <% if (certUrl) { %>
+                        <a href="<%= certUrl %>" target="_blank" rel="noopener"><%= cert.original_name || 'Datei' %></a>
+                      <% } else { %>
+                        <%= cert.original_name || 'Datei' %>
+                      <% } %>
+                    </li>
+                  <% }) %>
+                </ul>
+              <% } %>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="card mb-3">
+          <div class="card-header"><strong>Stelle</strong></div>
+          <div class="card-body">
+            <p class="mb-1"><strong>Titel:</strong> <%= application.job_title %></p>
+            <p class="mb-0"><strong>Öffentlich:</strong> <a href="/jobs/<%= application.job_slug %>" target="_blank" rel="noopener">/jobs/<%= application.job_slug %></a></p>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><strong>Status</strong></div>
+          <div class="card-body">
+            <form method="POST" action="/admin/jobs/applications/<%= application.id %>/status">
+              <label class="form-label" for="status">Status</label>
+              <select class="form-select mb-3" id="status" name="status" required>
+                <% statuses.forEach((status) => { %>
+                  <option value="<%= status %>" <%= status === application.status ? 'selected' : '' %>><%= status %></option>
+                <% }) %>
+              </select>
+
+              <label class="form-label" for="admin_notes">Admin-Notizen</label>
+              <textarea class="form-control mb-3" id="admin_notes" name="admin_notes" rows="7"><%= application.admin_notes || '' %></textarea>
+
+              <button type="submit" class="btn btn-primary">Speichern</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

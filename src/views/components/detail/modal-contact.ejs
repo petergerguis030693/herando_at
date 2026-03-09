@@ -24,6 +24,10 @@ const cleanSlug = (detailSlug || '')
   .replace(/h1$/i, '')
   .replace(/--+/g, '-')
   .replace(/^-|-$/g, '');
+
+const detailPath = (typeof entityPath === 'function')
+  ? entityPath(currentEntity.route, `${cleanSlug}-${item.id}`)
+  : `/${currentEntity.route}/${cleanSlug}-${item.id}`;
 %>
 
 <div class="modal fade" id="contactModal" tabindex="-1"
@@ -45,7 +49,7 @@ const cleanSlug = (detailSlug || '')
           <input type="text" id="hp_field" name="hp_field" style="display:none">
 
           <input type="hidden" name="listingUrl" id="listingUrl"
-                 value="https://www.herando.at/<%= currentEntity.route %>/<%= item.id %>/<%- cleanSlug %>">
+                 value="<%= seoCanonicalUrl || ((siteBaseUrl || '') + detailPath) %>">
 
           <div class="row g-3">
             <div class="col-md-6">
@@ -99,7 +103,7 @@ const cleanSlug = (detailSlug || '')
               <textarea class="form-control" id="modalMessage" rows="6">Guten Tag,
 
 ich interessiere mich für Ihr Angebot <%= cleanName %>.
-https://www.herando.at/<%= currentEntity.route %>/<%= item.id %>/<%- cleanSlug %>
+<%= seoCanonicalUrl || ((siteBaseUrl || '') + detailPath) %>
 
 Bitte kontaktieren Sie mich.
 
