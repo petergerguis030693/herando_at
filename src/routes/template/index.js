@@ -6169,6 +6169,17 @@ router.post(
       return fallback;
     };
 
+    const parsedBody = (req.body && typeof req.body === 'object') ? req.body : {};
+    if (!req.body || typeof req.body !== 'object') {
+      console.warn('[contact] Missing or unparsable request body', {
+        ip: req.ip,
+        method: req.method,
+        url: req.originalUrl,
+        contentType: req.get('content-type') || '',
+        userAgent: req.get('user-agent') || ''
+      });
+    }
+
     const {
       anrede, titel, first_name, last_name,
       ichbin, firma, kundennummer,
@@ -6176,7 +6187,7 @@ router.post(
       formRendered,
       website,           // Honeypot
       captcha_answer     // Eingabe vom User
-    } = req.body;
+    } = parsedBody;
 
     const errors = [];
     const spamReasons = [];
