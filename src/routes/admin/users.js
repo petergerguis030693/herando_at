@@ -354,6 +354,192 @@ async function loadUserListingChoicesForEdit(userId, options = {}) {
   return listings;
 }
 
+function mergeAssignmentsWithOnlineListingCategories(assignments, listings) {
+  const normalizedAssignments = Array.isArray(assignments) ? [...assignments] : [];
+  const assignedCategoryIds = new Set(
+    normalizedAssignments
+      .map((row) => Number(row?.category_id))
+      .filter((value) => Number.isFinite(value) && value > 0)
+  );
+
+  const onlineCategoryIds = [];
+  const seenOnlineCategoryIds = new Set();
+
+  for (const listing of listings || []) {
+    const categoryId = Number(listing?.entitie_id);
+    if (!Number.isFinite(categoryId) || categoryId <= 0) continue;
+    if (seenOnlineCategoryIds.has(categoryId)) continue;
+    seenOnlineCategoryIds.add(categoryId);
+    onlineCategoryIds.push(categoryId);
+  }
+
+  for (const categoryId of onlineCategoryIds) {
+    if (assignedCategoryIds.has(categoryId)) continue;
+    normalizedAssignments.push({
+      package_id: '',
+      category_id: categoryId,
+      inferred_from_online_listing: 1
+    });
+  }
+
+  return normalizedAssignments;
+}
+
+function normalizePackageDuration(durationUnit, durationAmt) {
+  const rawUnit = String(durationUnit || '').trim().toLowerCase();
+  const rawAmt = Number.parseInt(String(durationAmt || ''), 10);
+  const amount = Number.isFinite(rawAmt) && rawAmt > 0 ? rawAmt : 1;
+
+  if (rawUnit === 'day' || rawUnit === 'days') return { unit: 'days', amount };
+  if (rawUnit === 'week' || rawUnit === 'weeks') return { unit: 'weeks', amount };
+  if (rawUnit === 'month' || rawUnit === 'months') return { unit: 'months', amount };
+  if (rawUnit === 'year' || rawUnit === 'years') return { unit: 'years', amount };
+
+  // Fallback wie im Legacy-Verhalten: 1 Jahr Laufzeit.
+  return { unit: 'years', amount: 1 };
+}
+
+function addPackageDuration(baseDate, durationUnit, durationAmt) {
+  const base = new Date(baseDate);
+  if (Number.isNaN(base.getTime())) return null;
+
+  const normalized = normalizePackageDuration(durationUnit, durationAmt);
+  const out = new Date(base);
+
+  if (normalized.unit === 'days') out.setDate(out.getDate() + normalized.amount);
+  if (normalized.unit === 'weeks') out.setDate(out.getDate() + (normalized.amount * 7));
+  if (normalized.unit === 'months') out.setMonth(out.getMonth() + normalized.amount);
+  if (normalized.unit === 'years') out.setFullYear(out.getFullYear() + normalized.amount);
+
+  return Number.isNaN(out.getTime()) ? null : out;
+}
+
+let ensureSelectedPackageManageColumnsPromise = null;
+
+async function ensureSelectedPackageManageColumns() {
+  if (!ensureSelectedPackageManageColumnsPromise) {
+    ensureSelectedPackageManageColumnsPromise = (async () => {
+      const [cols] = await db.query(
+        `SELECT COLUMN_NAME
+           FROM information_schema.COLUMNS
+          WHERE TABLE_SCHEMA = DATABASE()
+            AND TABLE_NAME = 'selected_packages'
+            AND COLUMN_NAME IN ('is_deactivated', 'deactivated_at', 'deactivated_end_date')`
+      );
+
+      const colSet = new Set(cols.map((row) => String(row.COLUMN_NAME || '').toLowerCase()));
+
+      if (!colSet.has('is_deactivated')) {
+        await db.query(
+          `ALTER TABLE selected_packages
+             ADD COLUMN is_deactivated TINYINT(1) NOT NULL DEFAULT 0
+             AFTER created_at`
+        );
+      }
+
+      if (!colSet.has('deactivated_at')) {
+        await db.query(
+          `ALTER TABLE selected_packages
+             ADD COLUMN deactivated_at DATETIME NULL
+             AFTER is_deactivated`
+        );
+      }
+
+      if (!colSet.has('deactivated_end_date')) {
+        await db.query(
+          `ALTER TABLE selected_packages
+             ADD COLUMN deactivated_end_date DATETIME NULL
+             AFTER deactivated_at`
+        );
+      }
+    })().catch((err) => {
+      ensureSelectedPackageManageColumnsPromise = null;
+      throw err;
+    });
+  }
+
+  return ensureSelectedPackageManageColumnsPromise;
+}
+
+function parsePositiveInt(value) {
+  const parsed = Number.parseInt(String(value || ''), 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+async function loadSelectedPackageForEditActions(userId, selectedPackageId) {
+  const [[row]] = await db.query(
+    `SELECT
+       sp.id,
+       sp.user_id,
+       sp.package_id,
+       sp.category_id,
+       sp.start_date,
+       sp.end_date,
+       COALESCE(sp.is_deactivated, 0) AS is_deactivated,
+       sp.deactivated_at,
+       sp.deactivated_end_date,
+       p.name AS package_name,
+       p.duration_unit,
+       p.duration_amt,
+       e.name AS category_name
+     FROM selected_packages sp
+     JOIN packages p ON p.id = sp.package_id
+     LEFT JOIN ententies e ON e.id = sp.category_id
+     WHERE sp.id = ?
+       AND sp.user_id = ?
+     LIMIT 1`,
+    [selectedPackageId, userId]
+  );
+  return row || null;
+}
+
+async function loadSelectedPackagesForEditActions(userId) {
+  await ensureSelectedPackageManageColumns();
+
+  const [rows] = await db.query(
+    `SELECT
+       sp.id,
+       sp.user_id,
+       sp.package_id,
+       sp.category_id,
+       sp.start_date,
+       sp.end_date,
+       COALESCE(sp.is_deactivated, 0) AS is_deactivated,
+       sp.deactivated_at,
+       sp.deactivated_end_date,
+       p.name AS package_name,
+       p.duration_unit,
+       p.duration_amt,
+       e.name AS category_name
+     FROM selected_packages sp
+     JOIN packages p ON p.id = sp.package_id
+     LEFT JOIN ententies e ON e.id = sp.category_id
+     WHERE sp.user_id = ?
+       AND sp.package_id IS NOT NULL
+       AND sp.category_id IS NOT NULL
+       AND (
+         sp.end_date IS NULL
+         OR sp.end_date > NOW()
+         OR COALESCE(sp.is_deactivated, 0) = 1
+       )
+     ORDER BY COALESCE(sp.deactivated_end_date, sp.end_date) DESC, sp.id DESC`,
+    [userId]
+  );
+
+  return rows.map((row) => {
+    const effectiveEnd = row.is_deactivated ? (row.deactivated_end_date || row.end_date) : row.end_date;
+    return {
+      ...row,
+      is_deactivated: Number(row.is_deactivated) === 1,
+      effective_end_date: effectiveEnd || null,
+      effective_end_date_display: formatDateLikeAdminListings(effectiveEnd),
+      start_date_display: formatDateLikeAdminListings(row.start_date),
+      end_date_display: formatDateLikeAdminListings(row.end_date),
+      deactivated_at_display: formatDateLikeAdminListings(row.deactivated_at)
+    };
+  });
+}
+
 async function loadUserAddonEditorContext(userId) {
   const [[user]] = await db.query(
     `SELECT id, firstname, lastname, email, company
@@ -981,9 +1167,33 @@ router.get('/without-package', requireAdmin, async (req, res, next) => {
         .filter(Boolean);
     }
 
+    const userEntityRows = [];
+    for (const user of users) {
+      const entities = Array.isArray(user.available_entities) ? user.available_entities : [];
+
+      if (entity !== 'all') {
+        const ent = entities.find((x) => String(x?.key || '') === entity);
+        if (!ent) continue;
+        userEntityRows.push({
+          user,
+          entity: ent
+        });
+        continue;
+      }
+
+      for (const ent of entities) {
+        userEntityRows.push({
+          user,
+          entity: ent
+        });
+      }
+    }
+
     res.render('admin/users/without-package', {
       active: 'users-without-package',
       users,
+      userEntityRows,
+      usersCount: users.length,
       packages,
       successMessage: (req.flash('success') || [])[0] || null,
       errorMessage: (req.flash('error') || [])[0] || null,
@@ -1186,6 +1396,183 @@ router.post('/:id/extend', requireAdmin, async (req, res, next) => {
   }
 });
 
+router.post('/:id/selected-packages/:selectedPackageId/deactivate', requireAdmin, async (req, res, next) => {
+  try {
+    const userId = parsePositiveInt(req.params.id);
+    const selectedPackageId = parsePositiveInt(req.params.selectedPackageId);
+    const backTo = userId ? `/admin/users/${userId}/edit` : '/admin/users';
+
+    if (!userId || !selectedPackageId) {
+      req.flash('error', 'Ungültige Paket-Aktion.');
+      return res.redirect(backTo);
+    }
+
+    await ensureSelectedPackageManageColumns();
+    const selectedPackage = await loadSelectedPackageForEditActions(userId, selectedPackageId);
+    if (!selectedPackage) {
+      req.flash('error', 'Paketzuordnung wurde nicht gefunden.');
+      return res.redirect(backTo);
+    }
+
+    if (Number(selectedPackage.is_deactivated) === 1) {
+      req.flash('success', 'Paket ist bereits deaktiviert.');
+      return res.redirect(backTo);
+    }
+
+    await db.query(
+      `UPDATE selected_packages
+          SET is_deactivated = 1,
+              deactivated_at = NOW(),
+              deactivated_end_date = COALESCE(deactivated_end_date, end_date),
+              end_date = NOW()
+        WHERE id = ?
+          AND user_id = ?`,
+      [selectedPackageId, userId]
+    );
+
+    req.flash('success', `Paket "${selectedPackage.package_name || selectedPackage.package_id}" wurde deaktiviert.`);
+    return res.redirect(backTo);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/selected-packages/:selectedPackageId/reactivate', requireAdmin, async (req, res, next) => {
+  try {
+    const userId = parsePositiveInt(req.params.id);
+    const selectedPackageId = parsePositiveInt(req.params.selectedPackageId);
+    const backTo = userId ? `/admin/users/${userId}/edit` : '/admin/users';
+
+    if (!userId || !selectedPackageId) {
+      req.flash('error', 'Ungültige Paket-Aktion.');
+      return res.redirect(backTo);
+    }
+
+    await ensureSelectedPackageManageColumns();
+    const selectedPackage = await loadSelectedPackageForEditActions(userId, selectedPackageId);
+    if (!selectedPackage) {
+      req.flash('error', 'Paketzuordnung wurde nicht gefunden.');
+      return res.redirect(backTo);
+    }
+
+    if (Number(selectedPackage.is_deactivated) !== 1) {
+      req.flash('success', 'Paket ist bereits aktiv.');
+      return res.redirect(backTo);
+    }
+
+    const restoredEndDate = selectedPackage.deactivated_end_date || selectedPackage.end_date || new Date();
+    await db.query(
+      `UPDATE selected_packages
+          SET is_deactivated = 0,
+              end_date = ?,
+              deactivated_at = NULL,
+              deactivated_end_date = NULL
+        WHERE id = ?
+          AND user_id = ?`,
+      [restoredEndDate, selectedPackageId, userId]
+    );
+
+    const restoredDate = new Date(restoredEndDate);
+    if (Number.isNaN(restoredDate.getTime()) || restoredDate <= new Date()) {
+      req.flash('success', 'Paket reaktiviert. Laufzeit ist bereits vorbei, bitte verlängern.');
+      return res.redirect(backTo);
+    }
+
+    req.flash('success', `Paket "${selectedPackage.package_name || selectedPackage.package_id}" wurde reaktiviert.`);
+    return res.redirect(backTo);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/:id/selected-packages/:selectedPackageId/extend', requireAdmin, async (req, res, next) => {
+  try {
+    const userId = parsePositiveInt(req.params.id);
+    const selectedPackageId = parsePositiveInt(req.params.selectedPackageId);
+    const backTo = userId ? `/admin/users/${userId}/edit` : '/admin/users';
+
+    if (!userId || !selectedPackageId) {
+      req.flash('error', 'Ungültige Paket-Aktion.');
+      return res.redirect(backTo);
+    }
+
+    await ensureSelectedPackageManageColumns();
+    const selectedPackage = await loadSelectedPackageForEditActions(userId, selectedPackageId);
+    if (!selectedPackage) {
+      req.flash('error', 'Paketzuordnung wurde nicht gefunden.');
+      return res.redirect(backTo);
+    }
+
+    const [[cancelRow]] = await db.query(
+      `SELECT id
+         FROM cancellations
+        WHERE selected_package_id = ?
+          AND user_id = ?
+          AND COALESCE(status, '') <> 'rejected'
+        ORDER BY id DESC
+        LIMIT 1`,
+      [selectedPackageId, userId]
+    );
+    if (cancelRow) {
+      req.flash('error', 'Paket ist gekündigt und wird nicht automatisch verlängert.');
+      return res.redirect(backTo);
+    }
+
+    const isDeactivated = Number(selectedPackage.is_deactivated) === 1;
+
+    if (isDeactivated) {
+      await db.query(
+        `UPDATE selected_packages
+            SET deactivated_end_date = DATE_ADD(
+              CASE
+                WHEN COALESCE(deactivated_end_date, end_date) > NOW() THEN COALESCE(deactivated_end_date, end_date)
+                ELSE NOW()
+              END,
+              INTERVAL 12 MONTH
+            )
+          WHERE id = ?
+            AND user_id = ?`,
+        [selectedPackageId, userId]
+      );
+    } else {
+      await db.query(
+        `UPDATE selected_packages
+            SET end_date = DATE_ADD(
+              CASE
+                WHEN end_date > NOW() THEN end_date
+                ELSE NOW()
+              END,
+              INTERVAL 12 MONTH
+            )
+          WHERE id = ?
+            AND user_id = ?`,
+        [selectedPackageId, userId]
+      );
+    }
+
+    const [[updatedPkg]] = await db.query(
+      `SELECT
+         end_date,
+         deactivated_end_date,
+         COALESCE(is_deactivated, 0) AS is_deactivated
+       FROM selected_packages
+       WHERE id = ?
+         AND user_id = ?
+       LIMIT 1`,
+      [selectedPackageId, userId]
+    );
+
+    const effectiveEndDate = Number(updatedPkg?.is_deactivated || 0) === 1
+      ? (updatedPkg?.deactivated_end_date || updatedPkg?.end_date)
+      : updatedPkg?.end_date;
+    const formattedDate = formatDateLikeAdminListings(effectiveEndDate) || 'n/a';
+    req.flash('success', `Paket automatisch um 12 Monate verlängert (bis ${formattedDate}).`);
+    return res.redirect(backTo);
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/:id/expire', requireAdmin, async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -1325,6 +1712,7 @@ router.get('/:id/edit', requireAdmin, async (req, res, next) => {
       [id]
     );
     if (!user) return res.status(404).send('User nicht gefunden');
+    await ensureSelectedPackageManageColumns();
 
     // 2) Länder & Firmen laden
     const [countries] = await db.query(
@@ -1334,40 +1722,37 @@ router.get('/:id/edit', requireAdmin, async (req, res, next) => {
       `SELECT id, name FROM companies ORDER BY name`
     );
 
-    // 3) Aktuelles Paket/Kategorie aus selected_packages holen
-    const [[sel]] = await db.query(
-      `SELECT package_id, category_id
+    // 3) Aktuelle Paket-/Kategorie-Zuordnungen laden (mehrfach möglich)
+    const [selectedPackages] = await db.query(
+      `SELECT id, package_id, category_id, start_date, end_date
          FROM selected_packages
         WHERE user_id = ?
+          AND package_id IS NOT NULL
+          AND category_id IS NOT NULL
           AND (end_date IS NULL OR end_date > NOW())
-        ORDER BY created_at DESC
-        LIMIT 1`,
+        ORDER BY created_at DESC, id DESC`,
       [id]
     );
-    const currentPackage  = sel?.package_id   || null;
-    const currentCategory = sel?.category_id  || null;
+    user.package_assignments = selectedPackages.map((sp) => ({
+      id: Number(sp.id),
+      package_id: String(sp.package_id || ''),
+      category_id: Number(sp.category_id) || '',
+      start_date: sp.start_date || null,
+      end_date: sp.end_date || null
+    }));
 
-    // 4) Alle Pakete mit Flag selected
+    // 4) Alle Pakete
     const [packages] = await db.query(
-      `SELECT
-         p.id,
-         p.name,
-         p.price,
-         CASE WHEN p.id = ? THEN 1 ELSE 0 END AS selected
-       FROM packages p
-       ORDER BY p.name`,
-      [currentPackage]
+      `SELECT id, name, price
+         FROM packages
+        ORDER BY name`
     );
 
-    // 5) Alle Kategorien (ententies) mit Flag selected
+    // 5) Alle Kategorien (ententies)
     const [categories] = await db.query(
-      `SELECT
-         e.id,
-         e.name,
-         CASE WHEN e.id = ? THEN 1 ELSE 0 END AS selected
-       FROM ententies e
-       ORDER BY e.name`,
-      [currentCategory]
+      `SELECT id, name
+         FROM ententies
+        ORDER BY name`
     );
 
     // 6) Zusatzleistungen laden
@@ -1396,6 +1781,11 @@ router.get('/:id/edit', requireAdmin, async (req, res, next) => {
     }
 
     const listings = await loadUserListingChoicesForEdit(Number(id));
+    user.package_assignments = mergeAssignmentsWithOnlineListingCategories(
+      user.package_assignments,
+      listings
+    );
+    const selectedPackagesForActions = await loadSelectedPackagesForEditActions(Number(id));
 
 
     // Rendern
@@ -1408,6 +1798,9 @@ router.get('/:id/edit', requireAdmin, async (req, res, next) => {
       categories,
       usersPackages,
       listings,
+      selectedPackagesForActions,
+      successMessage: (req.flash('success') || [])[0] || null,
+      errorMessage: (req.flash('error') || [])[0] || null,
       errors: []
     });
 
@@ -1450,10 +1843,59 @@ router.post(
         imprint,
         package_id,
         category_id,
+        assignment_package_id,
+        assignment_category_id,
         users_package_id,
         selected_listing
       } = req.body;
       const logo = req.file ? req.file.buffer : null;
+
+      const toArray = (value) => {
+        if (Array.isArray(value)) return value;
+        if (value === undefined || value === null) return [];
+        return [value];
+      };
+
+      const packageInput = toArray(
+        assignment_package_id !== undefined ? assignment_package_id : package_id
+      );
+      const categoryInput = toArray(
+        assignment_category_id !== undefined ? assignment_category_id : category_id
+      );
+
+      const parsedAssignments = [];
+      const packageAssignments = [];
+      const pairCount = Math.max(packageInput.length, categoryInput.length);
+      for (let i = 0; i < pairCount; i += 1) {
+        const pkg = String(packageInput[i] || '').trim();
+        const catRaw = String(categoryInput[i] || '').trim();
+
+        if (!pkg && !catRaw) continue;
+
+        parsedAssignments.push({
+          package_id: pkg,
+          category_id: catRaw
+        });
+
+        if (!pkg || !catRaw) continue;
+
+        const catNum = Number.parseInt(catRaw, 10);
+        if (!Number.isFinite(catNum) || catNum <= 0) continue;
+
+        packageAssignments.push({
+          package_id: pkg,
+          category_id: catNum
+        });
+      }
+
+      const uniquePackageAssignments = [];
+      const assignmentKeys = new Set();
+      for (const row of packageAssignments) {
+        const key = `${row.package_id}::${row.category_id}`;
+        if (assignmentKeys.has(key)) continue;
+        assignmentKeys.add(key);
+        uniquePackageAssignments.push(row);
+      }
 
       // Basis-Validierung
       const errors = [];
@@ -1461,8 +1903,45 @@ router.post(
       if (!firstname) errors.push({ msg: 'Vorname ist erforderlich.' });
       if (!lastname)  errors.push({ msg: 'Nachname ist erforderlich.' });
       if (!email)     errors.push({ msg: 'E-Mail ist erforderlich.' });
-      if ((package_id || category_id) && !country_id) {
+      for (const row of parsedAssignments) {
+        const hasPackage = Boolean(String(row.package_id || '').trim());
+        const hasCategory = Boolean(String(row.category_id || '').trim());
+        if (hasPackage !== hasCategory) {
+          errors.push({ msg: 'Bei Paketzuweisungen müssen Paket und Kategorie gemeinsam gesetzt sein.' });
+          break;
+        }
+      }
+      if (parsedAssignments.length && !country_id) {
         errors.push({ msg: 'Land erforderlich bei Paket/Kategorie.' });
+      }
+
+      if (uniquePackageAssignments.length) {
+        const packageIds = [...new Set(uniquePackageAssignments.map((row) => row.package_id))];
+        const categoryIds = [...new Set(uniquePackageAssignments.map((row) => row.category_id))];
+
+        if (packageIds.length) {
+          const packagePlaceholders = packageIds.map(() => '?').join(', ');
+          const [pkgRows] = await db.query(
+            `SELECT id FROM packages WHERE id IN (${packagePlaceholders})`,
+            packageIds
+          );
+          const validPackageIds = new Set(pkgRows.map((row) => String(row.id)));
+          if (packageIds.some((pkgId) => !validPackageIds.has(String(pkgId)))) {
+            errors.push({ msg: 'Mindestens ein gewähltes Paket ist ungültig.' });
+          }
+        }
+
+        if (categoryIds.length) {
+          const categoryPlaceholders = categoryIds.map(() => '?').join(', ');
+          const [catRows] = await db.query(
+            `SELECT id FROM ententies WHERE id IN (${categoryPlaceholders})`,
+            categoryIds
+          );
+          const validCategoryIds = new Set(catRows.map((row) => Number(row.id)));
+          if (categoryIds.some((catId) => !validCategoryIds.has(Number(catId)))) {
+            errors.push({ msg: 'Mindestens eine gewählte Kategorie ist ungültig.' });
+          }
+        }
       }
 
       let listingChoices = [];
@@ -1480,6 +1959,10 @@ router.post(
       }
 
       if (errors.length) {
+        if (!listingChoices.length) {
+          listingChoices = await loadUserListingChoicesForEdit(Number(id));
+        }
+
         // Dropdowns neu laden
         const [countries]  = await db.query(`SELECT id, de AS name FROM countries WHERE visible=1 ORDER BY de`);
         const [companies]  = await db.query(`SELECT id, name FROM companies ORDER BY name`);
@@ -1490,6 +1973,7 @@ router.post(
           FROM users_packages
           ORDER BY name
         `);
+        const selectedPackagesForActions = await loadSelectedPackagesForEditActions(Number(id));
 
         return res.render('admin/users/edit-user', {
           active:     'users-list',
@@ -1498,7 +1982,8 @@ router.post(
             street, housenumber, postcode, city, country_id,
             phone, mobile, fax, email, website,
             showAddress, showCompany, showPhone, showEmail, showWebsite,
-            imprint, package_id, category_id, users_package_id,
+            imprint, users_package_id,
+            package_assignments: mergeAssignmentsWithOnlineListingCategories(parsedAssignments, listingChoices),
             selected_listing
           },
           countries,
@@ -1507,6 +1992,9 @@ router.post(
           categories,
           usersPackages,
           listings: listingChoices,
+          selectedPackagesForActions,
+          successMessage: null,
+          errorMessage: null,
           errors
         });
       }
@@ -1569,8 +2057,8 @@ router.post(
       // Alte Package-Zuordnungen löschen
       await db.query(`DELETE FROM selected_packages WHERE user_id = ?`, [id]);
 
-      // Neues Paket + Order
-      if (package_id || category_id) {
+      // Neue Paket-Zuordnungen + Orders (mehrere möglich)
+      for (const assignment of uniquePackageAssignments) {
         const [orderRes] = await db.query(
           `INSERT INTO orders
              (user_id, package_id, product, category_id, country_id,
@@ -1579,9 +2067,9 @@ router.post(
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
           [
             id,
-            package_id   || null,
-            package_id   || null,
-            category_id  || null,
+            assignment.package_id || null,
+            assignment.package_id || null,
+            assignment.category_id || null,
             country_id   || null,
             firstname,
             lastname,
@@ -1604,13 +2092,15 @@ router.post(
            VALUES (?, ?, ?, ?, NOW(), DATE_ADD(NOW(), INTERVAL 1 YEAR), 0, 0, ?)`,
           [
             id,
-            package_id   || null,
-            category_id  || null,
+            assignment.package_id || null,
+            assignment.category_id || null,
             country_id   || null,
             orderId
           ]
         );
       }
+
+      const fallbackCategoryId = uniquePackageAssignments[0]?.category_id || null;
 
       // Zusatzleistungen prüfen (Update oder Insert)
       if (users_package_id && selectedListing) {
@@ -1646,7 +2136,7 @@ router.post(
                      examination_status = 1
                WHERE id = ?`,
               [
-                entitieId || category_id || null,
+                entitieId || fallbackCategoryId || null,
                 itemId,
                 up.duration_weeks,
                 existing.id
@@ -1665,7 +2155,7 @@ router.post(
                        ?, 'pending', 1)`,
               [
                 id,
-                entitieId || category_id || null,
+                entitieId || fallbackCategoryId || null,
                 itemId,
                 users_package_id,
                 up.duration_weeks,
@@ -2338,10 +2828,154 @@ function normalizeThumb(raw) {
   return null;
 }
 
+const OVERVIEW_STATES = ['active', 'toapprove', 'pending', 'rejected', 'stopped', 'ended', 'deleted', 'all'];
+const OVERVIEW_STATE_LABELS = {
+  active: 'LAUFENDE',
+  toapprove: 'FREIZUGEBENDE',
+  pending: 'WARTENDE',
+  rejected: 'ABGELEHNTE',
+  stopped: 'ANGEHALTENE',
+  ended: 'BEENDETE',
+  deleted: 'GELÖSCHTE',
+  all: 'ALLE'
+};
+
+function isPublishedForOverview(row) {
+  const published = row?.published ? new Date(row.published) : null;
+  if (!published) return true;
+  if (Number.isNaN(published.getTime())) return true;
+  return published <= new Date();
+}
+
+function isWithinLast365DaysForOverview(row) {
+  const threshold = Date.now() - (365 * 24 * 60 * 60 * 1000);
+  const createdTs = row?.created ? new Date(row.created).getTime() : NaN;
+  const modifiedTs = row?.modified ? new Date(row.modified).getTime() : NaN;
+  return (Number.isFinite(createdTs) && createdTs >= threshold) || (Number.isFinite(modifiedTs) && modifiedTs >= threshold);
+}
+
+function isEndedForOverview(row) {
+  const stopdate = row?.stopdate ? new Date(row.stopdate) : null;
+  if (!stopdate || Number.isNaN(stopdate.getTime())) return false;
+  return stopdate <= new Date();
+}
+
+function isStatusThree(value) {
+  if (Number(value) === 3) return true;
+  return String(value ?? '').trim() === '3';
+}
+
+function isVisibleOne(value) {
+  if (value === true) return true;
+  if (Number(value) === 1) return true;
+  const v = String(value ?? '').trim().toLowerCase();
+  return v === '1' || v === 'true';
+}
+
+function matchesOverviewState(row, stateKey) {
+  const isOnline = isStatusThree(row?.status) && isVisibleOne(row?.visible);
+
+  if (!isPublishedForOverview(row)) return false;
+
+  switch (String(stateKey || 'all')) {
+    case 'active':
+      return isOnline;
+    case 'toapprove':
+      return (Number(row?.status) === 1 || Number(row?.status) === 2) && isWithinLast365DaysForOverview(row);
+    case 'pending':
+      return Number(row?.status) === 7;
+    case 'rejected':
+      return Number(row?.status) === 8;
+    case 'stopped':
+      return isStatusThree(row?.status) && !isVisibleOne(row?.visible);
+    case 'ended':
+      return isEndedForOverview(row);
+    case 'deleted':
+      return Number(row?.status) === 9;
+    case 'all':
+    default:
+      return true;
+  }
+}
+
+function getPrimaryOverviewState(row) {
+  if (matchesOverviewState(row, 'deleted')) return 'deleted';
+  if (matchesOverviewState(row, 'pending')) return 'pending';
+  if (matchesOverviewState(row, 'rejected')) return 'rejected';
+  if (matchesOverviewState(row, 'toapprove')) return 'toapprove';
+  if (matchesOverviewState(row, 'stopped')) return 'stopped';
+  if (matchesOverviewState(row, 'active')) return 'active';
+  if (matchesOverviewState(row, 'ended')) return 'ended';
+  return 'all';
+}
+
+function sortOverviewRows(rows, sort) {
+  const list = Array.isArray(rows) ? [...rows] : [];
+  const sortKey = String(sort || '').trim();
+  if (!sortKey) return list;
+
+  const byDateAsc = (a, b, field) => {
+    const aTs = new Date(a?.[field] || 0).getTime() || 0;
+    const bTs = new Date(b?.[field] || 0).getTime() || 0;
+    return aTs - bTs;
+  };
+  const byNumAsc = (a, b, field) => {
+    const aNum = Number(a?.[field] || 0);
+    const bNum = Number(b?.[field] || 0);
+    return aNum - bNum;
+  };
+
+  switch (sortKey) {
+    case 'price_asc':
+      return list.sort((a, b) => byNumAsc(a, b, 'price'));
+    case 'price_desc':
+      return list.sort((a, b) => byNumAsc(b, a, 'price'));
+    case 'created_asc':
+      return list.sort((a, b) => byDateAsc(a, b, 'created'));
+    case 'created_desc':
+      return list.sort((a, b) => byDateAsc(b, a, 'created'));
+    case 'modified_asc':
+      return list.sort((a, b) => byDateAsc(a, b, 'modified'));
+    case 'modified_desc':
+      return list.sort((a, b) => byDateAsc(b, a, 'modified'));
+    case 'visits_asc':
+      return list.sort((a, b) => byNumAsc(a, b, 'visits'));
+    case 'visits_desc':
+      return list.sort((a, b) => byNumAsc(b, a, 'visits'));
+    default:
+      return list;
+  }
+}
+
 router.get('/:id/overview', requireAdmin, async (req, res, next) => { 
   try {
     const userId = Number(req.params.id);
-    const { status, visits, minPrice } = req.query; // Filterparameter aus URL
+    const {
+      state = 'active',
+      entity = '',
+      search = '',
+      searchId = '',
+      searchTitle = '',
+      visits = '',
+      minPrice = '',
+      maxPrice = '',
+      sort = ''
+    } = req.query;
+
+    const selectedState = OVERVIEW_STATES.includes(String(state)) ? String(state) : 'active';
+    const requestedEntity = String(entity || '').trim().toLowerCase();
+    const searchRaw = String(search || '').trim();
+    const searchIdRaw = String(searchId || '').trim();
+    const searchTitleRaw = String(searchTitle || '').trim();
+    const visitsRaw = String(visits || '').trim();
+    const minPriceRaw = String(minPrice || '').trim();
+    const maxPriceRaw = String(maxPrice || '').trim();
+    const sortRaw = String(sort || '').trim();
+
+    const minPriceNum = Number.parseFloat(minPriceRaw);
+    const hasMinPrice = Number.isFinite(minPriceNum);
+    const maxPriceNum = Number.parseFloat(maxPriceRaw);
+    const hasMaxPrice = Number.isFinite(maxPriceNum);
 
     // 1) User holen
     const [[user]] = await db.query(
@@ -2370,25 +3004,79 @@ router.get('/:id/overview', requireAdmin, async (req, res, next) => {
       }
     }
 
+    const entityOptions = listingsByEntity
+      .filter((ent) => Number(ent.count || 0) > 0)
+      .map((ent) => ({
+        route: String(ent.route || ''),
+        name: ent.entitie_name || ent.route || '',
+        count: Number(ent.count || 0)
+      }));
+
+    const selectedEntity = entityOptions.length
+      ? (
+          requestedEntity === 'all'
+            ? 'all'
+            : (entityOptions.some((opt) => String(opt.route).toLowerCase() === requestedEntity)
+              ? requestedEntity
+              : 'all')
+        )
+      : '';
+
+    if (selectedEntity && selectedEntity !== 'all') {
+      listingsByEntity = listingsByEntity.filter(
+        (ent) => String(ent.route || '').toLowerCase() === selectedEntity
+      );
+    }
+
+    const stateCounts = OVERVIEW_STATES.reduce((acc, st) => ({ ...acc, [st]: 0 }), {});
+    for (const ent of listingsByEntity) {
+      for (const r of ent.rows || []) {
+        for (const st of OVERVIEW_STATES) {
+          if (matchesOverviewState(r, st)) {
+            stateCounts[st] += 1;
+          }
+        }
+      }
+    }
+
     // 3) Filter anwenden
     listingsByEntity = listingsByEntity.map(ent => {
       ent.rows = ent.rows.filter(r => {
-        let ok = true;
+        if (!matchesOverviewState(r, selectedState)) return false;
 
-        // Statusfilter
-        if (status === 'online') ok = ok && r.status == 3 && r.visible == 1;
-        if (status === 'offline') ok = ok && !(r.status == 3 && r.visible == 1);
+        if (searchIdRaw) {
+          if (!/^\d+$/.test(searchIdRaw)) return false;
+          if (Number(r.id) !== Number(searchIdRaw)) return false;
+        }
 
-        // Besucherfilter
-        if (visits === '0') ok = ok && (r.visits || 0) === 0;
-        if (visits === '10plus') ok = ok && (r.visits || 0) >= 10;
-        if (visits === '100plus') ok = ok && (r.visits || 0) >= 100;
+        if (searchTitleRaw) {
+          const titleLc = String(r.title || '').toLowerCase();
+          if (!titleLc.includes(searchTitleRaw.toLowerCase())) return false;
+        }
 
-        // Preisfilter
-        if (minPrice) ok = ok && Number(r.price) >= Number(minPrice);
+        if (searchRaw) {
+          const haystack = `${r.id || ''} ${r.title || ''}`.toLowerCase();
+          if (!haystack.includes(searchRaw.toLowerCase())) return false;
+        }
 
-        return ok;
+        const visitsNum = Number(r.visits || 0);
+        if (visitsRaw === '0' && visitsNum !== 0) return false;
+        if (visitsRaw === '10plus' && visitsNum < 10) return false;
+        if (visitsRaw === '100plus' && visitsNum < 100) return false;
+
+        const priceNum = Number(r.price);
+        if (hasMinPrice && (!Number.isFinite(priceNum) || priceNum < minPriceNum)) return false;
+        if (hasMaxPrice && (!Number.isFinite(priceNum) || priceNum > maxPriceNum)) return false;
+
+        return true;
       });
+
+      for (const row of ent.rows) {
+        row._is_online = isStatusThree(row.status) && isVisibleOne(row.visible);
+        row._overview_state = selectedState === 'all' ? getPrimaryOverviewState(row) : selectedState;
+      }
+
+      ent.rows = sortOverviewRows(ent.rows, sortRaw);
 
       // Anzahl nach Filter anpassen
       ent.count = ent.rows.length;
@@ -2434,7 +3122,21 @@ router.get('/:id/overview', requireAdmin, async (req, res, next) => {
       listingsByEntity,
       visits: visitsData,
       stats,
-      query: req.query // damit die EJS den aktuellen Filter kennt
+      state: selectedState,
+      overviewStates: OVERVIEW_STATES,
+      stateLabels: OVERVIEW_STATE_LABELS,
+      stateCounts,
+      entityOptions,
+      filters: {
+        entity: selectedEntity,
+        search: searchRaw,
+        searchId: searchIdRaw,
+        searchTitle: searchTitleRaw,
+        visits: visitsRaw,
+        minPrice: minPriceRaw,
+        maxPrice: maxPriceRaw,
+        sort: sortRaw
+      }
     });
 
   } catch (err) {

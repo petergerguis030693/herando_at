@@ -461,15 +461,20 @@
   width: 100%;
   gap: 0;
   transition: transform 0.4s ease;
+  transform: translate3d(0, 0, 0);
   will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
   touch-action: pan-y;
 }
 
 .mobile-carousel-slide {
   width: 100%;
   min-width: 100%; /* 1 Inserat pro Slide */
+  max-width: 100%;
   flex: 0 0 100%;
   box-sizing: border-box;
+  overflow: hidden;
 }
 
 /* Pfeile IMMER sichtbar */
@@ -780,6 +785,19 @@
 @media (max-width: 766px) {
   .topOffersWrapper-mobile {
     display: block;
+  }
+
+  /* Aktuelle Top-Angebote (nur mobile): Bildhöhe auf 350px fixieren */
+  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.cars .bild img,
+  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.yachts .bild img {
+    height: 350px !important;
+    min-height: 350px !important;
+  }
+
+  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.properties .bild img,
+  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.watches .bild img,
+  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.lifestyles .bild img {
+    height: 350px !important;
   }
 }
 

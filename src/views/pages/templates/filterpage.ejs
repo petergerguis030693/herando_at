@@ -1,10 +1,40 @@
 <%- include('../../partials/header') %>
 <%
-// t-Helper: nimmt deine i18n-Middleware aus res.locals.t
-const t = (key, fb) => (typeof locals.t === 'function'
-  ? locals.t(key, { lng: (locals.activeLang || 'de'), defaultValue: fb })
-  : (fb ?? key)
-);
+const activeLangCode = String(locals.activeLang || 'de').split('-')[0];
+const REGION_LABEL_FALLBACKS = {
+  de: 'Bundesland / Region',
+  en: 'State / Region',
+  fr: 'Region',
+  it: 'Regione',
+  tr: 'Bölge',
+  ja: '地域',
+  cs: 'Region',
+  ru: 'Регион',
+  es: 'Region',
+  nl: 'Regio',
+  pl: 'Region'
+};
+const REGION_LABEL_FALLBACK = REGION_LABEL_FALLBACKS[activeLangCode] || 'Region';
+
+const toText = (value, fallback) => {
+  if (value == null) return String(fallback ?? '');
+  if (typeof value === 'string' || typeof value === 'number') return String(value);
+  if (typeof value === 'object') {
+    if (typeof value[activeLangCode] === 'string') return value[activeLangCode];
+    if (typeof value.de === 'string') return value.de;
+    if (typeof value.label === 'string') return value.label;
+    if (typeof value.name === 'string') return value.name;
+  }
+  return String(fallback ?? '');
+};
+
+// t-Helper: nimmt deine i18n-Middleware aus res.locals.t und normalisiert Object-Returns zu Text
+const t = (key, fb) => {
+  const raw = (typeof locals.t === 'function')
+    ? locals.t(key, { lng: activeLangCode, defaultValue: fb })
+    : (fb ?? key);
+  return toText(raw, fb ?? key);
+};
 
 // Bequemlichkeits-Konstanten
 const ANY   = t('labels.common.any', 'Beliebig');
@@ -2837,6 +2867,8 @@ document.getElementById('fLifeType').addEventListener('change', async function (
   </form>
 </div>
 
+<script type="application/json" id="fp-country-tree-data"><%- JSON.stringify((filters.countries || []).map((c) => ({ id: Number(c.id), parentId: c.parent_id == null ? null : Number(c.parent_id), label: String(c.name || c.de || c.en || c.code || c.id) }))) %></script>
+
 <script>
 (() => {
   const page     = document.getElementById('filterpage');
@@ -3005,6 +3037,149 @@ function syncModelEnabled() {
   }
 }
 
+function initCountryRegionFilters() {
+  const dataNode = document.getElementById('fp-country-tree-data');
+  if (!dataNode) return;
+
+  let countryTree = [];
+  try {
+    countryTree = JSON.parse(dataNode.textContent || '[]');
+  } catch (_) {
+    countryTree = [];
+  }
+  if (!Array.isArray(countryTree) || !countryTree.length) return;
+
+  const regionLabel = "<%= t('filter.region', REGION_LABEL_FALLBACK) %>";
+  const anyLabel = "<%= t('labels.common.any','Beliebig') %>";
+  const chooseCountryLabel = "<%= t('buyer.listing.location.select_country_first', 'Bitte zuerst Land wählen') %>";
+
+  const asId = (value) => {
+    const parsed = Number.parseInt(String(value || ''), 10);
+    return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : '';
+  };
+
+  const byId = new Map();
+  const byParentId = new Map();
+  const parents = [];
+  countryTree.forEach((entry) => {
+    const id = asId(entry?.id);
+    if (!id) return;
+    const parentId = entry?.parentId == null ? '' : asId(entry.parentId);
+    const label = String(entry?.label || id);
+    const row = { id, parentId, label };
+    byId.set(id, row);
+    if (!parentId) {
+      parents.push(row);
+      return;
+    }
+    if (!byParentId.has(parentId)) byParentId.set(parentId, []);
+    byParentId.get(parentId).push(row);
+  });
+  parents.sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }));
+
+  form.querySelectorAll('select[name="country"]').forEach((countrySelect) => {
+    if (countrySelect.dataset.regionEnhanced === '1') return;
+    countrySelect.dataset.regionEnhanced = '1';
+
+    const selectedRaw = asId(countrySelect.value);
+    const selectedRow = selectedRaw ? byId.get(selectedRaw) : null;
+    const selectedParent = selectedRow && selectedRow.parentId ? selectedRow.parentId : selectedRaw;
+    const selectedRegion = selectedRow && selectedRow.parentId ? selectedRaw : '';
+    const countryCol = countrySelect.closest('div[class*="md-col-"]') || countrySelect.parentElement;
+    if (!countryCol) return;
+
+    const hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'country';
+    hidden.value = selectedRaw || '';
+    countrySelect.removeAttribute('name');
+
+    const firstOptionText = String(countrySelect.querySelector('option')?.textContent || anyLabel).trim() || anyLabel;
+    countrySelect.innerHTML = '';
+    const countryPlaceholder = document.createElement('option');
+    countryPlaceholder.value = '';
+    countryPlaceholder.textContent = firstOptionText;
+    countrySelect.appendChild(countryPlaceholder);
+    parents.forEach((parent) => {
+      const option = document.createElement('option');
+      option.value = parent.id;
+      option.textContent = parent.label;
+      countrySelect.appendChild(option);
+    });
+
+    const regionCol = document.createElement('div');
+    regionCol.className = countryCol.className;
+    regionCol.style.display = 'none';
+    const regionLabelEl = document.createElement('label');
+    regionLabelEl.className = 'md-label';
+    regionLabelEl.textContent = regionLabel;
+    const regionSelectWrap = document.createElement('div');
+    regionSelectWrap.className = 'md-select';
+    const regionSelect = document.createElement('select');
+    regionSelect.className = countrySelect.className;
+    regionSelect.disabled = true;
+    regionSelect.innerHTML = `<option value="">${anyLabel}</option>`;
+    regionSelectWrap.appendChild(regionSelect);
+    regionCol.appendChild(regionLabelEl);
+    regionCol.appendChild(regionSelectWrap);
+
+    countryCol.insertAdjacentElement('afterend', regionCol);
+    countryCol.appendChild(hidden);
+
+    function renderRegions(parentId, selectedRegionId) {
+      const regions = parentId
+        ? (byParentId.get(parentId) || [])
+            .slice()
+            .sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
+        : [];
+
+      if (!regions.length) {
+        regionCol.style.display = 'none';
+        regionSelect.innerHTML = `<option value="">${chooseCountryLabel}</option>`;
+        regionSelect.value = '';
+        regionSelect.disabled = true;
+        return;
+      }
+
+      regionCol.style.display = '';
+      regionSelect.disabled = false;
+      regionSelect.innerHTML = `<option value="">${anyLabel}</option>`;
+      regions.forEach((region) => {
+        const option = document.createElement('option');
+        option.value = region.id;
+        option.textContent = region.label;
+        regionSelect.appendChild(option);
+      });
+
+      if (selectedRegionId && regions.some((region) => region.id === selectedRegionId)) {
+        regionSelect.value = selectedRegionId;
+      } else {
+        regionSelect.value = '';
+      }
+    }
+
+    function syncHiddenCountry() {
+      const selectedParentId = asId(countrySelect.value);
+      const selectedRegionId = asId(regionSelect.value);
+      hidden.value = selectedRegionId || selectedParentId || '';
+    }
+
+    countrySelect.value = selectedParent || '';
+    renderRegions(asId(countrySelect.value), selectedRegion);
+    syncHiddenCountry();
+
+    countrySelect.addEventListener('change', () => {
+      renderRegions(asId(countrySelect.value), '');
+      syncHiddenCountry();
+      updateCountDebounced();
+    });
+    regionSelect.addEventListener('change', () => {
+      syncHiddenCountry();
+      updateCountDebounced();
+    });
+  });
+}
+
 
 
   // ----- EVENTS -----
@@ -3079,6 +3254,7 @@ function syncModelEnabled() {
       }
     }
 
+    initCountryRegionFilters();
     syncModelEnabled();
 
     if ((entity === 'watches' || entity === 'cars') && brandSel?.value) {

@@ -5,7 +5,7 @@
     2: { name: 'Uhren',      route: 'watches' },
     3: { name: 'Autos',      route: 'cars' },
     4: { name: 'Yachts',     route: 'yachts' },
-    5: { name: 'Lifestyle',  route: 'lifestyles' }
+    6: { name: 'Luxury Lifestyle', route: 'lifestyles' }
   };
 
   function resolveEntity(type) {
@@ -52,13 +52,14 @@
         <form method="GET" action="/admin/modbrand" class="row g-2 mb-3">
           <input type="hidden" name="tab" value="brands">
           <input type="hidden" name="modelSearch" value="<%= modelSearch || '' %>">
+          <input type="hidden" name="modelEntitie" value="<%= modelEntitie || '' %>">
           <input type="hidden" name="modelPage" value="<%= currentModelPage || 1 %>">
           <div class="col-md-8">
             <input id="searchBrands" name="brandSearch" class="form-control" placeholder="Marken suchen..." value="<%= brandSearch || '' %>">
           </div>
           <div class="col-auto d-flex gap-2">
             <button type="submit" class="btn btn-outline-primary">Suchen</button>
-            <a class="btn btn-outline-secondary" href="/admin/modbrand?tab=brands&modelSearch=<%= encodeURIComponent(modelSearch || '') %>&modelPage=<%= currentModelPage || 1 %>">Reset</a>
+            <a class="btn btn-outline-secondary" href="/admin/modbrand?tab=brands&modelSearch=<%= encodeURIComponent(modelSearch || '') %>&modelEntitie=<%= encodeURIComponent(modelEntitie || '') %>&modelPage=<%= currentModelPage || 1 %>">Reset</a>
           </div>
         </form>
 
@@ -94,6 +95,7 @@
           brandPagerBase.set('tab', 'brands');
           if (brandSearch) brandPagerBase.set('brandSearch', brandSearch);
           if (modelSearch) brandPagerBase.set('modelSearch', modelSearch);
+          if (modelEntitie) brandPagerBase.set('modelEntitie', modelEntitie);
           if (currentModelPage) brandPagerBase.set('modelPage', String(currentModelPage));
           const buildBrandPageUrl = (p) => {
             const q = new URLSearchParams(brandPagerBase.toString());
@@ -173,7 +175,33 @@
         <input type="hidden" name="tab" value="models">
         <input type="hidden" name="brandSearch" value="<%= brandSearch || '' %>">
         <input type="hidden" name="brandPage" value="<%= currentBrandPage || 1 %>">
-        <div class="col-md-8">
+        <div class="col-md-3">
+          <select name="modelEntitie" class="form-select">
+            <option value="">Alle Entitäten</option>
+            <% let renderedModelFilterLuxury = false; %>
+            <% ententies.forEach(e => { %>
+              <%
+                const entitieId = Number(e.id);
+                let filterValue = String(e.id);
+                let filterLabel = e.name;
+                if (entitieId === 1) filterLabel = 'Immobilien';
+                else if (entitieId === 4) filterLabel = 'Yachts';
+                else if (entitieId === 3) filterLabel = 'Autos';
+                else if (entitieId === 5 || entitieId === 6) {
+                  if (renderedModelFilterLuxury) { return; }
+                  renderedModelFilterLuxury = true;
+                  filterValue = '6';
+                  filterLabel = 'Luxury Lifestyle';
+                }
+              %>
+              <option value="<%= filterValue %>" <%= String(modelEntitie || '') === filterValue ? 'selected' : '' %>><%= filterLabel %></option>
+            <% }) %>
+            <% if (!renderedModelFilterLuxury && brands.some(b => Number(b.type) === 6)) { %>
+              <option value="6" <%= String(modelEntitie || '') === '6' ? 'selected' : '' %>>Luxury Lifestyle</option>
+            <% } %>
+          </select>
+        </div>
+        <div class="col-md-5">
           <input id="searchModels" name="modelSearch" class="form-control" placeholder="Modelle suchen..." value="<%= modelSearch || '' %>">
         </div>
         <div class="col-auto d-flex gap-2">
@@ -186,6 +214,7 @@
         <table class="table table-bordered">
           <thead>
             <tr>
+              <th>Entität</th>
               <th>Marke</th>
               <th>Modell</th>
               <th>Aktionen</th>
@@ -194,11 +223,14 @@
           <tbody>
           <% if (!modelRows || !modelRows.length) { %>
             <tr>
-              <td colspan="3" class="text-muted">Keine Modelle gefunden.</td>
+              <td colspan="4" class="text-muted">Keine Modelle gefunden.</td>
             </tr>
           <% } %>
           <% (modelRows || []).forEach(m => { %>
             <tr data-id="<%= m.id %>" data-brandid="<%= m.brand_id %>">
+              <td>
+                <span class="badge bg-primary"><%= resolveEntity(m.entitie_id).name %></span>
+              </td>
               <td><%= m.brand_name %></td>
               <td><%= m.name %></td>
               <td>
@@ -214,6 +246,7 @@
           const modelPagerBase = new URLSearchParams();
           modelPagerBase.set('tab', 'models');
           if (modelSearch) modelPagerBase.set('modelSearch', modelSearch);
+          if (modelEntitie) modelPagerBase.set('modelEntitie', modelEntitie);
           if (brandSearch) modelPagerBase.set('brandSearch', brandSearch);
           if (currentBrandPage) modelPagerBase.set('brandPage', String(currentBrandPage));
           const buildModelPageUrl = (p) => {
@@ -267,11 +300,59 @@
       </div>
 
       <div class="modal-body">
-        <select name="brandId" class="form-select mb-2" required>
+        <div class="mb-2">
+          <label for="modelCreateEntitieFilter" class="form-label">Entität filtern</label>
+          <select id="modelCreateEntitieFilter" class="form-select">
+            <option value="">Alle Entitäten</option>
+            <% let renderedCreateFilterLuxury = false; %>
+            <% ententies.forEach(e => { %>
+              <%
+                const entitieId = Number(e.id);
+                let filterValue = String(e.id);
+                let filterLabel = e.name;
+                if (entitieId === 1) filterLabel = 'Immobilien';
+                else if (entitieId === 4) filterLabel = 'Yachts';
+                else if (entitieId === 3) filterLabel = 'Autos';
+                else if (entitieId === 5 || entitieId === 6) {
+                  if (renderedCreateFilterLuxury) { return; }
+                  renderedCreateFilterLuxury = true;
+                  filterValue = '6';
+                  filterLabel = 'Luxury Lifestyle';
+                }
+              %>
+              <option value="<%= filterValue %>"><%= filterLabel %></option>
+            <% }) %>
+            <% if (!renderedCreateFilterLuxury && brands.some(b => Number(b.type) === 6)) { %>
+              <option value="6">Luxury Lifestyle</option>
+            <% } %>
+          </select>
+        </div>
+
+        <div class="mb-2">
+          <label for="modelCreateBrandSearch" class="form-label">Marke suchen</label>
+          <input id="modelCreateBrandSearch" class="form-control" placeholder="z.B. Rolex, BMW, Porsche">
+        </div>
+
+        <label for="modelCreateBrandId" class="form-label">Marke</label>
+        <select id="modelCreateBrandId" name="brandId" class="form-select mb-1" required>
+          <option value="">Bitte Marke wählen</option>
           <% brands.forEach(b => { %>
-            <option value="<%= b.id %>"><%= b.name %></option>
+            <%
+              const optionEntitieId = Number(b.type);
+              let optionEntitieName = resolveEntity(optionEntitieId).name;
+              if (optionEntitieId === 1) optionEntitieName = 'Immobilien';
+              else if (optionEntitieId === 4) optionEntitieName = 'Yachts';
+              else if (optionEntitieId === 3) optionEntitieName = 'Autos';
+              else if (optionEntitieId === 6) optionEntitieName = 'Luxury Lifestyle';
+            %>
+            <option value="<%= b.id %>" data-entitieid="<%= b.type %>">
+              <%= b.name %> (<%= optionEntitieName %>)
+            </option>
           <% }) %>
         </select>
+        <div id="modelCreateBrandNoMatch" class="form-text text-danger d-none mb-2">
+          Keine Marke für den aktuellen Filter gefunden.
+        </div>
 
         <input name="name" class="form-control" placeholder="Modellname" required>
       </div>
@@ -367,7 +448,7 @@
     2: { name: 'Uhren',       route: 'watches' },
     3: { name: 'Autos',       route: 'cars' },
     4: { name: 'Immobilien',  route: 'properties' },
-    5: { name: 'Lifestyle',   route: 'lifestyles' }
+    6: { name: 'Luxury Lifestyle', route: 'lifestyles' }
   };
 
   function resolveEntity(type) {
@@ -420,6 +501,57 @@ document.addEventListener('DOMContentLoaded', () => {
 </script>
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+  const brandCreateForm = document.getElementById('brandCreateForm');
+  const modelCreateForm = document.getElementById('modelCreateForm');
+  const modelCreateEntitieFilter = document.getElementById('modelCreateEntitieFilter');
+  const modelCreateBrandSearch = document.getElementById('modelCreateBrandSearch');
+  const modelCreateBrandId = document.getElementById('modelCreateBrandId');
+  const modelCreateBrandNoMatch = document.getElementById('modelCreateBrandNoMatch');
+
+  function normalizeText(value) {
+    return String(value || '')
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  function applyModelBrandFilter() {
+    if (!modelCreateBrandId) return;
+
+    const selectedEntitie = String(modelCreateEntitieFilter?.value || '');
+    const searchTerm = normalizeText(modelCreateBrandSearch?.value || '');
+    let visibleCount = 0;
+
+    Array.from(modelCreateBrandId.options).forEach((option) => {
+      if (!option.value) {
+        option.hidden = false;
+        option.disabled = false;
+        return;
+      }
+
+      const optionEntitie = String(option.dataset.entitieid || '');
+      const optionName = normalizeText(option.textContent || '');
+      const entitieMatches = !selectedEntitie || optionEntitie === selectedEntitie;
+      const searchMatches = !searchTerm || optionName.includes(searchTerm);
+      const visible = entitieMatches && searchMatches;
+
+      option.hidden = !visible;
+      option.disabled = !visible;
+      if (visible) visibleCount += 1;
+    });
+
+    const selectedOption = modelCreateBrandId.selectedOptions[0];
+    if (!selectedOption || selectedOption.hidden || selectedOption.disabled) {
+      const firstMatch = Array.from(modelCreateBrandId.options)
+        .find(option => option.value && !option.hidden && !option.disabled);
+      modelCreateBrandId.value = firstMatch ? firstMatch.value : '';
+    }
+
+    if (modelCreateBrandNoMatch) {
+      modelCreateBrandNoMatch.classList.toggle('d-none', visibleCount > 0);
+    }
+  }
 
   async function postForm(form, url) {
     const body = new URLSearchParams();
@@ -443,14 +575,16 @@ document.addEventListener('DOMContentLoaded', () => {
     location.reload(); // später ersetzbar durch DOM-Update
   }
 
-  document.getElementById('brandCreateForm')
-    .addEventListener('submit', e => {
+  modelCreateEntitieFilter?.addEventListener('change', applyModelBrandFilter);
+  modelCreateBrandSearch?.addEventListener('input', applyModelBrandFilter);
+  applyModelBrandFilter();
+
+  brandCreateForm?.addEventListener('submit', e => {
       e.preventDefault();
       postForm(e.target, '/admin/modbrand/brands/new');
     });
 
-  document.getElementById('modelCreateForm')
-    .addEventListener('submit', e => {
+  modelCreateForm?.addEventListener('submit', e => {
       e.preventDefault();
       postForm(e.target, '/admin/modbrand/models/new');
     });
@@ -483,7 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       const id = tr.dataset.id;
       const brandId = tr.dataset.brandid;
-      const currentName = (tr.children[1]?.innerText || '').trim();
+      const currentName = (tr.children[2]?.innerText || '').trim();
       const nextName = prompt('Modellname bearbeiten', currentName);
 
       if (nextName === null) return;
@@ -511,7 +645,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (!tr) return;
 
       const id = tr.dataset.id;
-      const modelName = (tr.children[1]?.innerText || '').trim();
+      const modelName = (tr.children[2]?.innerText || '').trim();
       const ok = confirm(`Modell wirklich löschen?\n${modelName || `ID ${id}`}`);
       if (!ok) return;
 

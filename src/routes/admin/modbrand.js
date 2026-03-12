@@ -67,6 +67,7 @@ router.get('/', async (req, res, next) => {
       tab = 'brands',
       brandSearch = '',
       modelSearch = '',
+      modelEntitie = '',
       brandPage = '1',
       modelPage = '1'
     } = req.query;
@@ -76,6 +77,13 @@ router.get('/', async (req, res, next) => {
       : 'brands';
     const brandSearchTerm = String(brandSearch || '').trim();
     const modelSearchTerm = String(modelSearch || '').trim();
+    const availableEntitieIds = new Set([
+      ...(res.locals.ententies || []).map(e => String(e.id)),
+      '6'
+    ]);
+    const modelEntitieSelected = availableEntitieIds.has(String(modelEntitie || '').trim())
+      ? String(modelEntitie || '').trim()
+      : '';
     const requestedBrandPage = Math.max(parseInt(brandPage, 10) || 1, 1);
     const requestedModelPage = Math.max(parseInt(modelPage, 10) || 1, 1);
 
@@ -86,7 +94,7 @@ router.get('/', async (req, res, next) => {
     `);
 
     const [models] = await db.query(`
-      SELECT m.id, m.name, m.brand_id, b.name AS brand_name
+      SELECT m.id, m.name, m.brand_id, b.name AS brand_name, b.type AS entitie_id
       FROM models m
       JOIN brands b ON b.id = m.brand_id
       ORDER BY b.name, m.name
@@ -123,6 +131,10 @@ router.get('/', async (req, res, next) => {
       modelWhere.push('(CAST(m.id AS CHAR) LIKE ? OR m.name LIKE ? OR b.name LIKE ?)');
       modelParams.push(term, term, term);
     }
+    if (modelEntitieSelected) {
+      modelWhere.push('b.type = ?');
+      modelParams.push(Number(modelEntitieSelected));
+    }
     const modelWhereSql = modelWhere.length ? `WHERE ${modelWhere.join(' AND ')}` : '';
     const [[{ total: modelTotal }]] = await db.query(`
       SELECT COUNT(*) AS total
@@ -134,7 +146,7 @@ router.get('/', async (req, res, next) => {
     const currentModelPage = Math.min(requestedModelPage, modelTotalPages);
     const modelOffset = (currentModelPage - 1) * perPage;
     const [modelRows] = await db.query(`
-      SELECT m.id, m.name, m.brand_id, b.name AS brand_name
+      SELECT m.id, m.name, m.brand_id, b.name AS brand_name, b.type AS entitie_id
       FROM models m
       JOIN brands b ON b.id = m.brand_id
       ${modelWhereSql}
@@ -165,6 +177,7 @@ router.get('/', async (req, res, next) => {
       perPage,
       brandSearch: brandSearchTerm,
       modelSearch: modelSearchTerm,
+      modelEntitie: modelEntitieSelected,
       currentBrandPage,
       brandTotalPages,
       brandTotal,

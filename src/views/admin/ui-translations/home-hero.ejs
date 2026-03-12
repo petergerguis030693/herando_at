@@ -19,7 +19,51 @@
       <div class="alert alert-success py-2">Slider-Bilder wurden gespeichert.</div>
     <% } %>
 
+    <div class="card mb-3">
+      <div class="card-body">
+        <h2 class="h6 mb-2">Direkt zu den Startseiten-Übersetzungen</h2>
+        <p class="text-muted mb-2">
+          Klick auf einen Button und du landest direkt bei der passenden Übersetzung.
+        </p>
+        <div class="d-flex flex-wrap gap-2">
+          <% slides.forEach((slide) => { const titleKey = `carousel_slide${slide.index}_title`; %>
+            <a class="btn btn-outline-primary btn-sm" href="/admin/ui?q_key=<%= encodeURIComponent(titleKey) %>">
+              Slide <%= slide.index %> Text
+            </a>
+          <% }) %>
+          <a class="btn btn-outline-primary btn-sm" href="/admin/ui?q_key=<%= encodeURIComponent('all_categories_title') %>">Button/Headline Kategorien</a>
+          <a class="btn btn-outline-primary btn-sm" href="/admin/ui?q_key=<%= encodeURIComponent('index.top_offer.sell_now') %>">Button „Jetzt verkaufen“</a>
+        </div>
+      </div>
+    </div>
+
     <form method="post" action="/admin/ui/home-hero" enctype="multipart/form-data">
+      <div class="card mb-3">
+        <div class="card-body">
+          <h2 class="h6 mb-2">Startseite Reihenfolge (dynamisch)</h2>
+          <p class="text-muted mb-2">
+            Reihenfolge mit den Pfeilen ändern. Diese Sortierung gilt nur für die Startseite.
+          </p>
+          <div class="row g-2">
+            <div class="col-lg-8">
+              <select id="homeEntityOrderList" class="form-select" size="<%= Math.max(4, (homepageEntityOrderItems || []).length) %>">
+                <% (homepageEntityOrderItems || []).forEach((item) => { %>
+                  <option value="<%= item.route %>"><%= item.name %> (<%= item.route %>)</option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-lg-4 d-grid gap-2">
+              <button type="button" class="btn btn-outline-secondary" id="homeOrderUpBtn">Nach oben</button>
+              <button type="button" class="btn btn-outline-secondary" id="homeOrderDownBtn">Nach unten</button>
+            </div>
+          </div>
+          <input type="hidden" id="homeEntityOrderInput" name="home_entity_order" value="<%= homepageEntityOrderValue || '' %>">
+          <div class="form-text mt-2">
+            Config-Key: <code><%= homepageEntityOrderKey %></code>
+          </div>
+        </div>
+      </div>
+
       <div class="row g-3">
         <% slides.forEach((slide) => { %>
           <div class="col-12">
@@ -44,6 +88,10 @@
                     <div class="small text-muted">
                       Key: <code><%= slide.key %></code>
                       <% if (slide.isCustom) { %><span class="badge bg-success ms-1">Custom</span><% } %>
+                    </div>
+                    <div class="small text-muted">
+                      Text-Key: <code>carousel_slide<%= slide.index %>_title</code>
+                      <a class="btn btn-link btn-sm p-0 ms-1" href="/admin/ui?q_key=<%= encodeURIComponent(`carousel_slide${slide.index}_title`) %>">Bearbeiten</a>
                     </div>
                   </div>
 
@@ -96,5 +144,47 @@
         <a class="btn btn-outline-secondary" href="/admin/ui">Zurück zu UI-Texten</a>
       </div>
     </form>
+
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const list = document.getElementById('homeEntityOrderList');
+        const hiddenInput = document.getElementById('homeEntityOrderInput');
+        const upBtn = document.getElementById('homeOrderUpBtn');
+        const downBtn = document.getElementById('homeOrderDownBtn');
+
+        const syncOrder = () => {
+          if (!list || !hiddenInput) return;
+          hiddenInput.value = Array.from(list.options).map((option) => option.value).join(',');
+        };
+
+        const moveSelected = (direction) => {
+          if (!list) return;
+          const currentIndex = list.selectedIndex;
+          if (currentIndex < 0) return;
+          const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+          if (targetIndex < 0 || targetIndex >= list.options.length) return;
+
+          const currentOption = list.options[currentIndex];
+          const swapWith = list.options[targetIndex];
+
+          if (direction === 'up') {
+            list.insertBefore(currentOption, swapWith);
+          } else {
+            list.insertBefore(swapWith, currentOption);
+          }
+
+          list.selectedIndex = targetIndex;
+          syncOrder();
+        };
+
+        upBtn?.addEventListener('click', () => moveSelected('up'));
+        downBtn?.addEventListener('click', () => moveSelected('down'));
+
+        if (list && list.options.length && list.selectedIndex < 0) {
+          list.selectedIndex = 0;
+        }
+        syncOrder();
+      });
+    </script>
   </main>
 </div>

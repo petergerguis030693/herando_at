@@ -20,7 +20,7 @@
             <th>Name</th>
             <th>Category</th>
             <th>Dauer (Wochen)</th>
-            <th>Preis (Cent)</th>
+            <th>Preis (EUR)</th>
             <th>Placement Table</th>
             <th>Aktionen</th>
           </tr>
@@ -32,7 +32,9 @@
               <td><%= pkg.name %></td>
               <td><%= pkg.category %></td>
               <td><%= pkg.duration_weeks %></td>
-              <td><%= pkg.price_cents %></td>
+              <td>
+                <%= new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format((Number(pkg.price_cents) || 0) / 100) %>
+              </td>
               <td><%= pkg.placement_table || '—' %></td>
               <td>
                 <a href="/admin/packages/userpackages/<%= pkg.id %>/edit" class="btn btn-sm btn-warning me-1">Bearbeiten</a>

@@ -61,34 +61,113 @@
         <!-- Filter -->
         <div class="card mb-4 shadow-sm">
           <div class="card-body">
+            <%
+              function buildOverviewQuery(overrides = {}) {
+                const params = new URLSearchParams();
+                const next = {
+                  state: (typeof state === 'string' && state) ? state : 'active',
+                  entity: filters?.entity || '',
+                  search: filters?.search || '',
+                  searchId: filters?.searchId || '',
+                  searchTitle: filters?.searchTitle || '',
+                  visits: filters?.visits || '',
+                  minPrice: filters?.minPrice || '',
+                  maxPrice: filters?.maxPrice || '',
+                  sort: filters?.sort || '',
+                  ...overrides
+                };
+
+                Object.entries(next).forEach(([key, value]) => {
+                  if (value === null || value === undefined || value === '') return;
+                  params.set(key, String(value));
+                });
+
+                const queryString = params.toString();
+                return `/admin/users/${user.id}/overview${queryString ? `?${queryString}` : ''}`;
+              }
+            %>
+
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <% (overviewStates || []).forEach((st) => { %>
+                <% if (st !== 'all') { %>
+                  <a href="<%= buildOverviewQuery({ state: st }) %>"
+                     class="btn btn-sm <%= state === st ? 'btn-primary' : 'btn-outline-primary' %>">
+                    <%= (stateLabels && stateLabels[st]) || st %> (<%= (stateCounts && stateCounts[st]) || 0 %>)
+                  </a>
+                <% } %>
+              <% }) %>
+            </div>
+
+            <div class="d-flex flex-wrap gap-2 mb-3">
+              <% const totalEntityCount = (entityOptions || []).reduce((sum, opt) => sum + Number(opt.count || 0), 0); %>
+              <% if ((entityOptions || []).length) { %>
+                <a href="<%= buildOverviewQuery({ entity: 'all' }) %>"
+                   class="btn btn-sm <%= String(filters?.entity || 'all') === 'all' ? 'btn-dark' : 'btn-outline-dark' %>">
+                  Alle (<%= totalEntityCount %>)
+                </a>
+              <% } %>
+              <% (entityOptions || []).forEach((opt) => { %>
+                <a href="<%= buildOverviewQuery({ entity: opt.route }) %>"
+                   class="btn btn-sm <%= String(filters?.entity || '') === String(opt.route) ? 'btn-dark' : 'btn-outline-dark' %>">
+                  <%= opt.name %> (<%= opt.count %>)
+                </a>
+              <% }) %>
+            </div>
+
             <form method="GET" class="row g-3 align-items-end">
+              <input type="hidden" name="state" value="<%= state || 'active' %>">
+              <input type="hidden" name="entity" value="<%= filters?.entity || '' %>">
               <div class="col-md-3">
-                <label for="status" class="form-label fw-bold">Status</label>
-                <select name="status" id="status" class="form-select">
-                  <option value="" <%= !query.status ? 'selected' : '' %>>Alle</option>
-                  <option value="online" <%= query.status === 'online' ? 'selected' : '' %>>Online</option>
-                  <option value="offline" <%= query.status === 'offline' ? 'selected' : '' %>>Offline</option>
-                </select>
+                <label for="search" class="form-label fw-bold">Suche</label>
+                <input type="text" name="search" id="search" class="form-control"
+                       value="<%= filters?.search || '' %>" placeholder="ID oder Titel">
+              </div>
+              <div class="col-md-3">
+                <label for="searchId" class="form-label fw-bold">Inserat-ID</label>
+                <input type="text" name="searchId" id="searchId" class="form-control"
+                       value="<%= filters?.searchId || '' %>" placeholder="z. B. 12345">
+              </div>
+              <div class="col-md-3">
+                <label for="searchTitle" class="form-label fw-bold">Titel</label>
+                <input type="text" name="searchTitle" id="searchTitle" class="form-control"
+                       value="<%= filters?.searchTitle || '' %>" placeholder="Titel enthält ...">
               </div>
               <div class="col-md-3">
                 <label for="visits" class="form-label fw-bold">Besucher</label>
                 <select name="visits" id="visits" class="form-select">
-                  <option value="" <%= !query.visits ? 'selected' : '' %>>Alle</option>
-                  <option value="0" <%= query.visits === '0' ? 'selected' : '' %>>0 Besucher</option>
-                  <option value="10plus" <%= query.visits === '10plus' ? 'selected' : '' %>>ab 10 Besucher</option>
-                  <option value="100plus" <%= query.visits === '100plus' ? 'selected' : '' %>>ab 100 Besucher</option>
+                  <option value="" <%= !filters?.visits ? 'selected' : '' %>>Alle</option>
+                  <option value="0" <%= filters?.visits === '0' ? 'selected' : '' %>>0 Besucher</option>
+                  <option value="10plus" <%= filters?.visits === '10plus' ? 'selected' : '' %>>ab 10 Besucher</option>
+                  <option value="100plus" <%= filters?.visits === '100plus' ? 'selected' : '' %>>ab 100 Besucher</option>
                 </select>
               </div>
-              <div class="col-md-3">
-                <label for="minPrice" class="form-label fw-bold">Mindestpreis (€)</label>
+              <div class="col-md-2">
+                <label for="minPrice" class="form-label fw-bold">Preis min (€)</label>
                 <input type="number" step="1" min="0" name="minPrice" id="minPrice" 
-                       value="<%= query.minPrice || '' %>" class="form-control">
+                       value="<%= filters?.minPrice || '' %>" class="form-control">
+              </div>
+              <div class="col-md-2">
+                <label for="maxPrice" class="form-label fw-bold">Preis max (€)</label>
+                <input type="number" step="1" min="0" name="maxPrice" id="maxPrice" 
+                       value="<%= filters?.maxPrice || '' %>" class="form-control">
+              </div>
+              <div class="col-md-3">
+                <label for="sort" class="form-label fw-bold">Sortierung</label>
+                <select name="sort" id="sort" class="form-select">
+                  <option value="" <%= !filters?.sort ? 'selected' : '' %>>Standard</option>
+                  <option value="price_asc" <%= filters?.sort === 'price_asc' ? 'selected' : '' %>>Preis aufsteigend</option>
+                  <option value="price_desc" <%= filters?.sort === 'price_desc' ? 'selected' : '' %>>Preis absteigend</option>
+                  <option value="created_desc" <%= filters?.sort === 'created_desc' ? 'selected' : '' %>>Neueste zuerst</option>
+                  <option value="created_asc" <%= filters?.sort === 'created_asc' ? 'selected' : '' %>>Älteste zuerst</option>
+                  <option value="modified_desc" <%= filters?.sort === 'modified_desc' ? 'selected' : '' %>>Zuletzt geändert</option>
+                  <option value="visits_desc" <%= filters?.sort === 'visits_desc' ? 'selected' : '' %>>Besucher absteigend</option>
+                </select>
               </div>
               <div class="col-md-3 d-flex gap-2">
                 <button type="submit" class="btn btn-primary flex-fill">
                   <i class="bi bi-funnel"></i> Filtern
                 </button>
-                <a href="/admin/users/<%= user.id %>/overview" class="btn btn-secondary flex-fill">
+                <a href="<%= buildOverviewQuery({ search: '', searchId: '', searchTitle: '', visits: '', minPrice: '', maxPrice: '', sort: '' }) %>" class="btn btn-secondary flex-fill">
                   <i class="bi bi-x-circle"></i> Zurücksetzen
                 </a>
               </div>
@@ -138,7 +217,20 @@
                           —
                         <% } %>
                       </p>
-                      <% if (r.status == 3 && r.visible == 1) { %>
+                      <%
+                        const createdAt = r.created ? new Date(r.created) : null;
+                        const modifiedAt = r.modified ? new Date(r.modified) : null;
+                        const createdText = createdAt && !Number.isNaN(createdAt.getTime())
+                          ? createdAt.toLocaleDateString('de-DE')
+                          : '—';
+                        const modifiedText = modifiedAt && !Number.isNaN(modifiedAt.getTime())
+                          ? modifiedAt.toLocaleDateString('de-DE')
+                          : '—';
+                      %>
+                      <p class="small text-muted mb-1">Erstellt: <%= createdText %></p>
+                      <p class="small text-muted mb-2">Aktualisiert: <%= modifiedText %></p>
+                      <% const isOnline = Boolean(r._is_online); %>
+                      <% if (isOnline) { %>
                         <span class="badge bg-success">Online</span>
                       <% } else { %>
                         <span class="badge bg-secondary">Offline</span>
@@ -148,17 +240,56 @@
                           <span class="badge bg-info"><%= r.visits %> Besucher</span>
                         </div>
                       <% } %>
-                      <div class="mt-2 d-flex">
-                        <a href="/admin/listings/<%= ent.route %>/<%= r.id %>/edit" class="btn btn-sm btn-primary me-1">
-                          <i class="bi bi-pencil"></i>
-                        </a>
-                        <a href="https://herando.at/<%= ent.route %>/<%= r.id %>/<%= r.title %>" class="btn btn-sm btn-warning me-1">
-                          <i class="bi bi-eye-slash"></i>
-                        </a>
-                        <a href="#" class="btn btn-sm btn-danger">
-                          <i class="bi bi-trash"></i>
-                        </a>
-                      </div>
+                      <% const rowState = r._overview_state || 'all'; %>
+                      <form method="POST" action="/admin/listings/<%= ent.route %>/<%= r.id %>/action" class="mt-2">
+                        <input type="hidden" name="state" value="<%= rowState %>">
+                        <div class="d-flex flex-wrap align-items-center gap-2">
+                          <% if (!isOnline && rowState !== 'deleted') { %>
+                            <button type="submit" name="action" value="approve" class="btn btn-link p-0" title="Freigeben">
+                              <i class="bi bi-check-circle fs-2 text-success"></i>
+                            </button>
+                          <% } %>
+                          <% if (rowState === 'toapprove') { %>
+                            <button type="submit" name="action" value="reject" class="btn btn-link p-0" title="Ablehnen">
+                              <i class="bi bi-x-circle fs-2 text-danger"></i>
+                            </button>
+                          <% } %>
+                          <% if (rowState !== 'pending') { %>
+                            <button type="submit" name="action" value="pend" class="btn btn-link p-0" title="Warten">
+                              <i class="bi bi-clock fs-2 text-secondary"></i>
+                            </button>
+                          <% } %>
+                          <% if (rowState !== 'stopped') { %>
+                            <button type="submit" name="action" value="stop" class="btn btn-link p-0" title="Stoppen">
+                              <i class="bi bi-stop-circle fs-2 text-secondary"></i>
+                            </button>
+                          <% } %>
+                          <% if (rowState !== 'deleted') { %>
+                            <button type="submit" name="action" value="delete" class="btn btn-link p-0" title="Löschen">
+                              <i class="bi bi-trash fs-2 text-danger"></i>
+                            </button>
+                          <% } else { %>
+                            <button type="submit" name="action" value="restore" class="btn btn-link p-0" title="Wiederherstellen">
+                              <i class="bi bi-arrow-counterclockwise fs-2 text-primary"></i>
+                            </button>
+                          <% } %>
+
+                          <button type="button" class="btn btn-link p-0" title="Vorschau"
+                                  onclick="window.open('/<%= ent.route %>/<%= r.id %>/<%= encodeURIComponent(r.title || '') %>','_blank')">
+                            <i class="bi bi-eye fs-2 text-secondary"></i>
+                          </button>
+
+                          <button type="button" class="btn btn-link p-0" title="Bearbeiten"
+                                  onclick="window.open('/admin/listings/<%= ent.route %>/<%= r.id %>/edit','_blank')">
+                            <i class="bi bi-pencil fs-2 text-warning"></i>
+                          </button>
+
+                          <button type="button" class="btn btn-link p-0" title="In /listings öffnen"
+                                  onclick="window.open('/admin/listings?category=<%= encodeURIComponent(ent.route) %>&state=<%= encodeURIComponent(rowState) %>&searchId=<%= encodeURIComponent(r.id) %>','_blank')">
+                            <i class="bi bi-list-ul fs-2 text-info"></i>
+                          </button>
+                        </div>
+                      </form>
                     </div>
                   </div>
                 </div>

@@ -10,6 +10,7 @@
       ])
     )
   ) %>;
+  window.HERANDO_HOME_ENTITY_ORDER = <%- JSON.stringify(Array.isArray(homeEntityOrder) ? homeEntityOrder : []) %>;
 
   window.herandoEntityUrl = function herandoEntityUrl(route, suffix) {
     const input = String(route || '').toLowerCase();
@@ -227,12 +228,26 @@ document.addEventListener("DOMContentLoaded", () => {
   /* ===================================
      🔄 Carousel Loader (bleibt gleich)
      =================================== */
-  const REQUIRED_ROUTES = ["cars", "watches", "properties", "yachts"];
-  const orderedCategories = REQUIRED_ROUTES
-    .map((route) => categories.find((cat) => cat.route === route))
+  const DEFAULT_HOME_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const configuredHomeOrder = Array.isArray(window.HERANDO_HOME_ENTITY_ORDER)
+    ? window.HERANDO_HOME_ENTITY_ORDER.map((route) => String(route || '').toLowerCase())
+    : [];
+  const categoriesByRoute = new Map(
+    categories.map((cat) => [String(cat.route || '').toLowerCase(), cat])
+  );
+  const orderedRoutes = configuredHomeOrder
+    .filter((route) => DEFAULT_HOME_ROUTES.includes(route) && categoriesByRoute.has(route))
+    .filter((route, idx, arr) => arr.indexOf(route) === idx);
+  DEFAULT_HOME_ROUTES.forEach((route) => {
+    if (categoriesByRoute.has(route) && !orderedRoutes.includes(route)) {
+      orderedRoutes.push(route);
+    }
+  });
+  const orderedCategories = orderedRoutes
+    .map((route) => categoriesByRoute.get(route))
     .filter(Boolean);
 
-  if (orderedCategories.length !== REQUIRED_ROUTES.length) {
+  if (!orderedCategories.length) {
     window.herandoSetSectionVisibility("myUniqueProducts", false);
     return;
   }
@@ -357,9 +372,23 @@ document.addEventListener("DOMContentLoaded", () => {
     entieties.map(e => ({ id:e.id, route:e.route }))
   ) %>;
 
-  const ORDER = ["cars","watches","properties","yachts"];
-  const orderedCategories = ORDER
-    .map((route) => categories.find((cat) => cat.route === route))
+  const DEFAULT_HOME_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const configuredHomeOrder = Array.isArray(window.HERANDO_HOME_ENTITY_ORDER)
+    ? window.HERANDO_HOME_ENTITY_ORDER.map((route) => String(route || '').toLowerCase())
+    : [];
+  const categoriesByRoute = new Map(
+    categories.map((cat) => [String(cat.route || '').toLowerCase(), cat])
+  );
+  const orderedRoutes = configuredHomeOrder
+    .filter((route) => DEFAULT_HOME_ROUTES.includes(route) && categoriesByRoute.has(route))
+    .filter((route, idx, arr) => arr.indexOf(route) === idx);
+  DEFAULT_HOME_ROUTES.forEach((route) => {
+    if (categoriesByRoute.has(route) && !orderedRoutes.includes(route)) {
+      orderedRoutes.push(route);
+    }
+  });
+  const orderedCategories = orderedRoutes
+    .map((route) => categoriesByRoute.get(route))
     .filter(Boolean);
 
   const tabletWrapper = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-slides");
@@ -373,7 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return;
   }
 
-  if (orderedCategories.length !== ORDER.length) {
+  if (!orderedCategories.length) {
     window.herandoSetSectionVisibility("myUniqueProducts-tablet", false);
     return;
   }
@@ -401,12 +430,12 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     // 2) Arrays in ORDER-Reihenfolge aufbauen
-    const orderedArrays = ORDER.map(route => perRoute[route] || []);
+    const orderedArrays = orderedRoutes.map(route => perRoute[route] || []);
 
     // 3) Interleaving pro Index: C1,W1,P1,Y1,C2,W2,P2,Y2,...
     const flat = [];
     for (let i = 0; i < fullSetCount; i++) {
-      for (let rIndex = 0; rIndex < ORDER.length; rIndex++) {
+      for (let rIndex = 0; rIndex < orderedRoutes.length; rIndex++) {
         const item = orderedArrays[rIndex][i];
         flat.push(item);
       }
@@ -651,9 +680,23 @@ document.addEventListener("DOMContentLoaded", () => {
   const categories = <%- JSON.stringify(
     entieties.map(e => ({ id: e.id, route: e.route }))
   ) %>;
-  const REQUIRED_ROUTES = ["cars", "watches", "properties", "yachts"];
-  const orderedCategories = REQUIRED_ROUTES
-    .map((route) => categories.find((cat) => cat.route === route))
+  const DEFAULT_HOME_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const configuredHomeOrder = Array.isArray(window.HERANDO_HOME_ENTITY_ORDER)
+    ? window.HERANDO_HOME_ENTITY_ORDER.map((route) => String(route || '').toLowerCase())
+    : [];
+  const categoriesByRoute = new Map(
+    categories.map((cat) => [String(cat.route || '').toLowerCase(), cat])
+  );
+  const orderedRoutes = configuredHomeOrder
+    .filter((route) => DEFAULT_HOME_ROUTES.includes(route) && categoriesByRoute.has(route))
+    .filter((route, idx, arr) => arr.indexOf(route) === idx);
+  DEFAULT_HOME_ROUTES.forEach((route) => {
+    if (categoriesByRoute.has(route) && !orderedRoutes.includes(route)) {
+      orderedRoutes.push(route);
+    }
+  });
+  const orderedCategories = orderedRoutes
+    .map((route) => categoriesByRoute.get(route))
     .filter(Boolean);
 
   const mobileSlidesContainer = document.querySelector("#myUniqueProducts-mobile .mobile-carousel-slides");
@@ -747,7 +790,7 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
 // === Inserate laden (mobile) ===
-if (orderedCategories.length !== REQUIRED_ROUTES.length) {
+if (!orderedCategories.length) {
   window.herandoSetSectionVisibility("myUniqueProducts-mobile", false);
   return;
 }
@@ -819,10 +862,7 @@ Promise.all(
 
   let currentIndex = 0;
   function updateSlidePosition() {
-    const slideWidth = mobileViewport
-      ? mobileViewport.getBoundingClientRect().width
-      : mobileSlidesContainer.getBoundingClientRect().width;
-    mobileSlidesContainer.style.transform = `translateX(-${currentIndex * slideWidth}px)`;
+    mobileSlidesContainer.style.transform = `translate3d(-${currentIndex * 100}%, 0, 0)`;
   }
 
   prevBtnMobile.addEventListener("click", () => {
@@ -1119,10 +1159,7 @@ window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
           if (i < 0) i = slideCount - 1;
           if (i >= slideCount) i = 0;
           current = i;
-          const slideWidth = viewport
-            ? viewport.getBoundingClientRect().width
-            : slides.getBoundingClientRect().width;
-          slides.style.transform = `translateX(-${i * slideWidth}px)`;
+          slides.style.transform = `translate3d(-${i * 100}%, 0, 0)`;
         }
 
         prev.addEventListener("click", () => goTo(current - 1));

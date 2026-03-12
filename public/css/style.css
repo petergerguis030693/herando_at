@@ -156,6 +156,30 @@ input[type=number] {
   height: auto;
 }
 
+.boxed-hero-shell {
+  /* Gegenskalierung für globales html { zoom: 0.8 } */
+  zoom: 1.25;
+  width: 100%;
+  background-color: #111a2b;
+  background-image:
+    radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.12) 1px, transparent 0),
+    linear-gradient(135deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0));
+  background-size: 18px 18px, 100% 100%;
+}
+
+.boxed-hero-stage {
+  width: 100%;
+  max-width: 1920px;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+.home-hero-image {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .heIght {
   height: 300px !important;
 }
@@ -164,6 +188,84 @@ input[type=number] {
   /* Optional: dunkler Hintergrund für bessere Lesbarkeit */
   padding: 10px;
   border-radius: 5px;
+}
+
+/* Homepage-Hero: Caption horizontal + vertikal zentrieren */
+.boxed-hero-shell .carousel-item {
+  position: relative;
+}
+
+.boxed-hero-shell .carousel-caption {
+  top: 0;
+  bottom: 0;
+  left: 12%;
+  right: 12%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+}
+
+/* Nur Uhren-Slide auf der Startseite abdunkeln */
+.boxed-hero-shell .carousel-item.hero-slide-watch::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  pointer-events: none;
+  z-index: 1;
+}
+
+.boxed-hero-shell .carousel-item.hero-slide-watch .carousel-caption {
+  z-index: 2;
+}
+
+/* Homepage-Hero: segmentierte 4s-Loader-Indikatoren */
+.hero-home-carousel .carousel-item {
+  transition: transform 1s cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.hero-home-carousel .carousel-indicators {
+  left: 50%;
+  right: auto;
+  bottom: 26px;
+  transform: translateX(-50%);
+  width: min(220px, 82vw);
+  margin: 0;
+  gap: 10px;
+  align-items: center;
+}
+
+.hero-home-carousel .carousel-indicators [data-bs-target] {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
+  height: 4px;
+  margin: 0;
+  border: 0;
+  border-radius: 999px;
+  background-color: rgba(255, 255, 255, 0.35);
+  opacity: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.hero-home-carousel .carousel-indicators [data-bs-target]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #ffffff;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.hero-home-carousel .carousel-indicators .active::after {
+  animation: hero-indicator-fill 4s linear forwards;
+}
+
+@keyframes hero-indicator-fill {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 .carousel-caption h2 {
@@ -363,6 +465,19 @@ a {
     /* leicht angehobene Position */
     left: 5%;
     right: 5%;
+  }
+
+  .boxed-hero-shell .carousel-caption {
+    top: 0;
+    bottom: 0;
+    left: 5%;
+    right: 5%;
+  }
+
+  .hero-home-carousel .carousel-indicators {
+    bottom: 14px;
+    width: min(280px, 86vw);
+    gap: 8px;
   }
 
   .carousel-caption h2 {
@@ -1790,13 +1905,19 @@ a {
   font-size: 28pt;
   text-align: left;
   /* links ausgerichtet */
-  margin-bottom: 70px;
+  margin-bottom: 30px;
   color: #1A253C;
   max-width: 1500px;
   /* gleiche Breite wie Grid */
   width: 90%;
   margin-left: auto;
   margin-right: auto;
+}
+
+@media (max-width: 500px) {
+  .sectionTitle {
+    font-size: 28px;
+  }
 }
 
 .prodGrid {
@@ -1870,7 +1991,7 @@ a {
 }
 
 .background {
-  background-color: #f5f7fa;
+  background-color: #ffffff;
 }
 
 /* Mega-Dropdown Logos */
@@ -1916,6 +2037,10 @@ a {
 @media (max-width: 768px) {
   .carousel-item img {
     height: 320px;
+  }
+
+  .home-hero-image {
+    height: 320px !important;
   }
 }
 

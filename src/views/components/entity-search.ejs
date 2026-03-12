@@ -253,15 +253,25 @@ textarea {
       </div>-->
 
       <div class="fi">
-        <label class="fi-label"><%= t('filter.km_upto') %></label>
-        <div class="fi-select">
-          <select name="mileageMax" id="fMileageMax">
-            <option value=""><%= t('common.any') %></option>
-            <% [5000,10000,20000,30000,50000,75000,100000,150000,200000,300000].forEach(km => { %>
-              <option value="<%= km %>" <%= (selectedFilters.mileageMax||[]).map(String).includes(String(km)) ? 'selected' : '' %>><%= km.toLocaleString('de-DE') %></option>
-            <% }) %>
-          </select>
-          <i class="bi bi-chevron-down"></i>
+        <label class="fi-label"><%= t('filter.km_upto', 'Kilometer') %></label>
+        <div class="fi-range">
+          <input
+            type="number"
+            name="mileageMin"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            value="<%= (selectedFilters.mileageMin || [])[0] || '' %>"
+            placeholder="<%= t('labels.price.from','von') %>">
+          <span class="sep">–</span>
+          <input
+            type="number"
+            name="mileageMax"
+            min="0"
+            step="1"
+            inputmode="numeric"
+            value="<%= (selectedFilters.mileageMax || [])[0] || '' %>"
+            placeholder="<%= t('labels.price.to','bis') %>">
         </div>
       </div>
 
@@ -369,6 +379,20 @@ textarea {
 
 
     <% if (currentEntity.route === 'yachts') { %>
+  <!-- Yacht Category -->
+  <div class="fi">
+    <label class="fi-label"><%= t('buyer.listing.lifestyle.category','Kategorie') %></label>
+    <div class="fi-select">
+      <select name="category" id="fYachtCategory">
+        <option value=""><%= t('common.any') %></option>
+        <% (filters.categories || []).forEach(cat => { %>
+          <option value="<%= cat.id %>" <%= (selectedFilters.category || []).map(String).includes(String(cat.id)) ? 'selected' : '' %>><%= cat.name %></option>
+        <% }) %>
+      </select>
+      <i class="bi bi-chevron-down"></i>
+    </div>
+  </div>
+
   <!-- Yacht Type -->
   <div class="fi">
     <label class="fi-label"><%= t('filter.yacht.type') %></label>
@@ -376,7 +400,9 @@ textarea {
       <select name="yachttype" id="fYachtType">
         <option value=""><%= t('common.any') %></option>
         <% (filters.yachtTypes || []).forEach(ti => { %>
-          <option value="<%= ti.id %>" <%= (selectedFilters.yachttype || []).map(String).includes(String(ti.id)) ? 'selected' : '' %>><%= ti.name %></option>
+          <% if (!['1','2'].includes(String(ti.id))) { %>
+            <option value="<%= ti.id %>" <%= (selectedFilters.yachttype || []).map(String).includes(String(ti.id)) ? 'selected' : '' %>><%= ti.name %></option>
+          <% } %>
         <% }) %>
       </select>
       <i class="bi bi-chevron-down"></i>
@@ -412,28 +438,27 @@ textarea {
     >
   </div>
 
-  <!-- Year From -->
+  <!-- Baujahr von / bis -->
   <div class="fi">
-    <label class="fi-label"><%= t('filter.year_from') %></label>
-    <div class="fi-select">
-      <select name="yearMin" id="fYachtYearMin">
-        <option value=""><%= t('common.any') %></option>
-          <% for (let y = 2025; y >= 1800; y--) { %>
-            <option value="<%= y %>" <%= (selectedFilters.yearMin || []).map(String).includes(String(y)) ? 'selected' : '' %>><%= y %></option>
-          <% } %>
-      </select>
-      <i class="bi bi-chevron-down"></i>
-    </div>
-  </div>
-
-  <!-- Length up to (m) -->
-  <div class="fi">
-    <label class="fi-label"><%= t('filter.length_upto_m') %></label>
-    <div class="fi-select">
-      <select name="lengthMax" id="fLengthMax">
-        <option value=""><%= t('common.any') %></option>
-      </select>
-      <i class="bi bi-chevron-down"></i>
+    <label class="fi-label"><%= t('filters.yacht.year','Baujahr') %></label>
+    <div class="fi-range">
+      <input
+        type="number"
+        name="yearMin"
+        min="1800"
+        step="1"
+        inputmode="numeric"
+        value="<%= (selectedFilters.yearMin || [])[0] || '' %>"
+        placeholder="<%= t('labels.price.from','von') %>">
+      <span class="sep">–</span>
+      <input
+        type="number"
+        name="yearMax"
+        min="1800"
+        step="1"
+        inputmode="numeric"
+        value="<%= (selectedFilters.yearMax || [])[0] || '' %>"
+        placeholder="<%= t('labels.price.to','bis') %>">
     </div>
   </div>
 <% } %>
@@ -557,26 +582,83 @@ textarea {
         </div>
       </div>
 
-      <div class="fi">
-        <label class="fi-label"><%= t('filter.location_or_zip') %></label>
-        <div class="fi-input with-icon">
-          <input type="text" name="location" placeholder="<%= t('common.any') %>"
-                 value="<%= (selectedFilters.location||[])[0] || '' %>">
-          <i class="bi bi-geo-alt"></i>
-        </div> 
-      </div>
+      <%
+        const countryRows = Array.isArray(filters.countries) ? filters.countries : [];
+        const selectedCountryRaw = (selectedFilters.country || [])[0] || '';
+        const selectedCountryRow = countryRows.find((c) => String(c.id) === String(selectedCountryRaw));
+        const selectedParentRaw = selectedCountryRow && selectedCountryRow.parent_id != null
+          ? selectedCountryRow.parent_id
+          : selectedCountryRaw;
+        const activeLangCode = String(
+          (typeof activeLang !== 'undefined' && activeLang) ||
+          (typeof lang !== 'undefined' && lang) ||
+          (locals && locals.activeLang) ||
+          'de'
+        ).split('-')[0];
+        const regionLabelFallbacks = {
+          de: 'Bundesland / Region',
+          en: 'State / Region',
+          fr: 'Region',
+          it: 'Regione',
+          tr: 'Bölge',
+          ja: '地域',
+          cs: 'Region',
+          ru: 'Регион',
+          es: 'Region',
+          nl: 'Regio',
+          pl: 'Region'
+        };
+        const rawRegionLabel = t('filter.region', regionLabelFallbacks[activeLangCode] || 'Region');
+        const regionLabel = (typeof rawRegionLabel === 'string')
+          ? rawRegionLabel
+          : (rawRegionLabel && typeof rawRegionLabel === 'object'
+              ? (
+                  rawRegionLabel[activeLangCode] ||
+                  rawRegionLabel.de ||
+                  rawRegionLabel.label ||
+                  rawRegionLabel.name ||
+                  regionLabelFallbacks[activeLangCode] ||
+                  'Region'
+                )
+              : (regionLabelFallbacks[activeLangCode] || 'Region'));
+        const parentCountries = countryRows.filter((c) => c.parent_id == null);
+        const countryTreeData = countryRows.map((c) => ({
+          id: Number(c.id),
+          parentId: c.parent_id == null ? null : Number(c.parent_id),
+          label: t('country.' + c.id, c.name || c.de || c.en || c.code || String(c.id))
+        }));
+      %>
       <div class="fi">
         <label class="fi-label"><%= t('filter.country') %></label>
         <div class="fi-select">
-          <select name="country" id="fCountry">
+          <select id="fCountryParent">
             <option value=""><%= t('common.all_countries') %></option>
-            <% filters.countries.forEach(c => { %>
-              <option value="<%= c.id %>"><%= t('country.' + c.id) %></option>
+            <% parentCountries.forEach((c) => { %>
+              <option
+                value="<%= c.id %>"
+                <%= String(selectedParentRaw) === String(c.id) ? 'selected' : '' %>>
+                <%= t('country.' + c.id, c.name || c.de || c.en || c.code || c.id) %>
+              </option>
             <% }) %>
           </select>
           <i class="bi bi-chevron-down"></i>
         </div>
       </div>
+      <div class="fi">
+        <label class="fi-label"><%= regionLabel %></label>
+        <div class="fi-select">
+          <select
+            id="fRegion"
+            data-any-label="<%= t('common.any') %>"
+            data-choose-country-label="<%= t('common.any') %>"
+            disabled>
+            <option value=""><%= t('common.any') %></option>
+          </select>
+          <i class="bi bi-chevron-down"></i>
+        </div>
+      </div>
+      <input type="hidden" name="country" id="fCountry" value="<%= selectedCountryRaw %>">
+      <script type="application/json" id="countryTreeData"><%- JSON.stringify(countryTreeData) %></script>
       <% if (currentEntity.route === "lifestyles") { %>
         <option value="" disabled selected class="placeholder-option"></option>
         <option value="" disabled selected class="placeholder-option"></option>
@@ -649,6 +731,107 @@ textarea {
     <input type="hidden" name="fuel" id="hiddenFuel">
   </form>
 </section>
+
+<script>
+(function () {
+  const form = document.getElementById('quickFilters');
+  if (!form) return;
+
+  const countrySelect = form.querySelector('#fCountryParent');
+  const regionSelect = form.querySelector('#fRegion');
+  const hiddenCountry = form.querySelector('#fCountry');
+  const treeNode = form.querySelector('#countryTreeData');
+  if (!countrySelect || !regionSelect || !hiddenCountry || !treeNode) return;
+
+  let countryTree = [];
+  try {
+    countryTree = JSON.parse(treeNode.textContent || '[]');
+  } catch (_) {
+    countryTree = [];
+  }
+
+  const asId = (value) => {
+    const parsed = Number.parseInt(String(value || ''), 10);
+    return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : '';
+  };
+
+  const byId = new Map();
+  const byParentId = new Map();
+  countryTree.forEach((entry) => {
+    const id = asId(entry?.id);
+    if (!id) return;
+    const parentId = entry?.parentId == null ? '' : asId(entry.parentId);
+    const label = String(entry?.label || id);
+    const row = { id, parentId, label };
+    byId.set(id, row);
+    if (!parentId) return;
+    if (!byParentId.has(parentId)) byParentId.set(parentId, []);
+    byParentId.get(parentId).push(row);
+  });
+
+  const anyLabel = String(regionSelect.dataset.anyLabel || 'Beliebig');
+
+  function hasCountryOption(id) {
+    return Array.from(countrySelect.options).some((opt) => String(opt.value) === String(id));
+  }
+
+  function renderRegions(parentId, selectedRegionId) {
+    const regions = (byParentId.get(parentId) || [])
+      .slice()
+      .sort((a, b) => a.label.localeCompare(b.label, 'de'));
+
+    regionSelect.innerHTML = '';
+    const placeholder = document.createElement('option');
+    placeholder.value = '';
+    placeholder.textContent = anyLabel;
+    regionSelect.appendChild(placeholder);
+
+    regions.forEach((region) => {
+      const option = document.createElement('option');
+      option.value = region.id;
+      option.textContent = region.label;
+      regionSelect.appendChild(option);
+    });
+
+    regionSelect.disabled = regions.length === 0;
+    if (selectedRegionId && regions.some((region) => region.id === selectedRegionId)) {
+      regionSelect.value = selectedRegionId;
+    } else {
+      regionSelect.value = '';
+    }
+  }
+
+  function syncHiddenCountry() {
+    const selectedRegion = asId(regionSelect.value);
+    const selectedCountry = asId(countrySelect.value);
+    hiddenCountry.value = selectedRegion || selectedCountry || '';
+  }
+
+  function initializeCountryRegionSelection() {
+    const selectedCountry = asId(hiddenCountry.value);
+    const selectedRow = selectedCountry ? byId.get(selectedCountry) : null;
+    const parentId = selectedRow && selectedRow.parentId ? selectedRow.parentId : selectedCountry;
+
+    if (parentId && hasCountryOption(parentId)) {
+      countrySelect.value = parentId;
+    } else {
+      countrySelect.value = '';
+    }
+
+    const selectedRegionId = selectedRow && selectedRow.parentId ? selectedCountry : '';
+    renderRegions(asId(countrySelect.value), selectedRegionId);
+    syncHiddenCountry();
+  }
+
+  countrySelect.addEventListener('change', () => {
+    renderRegions(asId(countrySelect.value), '');
+    syncHiddenCountry();
+  });
+
+  regionSelect.addEventListener('change', syncHiddenCountry);
+  initializeCountryRegionSelection();
+})();
+</script>
 
 
 

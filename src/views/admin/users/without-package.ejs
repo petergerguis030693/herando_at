@@ -8,15 +8,9 @@
     company: filters?.company || '',
     entity: filters?.entity || 'all'
   };
-  const entityFieldByKey = {
-    cars: 'cars_online',
-    watches: 'watches_online',
-    properties: 'properties_online',
-    yachts: 'yachts_online',
-    lifestyles: 'lifestyles_online'
-  };
   const selectedEntity = (entityOptions || []).find((opt) => opt.key === safeFilters.entity) || { key: 'all', label: 'Alle Entitäten' };
-  const selectedEntityField = entityFieldByKey[selectedEntity.key] || null;
+  const rows = Array.isArray(userEntityRows) ? userEntityRows : [];
+  const usersTotal = Number.isFinite(Number(usersCount)) ? Number(usersCount) : 0;
   const formatPrice = (value) => {
     const amount = Number(value);
     if (!Number.isFinite(amount)) return String(value || '');
@@ -111,7 +105,8 @@
     </form>
 
     <div class="mb-3 d-flex align-items-center gap-2 flex-wrap">
-      <span class="badge bg-primary without-package-total">Treffer: <%= users.length %></span>
+      <span class="badge bg-primary without-package-total">Zeilen: <%= rows.length %></span>
+      <span class="badge bg-secondary">Benutzer: <%= usersTotal %></span>
       <span class="badge bg-light text-dark border">Entität: <%= selectedEntity.label %></span>
     </div>
 
@@ -124,37 +119,28 @@
             <th>Nachname</th>
             <th>Firma</th>
             <th>E-Mail</th>
-            <th><%= selectedEntityField ? selectedEntity.label : 'Online Entitäten' %></th>
+            <th>Entität</th>
+            <th class="text-end">Online</th>
             <th class="text-end">Gesamt online</th>
             <th>Aktion</th>
           </tr>
         </thead>
         <tbody>
-          <% if (!users.length) { %>
+          <% if (!rows.length) { %>
             <tr>
-              <td colspan="8" class="text-center text-muted py-4">Keine Treffer gefunden.</td>
+              <td colspan="9" class="text-center text-muted py-4">Keine Treffer gefunden.</td>
             </tr>
           <% } %>
-          <% users.forEach((u) => { %>
+          <% rows.forEach((row) => { %>
+            <% const u = row.user; const ent = row.entity; const entCount = Number(ent?.count || 0); %>
             <tr>
               <td><strong><%= u.id %></strong></td>
               <td><%= u.firstname || '–' %></td>
               <td><%= u.lastname || '–' %></td>
               <td><%= u.company || '–' %></td>
               <td><%= u.email || '–' %></td>
-              <td>
-                <% if (selectedEntityField) { %>
-                  <strong><%= Number(u[selectedEntityField] || 0) %></strong>
-                <% } else { %>
-                  <div class="d-flex gap-1 flex-wrap">
-                    <% if (Number(u.cars_online || 0) > 0) { %><span class="without-package-entity-badge">Autos: <%= u.cars_online %></span><% } %>
-                    <% if (Number(u.watches_online || 0) > 0) { %><span class="without-package-entity-badge">Watches: <%= u.watches_online %></span><% } %>
-                    <% if (Number(u.properties_online || 0) > 0) { %><span class="without-package-entity-badge">Properties: <%= u.properties_online %></span><% } %>
-                    <% if (Number(u.yachts_online || 0) > 0) { %><span class="without-package-entity-badge">Yachts: <%= u.yachts_online %></span><% } %>
-                    <% if (Number(u.lifestyles_online || 0) > 0) { %><span class="without-package-entity-badge">Lifestyles: <%= u.lifestyles_online %></span><% } %>
-                  </div>
-                <% } %>
-              </td>
+              <td><span class="without-package-entity-badge"><%= ent?.label || '–' %></span></td>
+              <td class="text-end"><strong><%= entCount %></strong></td>
               <td class="text-end"><strong><%= u.total_online || 0 %></strong></td>
               <td>
                 <div class="d-flex gap-2">
@@ -163,7 +149,7 @@
                     class="btn btn-sm btn-primary js-open-assign-modal"
                     data-user-id="<%= u.id %>"
                     data-user-name="<%= `${u.firstname || ''} ${u.lastname || ''}`.trim() || `User #${u.id}` %>"
-                    data-entities="<%- encodeURIComponent(JSON.stringify(u.available_entities || [])) %>">
+                    data-entities="<%- encodeURIComponent(JSON.stringify([ent])) %>">
                     Paket direkt zuweisen
                   </button>
                   <a href="/admin/users/<%= u.id %>/overview" class="btn btn-sm btn-outline-secondary">Overview</a>
@@ -176,10 +162,11 @@
     </div>
 
     <div class="d-lg-none">
-      <% if (!users.length) { %>
+      <% if (!rows.length) { %>
         <div class="text-center text-muted py-4">Keine Treffer gefunden.</div>
       <% } %>
-      <% users.forEach((u) => { %>
+      <% rows.forEach((row) => { %>
+        <% const u = row.user; const ent = row.entity; const entCount = Number(ent?.count || 0); %>
         <div class="without-package-mobile-card p-3 mb-3 bg-white">
           <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
             <div>
@@ -191,18 +178,7 @@
 
           <div class="small mb-1"><strong>Firma:</strong> <%= u.company || '–' %></div>
           <div class="small mb-2"><strong>E-Mail:</strong> <%= u.email || '–' %></div>
-
-          <% if (selectedEntityField) { %>
-            <div class="small mb-3"><strong><%= selectedEntity.label %>:</strong> <%= Number(u[selectedEntityField] || 0) %></div>
-          <% } else { %>
-            <div class="d-flex gap-1 flex-wrap mb-3">
-              <% if (Number(u.cars_online || 0) > 0) { %><span class="without-package-entity-badge">Autos: <%= u.cars_online %></span><% } %>
-              <% if (Number(u.watches_online || 0) > 0) { %><span class="without-package-entity-badge">Watches: <%= u.watches_online %></span><% } %>
-              <% if (Number(u.properties_online || 0) > 0) { %><span class="without-package-entity-badge">Properties: <%= u.properties_online %></span><% } %>
-              <% if (Number(u.yachts_online || 0) > 0) { %><span class="without-package-entity-badge">Yachts: <%= u.yachts_online %></span><% } %>
-              <% if (Number(u.lifestyles_online || 0) > 0) { %><span class="without-package-entity-badge">Lifestyles: <%= u.lifestyles_online %></span><% } %>
-            </div>
-          <% } %>
+          <div class="small mb-3"><strong><%= ent?.label || 'Entität' %>:</strong> <%= entCount %></div>
 
           <div class="d-grid gap-2 without-package-mobile-actions">
             <button
@@ -210,7 +186,7 @@
               class="btn btn-sm btn-primary js-open-assign-modal"
               data-user-id="<%= u.id %>"
               data-user-name="<%= `${u.firstname || ''} ${u.lastname || ''}`.trim() || `User #${u.id}` %>"
-              data-entities="<%- encodeURIComponent(JSON.stringify(u.available_entities || [])) %>">
+              data-entities="<%- encodeURIComponent(JSON.stringify([ent])) %>">
               Paket direkt zuweisen
             </button>
             <a href="/admin/users/<%= u.id %>/overview" class="btn btn-sm btn-outline-secondary">Overview</a>

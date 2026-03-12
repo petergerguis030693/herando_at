@@ -26,12 +26,10 @@
   <main class="main-content flex-fill px-4 py-3">
     <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
       <div>
-        <% if (gender === 2) { %>
+        <% if (gender === 1 || gender === 2) { %>
           <h3 class="mb-1">Willkommen, Herr <%= userName %></h3>
-        <% } else if (gender === 1) { %>
-          <h3 class="mb-1">Willkommen, Frau <%= userName %></h3>
         <% } else if (gender === 3) { %>
-          <h3 class="mb-1">Guten Tag, <%= userName %></h3>
+          <h3 class="mb-1">Willkommen, Frau <%= userName %></h3>
         <% } else { %>
           <h3 class="mb-1">Willkommen, <%= userName %></h3>
         <% } %>

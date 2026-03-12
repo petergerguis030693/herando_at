@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const FACET_SELECT_MAP = {
     brand: '#fBrand',
     model: '#fModel',
-    country: '#fCountry',
+    country: '#fRegion',
     cartype: '#fCarType',
     year: ['#fYearMin', '#fYearMax'],
     registrationYear: ['#fRegistrationYearMin', '#fRegistrationYearMax'],
@@ -105,6 +105,7 @@ document.addEventListener("DOMContentLoaded", () => {
     investmenttype: '#fInvestmentType',
     stage: '#fStage',
     quality: '#fQuality',
+    category: '#fYachtCategory',
     yachttype: '#fYachtType',
     lifestyleType: '#fLifeType',
     lifestyleSubcategory: '#fLifeSub'
@@ -114,7 +115,7 @@ document.addEventListener("DOMContentLoaded", () => {
     cars: ['brand', 'model', 'country', 'cartype', 'year', 'registrationYear'],
     watches: ['brand', 'model', 'country', 'watchtype', 'gender'],
     properties: ['country', 'propertytype', 'investmenttype', 'stage', 'quality'],
-    yachts: ['brand', 'country', 'yachttype'],
+    yachts: ['brand', 'country', 'category', 'yachttype'],
     lifestyles: ['lifestyleType', 'lifestyleSubcategory', 'country']
   };
 
@@ -218,11 +219,6 @@ document.addEventListener("DOMContentLoaded", () => {
       v => `${v} m²`);
     fillSelect('#fRoomsMin', [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], qp.get('roomsMin'), v => `${v}+`);
     fillSelect('#fBathsMin', [1, 2, 3, 4, 5, 6], qp.get('bathroomsMin'), v => `${v}+`);
-  }
-
-  // Yachts: Länge
-  if (route === 'yachts') {
-    fillSelect('#fLengthMax', [8, 10, 12, 15, 18, 20, 24, 30, 40, 50, 70, 100], qp.get('lengthMax'), v => `${v} m`);
   }
 
 if (['cars', 'watches', 'yachts'].includes(route)) {

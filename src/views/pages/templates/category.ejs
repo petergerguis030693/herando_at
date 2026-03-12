@@ -53,8 +53,10 @@
 %>
 <link rel="preload" as="image" href="<%= heroData.img %>">
 
-<section id="heroSection" class="hero-section">
-  <img id="heroImage" src="<%= heroData.img %>" alt="<%= heroData.caption %>" class="hero-image" fetchpriority="high" loading="eager">
+<section class="boxed-hero-shell">
+  <div id="heroSection" class="hero-section boxed-hero-stage">
+    <img id="heroImage" src="<%= heroData.img %>" alt="<%= heroData.caption %>" class="hero-image" fetchpriority="high" loading="eager">
+  </div>
 </section>
 
  

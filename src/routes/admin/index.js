@@ -334,18 +334,20 @@ function buildSellerGreeting({ lang, gender, firstName, lastName, fallbackName }
   const suffix = name ? ` ${adminEscapeHtml(name)}` : '';
   const language = adminNormalizeLang(lang, 'de');
   const g = Number(gender || 0);
+  const isMale = g === 1 || g === 2;
+  const isFemale = g === 3;
   if (language === 'nl') {
-    if (g === 2) return `Geachte heer${suffix}`;
-    if (g === 3) return `Geachte mevrouw${suffix}`;
+    if (isMale) return `Geachte heer${suffix}`;
+    if (isFemale) return `Geachte mevrouw${suffix}`;
     return `Geachte heer/mevrouw${suffix}`;
   }
   if (language === 'en') {
-    if (g === 2) return `Dear Mr.${suffix}`;
-    if (g === 3) return `Dear Ms.${suffix}`;
+    if (isMale) return `Dear Mr.${suffix}`;
+    if (isFemale) return `Dear Ms.${suffix}`;
     return `Dear Sir or Madam${suffix}`;
   }
-  if (g === 2) return `Sehr geehrter Herr${suffix}`;
-  if (g === 3) return `Sehr geehrte Frau${suffix}`;
+  if (isMale) return `Sehr geehrter Herr${suffix}`;
+  if (isFemale) return `Sehr geehrte Frau${suffix}`;
   return `Sehr geehrte Frau/Herr${suffix}`;
 }
 

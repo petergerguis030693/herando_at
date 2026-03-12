@@ -60,6 +60,7 @@ const HOME_HERO_SLIDES = [
     resetField: 'slide4_reset'
   }
 ];
+const HOMEPAGE_ENTITY_ORDER_KEY = 'homepage.entity_order';
 
 const homeHeroUpload = multer({
   storage: multer.diskStorage({
@@ -164,6 +165,63 @@ async function getAdminEntentiesBasic() {
   return rows;
 }
 
+async function getHomepageEntentiesBasic() {
+  const [rows] = await db.query(
+    `SELECT id, name, route
+       FROM ententies
+      WHERE route IS NOT NULL AND route <> ''
+      ORDER BY id ASC`
+  );
+  return rows;
+}
+
+function normalizeHomepageEntityRouteToken(input) {
+  const token = String(input || '').trim().toLowerCase();
+  if (!token) return '';
+  if (token === 'cars' || token === 'car' || token === 'auto' || token === 'autos') return 'cars';
+  if (token === 'watches' || token === 'watch' || token === 'uhr' || token === 'uhren') return 'watches';
+  if (token === 'yachts' || token === 'yacht' || token === 'yachten') return 'yachts';
+  if (token === 'properties' || token === 'property' || token === 'immobilie' || token === 'immobilien') return 'properties';
+  if (
+    token === 'lifestyles' ||
+    token === 'lifestyle' ||
+    token === 'luxurylifestyle' ||
+    token === 'luxury_lifestyle' ||
+    token === 'luxury-lifestyle'
+  ) {
+    return 'lifestyles';
+  }
+  return token;
+}
+
+function normalizeHomepageEntityOrder(rawOrder, availableRoutes) {
+  const normalizedAvailable = Array.from(
+    new Set(
+      (availableRoutes || [])
+        .map((route) => normalizeHomepageEntityRouteToken(route))
+        .filter(Boolean)
+    )
+  );
+  const availableSet = new Set(normalizedAvailable);
+
+  const parsed = String(rawOrder || '')
+    .split(',')
+    .map((token) => normalizeHomepageEntityRouteToken(token))
+    .filter((route) => availableSet.has(route));
+
+  const deduped = [];
+  const seen = new Set();
+  for (const route of parsed) {
+    if (seen.has(route)) continue;
+    seen.add(route);
+    deduped.push(route);
+  }
+  for (const route of normalizedAvailable) {
+    if (!seen.has(route)) deduped.push(route);
+  }
+  return deduped;
+}
+
 const getCategoryHeroFallback = (route) =>
   CATEGORY_HERO_FALLBACKS[String(route || '').toLowerCase()] || DEFAULT_CATEGORY_HERO_FALLBACK;
 const getCategoryHeroKey = (route) => `category_hero_image_${String(route || '').toLowerCase()}`;
@@ -262,14 +320,33 @@ router.get('/new', (req, res) => {
  */
 router.get('/home-hero', async (req, res, next) => {
   try {
-    const rows = await getHomeHeroImageRows();
+    const [rows, homepageEntities] = await Promise.all([
+      getHomeHeroImageRows(),
+      getHomepageEntentiesBasic()
+    ]);
     const byKey = Object.fromEntries(rows.map((r) => [r.key, val(r.de)]));
+    const entityRouteToName = new Map(
+      homepageEntities.map((entity) => [
+        normalizeHomepageEntityRouteToken(entity.route),
+        entity.name || entity.route
+      ])
+    );
+    const normalizedOrder = normalizeHomepageEntityOrder(
+      byKey[HOMEPAGE_ENTITY_ORDER_KEY] || '',
+      homepageEntities.map((entity) => entity.route)
+    );
 
     res.render('admin/ui-translations/home-hero', {
       slides: HOME_HERO_SLIDES.map((slide) => ({
         ...slide,
         currentPath: byKey[slide.key] || slide.fallback,
         isCustom: Boolean(byKey[slide.key] && byKey[slide.key] !== slide.fallback)
+      })),
+      homepageEntityOrderKey: HOMEPAGE_ENTITY_ORDER_KEY,
+      homepageEntityOrderValue: normalizedOrder.join(','),
+      homepageEntityOrderItems: normalizedOrder.map((route) => ({
+        route,
+        name: entityRouteToName.get(route) || route
       })),
       saved: req.query.saved === '1',
       headerTitle: 'Startseite: Slider-Bilder',
@@ -287,7 +364,10 @@ router.post(
   homeHeroUpload.fields(HOME_HERO_SLIDES.map((slide) => ({ name: slide.fileField, maxCount: 1 }))),
   async (req, res, next) => {
     try {
-      const rows = await getHomeHeroImageRows();
+      const [rows, homepageEntities] = await Promise.all([
+        getHomeHeroImageRows(),
+        getHomepageEntentiesBasic()
+      ]);
       const currentByKey = Object.fromEntries(rows.map((r) => [r.key, val(r.de)]));
 
       for (const slide of HOME_HERO_SLIDES) {
@@ -302,6 +382,15 @@ router.post(
 
         await upsertUiTranslationAllLocales(slide.key, nextPath);
       }
+
+      const normalizedOrder = normalizeHomepageEntityOrder(
+        req.body?.home_entity_order,
+        homepageEntities.map((entity) => entity.route)
+      );
+      await upsertUiTranslationAllLocales(
+        HOMEPAGE_ENTITY_ORDER_KEY,
+        normalizedOrder.join(',')
+      );
 
       res.redirect('/admin/ui/home-hero?saved=1');
     } catch (err) {

@@ -20,8 +20,9 @@
             <label for="gender" class="form-label">Anrede *</label>
             <select id="gender" name="gender" class="form-select form-select-sm" required>
               <option value="">– Bitte wählen –</option>
-              <option value="1" <%= data.gender=='1'?'selected':'' %>>Herr</option>
-              <option value="2" <%= data.gender=='2'?'selected':'' %>>Frau</option>
+              <option value="2" <%= data.gender=='2'?'selected':'' %>>Herr</option>
+              <option value="3" <%= data.gender=='3'?'selected':'' %>>Frau</option>
+              <option value="1" <%= data.gender=='1'?'selected':'' %>>Herr (Legacy)</option>
             </select>
           </div>
           <div class="col-md-5">

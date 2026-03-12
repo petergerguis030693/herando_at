@@ -2485,21 +2485,53 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <fieldset class="mb-4 p-3 border bg-white rounded">
   <legend><%= t('buyer.listing.location.title') %></legend>
+<%
+  const countryRows = Array.isArray(filters.countries) ? filters.countries : [];
+  const countryName = (row) => t(
+    'country.' + row.id,
+    row.name || row.de || row.en || row.code || String(row.id)
+  );
+  const parentCountries = countryRows
+    .filter((c) => c.parent_id == null)
+    .sort((a, b) => countryName(a).localeCompare(countryName(b), 'de', { sensitivity: 'base' }));
+  const countryTreeData = countryRows.map((c) => ({
+    id: Number(c.id),
+    parentId: c.parent_id == null ? null : Number(c.parent_id),
+    label: countryName(c)
+  }));
+%>
 
 <div class="row mb-3">
-  <label for="country_id" class="col-sm-3 col-form-label text-end">
+  <label for="country_parent_id" class="col-sm-3 col-form-label text-end">
     <%= t('buyer.listing.location.country') %>
   </label>
   <div class="col-sm-4">
-    <select id="country_id" name="country_id" class="form-select" required>
+    <select id="country_parent_id" class="form-select" required>
       <option value="" disabled selected><%= t('global.select_placeholder') %></option>
-      <% filters.countries.forEach(c => { %>
-        <option value="<%= c.id %>"><%= t('country.' + c.id) %></option>
+      <% parentCountries.forEach((c) => { %>
+        <option value="<%= c.id %>"><%= countryName(c) %></option>
       <% }) %>
     </select>
   </div>
 </div>
 
+<div class="row mb-3" id="region_row" style="display:none;">
+  <label for="region_id" class="col-sm-3 col-form-label text-end">
+    <%= t('filter.region', 'Bundesland / Region') %>
+  </label>
+  <div class="col-sm-4">
+    <select
+      id="region_id"
+      class="form-select"
+      data-any-label="<%= t('global.select_placeholder') %>"
+      data-choose-country-label="<%= t('buyer.listing.location.select_country_first', 'Bitte zuerst Land wählen') %>"
+      disabled>
+      <option value=""><%= t('global.select_placeholder') %></option>
+    </select>
+  </div>
+</div>
+<input type="hidden" id="country_id" name="country_id">
+<script type="application/json" id="country_tree_data_new_listing"><%- JSON.stringify(countryTreeData) %></script>
 
   <div class="row mb-3">
     <label for="city" class="col-sm-3 col-form-label text-end">
@@ -2520,6 +2552,117 @@ document.addEventListener("DOMContentLoaded", () => {
       </form>
     </main>
   </div>
+
+<script>
+  (function () {
+    const countrySelect = document.getElementById('country_parent_id');
+    const regionRow = document.getElementById('region_row');
+    const regionSelect = document.getElementById('region_id');
+    const hiddenCountry = document.getElementById('country_id');
+    const treeNode = document.getElementById('country_tree_data_new_listing');
+    if (!countrySelect || !regionRow || !regionSelect || !hiddenCountry || !treeNode) return;
+
+    let countryTree = [];
+    try {
+      countryTree = JSON.parse(treeNode.textContent || '[]');
+    } catch (_) {
+      countryTree = [];
+    }
+
+    const asId = (value) => {
+      const parsed = Number.parseInt(String(value || ''), 10);
+      return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : '';
+    };
+
+    const byId = new Map();
+    const byParentId = new Map();
+    countryTree.forEach((entry) => {
+      const id = asId(entry?.id);
+      if (!id) return;
+      const parentId = entry?.parentId == null ? '' : asId(entry.parentId);
+      const label = String(entry?.label || id);
+      const row = { id, parentId, label };
+      byId.set(id, row);
+      if (!parentId) return;
+      if (!byParentId.has(parentId)) byParentId.set(parentId, []);
+      byParentId.get(parentId).push(row);
+    });
+
+    const anyLabel = String(regionSelect.dataset.anyLabel || '');
+    const chooseCountryLabel = String(regionSelect.dataset.chooseCountryLabel || anyLabel);
+
+    function renderRegions(parentId, selectedRegionId) {
+      const regions = parentId
+        ? (byParentId.get(parentId) || [])
+            .slice()
+            .sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
+        : [];
+
+      if (!regions.length) {
+        regionRow.style.display = 'none';
+        regionSelect.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = chooseCountryLabel;
+        regionSelect.appendChild(placeholder);
+        regionSelect.disabled = true;
+        regionSelect.value = '';
+        return;
+      }
+
+      regionRow.style.display = '';
+      regionSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = anyLabel;
+      regionSelect.appendChild(placeholder);
+
+      regions.forEach((region) => {
+        const option = document.createElement('option');
+        option.value = region.id;
+        option.textContent = region.label;
+        regionSelect.appendChild(option);
+      });
+
+      regionSelect.disabled = false;
+      if (selectedRegionId && regions.some((region) => region.id === selectedRegionId)) {
+        regionSelect.value = selectedRegionId;
+      } else {
+        regionSelect.value = '';
+      }
+    }
+
+    function syncHiddenCountry() {
+      const selectedRegion = asId(regionSelect.value);
+      const selectedCountry = asId(countrySelect.value);
+      hiddenCountry.value = selectedRegion || selectedCountry || '';
+    }
+
+    function initializeCountryRegionSelection() {
+      const selectedCountry = asId(hiddenCountry.value);
+      const selectedRow = selectedCountry ? byId.get(selectedCountry) : null;
+      const parentId = selectedRow && selectedRow.parentId ? selectedRow.parentId : selectedCountry;
+
+      if (parentId) {
+        countrySelect.value = parentId;
+      } else {
+        countrySelect.value = '';
+      }
+
+      const selectedRegionId = selectedRow && selectedRow.parentId ? selectedCountry : '';
+      renderRegions(asId(countrySelect.value), selectedRegionId);
+      syncHiddenCountry();
+    }
+
+    countrySelect.addEventListener('change', () => {
+      renderRegions(asId(countrySelect.value), '');
+      syncHiddenCountry();
+    });
+    regionSelect.addEventListener('change', syncHiddenCountry);
+
+    initializeCountryRegionSelection();
+  })();
+</script>
 
 <script>
   const mainInput = document.getElementById('mainpicture');

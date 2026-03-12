@@ -2699,6 +2699,59 @@ router.get('/', async (req, res, next) => {
       ORDER BY id
     `);
 
+    const normalizeHomeRouteToken = (input) => {
+      const token = String(input || '').trim().toLowerCase();
+      if (!token) return '';
+      if (token === 'cars' || token === 'car' || token === 'auto' || token === 'autos') return 'cars';
+      if (token === 'watches' || token === 'watch' || token === 'uhr' || token === 'uhren') return 'watches';
+      if (token === 'yachts' || token === 'yacht' || token === 'yachten') return 'yachts';
+      if (token === 'properties' || token === 'property' || token === 'immobilie' || token === 'immobilien') return 'properties';
+      if (
+        token === 'lifestyles' ||
+        token === 'lifestyle' ||
+        token === 'luxurylifestyle' ||
+        token === 'luxury_lifestyle' ||
+        token === 'luxury-lifestyle'
+      ) {
+        return 'lifestyles';
+      }
+      return token;
+    };
+
+    const availableHomeRoutes = Array.from(
+      new Set(
+        entieties
+          .map((entity) => normalizeHomeRouteToken(entity.route))
+          .filter(Boolean)
+      )
+    );
+    const availableHomeRouteSet = new Set(availableHomeRoutes);
+    const configuredHomeOrder = String(ui?.['homepage.entity_order'] || '')
+      .split(',')
+      .map((token) => normalizeHomeRouteToken(token))
+      .filter((route) => availableHomeRouteSet.has(route));
+    const homeEntityOrder = [];
+    const seenHomeRoutes = new Set();
+    for (const route of configuredHomeOrder) {
+      if (seenHomeRoutes.has(route)) continue;
+      seenHomeRoutes.add(route);
+      homeEntityOrder.push(route);
+    }
+    for (const route of availableHomeRoutes) {
+      if (seenHomeRoutes.has(route)) continue;
+      seenHomeRoutes.add(route);
+      homeEntityOrder.push(route);
+    }
+    const homeOrderIndex = new Map(homeEntityOrder.map((route, idx) => [route, idx]));
+    entieties.sort((a, b) => {
+      const aIdx = homeOrderIndex.get(normalizeHomeRouteToken(a.route));
+      const bIdx = homeOrderIndex.get(normalizeHomeRouteToken(b.route));
+      if (aIdx == null && bIdx == null) return Number(a.id || 0) - Number(b.id || 0);
+      if (aIdx == null) return 1;
+      if (bIdx == null) return -1;
+      return aIdx - bIdx;
+    });
+
     const [cols] = await db.query(`
       SELECT id, title, sort_order
       FROM footer_columns
@@ -2755,6 +2808,7 @@ res.render('pages/templates/index', {
   brandChunks,
   currentEntitieId,
   entieties,
+  homeEntityOrder,
   footerColumns,
   magazinPosts,
   user,
@@ -6908,6 +6962,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
         paymentType:      req.query.paymentType,
         location:         req.query.location,
         country:          req.query.country,
+        category:         req.query.category,
         registrationYearMin: req.query.registrationYearMin,
         registrationYearMax: req.query.registrationYearMax,
         onlyOldtimer:     req.query.onlyOldtimer,
@@ -7107,6 +7162,13 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
                     Array.isArray(extrasRaw) ? extrasRaw : [extrasRaw])
                     .map(String)
                     .filter(v => CAR_EXTRAS?.some?.(e => e.field === v));
+      sel.yachttype = filterDisallowedYachtTypes(sel.yachttype);
+
+      const selectedFiltersForView = Object.entries(sel).reduce((acc, [key, value]) => {
+        acc[key] = Array.isArray(value) ? [...value] : value;
+        return acc;
+      }, {});
+      sel.country = await expandCountrySelectionIds(sel.country);
 
       // 4) attribute_options holen
       // Sprachen-Whitelist (Spaltennamen in ui_translations)
@@ -7184,6 +7246,8 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
             FROM countries AS c
             LEFT JOIN countries AS p ON c.parent_id = p.id
             WHERE c.visible = 1
+               OR c.parent_id IS NOT NULL
+               OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
             ORDER BY COALESCE(p.de, c.de), c.de
           `);
           countries = allCountries;
@@ -7255,13 +7319,15 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
               SELECT c.id, c.de AS name
               FROM countries AS c
               WHERE c.visible = 1
+                 OR c.parent_id IS NOT NULL
+                 OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
               ORDER BY c.de
             `);
             countries = watchCountries;
           }
 
           if (entityRoute === 'yachts') {
-            yachtTypes    = opts('yachttype');
+            yachtTypes    = opts('yachttype').filter((opt) => !HIDDEN_YACHTTYPE_IDS.has(String(opt.id)));
             prices        = opts('price');
             boatTypes     = opts('boattype');
             categories    = opts('category');
@@ -7285,6 +7351,8 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
               SELECT c.id, c.de AS name
               FROM countries AS c
               WHERE c.visible = 1
+                 OR c.parent_id IS NOT NULL
+                 OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
               ORDER BY c.de
             `);
             countries = yachtCountries;
@@ -7485,6 +7553,9 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
           // Yachts
       // ================= YACHTS FILTER (MANUELL, passend zu deiner DB) =================
       if (entityRoute === 'yachts') {
+
+        // Kategorie
+        if (sel.category?.length) addIN('t.category', sel.category);
 
         // Bootstyp
         if (sel.yachttype?.length) addIN('t.yachttype', sel.yachttype);
@@ -7805,6 +7876,8 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
 
 
           const whereClause = where.length ? 'WHERE ' + where.join(' AND ') : '';
+          const facetWhereClause = baseWhere ? `WHERE ${baseWhere}` : '';
+          const facetParams = [...baseParams];
 
           // Faceted Optionen: nur Werte anzeigen, die in den aktuellen Treffern existieren.
           const selectedValues = (arr) => new Set((arr || []).map(v => String(v)));
@@ -7816,14 +7889,34 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
             ]);
             return options.filter(opt => keep.has(String(opt.id)));
           };
+          const mergeOptionsById = (...lists) => {
+            const merged = [];
+            const seen = new Set();
+            lists.forEach((list) => {
+              (list || []).forEach((opt) => {
+                const id = String(opt?.id ?? '').trim();
+                if (!id || seen.has(id)) return;
+                seen.add(id);
+                merged.push(opt);
+              });
+            });
+            return merged;
+          };
+          const keepAvailableScalarValues = (values, availableValues, selected = []) => {
+            const keep = new Set([
+              ...(availableValues || []).map(v => String(v)),
+              ...(selected || []).map(v => String(v))
+            ]);
+            return (values || []).filter(v => keep.has(String(v)));
+          };
           const distinctIdSet = async (columnName) => {
             const col = `t.${db.escapeId(columnName)}`;
             const [rows] = await db.query(
               `SELECT DISTINCT ${col} AS id
                FROM ${tableName} t
-               ${whereClause}
+               ${facetWhereClause}
                  AND ${col} IS NOT NULL`,
-              params
+              facetParams
             );
             return new Set(rows.map(r => String(r.id)).filter(Boolean));
           };
@@ -7832,24 +7925,37 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
           const [facetYears] = await db.query(
             `SELECT DISTINCT t.year
              FROM ${tableName} t
-             ${whereClause}
+             ${facetWhereClause}
                AND t.year IS NOT NULL
              ORDER BY t.year DESC`,
-            params
+            facetParams
           );
-          years = facetYears.map(r => r.year).filter(v => v !== null);
+          const facetYearValues = facetYears.map(r => r.year).filter(v => v !== null);
+          const selectedYearValues = [
+            ...(sel.yearMin || []),
+            ...(sel.yearMax || [])
+          ];
+          const yearPool = Array.from(new Set([...(years || []), ...facetYearValues]));
+          years = keepAvailableScalarValues(yearPool, facetYearValues, selectedYearValues)
+            .sort((a, b) => Number(b) - Number(a));
 
           const [facetCountries] = await db.query(
             `SELECT DISTINCT c.id, c.de AS name, c.parent_id, p.de AS region
              FROM countries c
              JOIN ${tableName} t ON t.country_id = c.id
              LEFT JOIN countries p ON c.parent_id = p.id
-             ${whereClause}
-               AND c.visible = 1
+             ${facetWhereClause}
+               AND (
+                 c.visible = 1
+                 OR c.parent_id IS NOT NULL
+                 OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
+               )
              ORDER BY COALESCE(p.de, c.de), c.de`,
-            params
+            facetParams
           );
-          countries = facetCountries;
+          const facetCountryIds = new Set(facetCountries.map(c => String(c.id)));
+          const countryPool = mergeOptionsById(facetCountries, allCountries || []);
+          countries = keepAvailableOptions(countryPool, facetCountryIds, sel.country);
           if (!countries.length && sel.country.length) {
             const selectedCountryIds = selectedValues(sel.country);
             countries = (allCountries || []).filter(c => selectedCountryIds.has(String(c.id)));
@@ -7857,7 +7963,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
 
           if (['cars', 'watches', 'yachts', 'lifestyles'].includes(entityRoute)) {
             const brandType = entityRoute === 'lifestyles' ? 6 : type;
-            const brandParams = [...params];
+            const brandParams = [...facetParams];
             let brandTypeSql = '';
             if (brandType != null) {
               brandTypeSql = ' AND b.type = ?';
@@ -7868,7 +7974,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
               `SELECT b.id, b.name
                FROM brands b
                JOIN ${tableName} t ON t.brand_id = b.id
-               ${whereClause}
+               ${facetWhereClause}
                ${brandTypeSql}
                GROUP BY b.id, b.name
                ORDER BY b.name`,
@@ -7879,35 +7985,60 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
               const t = (res.locals && typeof res.locals.t === 'function')
                 ? res.locals.t
                 : ((key, fb) => (fb ?? key));
-              brands = facetBrands.map(b => ({ ...b, name: t(`lifestyle.brand.${b.id}`, b.name) }));
+              const translatedFacetBrands = facetBrands.map(b => ({
+                ...b,
+                name: t(`lifestyle.brand.${b.id}`, b.name)
+              }));
+              const facetBrandIds = new Set(translatedFacetBrands.map(b => String(b.id)));
+              const brandPool = mergeOptionsById(translatedFacetBrands, brands);
+              brands = keepAvailableOptions(brandPool, facetBrandIds, sel.brand);
               lifestyleTypes = brands;
             } else {
-              brands = facetBrands;
+              const facetBrandIds = new Set(facetBrands.map(b => String(b.id)));
+              const brandPool = mergeOptionsById(facetBrands, brands);
+              brands = keepAvailableOptions(brandPool, facetBrandIds, sel.brand);
             }
           }
 
           if (['cars', 'watches', 'lifestyles'].includes(entityRoute)) {
+            const facetModelParams = [...facetParams];
+            let facetModelBrandSql = '';
+            const selectedBrandIds =
+              entityRoute === 'lifestyles'
+                ? (sel.lifestyleType || [])
+                : (sel.brand || []);
+            if (selectedBrandIds.length) {
+              facetModelBrandSql = ` AND t.brand_id IN (${selectedBrandIds.map(() => '?').join(',')})`;
+              facetModelParams.push(...selectedBrandIds);
+            }
             const [facetModels] = await db.query(
               `SELECT m.id, m.name, m.brand_id AS parentId
                FROM models m
                JOIN ${tableName} t ON t.model_id = m.id
-               ${whereClause}
+               ${facetWhereClause}
+               ${facetModelBrandSql}
                GROUP BY m.id, m.name, m.brand_id
                ORDER BY m.name`,
-              params
+              facetModelParams
             );
 
             if (entityRoute === 'lifestyles') {
               const t = (res.locals && typeof res.locals.t === 'function')
                 ? res.locals.t
                 : ((key, fb) => (fb ?? key));
-              models = facetModels.map(sc => ({
+              const translatedFacetModels = facetModels.map(sc => ({
                 ...sc,
                 name: t(`lifestyle.subcategory.${sc.id}`, sc.name)
               }));
+              const facetModelIds = new Set(translatedFacetModels.map(m => String(m.id)));
+              const modelPool = mergeOptionsById(translatedFacetModels, models);
+              models = keepAvailableOptions(modelPool, facetModelIds, sel.lifestyleSubcategory);
               lifestyleSubcategories = models;
             } else {
-              models = facetModels.map(({ id, name }) => ({ id, name }));
+              const simpleFacetModels = facetModels.map(({ id, name }) => ({ id, name }));
+              const facetModelIds = new Set(simpleFacetModels.map(m => String(m.id)));
+              const modelPool = mergeOptionsById(simpleFacetModels, models);
+              models = keepAvailableOptions(modelPool, facetModelIds, sel.model);
             }
           }
 
@@ -7916,22 +8047,37 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
             const [facetRegYears] = await db.query(
               `SELECT DISTINCT t.firstregistration AS year
                FROM ${tableName} t
-               ${whereClause}
+               ${facetWhereClause}
                  AND t.firstregistration IS NOT NULL
                ORDER BY t.firstregistration DESC`,
-              params
+              facetParams
             );
-            registrationYears = facetRegYears.map(r => r.year).filter(v => v !== null);
+            const facetRegValues = facetRegYears.map(r => r.year).filter(v => v !== null);
+            const selectedRegValues = [
+              ...(sel.registrationYearMin || []),
+              ...(sel.registrationYearMax || [])
+            ];
+            const regYearPool = Array.from(new Set([...(registrationYears || []), ...facetRegValues]));
+            registrationYears = keepAvailableScalarValues(regYearPool, facetRegValues, selectedRegValues)
+              .sort((a, b) => Number(b) - Number(a));
 
             const [facetHuYears] = await db.query(
               `SELECT DISTINCT t.maininspection AS year
                FROM ${tableName} t
-               ${whereClause}
+               ${facetWhereClause}
                  AND t.maininspection IS NOT NULL
                ORDER BY t.maininspection DESC`,
-              params
+              facetParams
             );
-            nextHuYears = facetHuYears.map(r => r.year).filter(v => v !== null);
+            const facetHuValues = facetHuYears.map(r => r.year).filter(v => v !== null);
+            const selectedHuValues = [
+              ...(sel.nextHuYearMin || []),
+              ...(sel.nextHuYearMax || []),
+              ...(sel.nextHuYear || [])
+            ];
+            const huYearPool = Array.from(new Set([...(nextHuYears || []), ...facetHuValues]));
+            nextHuYears = keepAvailableScalarValues(huYearPool, facetHuValues, selectedHuValues)
+              .sort((a, b) => Number(b) - Number(a));
 
             const [
               cartypeIds,
@@ -7971,8 +8117,12 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
           }
 
           if (entityRoute === 'yachts') {
-            const yachtTypeIds = await distinctIdSet('yachttype');
+            const [yachtTypeIds, yachtCategoryIds] = await Promise.all([
+              distinctIdSet('yachttype'),
+              distinctIdSet('category')
+            ]);
             yachtTypes = keepAvailableOptions(yachtTypes, yachtTypeIds, sel.yachttype);
+            categories = keepAvailableOptions(categories, yachtCategoryIds, sel.category);
           }
 
           if (entityRoute === 'properties') {
@@ -8573,6 +8723,7 @@ console.log('================================================\n');
         addStrict(`t.${col} IN (${arr.map(() => '?').join(',')})`, ...arr);
       };
 
+      addStrictIN('category', sel.category);
       addStrictIN('yachttype', sel.yachttype);
       addStrictIN('brand_id', sel.brand);
       addStrictIN('country_id', sel.country);
@@ -8658,6 +8809,13 @@ console.log('================================================\n');
       sliderSteps.push({
         where: `${BASE_SLIDER_WHERE} AND t.watchtype IN (${sel.watchtype.map(() => '?').join(',')})`,
         params: sel.watchtype
+      });
+    }
+
+    if (currentEntity.route === 'yachts' && sel.category?.length && !yachtsStrictSliderStep) {
+      sliderSteps.push({
+        where: `${BASE_SLIDER_WHERE} AND t.category IN (${sel.category.map(() => '?').join(',')})`,
+        params: sel.category
       });
     }
 
@@ -8781,6 +8939,7 @@ console.log('================================================\n');
       sel.heightMax?.length ||
       sel.functions?.length ||
       sel.delivery?.length ||
+      sel.category?.length ||
       sel.yachttype?.length ||
       sel.flag?.length ||
       sel.hull_material?.length ||
@@ -8826,14 +8985,16 @@ console.log('================================================\n');
     console.log('hasSliderFilter:', hasSliderFilter);
     console.log('sliderRows BEFORE rule:', sliderRows.length);
 
-    // ❗ FALL 1: Filter aktiv UND ≤5 → KEIN Slider, KEIN Fallback
-    if (hasSliderFilter && sliderRows.length <= 5) {
-      console.log('🔴 Slider deaktiviert (≤5 bei aktivem Filter)');
+    const MIN_FILTERED_SLIDER_ITEMS = 5;
+
+    // ❗ FALL 1: Filter aktiv UND < 5 → KEIN Slider
+    if (hasSliderFilter && sliderRows.length < MIN_FILTERED_SLIDER_ITEMS) {
+      console.log(`🔴 Slider deaktiviert (<${MIN_FILTERED_SLIDER_ITEMS} bei aktivem Filter)`);
       sliderRows = [];
     }
 
-    // ❗ FALL 2: KEIN Filter UND nichts gefunden → Fallback
-if (!hasSliderFilter || sliderRows.length === 0) {
+    // ❗ FALL 2: NUR ohne aktiven Filter und ohne Treffer → Fallback aus katalog_slider
+if (!hasSliderFilter && sliderRows.length === 0) {
   console.log('🟥 SLIDER AUS katalog_slider !!!');
 
   const [adsSlider] = await db.query(`
@@ -9089,6 +9250,7 @@ if (!hasSliderFilter || sliderRows.length === 0) {
             badges,
 
             // yachts
+            categories,
             yachtTypes,
             tankVolumes,
             crewCounts,
@@ -9124,7 +9286,7 @@ if (!hasSliderFilter || sliderRows.length === 0) {
           },
 
           slider,
-          selectedFilters: sel,
+          selectedFilters: selectedFiltersForView,
           items,
           currentPage,
           totalPages,
@@ -9183,6 +9345,35 @@ function toArray(v) {
 }
 
 const IN = (arr) => arr.map(()=>'?').join(',');
+const HIDDEN_YACHTTYPE_IDS = new Set(['1', '2']);
+
+function filterDisallowedYachtTypes(values) {
+  if (!Array.isArray(values) || !values.length) return [];
+  return values.filter((v) => !HIDDEN_YACHTTYPE_IDS.has(String(v)));
+}
+
+async function expandCountrySelectionIds(countryValues) {
+  const baseIds = toArray(countryValues)
+    .map((v) => Number.parseInt(String(v), 10))
+    .filter((v) => Number.isInteger(v) && v > 0);
+  if (!baseIds.length) return [];
+
+  const uniqueBaseIds = Array.from(new Set(baseIds));
+  const ph = uniqueBaseIds.map(() => '?').join(',');
+  const [rows] = await db.query(
+    `SELECT id
+       FROM countries
+      WHERE id IN (${ph}) OR parent_id IN (${ph})`,
+    [...uniqueBaseIds, ...uniqueBaseIds]
+  );
+
+  const allIds = new Set(uniqueBaseIds.map(String));
+  (rows || []).forEach((row) => {
+    const id = Number.parseInt(String(row?.id || ''), 10);
+    if (Number.isInteger(id) && id > 0) allIds.add(String(id));
+  });
+  return Array.from(allIds);
+}
 
 // ===== Yacht-Spalten dynamisch ermitteln (einmalig pro Prozess) =====
 let YACHT_COLS = {
@@ -9250,7 +9441,7 @@ function normalizeFilters(q) {
     // general
     brand: q.brand, model: q.model, yearMin: q.yearMin, yearMax: q.yearMax,
     priceMin: q.priceMin, priceMax: q.priceMax,
-    location: q.location, country: q.country,
+    location: q.location, country: q.country, category: q.category,
     cartype: q.cartype, fuel: q.fuel, gearbox: q.gearbox, drivetrain: q.drivetrain,
 
     // cars
@@ -9405,7 +9596,7 @@ displacement_max: q.displacement_max,
     q: q.q
   };
 
-  return Object.entries(raw).reduce((acc,[k,v])=>{
+  const normalized = Object.entries(raw).reduce((acc,[k,v])=>{
     const arr = toArray(v).map(x=>{
       if (k === 'particulate_filter') return String(x) === '1' ? 1 : 0;
       const n = parseFloat(x);
@@ -9422,6 +9613,8 @@ displacement_max: q.displacement_max,
 
     return acc;
   }, {});
+  normalized.yachttype = filterDisallowedYachtTypes(normalized.yachttype);
+  return normalized;
 }
 
 // -------------------------------------------------------------
@@ -9431,6 +9624,15 @@ function buildWhere(entityRoute, tableName, sel, userCurrency) {
   const where = ['status=3', 'visible=1', 'pictures IS NOT NULL'];
   const params = [];
   const add = (cond, ...vals) => { where.push(cond); params.push(...vals); };
+  const addCountryOrRegionFilter = (countryIds, column = 'country_id') => {
+    if (!Array.isArray(countryIds) || !countryIds.length) return;
+    const ph = IN(countryIds);
+    add(
+      `(${column} IN (${ph}) OR ${column} IN (SELECT id FROM countries WHERE parent_id IN (${ph})))`,
+      ...countryIds,
+      ...countryIds
+    );
+  };
 
   // ===== LIVE CURRENCY CONVERSION (Frankfurter) =====
   const rates = global.exchangeRates?.rates || {};
@@ -9474,8 +9676,7 @@ function buildWhere(entityRoute, tableName, sel, userCurrency) {
   }
 
 
-  if (Array.isArray(sel.country) && sel.country.length)
-    add(`country_id IN (${IN(sel.country)})`, ...sel.country);
+  addCountryOrRegionFilter(sel.country, 'country_id');
 
   // --- Properties: freitext location -> city ---
   if (Array.isArray(sel.location) && sel.location.length && entityRoute === 'properties') {
@@ -9756,6 +9957,8 @@ Object.keys(WATCH_BOOLEAN_LABELS).forEach(col => {
       };
 
       // ===== Basis =====
+      if (Array.isArray(sel.category) && sel.category.length)
+        add(`category IN (${IN(sel.category)})`, ...sel.category);
       inList('yachttype');
 
       // ===== Motoren =====
@@ -9811,8 +10014,6 @@ Object.keys(WATCH_BOOLEAN_LABELS).forEach(col => {
       // ===== Material & Flagge =====
       inList('hull_material');
 
-      if (Array.isArray(sel.country) && sel.country.length)
-        add(`country_id IN (${IN(sel.country)})`, ...sel.country);
     }
 
 
@@ -9941,6 +10142,8 @@ async function loadFilterOptions(entityRoute, tableName, type, baseWhere, basePa
        FROM countries c
   LEFT JOIN countries p ON c.parent_id = p.id
       WHERE c.visible = 1
+         OR c.parent_id IS NOT NULL
+         OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
       ORDER BY COALESCE(p.${langColSafe}, p.de, c.${langColSafe}, c.de),
                c.${langColSafe}, c.de`
     );
@@ -10040,7 +10243,7 @@ async function loadFilterOptions(entityRoute, tableName, type, baseWhere, basePa
     );
     brands = brandRows;
 
-    yachtTypes    = opts('yachttype');
+    yachtTypes    = opts('yachttype').filter((opt) => !HIDDEN_YACHTTYPE_IDS.has(String(opt.id)));
     powerKw       = opts('power_kw');
     hoursRun      = opts('hours_run');
     cruiseSpeed   = opts('cruise_speed');
@@ -10402,10 +10605,9 @@ router.get('/api/:entityRoute/facet-availability', async (req, res) => {
     const includeModel = ['cars', 'watches', 'lifestyles'].includes(entityRoute);
 
     if (includeBrand) {
-      availability.brand = await distinctIds(
-        'brand_id',
-        entityRoute === 'lifestyles' ? ['lifestyleType'] : ['brand']
-      );
+      // Marke immer global verfügbar halten (nicht durch aktuelles Modell/andere Filter einschränken),
+      // damit man nach einer Suche direkt auf andere Marken wechseln kann.
+      availability.brand = await distinctIds('brand_id', Object.keys(baseSel || {}));
     }
     if (includeModel) {
       availability.model = await distinctIds(
@@ -10432,7 +10634,9 @@ router.get('/api/:entityRoute/facet-availability', async (req, res) => {
       availability.quality = await distinctIds('quality', ['quality']);
     }
     if (entityRoute === 'yachts') {
-      availability.yachttype = await distinctIds('yachttype', ['yachttype']);
+      availability.category = await distinctIds('category', ['category']);
+      availability.yachttype = (await distinctIds('yachttype', ['yachttype']))
+        .filter((id) => !HIDDEN_YACHTTYPE_IDS.has(String(id)));
     }
     if (entityRoute === 'lifestyles') {
       availability.lifestyleType = availability.brand || [];

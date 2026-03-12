@@ -25,9 +25,12 @@
 
 <%- include('../../components/home/categories') %>
 
-<%- include('../../components/home/brands') %>
+<%- include('../../components/home/unique-products') %>
 
-<%- include('../../components/home/featured-categories') %>
+
+<% /* include('../../components/home/brands') */ %>
+
+<% /* - include('../../components/home/featured-categories') */ %>
 
 <% entieties.forEach(ent => { %>
   <% if (ent.route !== 'lifestyles') { %>
@@ -40,7 +43,6 @@
 
 <%- include('../../components/home/top-desktop') %>
 
-<%- include('../../components/home/unique-products') %>
 
 <!-- <%- include('../../components/home/popular-models') %>-->
 

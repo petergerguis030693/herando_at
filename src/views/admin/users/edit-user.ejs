@@ -19,6 +19,12 @@
         </ul>
       </div>
     <% } %>
+    <% if (successMessage) { %>
+      <div class="alert alert-success"><%= successMessage %></div>
+    <% } %>
+    <% if (errorMessage) { %>
+      <div class="alert alert-danger"><%= errorMessage %></div>
+    <% } %>
 
     <form method="POST" enctype="multipart/form-data">
       <!-- Anrede & Name -->
@@ -29,8 +35,9 @@
             <label for="gender" class="form-label">Anrede *</label>
             <select id="gender" name="gender" class="form-select form-select-sm" required>
               <option value="">– Bitte wählen –</option>
-              <option value="1" <%= data.gender=='1'?'selected':'' %>>Herr</option>
-              <option value="2" <%= data.gender=='2'?'selected':'' %>>Frau</option>
+              <option value="2" <%= data.gender=='2'?'selected':'' %>>Herr</option>
+              <option value="3" <%= data.gender=='3'?'selected':'' %>>Frau</option>
+              <option value="1" <%= data.gender=='1'?'selected':'' %>>Herr (Legacy)</option>
             </select>
           </div>
           <div class="col-md-5">
@@ -182,33 +189,81 @@
         <textarea name="imprint" class="form-control" rows="4"><%= data.imprint||'' %></textarea>
       </fieldset>
 
-      <!-- Paket & Kategorie -->
+      <!-- Paket & Kategorie (mehrfach) -->
+      <%
+        const packageAssignments = Array.isArray(data.package_assignments) && data.package_assignments.length
+          ? data.package_assignments
+          : [{ package_id: '', category_id: '' }];
+      %>
       <fieldset class="border rounded p-3 mb-4">
-        <legend class="w-auto px-2">Paket &amp; Kategorie</legend>
-        <div class="row g-3">
-          <div class="col-md-6">
-            <label for="package_id" class="form-label">Paket auswählen</label>
-            <select id="package_id" name="package_id" class="form-select form-select-sm">
-              <option value="">– Bitte wählen –</option>
-              <% packages.forEach(pkg => { %>
-                <option value="<%= pkg.id %>" <%= pkg.selected ? 'selected':'' %>>
-                  <%= pkg.name %> – €<%= Number(pkg.price).toFixed(2) %>
-                </option>
-              <% }) %>
-            </select>
-          </div>
-          <div class="col-md-6">
-            <label for="category_id" class="form-label">Kategorie für Paket</label>
-            <select id="category_id" name="category_id" class="form-select form-select-sm">
-              <option value="">– Bitte wählen –</option>
-              <% categories.forEach(cat => { %>
-                <option value="<%= cat.id %>" <%= cat.selected ? 'selected':'' %>>
-                  <%= cat.name %>
-                </option>
-              <% }) %>
-            </select>
-          </div>
+        <legend class="w-auto px-2">Pakete &amp; Kategorien</legend>
+        <p class="text-muted mb-3">Mehrere Paket/Kategorie-Zuweisungen sind möglich.</p>
+
+        <div id="package-assignment-list">
+          <% packageAssignments.forEach((assignment, index) => { %>
+            <div class="row g-2 align-items-end mb-2 js-package-assignment-row">
+              <div class="col-md-5">
+                <label class="form-label js-assignment-label">Zuweisung <%= index + 1 %> - Paket</label>
+                <select name="assignment_package_id[]" class="form-select form-select-sm">
+                  <option value="">– Bitte wählen –</option>
+                  <% packages.forEach(pkg => { %>
+                    <option value="<%= pkg.id %>" <%= String(assignment.package_id || '') === String(pkg.id) ? 'selected' : '' %>>
+                      <%= pkg.name %> - €<%= Number(pkg.price || 0).toFixed(2) %>
+                    </option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="col-md-5">
+                <label class="form-label">Kategorie</label>
+                <select name="assignment_category_id[]" class="form-select form-select-sm">
+                  <option value="">– Bitte wählen –</option>
+                  <% categories.forEach(cat => { %>
+                    <option value="<%= cat.id %>" <%= String(assignment.category_id || '') === String(cat.id) ? 'selected' : '' %>>
+                      <%= cat.name %>
+                    </option>
+                  <% }) %>
+                </select>
+              </div>
+              <div class="col-md-2 d-grid">
+                <button type="button" class="btn btn-outline-danger btn-sm js-remove-assignment">Entfernen</button>
+              </div>
+            </div>
+          <% }) %>
         </div>
+
+        <div class="mt-2">
+          <button type="button" id="add-package-assignment" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i> Weitere Zuweisung
+          </button>
+        </div>
+
+        <template id="package-assignment-template">
+          <div class="row g-2 align-items-end mb-2 js-package-assignment-row">
+            <div class="col-md-5">
+              <label class="form-label js-assignment-label">Zuweisung - Paket</label>
+              <select name="assignment_package_id[]" class="form-select form-select-sm">
+                <option value="">– Bitte wählen –</option>
+                <% packages.forEach(pkg => { %>
+                  <option value="<%= pkg.id %>">
+                    <%= pkg.name %> - €<%= Number(pkg.price || 0).toFixed(2) %>
+                  </option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-5">
+              <label class="form-label">Kategorie</label>
+              <select name="assignment_category_id[]" class="form-select form-select-sm">
+                <option value="">– Bitte wählen –</option>
+                <% categories.forEach(cat => { %>
+                  <option value="<%= cat.id %>"><%= cat.name %></option>
+                <% }) %>
+              </select>
+            </div>
+            <div class="col-md-2 d-grid">
+              <button type="button" class="btn btn-outline-danger btn-sm js-remove-assignment">Entfernen</button>
+            </div>
+          </div>
+        </template>
       </fieldset>
 
       <fieldset class="border rounded p-3 mb-4">
@@ -268,5 +323,113 @@
         <%= data.id ? 'Änderungen speichern' : 'Benutzer anlegen' %>
       </button>
     </form>
+
+    <% const selectedPackageRows = Array.isArray(selectedPackagesForActions) ? selectedPackagesForActions : []; %>
+    <% if (data.id) { %>
+      <section class="border rounded p-3 mt-4">
+        <h2 class="h6 mb-3">Paket-Laufzeiten verwalten</h2>
+        <% if (!selectedPackageRows.length) { %>
+          <div class="text-muted small mb-0">Keine aktiven oder deaktivierten Paketzuordnungen vorhanden.</div>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Paket</th>
+                  <th>Kategorie</th>
+                  <th>Start</th>
+                  <th>Ende</th>
+                  <th>Status</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% selectedPackageRows.forEach((sp) => { %>
+                  <tr>
+                    <td><%= sp.package_name || ('ID ' + sp.package_id) %></td>
+                    <td><%= sp.category_name || ('ID ' + sp.category_id) %></td>
+                    <td><%= sp.start_date_display || '–' %></td>
+                    <td><%= sp.effective_end_date_display || '–' %></td>
+                    <td>
+                      <% if (sp.is_deactivated) { %>
+                        <span class="badge text-bg-secondary">Deaktiviert</span>
+                      <% } else { %>
+                        <span class="badge text-bg-success">Aktiv</span>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="d-flex flex-wrap gap-2">
+                        <% if (sp.is_deactivated) { %>
+                          <form method="POST" action="/admin/users/<%= data.id %>/selected-packages/<%= sp.id %>/reactivate">
+                            <button type="submit" class="btn btn-outline-success btn-sm"
+                                    onclick="return confirm('Paket wirklich reaktivieren?')">
+                              Reaktivieren
+                            </button>
+                          </form>
+                        <% } else { %>
+                          <form method="POST" action="/admin/users/<%= data.id %>/selected-packages/<%= sp.id %>/deactivate">
+                            <button type="submit" class="btn btn-outline-warning btn-sm"
+                                    onclick="return confirm('Paket wirklich deaktivieren?')">
+                              Deaktivieren
+                            </button>
+                          </form>
+                        <% } %>
+
+                        <form method="POST" action="/admin/users/<%= data.id %>/selected-packages/<%= sp.id %>/extend">
+                          <button type="submit" class="btn btn-outline-primary btn-sm"
+                                  onclick="return confirm('Paket automatisch um 12 Monate verlängern?')">
+                            +12 Monate
+                          </button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </section>
+    <% } %>
   </main>
 </div>
+
+<script>
+  (() => {
+    const wrapper = document.getElementById('package-assignment-list');
+    const addBtn = document.getElementById('add-package-assignment');
+    const template = document.getElementById('package-assignment-template');
+    if (!wrapper || !addBtn || !template) return;
+
+    const updateLabels = () => {
+      wrapper.querySelectorAll('.js-package-assignment-row').forEach((row, idx) => {
+        const label = row.querySelector('.js-assignment-label');
+        if (label) label.textContent = `Zuweisung ${idx + 1} - Paket`;
+      });
+    };
+
+    const bindRemove = (row) => {
+      const btn = row.querySelector('.js-remove-assignment');
+      if (!btn) return;
+      btn.addEventListener('click', () => {
+        row.remove();
+        if (!wrapper.querySelector('.js-package-assignment-row')) {
+          const clone = template.content.firstElementChild.cloneNode(true);
+          wrapper.appendChild(clone);
+          bindRemove(clone);
+        }
+        updateLabels();
+      });
+    };
+
+    wrapper.querySelectorAll('.js-package-assignment-row').forEach(bindRemove);
+    updateLabels();
+
+    addBtn.addEventListener('click', () => {
+      const clone = template.content.firstElementChild.cloneNode(true);
+      wrapper.appendChild(clone);
+      bindRemove(clone);
+      updateLabels();
+    });
+  })();
+</script>

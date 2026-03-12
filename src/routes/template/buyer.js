@@ -2412,10 +2412,14 @@ router.get(
       
       // 4) Länder
       const [countries] = await db.query(
-        `SELECT id, de AS name
-           FROM countries
-          WHERE visible = 1
-          ORDER BY name`
+        `SELECT c.id, c.parent_id, c.de AS name
+           FROM countries c
+          WHERE c.visible = 1
+             OR c.parent_id IS NOT NULL
+             OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
+          ORDER BY
+            CASE WHEN c.parent_id IS NULL THEN 0 ELSE 1 END,
+            c.de`
       );
 
       // 5) entity‑spezifisch: brands/models, years etc.
@@ -3153,7 +3157,14 @@ router.get('/edit-listing/:id', async (req, res, next) => {
 
     // 🧩 7) Länder laden
     const [countries] = await db.query(
-      `SELECT id, de AS name FROM countries WHERE visible = 1 ORDER BY name`
+      `SELECT c.id, c.parent_id, c.de AS name
+       FROM countries c
+       WHERE c.visible = 1
+          OR c.parent_id IS NOT NULL
+          OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
+       ORDER BY
+         CASE WHEN c.parent_id IS NULL THEN 0 ELSE 1 END,
+         c.de`
     );
 
     // 🧩 8) Filterdaten (Marken, Modelle, etc.)

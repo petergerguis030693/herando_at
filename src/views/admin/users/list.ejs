@@ -269,10 +269,10 @@
 
           <p class="mb-2">
             <i class="bi bi-person-fill me-2 text-primary"></i>
-            <% if (u.gender === 1) { %>
-              Frau <%= u.firstname %> <%= u.lastname %>
-            <% } else if (u.gender === 2) { %>
+            <% if (u.gender === 1 || u.gender === 2) { %>
               Herr <%= u.firstname %> <%= u.lastname %>
+            <% } else if (u.gender === 3) { %>
+              Frau <%= u.firstname %> <%= u.lastname %>
             <% } else { %>
               <%= u.firstname %> <%= u.lastname %>
             <% } %>
