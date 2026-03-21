@@ -67,31 +67,19 @@
   <ul class="nav flex-column">
     <% if (role === 9) { %>
       <li class="nav-item mb-2">
-        <a class="nav-link<%= (active === 'listings') ? ' active' : '' %>" href="/admin/listings">
-          <i class="bi bi-card-checklist me-1"></i> Inserate
-        </a>
-      </li>
-      <li class="nav-item mb-2">
         <a class="nav-link<%= (active === 'dashboard') ? ' active' : '' %>" href="/admin">
           <i class="bi bi-speedometer2 me-1"></i> Dashboard
         </a>
       </li>
-
-      <li class="nav-item">
+      <li class="nav-item mb-2">
         <a href="/" class="nav-link <%= active === 'userpackages' ? 'active' : '' %>">
           <i class="bi bi-house-fill me-1"></i>
-          Zur Startseite
-        </a>
-      </li>
-
-      <li class="nav-item mb-2">
-        <a href="/admin/entieties" class="nav-link <%= active === 'entieties' ? 'active' : '' %>">
-          <i class="bi bi-grid-3x3-gap me-1"></i> Kategorien
+          Zur Herando Startseite
         </a>
       </li>
       <li class="nav-item mb-2">
-        <a href="/admin/users/new" class="nav-link <%= active === 'users-new' ? 'active' : '' %>">
-          <i class="bi bi-person-plus me-1"></i> Neuer Benutzer
+        <a class="nav-link<%= (active === 'listings') ? ' active' : '' %>" href="/admin/listings">
+          <i class="bi bi-card-checklist me-1"></i> Inserate
         </a>
       </li>
       <li class="nav-item mb-2">
@@ -100,11 +88,39 @@
         </a>
       </li>
       <li class="nav-item mb-2">
-        <a href="/admin/users/without-package" class="nav-link <%= active === 'users-without-package' ? 'active' : '' %>">
-          <i class="bi bi-box-arrow-in-down-right me-1"></i> Benutzer ohne Paket
+        <a href="/admin/users/new" class="nav-link <%= active === 'users-new' ? 'active' : '' %>">
+          <i class="bi bi-person-plus me-1"></i> Neuer Benutzer
         </a>
       </li>
-            <li class="nav-item">
+      <li class="nav-item mb-2">
+        <a href="/admin/modbrand" class="nav-link <%= active === 'pages' ? 'active' : '' %>">
+          <i class="bi bi-file-earmark-text me-1"></i>
+          Markenverwaltung
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a href="/admin/packages" class="nav-link <%= active==='packages'?'active':''%>">
+          <i class="bi bi-box-seam me-1"></i> Pakete
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a href="/admin/packages/userpackages" class="nav-link <%= active === 'userpackages' ? 'active' : '' %>">
+          <i class="bi bi-box-seam me-1"></i>
+          Userpackages verwalten
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a href="/admin/entieties" class="nav-link <%= active === 'entieties' ? 'active' : '' %>">
+          <i class="bi bi-grid-3x3-gap me-1"></i> Kategorien
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a href="/admin/bund" class="nav-link <%= active === 'bund' ? 'active' : '' %>">
+          <i class="bi bi-geo-alt me-1"></i>
+          Länder & Bundesländer
+        </a>
+      </li>
+      <li class="nav-item mb-2">
         <a class="nav-link d-flex justify-content-between align-items-center <%= (active==='home-hero' || active==='category-hero') ? 'active fw-bold' : '' %>"
            data-bs-toggle="collapse"
            href="#imageEditMenuRole9"
@@ -129,10 +145,49 @@
           </ul>
         </div>
       </li>
-
+      <li class="nav-item">
+        <a class="nav-link <%= active==='ui-translations' ? 'active fw-bold' : '' %>" href="/admin/ui">
+          <i class="bi bi-translate me-1"></i> UI-Texte
+        </a>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link <%= active==='ui-translations' ? 'active fw-bold' : '' %>" href="/admin/seo">
+          <i class="bi bi-search me-1"></i> SEO - Metadaten
+        </a>
+      </li>
       <li class="nav-item mb-2">
-        <a href="/admin/packages" class="nav-link <%= active==='packages'?'active':''%>">
-          <i class="bi bi-box-seam me-1"></i> Pakete
+        <a class="nav-link <%= active==='sitemap-xml' ? 'active fw-bold' : '' %>" href="/admin/sitemap">
+          <i class="bi bi-diagram-3 me-1"></i> Sitemap XML
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/admin/landing" class="nav-link <%= active === 'pages' ? 'active' : '' %>">
+          <i class="bi bi-file-earmark-text me-1"></i>
+          Landingpages verwalten
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/admin/landing/new" class="nav-link <%= active === 'pages-new' ? 'active' : '' %>">
+          <i class="bi bi-plus-square me-1"></i>
+          Neue Landingpage
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/admin/pages/new" class="nav-link <%= active === 'pages-new' ? 'active' : '' %>">
+          <i class="bi bi-plus-square me-1"></i>
+          Neue Seite
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/admin/footer" class="nav-link <%= active === 'footer' ? 'active' : '' %>">
+          <i class="bi bi-columns-gap me-1"></i>
+          Footer verwalten
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a href="/admin/postings" class="nav-link <%= active === 'footer' ? 'active' : '' %>">
+          <i class="bi bi-columns-gap me-1"></i>
+          Posts verwalten
         </a>
       </li>
       <li class="nav-item mb-2">
@@ -145,62 +200,57 @@
           <i class="bi bi-person-lines-fill me-1"></i> Bewerbungen
         </a>
       </li>
-      <!--<li class="nav-item mb-2">
-        <a href="/admin/ads/examination" class="nav-link <%= active === 'ads-advert_inserat' ? 'active' : '' %>">
-          <i class="bi bi-card-text me-1"></i>Bezahlte Werbeanzeige Pruefen
-        </a>
-      </li>-->
-      <li class="nav-item">
-        <a href="/admin/pages/new" class="nav-link <%= active === 'pages-new' ? 'active' : '' %>">
-          <i class="bi bi-plus-square me-1"></i>
-          Neue Seite
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="/admin/landing" class="nav-link <%= active === 'pages' ? 'active' : '' %>">
-          <i class="bi bi-file-earmark-text me-1"></i>
-          Landingpages verwalten
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="/admin/landing/new" class="nav-link <%= active === 'pages-new' ? 'active' : '' %>">
-          <i class="bi bi-plus-square me-1"></i>
-          Neue Landingpage
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="/admin/footer" class="nav-link <%= active === 'footer' ? 'active' : '' %>">
-          <i class="bi bi-columns-gap me-1"></i>
-          Footer verwalten
-        </a>
-      </li>
-
       <li class="nav-item">
         <a href="/admin/contacts" class="nav-link <%= active === 'contacts' ? 'active' : '' %>">
           <i class="bi bi-envelope me-1"></i>
           Kontakt-Anfragen
         </a>
       </li>
-      <li class="nav-item">
+      <li class="nav-item mb-2">
         <a href="/admin/seller-requests" class="nav-link <%= active === 'seller-requests' ? 'active' : '' %>">
           <i class="bi bi-inboxes me-1"></i>
           Verkäuferanfragen
         </a>
       </li>
-
-      <li class="nav-item">
-        <a href="/admin/postings" class="nav-link <%= active === 'footer' ? 'active' : '' %>">
-          <i class="bi bi-columns-gap me-1"></i>
-          Posts verwalten
+      <li class="nav-item mb-2">
+        <a href="/admin/users/without-package" class="nav-link <%= active === 'users-without-package' ? 'active' : '' %>">
+          <i class="bi bi-box-arrow-in-down-right me-1"></i> Benutzer ohne Paket
         </a>
       </li>
       <li class="nav-item">
-        <a href="/admin/packages/userpackages" class="nav-link <%= active === 'userpackages' ? 'active' : '' %>">
-          <i class="bi bi-box-seam me-1"></i>
-          Userpackages verwalten
+        <a href="/admin/accounting" class="nav-link <%= active === 'accounting' ? 'active' : '' %>">
+          <i class="bi bi-receipt-cutoff me-2"></i>
+          Buchhaltung
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a href="/admin/analytics" class="nav-link <%= active === 'analytics' ? 'active' : '' %>">
+          <i class="bi bi-graph-up-arrow me-2"></i>
+          Analytics
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a href="/admin/sales-direct-payment" class="nav-link <%= active === 'sales-direct-payment' ? 'active' : '' %>">
+          <i class="bi bi-credit-card-2-front me-2"></i>
+          Direktzahlung-Code
+        </a>
+      </li>
+      <li class="nav-item">
+        <a href="/admin/newsletter" class="nav-link <%= active === 'pages' ? 'active' : '' %>">
+          <i class="bi bi-envelope me-1"></i>
+          Newsletter verschicken
+        </a>
+      </li>
+    <% } else if (role === 8) { %>
+      <li class="nav-item mb-2">
+        <a href="/" class="nav-link <%= active === 'userpackages' ? 'active' : '' %>">
+          <i class="bi bi-house-fill me-1"></i>
+          Zur Startseite
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a class="nav-link<%= (active === 'listings') ? ' active' : '' %>" href="/admin/listings">
+          <i class="bi bi-card-checklist me-1"></i> Inserate
         </a>
       </li>
       <li class="nav-item">
@@ -210,49 +260,27 @@
         </a>
       </li>
       <li class="nav-item">
-        <a href="/admin/newsletter" class="nav-link <%= active === 'pages' ? 'active' : '' %>">
-          <i class="bi bi-envelope me-1"></i>
-          Newsletter verschicken
-        </a>
-      </li>
-
-      <li class="nav-item">
-        <a href="/admin/accounting" class="nav-link <%= active === 'accounting' ? 'active' : '' %>">
-          <i class="bi bi-receipt-cutoff me-2"></i>
-          Buchhaltung
+        <a href="/admin/bund" class="nav-link <%= active === 'bund' ? 'active' : '' %>">
+          <i class="bi bi-geo-alt me-1"></i>
+          Länder & Bundesländer
         </a>
       </li>
       <li class="nav-item">
-        <a href="/admin/analytics" class="nav-link <%= active === 'analytics' ? 'active' : '' %>">
-          <i class="bi bi-graph-up-arrow me-2"></i>
-          Analytics
+        <a href="/admin/jobs" class="nav-link <%= (active === 'jobs' || active === 'jobs-applications') ? 'active' : '' %>">
+          <i class="bi bi-briefcase me-1"></i>
+          Jobs
         </a>
       </li>
       <li class="nav-item">
-        <a class="nav-link <%= active==='ui-translations' ? 'active fw-bold' : '' %>" href="/admin/ui">
-          <i class="bi bi-translate me-1"></i> UI-Texte
+        <a href="/admin/jobs/applications" class="nav-link <%= active === 'jobs-applications' ? 'active' : '' %>">
+          <i class="bi bi-person-lines-fill me-1"></i>
+          Bewerbungen
         </a>
       </li>
-      <li class="nav-item">
-        <a class="nav-link <%= active==='ui-translations' ? 'active fw-bold' : '' %>" href="/admin/seo">
-          <i class="bi bi-search me-1"></i> SEO - Metadaten
-        </a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link <%= active==='sitemap-xml' ? 'active fw-bold' : '' %>" href="/admin/sitemap">
-          <i class="bi bi-diagram-3 me-1"></i> Sitemap XML
-        </a>
-      </li>
-    <% } else if (role === 8) { %>
       <li class="nav-item mb-2">
-        <a class="nav-link<%= (active === 'listings') ? ' active' : '' %>" href="/admin/listings">
-          <i class="bi bi-card-checklist me-1"></i> Inserate
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="/" class="nav-link <%= active === 'userpackages' ? 'active' : '' %>">
-          <i class="bi bi-house-fill me-1"></i>
-          Zur Startseite
+        <a href="/admin/seller-requests" class="nav-link <%= active === 'seller-requests' ? 'active' : '' %>">
+          <i class="bi bi-inboxes me-1"></i>
+          Verkäuferanfragen
         </a>
       </li>
       <li class="nav-item mb-2">
@@ -271,12 +299,6 @@
         </a>
       </li>
       <li class="nav-item">
-        <a href="/admin/modbrand" class="nav-link <%= active === 'pages' ? 'active' : '' %>">
-          <i class="bi bi-file-earmark-text me-1"></i>
-          Markenverwaltung
-        </a>
-      </li>
-      <li class="nav-item">
         <a href="/admin/accounting" class="nav-link <%= active === 'accounting' ? 'active' : '' %>">
           <i class="bi bi-receipt-cutoff me-2"></i>
           Buchhaltung
@@ -298,34 +320,16 @@
           <i class="bi bi-diagram-3 me-1"></i> Sitemap XML
         </a>
       </li>
-      <li class="nav-item">
-        <a href="/admin/jobs" class="nav-link <%= (active === 'jobs' || active === 'jobs-applications') ? 'active' : '' %>">
-          <i class="bi bi-briefcase me-1"></i>
-          Jobs
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="/admin/jobs/applications" class="nav-link <%= active === 'jobs-applications' ? 'active' : '' %>">
-          <i class="bi bi-person-lines-fill me-1"></i>
-          Bewerbungen
-        </a>
-      </li>
-      <li class="nav-item">
-        <a href="/admin/seller-requests" class="nav-link <%= active === 'seller-requests' ? 'active' : '' %>">
-          <i class="bi bi-inboxes me-1"></i>
-          Verkäuferanfragen
-        </a>
-      </li>
     <% } else if (role === 7) { %>
       <li class="nav-item mb-2">
-        <a class="nav-link<%= (active === 'listings') ? ' active' : '' %>" href="/admin/listings">
-          <i class="bi bi-card-checklist me-1"></i> Inserate
-        </a>
-      </li>
-      <li class="nav-item">
         <a href="/" class="nav-link <%= active === 'userpackages' ? 'active' : '' %>">
           <i class="bi bi-house-fill me-1"></i>
           Zur Startseite
+        </a>
+      </li>
+      <li class="nav-item mb-2">
+        <a class="nav-link<%= (active === 'listings') ? ' active' : '' %>" href="/admin/listings">
+          <i class="bi bi-card-checklist me-1"></i> Inserate
         </a>
       </li>
       <li class="nav-item mb-2">
@@ -333,9 +337,9 @@
           <i class="bi bi-grid-3x3-gap me-1"></i> Kategorien
         </a>
       </li>
-      <li class="nav-item">
-        <a class="nav-link <%= active==='ui-translations' ? 'active fw-bold' : '' %>" href="/admin/ui">
-          <i class="bi bi-translate me-1"></i> UI-Texte
+      <li class="nav-item mb-2">
+        <a href="/admin/bund" class="nav-link <%= active === 'bund' ? 'active' : '' %>">
+          <i class="bi bi-geo-alt me-1"></i> Länder & Bundesländer
         </a>
       </li>
       <li class="nav-item">
@@ -362,6 +366,11 @@
             </li>
           </ul>
         </div>
+      </li>
+      <li class="nav-item">
+        <a class="nav-link <%= active==='ui-translations' ? 'active fw-bold' : '' %>" href="/admin/ui">
+          <i class="bi bi-translate me-1"></i> UI-Texte
+        </a>
       </li>
       <li class="nav-item">
         <a class="nav-link <%= active==='ui-translations' ? 'active fw-bold' : '' %>" href="/admin/seo">

@@ -28,7 +28,7 @@ toapprove: {
   pending:   { where: ['status = 7'] },
   rejected:  { where: ['status = 8'] },
   stopped:   { where: ['status = 3', 'visible = 0'] },
-  ended:     { where: ['stopdate <= NOW()'] },
+  ended:     { where: ['status = 4', 'visible = 0'] },
   deleted:   { where: ['status = 9'] }
 };
 const states = [
@@ -868,6 +868,7 @@ function isAllowedPathForRole(role, path) {
       p === '/jobs' || p.startsWith('/jobs/') ||
       p === '/users' || p.startsWith('/users/') ||
       p === '/modbrand' || p.startsWith('/modbrand/') ||
+      p === '/bund' || p.startsWith('/bund/') ||
       p === '/analytics' || p.startsWith('/analytics/') ||
       p === '/accounting' || p.startsWith('/accounting/') ||
       p === '/seo' || p.startsWith('/seo/') ||
@@ -882,6 +883,7 @@ function isAllowedPathForRole(role, path) {
       p === '/listings' || p.startsWith('/listings/') ||
       p === '/jobs' || p.startsWith('/jobs/') ||
       p === '/entieties' || p.startsWith('/entieties/') ||
+      p === '/bund' || p.startsWith('/bund/') ||
       p === '/ui' || p.startsWith('/ui/') ||
       p === '/seo' || p.startsWith('/seo/') ||
       p === '/sitemap' || p.startsWith('/sitemap/')
@@ -2301,7 +2303,7 @@ router.get('/listings/:category/:id/edit', async (req, res, next) => {
       watches: 2,
       cars: 3,
       yachts: 4,
-      lifestyles: 5
+      lifestyles: 6
     };
 
     // Admin-User laden (für optionale Anzeige wie MwSt.)
@@ -2506,7 +2508,7 @@ router.get('/listings/:category/:id/edit', async (req, res, next) => {
 
     if (ent.route === 'lifestyles') {
       [lifestyleTypes] = await db.query(
-        `SELECT id, name FROM brands WHERE type = 5 ORDER BY name`
+        `SELECT id, name FROM brands WHERE type = 6 ORDER BY name`
       );
 
       if (lifestyleTypes.length) {
@@ -2605,6 +2607,13 @@ router.post('/listings/:category/:id/action', async (req, res, next) => {
       await db.query(
         `UPDATE \`${ent.table_name}\` SET status = ? WHERE id = ?`,
         [status, id]
+      );
+    } else if (action === 'approve') {
+      await db.query(
+        `UPDATE \`${ent.table_name}\`
+            SET status = ?, visible = ?, published = COALESCE(published, NOW())
+          WHERE id = ?`,
+        [status, visible, id]
       );
     } else {
       await db.query(
@@ -3201,6 +3210,51 @@ router.get('/ententies', async (req, res, next) => {
   });
 
 const PAGE_I18N_LANGS = ['en', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
+const MANUAL_SALES_PAYMENT_CODE_KEY = 'manual_sales_payment_code';
+
+async function getManualSalesPaymentCodeSetting() {
+  const [[row]] = await db.query(
+    `SELECT de
+       FROM ui_translations
+      WHERE \`key\` = ?
+      LIMIT 1`,
+    [MANUAL_SALES_PAYMENT_CODE_KEY]
+  );
+  return String(row?.de || '').trim();
+}
+
+function parseManualSalesPaymentCodes(raw) {
+  return Array.from(
+    new Set(
+      String(raw || '')
+        .split(/\r?\n|,|;/)
+        .map((part) => String(part || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+async function saveManualSalesPaymentCodeSetting(code) {
+  const value = String(code || '').trim();
+  await db.query(
+    `INSERT INTO ui_translations
+      (\`key\`, de, en, fr, it, tr, ja, cs, ru, es, nl, pl)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+     ON DUPLICATE KEY UPDATE
+      de = VALUES(de),
+      en = VALUES(en),
+      fr = VALUES(fr),
+      it = VALUES(it),
+      tr = VALUES(tr),
+      ja = VALUES(ja),
+      cs = VALUES(cs),
+      ru = VALUES(ru),
+      es = VALUES(es),
+      nl = VALUES(nl),
+      pl = VALUES(pl)`,
+    [MANUAL_SALES_PAYMENT_CODE_KEY, value, value, value, value, value, value, value, value, value, value, value]
+  );
+}
 
 function getPageI18nPayload(body = {}) {
   const payload = {
@@ -3323,6 +3377,77 @@ router.post('/pages/:slug/delete',  async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+router.get('/sales-direct-payment', async (req, res, next) => {
+  try {
+    const currentCode = await getManualSalesPaymentCodeSetting();
+    const codes = parseManualSalesPaymentCodes(currentCode);
+    res.render('admin/settings/sales-direct-payment', {
+      active: 'sales-direct-payment',
+      role: req.session.role,
+      currentCode,
+      codes,
+      saved: req.query.saved === '1'
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sales-direct-payment', async (req, res, next) => {
+  try {
+    const rawInput = String(
+      req.body?.manual_sales_payment_codes ??
+      req.body?.manual_sales_payment_code ??
+      ''
+    );
+    const codes = Array.from(
+      new Set(
+        rawInput
+          .split(/\r?\n|,|;/)
+          .map((part) => String(part || '').trim())
+          .filter(Boolean)
+      )
+    );
+    const normalized = codes.slice(0, 50).map((c) => c.slice(0, 120)).join('\n');
+    await saveManualSalesPaymentCodeSetting(normalized);
+    res.redirect('/admin/sales-direct-payment?saved=1');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sales-direct-payment/add', async (req, res, next) => {
+  try {
+    const newCode = String(req.body?.code || '').trim().slice(0, 120);
+    if (!newCode) {
+      return res.redirect('/admin/sales-direct-payment');
+    }
+
+    const existingRaw = await getManualSalesPaymentCodeSetting();
+    const codes = parseManualSalesPaymentCodes(existingRaw);
+    if (!codes.includes(newCode)) {
+      codes.push(newCode);
+      await saveManualSalesPaymentCodeSetting(codes.join('\n'));
+    }
+    res.redirect('/admin/sales-direct-payment?saved=1');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/sales-direct-payment/delete', async (req, res, next) => {
+  try {
+    const codeToDelete = String(req.body?.code || '').trim();
+    const existingRaw = await getManualSalesPaymentCodeSetting();
+    const codes = parseManualSalesPaymentCodes(existingRaw);
+    const filtered = codes.filter((code) => code !== codeToDelete);
+    await saveManualSalesPaymentCodeSetting(filtered.join('\n'));
+    res.redirect('/admin/sales-direct-payment?saved=1');
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 
 router.use('/entieties', require('./entieties'));
@@ -3332,6 +3457,7 @@ router.use('/packages', require('./packages'));
 router.use('/ads', require('./ads'));
 router.use('/news', require('./news'));
 router.use('/modbrand', require('./modbrand'));
+router.use('/bund', require('./bund'));
 router.use('/landing', require('./landing'));
 router.use('/footer', require('./footer'));
 router.use('/postings', require('./postings'));

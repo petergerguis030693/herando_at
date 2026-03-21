@@ -95,7 +95,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const FACET_SELECT_MAP = {
     brand: '#fBrand',
     model: '#fModel',
-    country: '#fRegion',
+    country: '#fCountryParent',
     cartype: '#fCarType',
     year: ['#fYearMin', '#fYearMax'],
     registrationYear: ['#fRegistrationYearMin', '#fRegistrationYearMax'],

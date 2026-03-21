@@ -453,6 +453,7 @@ const specsConfig = {
     { field: 'bedrooms',     key: 'labels.property.bedrooms',    fb: 'Schlafzimmer' },
     { field: 'bathrooms',    key: 'labels.property.baths',       fb: 'Badezimmer' },
     { field: 'year',         key: 'labels.property.built',       fb: 'Baujahr' },
+    { field: 'stateName',    key: 'labels.property.state',       fb: 'Bundesland' },
     { field: 'countryName',  key: 'labels.common.country',       fb: 'Land' },
     { field: 'priceFormatted', key: 'labels.common.price',       fb: 'Preis' },
   ]
@@ -694,6 +695,56 @@ async function loadLayoutData() {
   }
 
   return { entieties, footerColumns };
+}
+
+const MANUAL_SALES_PAYMENT_CODE_KEY = 'manual_sales_payment_code';
+const MANUAL_SALES_PAYMENT_VERIFY_TTL_MS = 30 * 60 * 1000;
+
+async function getManualSalesPaymentCode() {
+  const [[row]] = await db.query(
+    `SELECT de
+       FROM ui_translations
+      WHERE \`key\` = ?
+      LIMIT 1`,
+    [MANUAL_SALES_PAYMENT_CODE_KEY]
+  );
+  return String(row?.de || '').trim();
+}
+
+function parseManualSalesPaymentCodes(raw) {
+  return Array.from(
+    new Set(
+      String(raw || '')
+        .split(/\r?\n|,|;/)
+        .map((part) => String(part || '').trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function parseEuroAmount(raw) {
+  const normalized = String(raw || '').trim().replace(',', '.');
+  const num = Number.parseFloat(normalized);
+  if (!Number.isFinite(num)) return null;
+  if (num <= 0) return null;
+  if (num > 50000) return null;
+  return Math.round(num * 100) / 100;
+}
+
+function hasValidManualSalesPaymentVerification(req) {
+  const ts = Number(req.session?.manualSalesPaymentVerifiedAt || 0);
+  return ts > 0 && (Date.now() - ts) <= MANUAL_SALES_PAYMENT_VERIFY_TTL_MS;
+}
+
+async function resolveLoggedInUserEmail(req) {
+  const fromSession = String(req.session?.user?.email || req.session?.userEmail || '').trim();
+  if (fromSession) return fromSession;
+
+  const userId = Number(req.session?.userId || 0);
+  if (!userId) return '';
+
+  const [[user]] = await db.query(`SELECT email FROM users WHERE id = ? LIMIT 1`, [userId]);
+  return String(user?.email || '').trim();
 }
 
 function normalizePathUrl(p) {
@@ -1142,19 +1193,28 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
 
     // 2) Hauptdatensatz
     const table = db.escapeId(currentEntity.table_name);
-    const isOwnerPreview = String(req.query.preview || '') === '1' && Number(req.session?.userId) > 0;
+    const isAdminPreview =
+      String(req.query.adminPreview || '') === '1' &&
+      [8, 9].includes(Number(req.session?.role));
+    const isOwnerPreview =
+      !isAdminPreview &&
+      String(req.query.preview || '') === '1' &&
+      Number(req.session?.userId) > 0;
     const previewOwnerId = isOwnerPreview ? Number(req.session.userId) : null;
-    const detailSql = isOwnerPreview
-      ? `SELECT * FROM ${table} WHERE id = ? AND user_id = ? AND status <> 9 LIMIT 1`
-      : `SELECT * FROM ${table} WHERE id = ? AND status = 3 AND visible = 1 LIMIT 1`;
-    const detailParams = isOwnerPreview ? [id, previewOwnerId] : [id];
+    const detailSql = isAdminPreview
+      ? `SELECT * FROM ${table} WHERE id = ? LIMIT 1`
+      : isOwnerPreview
+        ? `SELECT * FROM ${table} WHERE id = ? AND user_id = ? AND status <> 9 LIMIT 1`
+        : `SELECT * FROM ${table} WHERE id = ? AND status = 3 AND visible = 1 LIMIT 1`;
+    const detailParams = isAdminPreview ? [id] : (isOwnerPreview ? [id, previewOwnerId] : [id]);
     const [[itemRow]] = await db.query(detailSql, detailParams);
     if (!itemRow) return res.status(404).send('Artikel nicht gefunden');
     console.log('[DETAIL] itemRow.id:', itemRow.id, 'name:', itemRow.name);
     const incomingDetailPrefix = deriveDetailPrefixFromOriginalUrl(req, entityRoute, id);
     const withPreviewQuery = (url) => {
-      if (!isOwnerPreview) return url;
-      return String(url).includes('?') ? `${url}&preview=1` : `${url}?preview=1`;
+      if (!isOwnerPreview && !isAdminPreview) return url;
+      const queryPart = isAdminPreview ? 'adminPreview=1' : 'preview=1';
+      return String(url).includes('?') ? `${url}&${queryPart}` : `${url}?${queryPart}`;
     };
 
     // 2a) i18n-Texte (title/description) per listing_translations
@@ -1195,13 +1255,15 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
         const correctedSlug = slugify(itemRow.name, { lower: true, strict: true });
         return res.redirect(
           301,
-          buildLocalizedDetailPath(
-            req,
-            res,
-            entityRoute,
-            id,
-            correctedSlug,
-            expectedPrefix
+          withPreviewQuery(
+            buildLocalizedDetailPath(
+              req,
+              res,
+              entityRoute,
+              id,
+              correctedSlug,
+              expectedPrefix
+            )
           )
         );
       }
@@ -1260,6 +1322,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
     let brandName   = '–';
     let modelName   = '–';
     let countryName = '–';
+    let stateName   = '';
 
     if (itemRow.brand_id) {
       const [[b]] = await db.query('SELECT name FROM brands WHERE id = ?', [itemRow.brand_id]);
@@ -1270,8 +1333,17 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
       modelName = m?.name || '–';
     }
     if (itemRow.country_id) {
-      const [[c]] = await db.query('SELECT de FROM countries WHERE id = ?', [itemRow.country_id]);
-      countryName = c?.de || '–';
+      const [[c]] = await db.query(
+        `SELECT COALESCE(NULLIF(p.de, ''), c.de) AS country_name,
+                CASE WHEN c.parent_id IS NULL THEN '' ELSE COALESCE(NULLIF(c.de, ''), '') END AS state_name
+           FROM countries c
+           LEFT JOIN countries p ON p.id = c.parent_id
+          WHERE c.id = ?
+          LIMIT 1`,
+        [itemRow.country_id]
+      );
+      countryName = c?.country_name || '–';
+      stateName = c?.state_name || '';
     }
     const firstRegistration = itemRow.firstregistration
       ? (itemRow.firstregistration_month
@@ -1310,6 +1382,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
     item.brandName      = brandName;
     item.modelName      = modelName;
     item.countryName    = countryName;
+    item.stateName      = stateName;
     item.firstRegistration = firstRegistration;
 
 
@@ -1424,7 +1497,8 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
         'Wohnfläche (m²)':'labels.property.living',
         'Schlafzimmer':'labels.property.bedrooms',
         'Badezimmer':'labels.property.baths',
-        'Baujahr':'labels.property.built'
+        'Baujahr':'labels.property.built',
+        'Bundesland':'labels.property.state'
       };
       return { field: s.field, key: mapKeyByLabel[s.label] || 'labels.common.'+s.label, fb: s.label };
     });
@@ -3181,7 +3255,7 @@ async function getFiltersForEntity(entity) {
     watches: 2,
     cars: 3,
     yachts: 4,
-    lifestyles: 5
+    lifestyles: 6
   };
 
   const type = categoryTypeMap[entity] || null;
@@ -4817,6 +4891,223 @@ router.get('/zahlung/success', async (req, res, next) => {
   }
 });
 
+router.get('/direkt-zahlung', async (req, res, next) => {
+  try {
+    if (!req.session?.userId) {
+      return res.redirect('/login');
+    }
+
+    const layout = await loadLayoutData();
+    const codes = parseManualSalesPaymentCodes(await getManualSalesPaymentCode());
+    const codeConfigured = codes.length > 0;
+    const step = hasValidManualSalesPaymentVerification(req) ? 'amount' : 'code';
+    const seo = {
+      title: 'Direktzahlung | Herando',
+      meta_description: 'Direktzahlung via Stripe',
+      robots: 'noindex,nofollow'
+    };
+
+    res.render('pages/templates/direct-payment', {
+      ...layout,
+      seo,
+      step,
+      codeConfigured,
+      errorMessage: '',
+      amountValue: '',
+      canceled: String(req.query.canceled || '') === '1',
+      success: false
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/direkt-zahlung/code', async (req, res, next) => {
+  try {
+    if (!req.session?.userId) {
+      return res.redirect('/login');
+    }
+
+    const layout = await loadLayoutData();
+    const seo = {
+      title: 'Direktzahlung | Herando',
+      meta_description: 'Direktzahlung via Stripe',
+      robots: 'noindex,nofollow'
+    };
+    const configuredCodes = parseManualSalesPaymentCodes(await getManualSalesPaymentCode());
+    const enteredCode = String(req.body?.access_code || '').trim();
+
+    if (!configuredCodes.length) {
+      return res.render('pages/templates/direct-payment', {
+        ...layout,
+        seo,
+        step: 'code',
+        codeConfigured: false,
+        errorMessage: 'Direktzahlung ist aktuell nicht verfügbar.',
+        amountValue: '',
+        canceled: false,
+        success: false
+      });
+    }
+
+    if (!configuredCodes.includes(enteredCode)) {
+      return res.render('pages/templates/direct-payment', {
+        ...layout,
+        seo,
+        step: 'code',
+        codeConfigured: true,
+        errorMessage: 'Code ist ungültig.',
+        amountValue: '',
+        canceled: false,
+        success: false
+      });
+    }
+
+    req.session.manualSalesPaymentVerifiedAt = Date.now();
+    return res.redirect('/direkt-zahlung?step=amount');
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/direkt-zahlung/checkout', async (req, res, next) => {
+  try {
+    if (!req.session?.userId) {
+      return res.redirect('/login');
+    }
+
+    const layout = await loadLayoutData();
+    const seo = {
+      title: 'Direktzahlung | Herando',
+      meta_description: 'Direktzahlung via Stripe',
+      robots: 'noindex,nofollow'
+    };
+    const codeConfigured = parseManualSalesPaymentCodes(await getManualSalesPaymentCode()).length > 0;
+
+    if (!hasValidManualSalesPaymentVerification(req)) {
+      return res.render('pages/templates/direct-payment', {
+        ...layout,
+        seo,
+        step: 'code',
+        codeConfigured,
+        errorMessage: 'Code-Prüfung abgelaufen. Bitte erneut eingeben.',
+        amountValue: '',
+        canceled: false,
+        success: false
+      });
+    }
+
+    const amount = parseEuroAmount(req.body?.amount_eur);
+    if (!amount) {
+      return res.render('pages/templates/direct-payment', {
+        ...layout,
+        seo,
+        step: 'amount',
+        codeConfigured,
+        errorMessage: 'Bitte einen gültigen Betrag zwischen 0,01 und 50.000 EUR eingeben.',
+        amountValue: String(req.body?.amount_eur || ''),
+        canceled: false,
+        success: false
+      });
+    }
+
+    const amountCents = Math.round(amount * 100);
+    const customerEmail = await resolveLoggedInUserEmail(req);
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card'],
+      mode: 'payment',
+      line_items: [{
+        price_data: {
+          currency: 'eur',
+          product_data: { name: 'Direktzahlung Vertrieb' },
+          unit_amount: amountCents
+        },
+        quantity: 1
+      }],
+      metadata: {
+        source: 'direct-sales-payment',
+        user_id: String(req.session.userId),
+        amount_eur: amount.toFixed(2)
+      },
+      customer_email: customerEmail || undefined,
+      success_url: `${req.protocol}://${req.get('host')}/direkt-zahlung/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/direkt-zahlung?canceled=1`
+    });
+
+    req.session.directPaymentPending = {
+      amount,
+      createdAt: Date.now()
+    };
+
+    return res.redirect(303, session.url);
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/direkt-zahlung/success', async (req, res, next) => {
+  try {
+    if (!req.session?.userId) {
+      return res.redirect('/login');
+    }
+
+    const layout = await loadLayoutData();
+    const seo = {
+      title: 'Direktzahlung | Herando',
+      meta_description: 'Direktzahlung via Stripe',
+      robots: 'noindex,nofollow'
+    };
+    const sessionId = String(req.query.session_id || '').trim();
+    if (!sessionId || !req.session?.directPaymentPending) {
+      return res.status(400).render('pages/templates/direct-payment', {
+        ...layout,
+        seo,
+        step: 'code',
+        codeConfigured: parseManualSalesPaymentCodes(await getManualSalesPaymentCode()).length > 0,
+        errorMessage: 'Ungültiger Zahlungsablauf.',
+        amountValue: '',
+        canceled: false,
+        success: false
+      });
+    }
+
+    const sessionObj = await stripe.checkout.sessions.retrieve(sessionId);
+    if (sessionObj.payment_status !== 'paid') {
+      return res.status(400).render('pages/templates/direct-payment', {
+        ...layout,
+        seo,
+        step: 'amount',
+        codeConfigured: parseManualSalesPaymentCodes(await getManualSalesPaymentCode()).length > 0,
+        errorMessage: 'Zahlung wurde nicht abgeschlossen.',
+        amountValue: '',
+        canceled: false,
+        success: false
+      });
+    }
+
+    const amount =
+      Number(sessionObj.amount_total || 0) > 0
+        ? (Number(sessionObj.amount_total) / 100).toFixed(2)
+        : Number(req.session.directPaymentPending.amount || 0).toFixed(2);
+
+    delete req.session.directPaymentPending;
+    delete req.session.manualSalesPaymentVerifiedAt;
+
+    return res.render('pages/templates/direct-payment', {
+      ...layout,
+      seo,
+      step: 'done',
+      codeConfigured: true,
+      errorMessage: '',
+      amountValue: amount,
+      canceled: false,
+      success: true
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 router.post('/newsletter/subscribe', async (req, res) => {
   try {
     const { name, email, ententies_ids, accepted } = req.body;
@@ -5943,7 +6234,7 @@ const displaySeonames = [
       watches: 2,
       cars: 3,
       yachts: 4,
-      lifestyles: 5
+      lifestyles: 6
     };
     const brandType = entityTypeMap[entity.route];
 
@@ -6871,7 +7162,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
 
     // Brand-SEO-Slug ebenfalls intern forwarden, damit die URL sauber bleibt:
     // /autos/lamborghini -> intern /cars?brand=286 (ohne sichtbaren Redirect)
-    const entityTypeMap = { properties: 1, watches: 2, cars: 3, yachts: 4, lifestyles: 5 };
+    const entityTypeMap = { properties: 1, watches: 2, cars: 3, yachts: 4, lifestyles: 6 };
     const categoryType = entityTypeMap[entityRoute];
 
     if (categoryType) {
@@ -6937,7 +7228,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
       if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
       const tableName = db.escapeId(currentEntity.table_name);
-      const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+      const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
       const type = categoryTypeMap[entityRoute] || null;
 
       // 2) Pagination
@@ -7168,7 +7459,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
         acc[key] = Array.isArray(value) ? [...value] : value;
         return acc;
       }, {});
-      sel.country = await expandCountrySelectionIds(sel.country);
+      sel.country = toArray(sel.country);
 
       // 4) attribute_options holen
       // Sprachen-Whitelist (Spaltennamen in ui_translations)
@@ -7183,6 +7474,16 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
 
       // Sicher, weil aus Whitelist
       const langCol = activeLanguage;
+      const countryCodeSql = `COALESCE(NULLIF(ctry_parent.code, ''), NULLIF(ctry.code, ''))`;
+      const countryNameSql = `COALESCE(
+        NULLIF(ctry_parent.${langCol}, ''),
+        NULLIF(ctry_parent.de, ''),
+        NULLIF(ctry_parent.en, ''),
+        NULLIF(ctry.${langCol}, ''),
+        NULLIF(ctry.de, ''),
+        NULLIF(ctry.en, ''),
+        ${countryCodeSql}
+      )`;
 
       // 4) attribute_options holen – jetzt mit Übersetzungen aus ui_translations
       const [allOpts] = await db.query(`
@@ -7246,8 +7547,6 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
             FROM countries AS c
             LEFT JOIN countries AS p ON c.parent_id = p.id
             WHERE c.visible = 1
-               OR c.parent_id IS NOT NULL
-               OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
             ORDER BY COALESCE(p.de, c.de), c.de
           `);
           countries = allCountries;
@@ -7319,8 +7618,6 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
               SELECT c.id, c.de AS name
               FROM countries AS c
               WHERE c.visible = 1
-                 OR c.parent_id IS NOT NULL
-                 OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
               ORDER BY c.de
             `);
             countries = watchCountries;
@@ -7351,8 +7648,6 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
               SELECT c.id, c.de AS name
               FROM countries AS c
               WHERE c.visible = 1
-                 OR c.parent_id IS NOT NULL
-                 OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
               ORDER BY c.de
             `);
             countries = yachtCountries;
@@ -7945,11 +8240,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
              JOIN ${tableName} t ON t.country_id = c.id
              LEFT JOIN countries p ON c.parent_id = p.id
              ${facetWhereClause}
-               AND (
-                 c.visible = 1
-                 OR c.parent_id IS NOT NULL
-                 OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
-               )
+               AND c.visible = 1
              ORDER BY COALESCE(p.de, c.de), c.de`,
             facetParams
           );
@@ -8255,7 +8546,8 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
           t.name,
           t.currency,
           t.published,
-          ctry.code AS country_code
+          ${countryCodeSql} AS country_code,
+          ${countryNameSql} AS country_name
           ${extraCols ? ', ' + extraCols : ''}
           ${seoSelectCols}
         `;
@@ -8297,7 +8589,8 @@ if (allowAds && promotedAdIds.length) {
     SELECT ${selectCols}, 1 AS is_ad
     FROM ${tableName} t
     LEFT JOIN users u        ON u.id = t.user_id
-    LEFT JOIN countries ctry ON ctry.id = u.country_id
+    LEFT JOIN countries ctry ON ctry.id = t.country_id
+    LEFT JOIN countries ctry_parent ON ctry_parent.id = ctry.parent_id
     ${seoBrandJoinSql}
     ${seoModelJoinSql}
     WHERE t.id IN (${promotedAdIds.map(() => '?').join(',')})
@@ -8313,7 +8606,8 @@ const [normalRows] = await db.query(`
   SELECT ${selectCols}, 0 AS is_ad
   FROM ${tableName} t
   LEFT JOIN users u        ON u.id = t.user_id
-  LEFT JOIN countries ctry ON ctry.id = u.country_id
+  LEFT JOIN countries ctry ON ctry.id = t.country_id
+  LEFT JOIN countries ctry_parent ON ctry_parent.id = ctry.parent_id
   ${seoBrandJoinSql}
   ${seoModelJoinSql}
   WHERE ${where.join(' AND ')}
@@ -8368,7 +8662,8 @@ console.log('================================================\n');
         t.currency,
         t.published,
         u.company,
-        ctry.code AS country_code
+        ${countryCodeSql} AS country_code,
+        ${countryNameSql} AS country_name
         ${extraCols ? ', ' + extraCols : ''}
         ${seoSelectCols}
       `;
@@ -8378,6 +8673,7 @@ console.log('================================================\n');
         SELECT ${selectCols}
         FROM ${tableName} AS t
         LEFT JOIN countries ctry ON ctry.id = t.country_id
+        LEFT JOIN countries ctry_parent ON ctry_parent.id = ctry.parent_id
         JOIN users u ON u.id = t.user_id
         ${seoBrandJoinSql}
         ${seoModelJoinSql}
@@ -8532,6 +8828,7 @@ console.log('================================================\n');
         title: titleMap.get(r.id) || r.name,   // 🟦 Übersetzung oder fallback
         mainPic: filename,
         countryCode: r.country_code || null,   // ✅ HIER
+        countryName: r.country_name || r.country_code || null,
         imageUrl: buildPublicImageUrl(entityRoute, r.id, filename),
         price,
         priceFormatted: price ? res.locals.convertPrice(price, res.locals.currency, r.currency || 'EUR') : null,
@@ -9352,29 +9649,6 @@ function filterDisallowedYachtTypes(values) {
   return values.filter((v) => !HIDDEN_YACHTTYPE_IDS.has(String(v)));
 }
 
-async function expandCountrySelectionIds(countryValues) {
-  const baseIds = toArray(countryValues)
-    .map((v) => Number.parseInt(String(v), 10))
-    .filter((v) => Number.isInteger(v) && v > 0);
-  if (!baseIds.length) return [];
-
-  const uniqueBaseIds = Array.from(new Set(baseIds));
-  const ph = uniqueBaseIds.map(() => '?').join(',');
-  const [rows] = await db.query(
-    `SELECT id
-       FROM countries
-      WHERE id IN (${ph}) OR parent_id IN (${ph})`,
-    [...uniqueBaseIds, ...uniqueBaseIds]
-  );
-
-  const allIds = new Set(uniqueBaseIds.map(String));
-  (rows || []).forEach((row) => {
-    const id = Number.parseInt(String(row?.id || ''), 10);
-    if (Number.isInteger(id) && id > 0) allIds.add(String(id));
-  });
-  return Array.from(allIds);
-}
-
 // ===== Yacht-Spalten dynamisch ermitteln (einmalig pro Prozess) =====
 let YACHT_COLS = {
   HOURS: null,        // engine_hours | hours | ...
@@ -9624,14 +9898,10 @@ function buildWhere(entityRoute, tableName, sel, userCurrency) {
   const where = ['status=3', 'visible=1', 'pictures IS NOT NULL'];
   const params = [];
   const add = (cond, ...vals) => { where.push(cond); params.push(...vals); };
-  const addCountryOrRegionFilter = (countryIds, column = 'country_id') => {
+  const addCountryFilter = (countryIds, column = 'country_id') => {
     if (!Array.isArray(countryIds) || !countryIds.length) return;
     const ph = IN(countryIds);
-    add(
-      `(${column} IN (${ph}) OR ${column} IN (SELECT id FROM countries WHERE parent_id IN (${ph})))`,
-      ...countryIds,
-      ...countryIds
-    );
+    add(`${column} IN (${ph})`, ...countryIds);
   };
 
   // ===== LIVE CURRENCY CONVERSION (Frankfurter) =====
@@ -9676,7 +9946,7 @@ function buildWhere(entityRoute, tableName, sel, userCurrency) {
   }
 
 
-  addCountryOrRegionFilter(sel.country, 'country_id');
+  addCountryFilter(sel.country, 'country_id');
 
   // --- Properties: freitext location -> city ---
   if (Array.isArray(sel.location) && sel.location.length && entityRoute === 'properties') {
@@ -10142,8 +10412,6 @@ async function loadFilterOptions(entityRoute, tableName, type, baseWhere, basePa
        FROM countries c
   LEFT JOIN countries p ON c.parent_id = p.id
       WHERE c.visible = 1
-         OR c.parent_id IS NOT NULL
-         OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
       ORDER BY COALESCE(p.${langColSafe}, p.de, c.${langColSafe}, c.de),
                c.${langColSafe}, c.de`
     );
@@ -10396,7 +10664,7 @@ router.get('/:entityRoute/filters', async (req, res, next) => {
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     const tableName = db.escapeId(currentEntity.table_name);
-    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
     const type = categoryTypeMap[entityRoute] || null;
 
     const baseWhere  = 'status=3 AND visible=1 AND pictures IS NOT NULL';
@@ -10700,7 +10968,7 @@ router.get('/api/:entityRoute/models', async (req,res,next)=>{
 router.get('/:entityRoute/:brandSeo', async (req, res) => {
   const { entityRoute, brandSeo } = req.params;
 
-  const entityTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+  const entityTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
   const categoryType  = entityTypeMap[entityRoute];
   if (!categoryType) return res.status(404).send('Kategorie nicht gefunden');
 
@@ -10857,19 +11125,28 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
 
     // 2) Hauptdatensatz
     const table = db.escapeId(currentEntity.table_name);
-    const isOwnerPreview = String(req.query.preview || '') === '1' && Number(req.session?.userId) > 0;
+    const isAdminPreview =
+      String(req.query.adminPreview || '') === '1' &&
+      [8, 9].includes(Number(req.session?.role));
+    const isOwnerPreview =
+      !isAdminPreview &&
+      String(req.query.preview || '') === '1' &&
+      Number(req.session?.userId) > 0;
     const previewOwnerId = isOwnerPreview ? Number(req.session.userId) : null;
-    const detailSql = isOwnerPreview
-      ? `SELECT * FROM ${table} WHERE id = ? AND user_id = ? AND status <> 9 LIMIT 1`
-      : `SELECT * FROM ${table} WHERE id = ? AND status = 3 AND visible = 1 LIMIT 1`;
-    const detailParams = isOwnerPreview ? [id, previewOwnerId] : [id];
+    const detailSql = isAdminPreview
+      ? `SELECT * FROM ${table} WHERE id = ? LIMIT 1`
+      : isOwnerPreview
+        ? `SELECT * FROM ${table} WHERE id = ? AND user_id = ? AND status <> 9 LIMIT 1`
+        : `SELECT * FROM ${table} WHERE id = ? AND status = 3 AND visible = 1 LIMIT 1`;
+    const detailParams = isAdminPreview ? [id] : (isOwnerPreview ? [id, previewOwnerId] : [id]);
     const [[itemRow]] = await db.query(detailSql, detailParams);
     if (!itemRow) return res.status(404).send('Artikel nicht gefunden');
     console.log('[DETAIL] itemRow.id:', itemRow.id, 'name:', itemRow.name);
     const incomingDetailPrefix = deriveDetailPrefixFromOriginalUrl(req, entityRoute, id);
     const withPreviewQuery = (url) => {
-      if (!isOwnerPreview) return url;
-      return String(url).includes('?') ? `${url}&preview=1` : `${url}?preview=1`;
+      if (!isOwnerPreview && !isAdminPreview) return url;
+      const queryPart = isAdminPreview ? 'adminPreview=1' : 'preview=1';
+      return String(url).includes('?') ? `${url}&${queryPart}` : `${url}?${queryPart}`;
     };
 
     // 2a) i18n-Texte (title/description) per listing_translations
@@ -10993,6 +11270,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
     let brandName   = '–';
     let modelName   = '–';
     let countryName = '–';
+    let stateName   = '';
 
     if (itemRow.brand_id) {
       const [[b]] = await db.query('SELECT name FROM brands WHERE id = ?', [itemRow.brand_id]);
@@ -11003,8 +11281,17 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
       modelName = m?.name || '–';
     }
     if (itemRow.country_id) {
-      const [[c]] = await db.query('SELECT de FROM countries WHERE id = ?', [itemRow.country_id]);
-      countryName = c?.de || '–';
+      const [[c]] = await db.query(
+        `SELECT COALESCE(NULLIF(p.de, ''), c.de) AS country_name,
+                CASE WHEN c.parent_id IS NULL THEN '' ELSE COALESCE(NULLIF(c.de, ''), '') END AS state_name
+           FROM countries c
+           LEFT JOIN countries p ON p.id = c.parent_id
+          WHERE c.id = ?
+          LIMIT 1`,
+        [itemRow.country_id]
+      );
+      countryName = c?.country_name || '–';
+      stateName = c?.state_name || '';
     }
     const firstRegistration = itemRow.firstregistration
       ? (itemRow.firstregistration_month
@@ -11043,6 +11330,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
     item.brandName      = brandName;
     item.modelName      = modelName;
     item.countryName    = countryName;
+    item.stateName      = stateName;
     item.firstRegistration = firstRegistration;
 
 
@@ -11157,7 +11445,8 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
         'Wohnfläche (m²)':'labels.property.living',
         'Schlafzimmer':'labels.property.bedrooms',
         'Badezimmer':'labels.property.baths',
-        'Baujahr':'labels.property.built'
+        'Baujahr':'labels.property.built',
+        'Bundesland':'labels.property.state'
       };
       return { field: s.field, key: mapKeyByLabel[s.label] || 'labels.common.'+s.label, fb: s.label };
     });
@@ -12362,7 +12651,7 @@ router.get('/:entityRoute/:brandSlug/:modelSlug', async (req, res) => {
   try {
     const { entityRoute, brandSlug, modelSlug } = req.params;
 
-    const entityTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+    const entityTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
     const type = entityTypeMap[entityRoute];
     if (!type) return res.status(404).send('Kategorie nicht gefunden');
 
@@ -12923,7 +13212,7 @@ router.post('/send-contact', async (req, res) => {
 
 
     await transporter.sendMail({
-      from: `"Herando" <${process.env.SMTP_USER}>`,
+      from: `"Herando A.S." <info@herando.com>`,
       to: safeEmail,
       subject: mailCopy.customerSubject,
       html: customerHtml

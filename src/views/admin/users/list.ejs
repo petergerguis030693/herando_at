@@ -315,6 +315,15 @@
             <i class="bi bi-envelope-fill me-2 text-danger"></i>
             <%= u.email %>
           </p>
+          <% const website = (u.website || '').trim(); %>
+          <% if (website) { %>
+            <% const websiteHref = /^https?:\/\//i.test(website) ? website : `https://${website}`; %>
+            <p class="mb-2">
+              <i class="bi bi-globe2 me-2 text-secondary"></i>
+              Website:
+              <a href="<%= websiteHref %>" target="_blank" rel="noopener noreferrer"><%= website %></a>
+            </p>
+          <% } %>
           <p class="mb-2">
             <i class="bi bi-box-seam me-2 text-primary"></i>
             Pakete (<%= u.ordered_packages_count || 0 %>): <%= u.package_names || '–' %>

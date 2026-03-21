@@ -585,10 +585,7 @@ textarea {
       <%
         const countryRows = Array.isArray(filters.countries) ? filters.countries : [];
         const selectedCountryRaw = (selectedFilters.country || [])[0] || '';
-        const selectedCountryRow = countryRows.find((c) => String(c.id) === String(selectedCountryRaw));
-        const selectedParentRaw = selectedCountryRow && selectedCountryRow.parent_id != null
-          ? selectedCountryRow.parent_id
-          : selectedCountryRaw;
+        const selectedParentRaw = selectedCountryRaw;
         const activeLangCode = String(
           (typeof activeLang !== 'undefined' && activeLang) ||
           (typeof lang !== 'undefined' && lang) ||
@@ -621,10 +618,10 @@ textarea {
                   'Region'
                 )
               : (regionLabelFallbacks[activeLangCode] || 'Region'));
-        const parentCountries = countryRows.filter((c) => c.parent_id == null);
+        const parentCountries = countryRows;
         const countryTreeData = countryRows.map((c) => ({
           id: Number(c.id),
-          parentId: c.parent_id == null ? null : Number(c.parent_id),
+          parentId: null,
           label: t('country.' + c.id, c.name || c.de || c.en || c.code || String(c.id))
         }));
       %>
@@ -739,6 +736,7 @@ textarea {
 
   const countrySelect = form.querySelector('#fCountryParent');
   const regionSelect = form.querySelector('#fRegion');
+  const regionContainer = regionSelect ? regionSelect.closest('.fi') : null;
   const hiddenCountry = form.querySelector('#fCountry');
   const treeNode = form.querySelector('#countryTreeData');
   if (!countrySelect || !regionSelect || !hiddenCountry || !treeNode) return;
@@ -779,6 +777,10 @@ textarea {
     const regions = (byParentId.get(parentId) || [])
       .slice()
       .sort((a, b) => a.label.localeCompare(b.label, 'de'));
+
+    if (regionContainer) {
+      regionContainer.style.display = regions.length ? '' : 'none';
+    }
 
     regionSelect.innerHTML = '';
     const placeholder = document.createElement('option');

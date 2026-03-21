@@ -1,0 +1,77 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="main-content flex-fill">
+    <header class="bg-herando text-white p-3 mb-4">
+      <h1 class="h4 mb-0">Direktzahlung: Zugangscode</h1>
+    </header>
+
+    <div class="container">
+      <% if (saved) { %>
+        <div class="alert alert-success">Code wurde gespeichert.</div>
+      <% } %>
+
+      <div class="card shadow-sm border-0">
+        <div class="card-body">
+          <p class="text-muted mb-3">
+            Dieser Code steuert den Zugriff auf die versteckte Stripe-Direktzahlung.
+            Oeffentliche URL: <code>/direkt-zahlung</code>
+          </p>
+
+          <form method="POST" action="/admin/sales-direct-payment/add" class="mb-4">
+            <div class="mb-3">
+              <label for="code" class="form-label">Neuen Freigabe-Code anlegen</label>
+              <input
+                id="code"
+                name="code"
+                type="text"
+                class="form-control"
+                maxlength="120"
+                placeholder="z.B. vertrieb-2026-intern"
+                required
+              />
+              <small class="text-muted">
+                Jeder angelegte Code erscheint unten in einer eigenen Zeile.
+              </small>
+            </div>
+            <button type="submit" class="btn btn-primary">Code hinzufügen</button>
+          </form>
+
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">#</th>
+                  <th>Code</th>
+                  <th class="text-end" style="width: 180px;">Aktion</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% if (Array.isArray(codes) && codes.length) { %>
+                  <% codes.forEach((code, idx) => { %>
+                    <tr>
+                      <td><%= idx + 1 %></td>
+                      <td><code><%= code %></code></td>
+                      <td class="text-end">
+                        <form method="POST" action="/admin/sales-direct-payment/delete" class="d-inline">
+                          <input type="hidden" name="code" value="<%= code %>">
+                          <button type="submit" class="btn btn-sm btn-outline-danger">Löschen</button>
+                        </form>
+                      </td>
+                    </tr>
+                  <% }) %>
+                <% } else { %>
+                  <tr>
+                    <td colspan="3" class="text-muted">Noch keine Codes angelegt.</td>
+                  </tr>
+                <% } %>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>

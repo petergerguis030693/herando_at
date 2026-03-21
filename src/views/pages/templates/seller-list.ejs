@@ -97,29 +97,29 @@
 
   <!-- Inserate -->
 <% if (allItems.length > 0) { %>
-  <div class="productGrid d-flex flex-wrap" style="margin-top: 30px;">
+  <div class="seller-listings-grid">
     <% allItems.forEach(item => { %>
-      <a href="/<%= item.route %>/<%= item.id %>/<%= item.slug %>">
-        <div class="cardPeter mb-4 me-4">
-          <div class="imageBild">
+      <a href="/<%= item.route %>/<%= item.id %>/<%= item.slug %>" class="seller-card-link seller-card-link--<%= item.route %>">
+        <article class="seller-card seller-card--<%= item.route %>">
+          <div class="seller-card-image">
             <div class="bild">
-              <img 
-                src="<%= item.image %>" 
-                alt="<%= item.title %>" 
-                loading="lazy" 
-                style="width:400px;height:280px;object-fit:cover;object-position:center top;display:block;margin:0 auto;cursor:pointer;">
+              <img
+                src="<%= item.image %>"
+                alt="<%= item.title %>"
+                loading="lazy"
+                class="seller-card-img">
             </div>
           </div>
 
-          <div class="informationSection pt-2">
+          <div class="seller-card-body">
             <div class="productInfo">
-              <h3 class="lux-card-title" style="margin-bottom:10px;font-size:14pt;">
+              <h3 class="lux-card-title seller-card-title">
                 <b><%= item.title.length > 30 ? item.title.substring(0,30) + '...' : item.title %></b>
               </h3>
 
               <% if (item.route === 'cars') { %>
                 <div class="cartype-box">
-                  <p class="cartype-box" style="font-size:12pt;margin-top:12px;">
+                  <p class="cartype-box seller-card-meta">
 
                     <% if (item.gearbox) { %>
                       <span class="info-item">
@@ -155,7 +155,7 @@
 
 <% if (item.route === 'properties') { %>
   <div class="cartype-box">
-    <p class="cartype-box" style="font-size:12pt;margin-top:12px;">
+    <p class="cartype-box seller-card-meta">
 
       <% if (item.propertytype) { %>
         <span class="info-item">
@@ -227,7 +227,7 @@
 
 <% if (item.route === 'yachts') { %>
   <div class="cartype-box">
-    <p style="font-size:12pt;margin-top:12px;">
+    <p class="seller-card-meta">
 
       <% if (item.yachttype) { %>
         <span class="info-item">
@@ -297,7 +297,7 @@
 
 <% if (item.route === 'watches') { %>
   <div class="cartype-box">
-    <p style="font-size:12pt;margin-top:12px;">
+    <p class="seller-card-meta">
 
       <% if (item.watchtype) { %>
         <span class="info-item">
@@ -332,12 +332,12 @@
 <% } %>
 
 
-              <p class="productPrice mb-2" style="margin-top:12px;">
+              <p class="productPrice mb-2 seller-card-price">
                 <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
               </p>
             </div>
           </div>
-        </div>
+        </article>
       </a>
     <% }) %>
   </div>

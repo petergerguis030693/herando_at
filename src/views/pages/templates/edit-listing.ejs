@@ -202,7 +202,7 @@
 
 
       <!-- === Formular ===================================================== -->
-<form action="/buyer/edit-listing/<%= item.id %>" method="POST" enctype="multipart/form-data">
+<form id="edit-listing-form" action="/buyer/edit-listing/<%= item.id %>" method="POST" enctype="multipart/form-data">
         <input type="hidden" name="ent_id" value="<%= ent.id %>">
 
 <fieldset class="mb-4 p-4 border bg-white rounded shadow-sm listing-box">
@@ -2699,7 +2699,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
 <label for="mainpicture-upload" class="form-label"><%= t('edit_listing.media.mainpicture','Titelbild ändern') %></label>
 
-<div id="picture-preview" class="d-flex flex-wrap gap-3 mb-2">
+<div id="mainpicture-preview" class="d-flex flex-wrap gap-3 mb-2">
   <%
     const extractImageFilename = (input) => {
       const fromString = (raw) => {
@@ -2788,7 +2788,8 @@ input?.addEventListener('change', async function () {
   const data = await res.json();
 
   if (!data.success) {
-    alert(<%- JSON.stringify(t('edit_listing.media.upload_failed','Upload fehlgeschlagen')) %>);
+    const baseMsg = <%- JSON.stringify(t('edit_listing.media.upload_failed','Upload fehlgeschlagen')) %>;
+    alert(`${baseMsg}${data.error ? `: ${data.error}` : ''}`);
   }
 });
 </script>
@@ -2811,7 +2812,7 @@ input?.addEventListener('change', async function () {
 
 
 <!-- Vorschau -->
-<div id="picture-preview" class="d-flex flex-wrap gap-3 mb-2">
+<div id="gallery-preview" class="d-flex flex-wrap gap-3 mb-2">
 
   <% if (Array.isArray(gallery) && gallery.length > 0) { %>
     <% gallery.forEach((img, i) => { 
@@ -2832,7 +2833,7 @@ input?.addEventListener('change', async function () {
         <button 
           type="button" 
           class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 px-2 py-0 fw-bold"
-          onclick="removeImage(this, '<%= fileName %>')">×</button>
+          onclick='removeImage(this, <%- JSON.stringify(fileName) %>)'>×</button>
 
       </div>
 
@@ -2852,8 +2853,22 @@ input?.addEventListener('change', async function () {
 /* ---------------------------------------------------
    📌 FORM REFERENZ – SEHR WICHTIG
 --------------------------------------------------- */
-const form = document.querySelector('form[action^="/buyer/edit-listing"]');
+const form = document.getElementById('edit-listing-form');
 console.log("📌 Erkanntes FORM:", form);
+const removedOldImages = new Set();
+
+function syncRemovedImagesField() {
+  if (!form) return;
+  let hidden = document.getElementById('removedImagesJson');
+  if (!hidden) {
+    hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.id = 'removedImagesJson';
+    hidden.name = 'removedImagesJson';
+    form.appendChild(hidden);
+  }
+  hidden.value = JSON.stringify(Array.from(removedOldImages));
+}
 
 
 /* ---------------------------------------------------
@@ -2877,8 +2892,11 @@ function removeImage(btn, filename) {
   removed.value = filename;
 
   form.appendChild(removed);
+  removedOldImages.add(String(filename || ''));
+  syncRemovedImagesField();
 
   console.log("📩 [OLD] Hidden Input hinzugefügt:", removed);
+  console.log("📩 [OLD] JSON Entfernt-Liste:", Array.from(removedOldImages));
   console.log("📦 [OLD] Form Inputs total:", form.elements.length);
 }
 
@@ -2909,7 +2927,8 @@ function handleFiles(event) {
    🔥 Neue Bilder rendern
 --------------------------------------------------- */
 function renderNewPreviews() {
-  const preview = document.getElementById('picture-preview');
+  const preview = document.getElementById('gallery-preview');
+  if (!preview) return;
 
   // nur NEUE Bilder entfernen
   const newImages = preview.querySelectorAll('.new-image');

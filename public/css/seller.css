@@ -3,7 +3,7 @@
 .seller-page {
   max-width: 1800px;
   margin: 0 auto;
-  padding: 2rem 1rem;
+  padding: 1.75rem 1rem 2.25rem;
 }
 
 /* ================= SELLER HEADER ================= */
@@ -11,12 +11,13 @@
 .seller-header {
   background: linear-gradient(135deg, #f7f3eb, #e5d8c1);
   border-radius: 8px;
-  padding: 2rem;
-  margin-bottom: 2rem;
+  padding: 1.5rem 1.75rem;
+  margin-bottom: 1.75rem;
   display: flex;
   align-items: center;
-  gap: 2rem;
+  gap: 1.5rem;
   box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+  max-width: 100%;
 }
 
 /* AVATAR / LOGO CONTAINER */
@@ -51,7 +52,7 @@
 /* INFO */
 .seller-header h2 {
   margin: 0 0 .5rem;
-  font-size: 1.9rem;
+  font-size: 1.75rem;
   color: #333;
 }
 
@@ -63,56 +64,118 @@
 
 /* ================= LISTINGS GRID ================= */
 
-.listings-grid,
-.seller-items {
+.seller-listings-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
 }
 
 /* ================= LISTING CARD ================= */
 
-.listing-card {
+.seller-card-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+  height: 100%;
+}
+
+.seller-card {
   background: #fff;
-  border-radius: 8px;
+  border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
   display: flex;
   flex-direction: column;
+  min-height: 100%;
   transition: transform .2s ease, box-shadow .2s ease;
 }
 
-.listing-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+.seller-card-link:hover .seller-card {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px rgba(12, 19, 29, 0.1);
 }
 
-.listing-card img {
+.seller-card-image {
   width: 100%;
-  height: 220px;
+  aspect-ratio: 4 / 3;
+}
+
+.seller-card-img {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
+  object-position: center top;
+  display: block;
+}
+
+/* Category specific proportions */
+.seller-card--cars .seller-card-image {
+  aspect-ratio: 16 / 10;
+}
+
+.seller-card--cars .seller-card-img {
+  width: 500px;
+  max-width: 100%;
+  height: 300px;
+  margin: 0 auto;
+}
+
+.seller-card--properties .seller-card-img,
+.seller-card--yachts .seller-card-img {
+  width: 500px;
+  max-width: 100%;
+  height: 300px;
+  margin: 0 auto;
+}
+
+.seller-card--watches .seller-card-image {
+  aspect-ratio: auto;
+}
+
+.seller-card--watches .seller-card-img {
+  height: 450px;
+  width: auto;
 }
 
 /* BODY */
-.listing-card .body {
+.seller-card-body {
   flex: 1;
-  padding: 1rem;
+  padding: .95rem 1rem 1rem;
   display: flex;
   flex-direction: column;
 }
 
-.listing-card h5 {
-  margin: 0 0 .75rem;
-  font-size: 1.15rem;
-  color: #222;
+.seller-card-title {
+  margin: 0 0 .65rem;
+  font-size: 1.06rem;
+  line-height: 1.35;
+  color: #1f2a3b;
+}
+
+.seller-card-meta {
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem .85rem;
+  font-size: .93rem;
+  line-height: 1.35;
+  color: #4c5667;
 }
 
 /* PRICE */
+.seller-card-price {
+  margin-top: .9rem !important;
+  margin-bottom: 0 !important;
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #111827;
+}
+
 .productPrice,
-.listing-card .price {
+.listing-card .price,
+.seller-card-price {
   margin-top: auto;
-  font-weight: bold;
-  font-size: 14pt;
+  font-weight: 700;
 }
 
 /* BUTTON */
@@ -136,7 +199,19 @@
 /* ================= META BOXES ================= */
 
 .cartype-box {
-  margin-bottom: 20px;
+  margin-bottom: .65rem;
+}
+
+.info-item {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+}
+
+.info-item i {
+  color: #c98d4a;
+  font-size: .95rem;
+  line-height: 1;
 }
 
 /* ================= NO LISTINGS ================= */
@@ -186,7 +261,8 @@
   .seller-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 1.25rem;
+    gap: 1rem;
+    padding: 1.2rem;
   }
 
   .seller-header .avatar {
@@ -197,6 +273,27 @@
   .seller-initials {
     font-size: 40px;
   }
+
+  .seller-header h2 {
+    font-size: 1.35rem;
+  }
+
+  .seller-listings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1rem;
+  }
+
+  .seller-card-body {
+    padding: .85rem .85rem .95rem;
+  }
+
+  .seller-card-title {
+    font-size: 1rem;
+  }
+
+  .seller-card-meta {
+    font-size: .89rem;
+  }
 }
 
 
@@ -205,12 +302,6 @@
 .hernando-pagination{
   width:100%;
   margin:40px auto;
-}
-
-.hernando-pagination-container{
-  max-width:1650px;
-  margin:0 auto;
-  padding:0 10px;
 }
 
 .hernando-perpage-title{
@@ -316,6 +407,107 @@
   flex:1;
   display:flex;
   justify-content:flex-end;
+}
+
+@media (max-width: 1199px) {
+  .seller-listings-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1200px) {
+  .seller-card-link--cars {
+    max-width: 500px;
+  }
+
+  .seller-card-link--watches {
+    width: auto;
+    max-width: none;
+  }
+
+  .seller-card-link--watches .seller-card {
+    min-height: 100%;
+  }
+}
+
+@media (max-width: 991px) {
+  .seller-page {
+    padding: 1.25rem .9rem 2rem;
+  }
+
+  .seller-listings-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .seller-header .avatar {
+    width: 132px;
+    height: 132px;
+  }
+
+  .hernando-pagination-row {
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+}
+
+@media (max-width: 575px) {
+  .seller-page {
+    padding: 1rem .75rem 1.75rem;
+  }
+
+  .seller-listings-grid {
+    grid-template-columns: 1fr;
+    gap: .9rem;
+    margin-top: 1rem;
+  }
+
+  .seller-header {
+    padding: 1rem;
+    border-radius: 10px;
+  }
+
+  .seller-header .avatar {
+    width: 104px;
+    height: 104px;
+    border-radius: 12px;
+  }
+
+  .seller-initials {
+    font-size: 32px;
+  }
+
+  .seller-card-title {
+    font-size: .98rem;
+  }
+
+  .seller-card-meta {
+    font-size: .86rem;
+    gap: .45rem .65rem;
+  }
+
+  .seller-card-price {
+    font-size: 1rem;
+  }
+
+  .hernando-pagination-container {
+    padding: 0;
+  }
+
+  .hernando-pagination-row {
+    gap: 12px;
+  }
+
+  .pagination {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+
+  .pagination li a {
+    min-width: 36px;
+    height: 36px;
+    border-radius: 7px;
+    font-size: .88rem;
+  }
 }
 
 

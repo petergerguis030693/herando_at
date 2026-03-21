@@ -1,0 +1,268 @@
+<%
+  const languageColumns = Array.isArray(langs) && langs.length
+    ? langs
+    : ['en', 'de', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
+  const languageLabels = {
+    en: 'EN', de: 'DE', fr: 'FR', it: 'IT', tr: 'TR',
+    ja: 'JA', cs: 'CS', ru: 'RU', es: 'ES', nl: 'NL', pl: 'PL'
+  };
+  function countryLabel(c) {
+    for (const lang of ['de', 'en', ...languageColumns]) {
+      const value = String(c?.[lang] || '').trim();
+      if (value) return value;
+    }
+    return String(c?.code || '').trim() || `#${c?.id || ''}`;
+  }
+  const selectedCountryFilter = Number(selectedStateCountryId) || null;
+%>
+
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width:250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-grow-1 p-3">
+    <h1 class="h4 mb-3">Länder & Bundesländer</h1>
+
+    <ul class="nav nav-tabs mb-3" role="tablist">
+      <li class="nav-item" role="presentation">
+        <button class="nav-link <%= activeTab === 'countries' ? 'active' : '' %>" data-bs-toggle="tab" data-bs-target="#tabCountries" type="button">Länder</button>
+      </li>
+      <li class="nav-item" role="presentation">
+        <button class="nav-link <%= activeTab === 'states' ? 'active' : '' %>" data-bs-toggle="tab" data-bs-target="#tabStates" type="button">Bundesländer</button>
+      </li>
+    </ul>
+
+    <div class="tab-content">
+      <div class="tab-pane fade <%= activeTab === 'countries' ? 'show active' : '' %>" id="tabCountries">
+        <div class="card mb-3">
+          <div class="card-body">
+            <h2 class="h6">Neues Land anlegen</h2>
+            <form method="post" action="/admin/bund/countries/new" class="row g-2">
+              <div class="col-md-2">
+                <input class="form-control" name="code" maxlength="2" placeholder="Code (2)">
+              </div>
+              <div class="col-md-2">
+                <input class="form-control" name="iso_code" maxlength="3" placeholder="ISO3 (3)">
+              </div>
+              <% languageColumns.forEach((lang) => { %>
+                <div class="col-md-2">
+                  <input
+                    class="form-control"
+                    name="<%= lang %>"
+                    placeholder="Name (<%= languageLabels[lang] || lang.toUpperCase() %>)"
+                    <%= lang === 'en' ? 'required' : '' %>>
+                </div>
+              <% }) %>
+              <div class="col-md-2 d-flex align-items-center">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" id="newCountryVisible" name="visible" value="1">
+                  <label class="form-check-label" for="newCountryVisible">Sichtbar</label>
+                </div>
+              </div>
+              <div class="col-md-2 d-grid">
+                <button class="btn btn-primary">Speichern</button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Code</th>
+                <th>ISO3</th>
+                <% languageColumns.forEach((lang) => { %>
+                  <th>Name (<%= languageLabels[lang] || lang.toUpperCase() %>)</th>
+                <% }) %>
+                <th>Sichtbar</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+            <% if (!countries.length) { %>
+              <tr><td colspan="<%= 6 + languageColumns.length %>" class="text-muted">Keine Länder vorhanden.</td></tr>
+            <% } %>
+            <% countries.forEach((c) => { %>
+              <% const countryFormId = `country-edit-${c.id}`; %>
+              <tr>
+                <td><%= c.id %></td>
+                <td><input class="form-control form-control-sm" form="<%= countryFormId %>" name="code" maxlength="2" value="<%= c.code || '' %>" required></td>
+                <td><input class="form-control form-control-sm" form="<%= countryFormId %>" name="iso_code" maxlength="3" value="<%= c.iso_code || '' %>" required></td>
+                <% languageColumns.forEach((lang) => { %>
+                  <td>
+                    <input
+                      class="form-control form-control-sm"
+                      form="<%= countryFormId %>"
+                      name="<%= lang %>"
+                      value="<%= c[lang] || '' %>"
+                      <%= lang === 'en' ? 'required' : '' %>>
+                  </td>
+                <% }) %>
+                <td class="text-center">
+                  <input type="checkbox" form="<%= countryFormId %>" name="visible" value="1" <%= Number(c.visible) === 1 ? 'checked' : '' %>>
+                </td>
+                <td class="d-flex gap-2">
+                  <button class="btn btn-sm btn-success" type="submit" form="<%= countryFormId %>">Update</button>
+                  <form method="post" action="/admin/bund/countries/<%= c.id %>/delete" onsubmit="return confirm('Land wirklich löschen?')">
+                    <button class="btn btn-sm btn-danger" type="submit">Löschen</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-none">
+          <% countries.forEach((c) => { %>
+            <form id="country-edit-<%= c.id %>" method="post" action="/admin/bund/countries/<%= c.id %>/edit"></form>
+          <% }) %>
+        </div>
+      </div>
+
+      <div class="tab-pane fade <%= activeTab === 'states' ? 'show active' : '' %>" id="tabStates">
+        <div class="card mb-3">
+          <div class="card-body">
+            <div class="d-flex flex-wrap gap-2 align-items-end">
+              <form method="get" action="/admin/bund" class="d-flex flex-wrap gap-2 align-items-end">
+                <input type="hidden" name="tab" value="states">
+                <div>
+                  <label class="form-label mb-1">Nach Land filtern</label>
+                  <select class="form-select" name="stateCountryId" style="min-width: 260px;">
+                    <option value="">Alle Länder</option>
+                    <% countries.forEach((c) => { %>
+                      <option value="<%= c.id %>" <%= selectedCountryFilter === Number(c.id) ? 'selected' : '' %>><%= countryLabel(c) %></option>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="d-flex gap-2">
+                  <button class="btn btn-outline-primary" type="submit">Filtern</button>
+                  <a class="btn btn-outline-secondary" href="/admin/bund?tab=states">Reset</a>
+                </div>
+              </form>
+
+              <button class="btn btn-primary ms-auto" type="button" data-bs-toggle="modal" data-bs-target="#modalStateNew">
+                Neues Bundesland
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="table table-bordered align-middle">
+            <thead class="table-light">
+              <tr>
+                <th>ID</th>
+                <th>Land</th>
+                <th>Code</th>
+                <th>ISO3</th>
+                <% languageColumns.forEach((lang) => { %>
+                  <th>Name (<%= languageLabels[lang] || lang.toUpperCase() %>)</th>
+                <% }) %>
+                <th>Sichtbar</th>
+                <th>Aktionen</th>
+              </tr>
+            </thead>
+            <tbody>
+            <% if (!states.length) { %>
+              <tr><td colspan="<%= 6 + languageColumns.length %>" class="text-muted">Keine Bundesländer für den aktuellen Filter gefunden.</td></tr>
+            <% } %>
+            <% states.forEach((s) => { %>
+              <% const stateFormId = `state-edit-${s.id}`; %>
+              <tr>
+                <td><%= s.id %></td>
+                <td>
+                  <select class="form-select form-select-sm" form="<%= stateFormId %>" name="country_id" required>
+                    <% countries.forEach((c) => { %>
+                      <option value="<%= c.id %>" <%= Number(s.country_id) === Number(c.id) ? 'selected' : '' %>><%= countryLabel(c) %></option>
+                    <% }) %>
+                  </select>
+                </td>
+                <td><input class="form-control form-control-sm" form="<%= stateFormId %>" name="code" maxlength="2" value="<%= s.code || '' %>"></td>
+                <td><input class="form-control form-control-sm" form="<%= stateFormId %>" name="iso_code" maxlength="3" value="<%= s.iso_code || '' %>"></td>
+                <% languageColumns.forEach((lang) => { %>
+                  <td>
+                    <input
+                      class="form-control form-control-sm"
+                      form="<%= stateFormId %>"
+                      name="<%= lang %>"
+                      value="<%= s[lang] || '' %>"
+                      <%= lang === 'en' ? 'required' : '' %>>
+                  </td>
+                <% }) %>
+                <td class="text-center">
+                  <input type="checkbox" form="<%= stateFormId %>" name="visible" value="1" <%= Number(s.visible) === 1 ? 'checked' : '' %>>
+                </td>
+                <td class="d-flex gap-2">
+                  <button class="btn btn-sm btn-success" type="submit" form="<%= stateFormId %>">Update</button>
+                  <form method="post" action="/admin/bund/states/<%= s.id %>/delete" onsubmit="return confirm('Bundesland wirklich löschen?')">
+                    <input type="hidden" name="stateCountryId" value="<%= selectedCountryFilter || '' %>">
+                    <button class="btn btn-sm btn-danger" type="submit">Löschen</button>
+                  </form>
+                </td>
+              </tr>
+            <% }) %>
+            </tbody>
+          </table>
+        </div>
+        <div class="d-none">
+          <% states.forEach((s) => { %>
+            <form id="state-edit-<%= s.id %>" method="post" action="/admin/bund/states/<%= s.id %>/edit">
+              <input type="hidden" name="stateCountryId" value="<%= selectedCountryFilter || '' %>">
+            </form>
+          <% }) %>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal fade" id="modalStateNew" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form class="modal-content" method="post" action="/admin/bund/states/new">
+      <div class="modal-header">
+        <h5 class="modal-title">Neues Bundesland</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Schließen"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" name="stateCountryId" value="<%= selectedCountryFilter || '' %>">
+        <div class="mb-2">
+          <label class="form-label">Land</label>
+          <select class="form-select" name="country_id" required>
+            <option value="">Land wählen</option>
+            <% countries.forEach((c) => { %>
+              <option value="<%= c.id %>" <%= selectedCountryFilter === Number(c.id) ? 'selected' : '' %>><%= countryLabel(c) %></option>
+            <% }) %>
+          </select>
+        </div>
+        <div class="row g-2 mb-2">
+          <div class="col-md-6">
+            <label class="form-label">Code (2)</label>
+            <input class="form-control" name="code" maxlength="2">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">ISO3 (3)</label>
+            <input class="form-control" name="iso_code" maxlength="3">
+          </div>
+        </div>
+        <div class="row g-2">
+          <% languageColumns.forEach((lang) => { %>
+            <div class="col-md-6">
+              <label class="form-label">Name (<%= languageLabels[lang] || lang.toUpperCase() %>)</label>
+              <input class="form-control" name="<%= lang %>" <%= lang === 'en' ? 'required' : '' %>>
+            </div>
+          <% }) %>
+        </div>
+        <div class="form-check mt-2">
+          <input class="form-check-input" type="checkbox" id="newStateVisible" name="visible" value="1">
+          <label class="form-check-label" for="newStateVisible">Sichtbar</label>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" type="submit">Speichern</button>
+      </div>
+    </form>
+  </div>
+</div>

@@ -1,25 +1,25 @@
 button {
-    border-radius: 5px;
+    border-radius: 10px;
 }
 
 select {
-    border-radius: 5px !important;
+    border-radius: 10px !important;
 }
 
 input {
- border-radius: 5px !important;
+ border-radius: 10px !important;
 }
 
 label {
-    border-radius: 5px !important;
+    border-radius: 10px !important;
 }
 
 img {
-    border-radius: 5px !important;
+    border-radius: 10px !important;
 }
 
 .btn {
-  border-radius: 5px !important;
+  border-radius: 10px !important;
   padding: 10px 14px;
   font-weight: 700;
   line-height: 1.2;
@@ -129,7 +129,7 @@ img {
 }
 
 .filter-input {
-  border-radius: 5px !important;
+  border-radius: 10px !important;
 }
 
 .form-select:focus {

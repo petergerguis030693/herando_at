@@ -7,6 +7,17 @@
   transition: 0.25s ease;
 }
 
+/* Category page inserate grid only (not product-slider / carousel) */
+.category-grid .lux-card {
+  border-radius: 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.category-grid .lux-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 22px rgba(12, 19, 29, 0.1);
+}
+
 /* IMAGE – höher & edler */
 .lux-card-img {
   height: 350px; /* vorher 280px */
@@ -71,10 +82,32 @@
 }
 
 .lux-card-country {
-  font-size: 16px;
-  color: #777;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  color: #5f6470;
+  font-weight: 500;
   margin-top: 12px;
 }
 .lux-card-country i {
   margin-right: 4px;
+}
+.lux-card-flag {
+  width: 22px;
+  height: 16px;
+  display: block;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 0 !important;
+  flex: 0 0 auto;
+  border: 1px solid #d8dde6;
+  background: transparent;
+  box-shadow: none;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.lux-card-country img.lux-card-flag {
+  border-radius: 0 !important;
 }

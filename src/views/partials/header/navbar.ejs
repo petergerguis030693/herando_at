@@ -78,14 +78,14 @@ const entityHref = (route, suffix = "") => {
       <i class="bi bi-globe2"></i><%= t('header.languages', 'Sprachen') %>
     </button>
 
-      <a class="btn-user d-flex align-items-center gap-2 text-decoration-none" href="/auth/login">
-        <i class="bi bi-person-circle fs-4"></i>
-        <span><%= t('header.auth.login_or_register') %></span>
-      </a>
-
       <a href="/angebote" class="btn btn-primary d-flex align-items-center gap-2">
         <i class="bi bi-plus-circle"></i>
         <%= t('header.cta.sell_now') %>
+      </a>
+
+      <a class="btn-user d-flex align-items-center gap-2 text-decoration-none" href="/auth/login">
+        <i class="bi bi-person-circle fs-4"></i>
+        <span><%= t('header.auth.login_or_register') %></span>
       </a>
 
       <% } %>

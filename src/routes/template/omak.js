@@ -3225,7 +3225,7 @@ router.get('/:entityRoute',  async (req, res, next) => {
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     const tableName = db.escapeId(currentEntity.table_name);
-    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
     const type = categoryTypeMap[entityRoute] || null;
 
     // 2) Pagination
@@ -3509,7 +3509,7 @@ const opts = (column) =>
 
     if (entityRoute === 'lifestyles') {
       [lifestyleTypes] = await db.query(
-        `SELECT id, name FROM brands WHERE type = 5 ORDER BY name`
+        `SELECT id, name FROM brands WHERE type = 6 ORDER BY name`
       );
       if (lifestyleTypes.length > 0) {
         const brandIds = lifestyleTypes.map(b => b.id);
@@ -4654,7 +4654,7 @@ async function loadFilterOptions(entityRoute, tableName, type, baseWhere, basePa
 
   // lifestyles
   if (entityRoute === 'lifestyles') {
-    const [lt] = await db.query(`SELECT id, name FROM brands WHERE type=5 ORDER BY name`);
+    const [lt] = await db.query(`SELECT id, name FROM brands WHERE type = 6 ORDER BY name`);
     lifestyleTypes = lt;
     if (lifestyleTypes.length) {
       const ids = lifestyleTypes.map(b=>b.id);
@@ -4726,7 +4726,7 @@ router.get('/:entityRoute/filters',  async (req, res, next) => {
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     const tableName = db.escapeId(currentEntity.table_name);
-    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
     const type = categoryTypeMap[entityRoute] || null;
 
     const baseWhere  = 'status=3 AND visible=1 AND pictures IS NOT NULL';
@@ -4892,7 +4892,7 @@ router.get('/:entityRoute/:brandSeo',  async (req, res, next) => {
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     // 2) entityTypeMap (für brands.type)
-    const entityTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+    const entityTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
     const categoryType  = entityTypeMap[entityRoute];
     if (!categoryType)  return res.status(404).send('Kategorie nicht gefunden');
 
@@ -5237,7 +5237,7 @@ router.get('/:entityRoute',  async (req, res, next) => {
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     const tableName = db.escapeId(currentEntity.table_name);
-    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+    const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
     const type = categoryTypeMap[entityRoute] || null;
 
     // 2) Pagination
@@ -5523,7 +5523,7 @@ const opts = (column) =>
 
     if (entityRoute === 'lifestyles') {
       [lifestyleTypes] = await db.query(
-        `SELECT id, name FROM brands WHERE type = 5 ORDER BY name`
+        `SELECT id, name FROM brands WHERE type = 6 ORDER BY name`
       );
       if (lifestyleTypes.length > 0) {
         const brandIds = lifestyleTypes.map(b => b.id);
@@ -6019,7 +6019,7 @@ router.get('/:entityRoute/:brandSlug/:modelSlug', async (req, res, next) => {
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     const tableName = db.escapeId(currentEntity.table_name);
-    const categoryTypeMap = { properties: 1, watches: 2, cars: 3, yachts: 4, lifestyles: 5 };
+    const categoryTypeMap = { properties: 1, watches: 2, cars: 3, yachts: 4, lifestyles: 6 };
     const type = categoryTypeMap[entityRoute] || null;
 
     // Pagination

@@ -1,6 +1,6 @@
   .angebot-container { max-width: 1500px; margin: 0 auto; padding: 20px; }
   .intro, .steps, .features, .pricing, .testimonials { padding: 50px 0; text-align: center; }
-  .optimal { max-width: 1500px; margin: 0 auto; padding: 20px; }
+  .optimal { max-width: 1500px; margin: 0 auto; padding: 20px; text-align: center; }
   .content { display: flex; align-items: center; gap: 20px; }
   .intro-image { width: 50%; border-radius: 10px; }
   .steps-grid, .features-grid, .testimonial-grid { display: flex; justify-content: center; gap: 20px; flex-wrap: wrap; }

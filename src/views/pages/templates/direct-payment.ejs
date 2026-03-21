@@ -1,0 +1,64 @@
+<%- include('../../partials/header', { entieties }) %>
+
+<section class="container py-4" style="max-width: 780px;">
+  <div class="card border-0 shadow-sm">
+    <div class="card-body p-4 p-md-5">
+      <h1 class="h4 mb-3">Direktzahlung</h1>
+      <p class="text-muted mb-4">
+        Interner Zahlungsbereich für Vertrieb. Nach Freigabe-Code kann ein beliebiger Betrag per Stripe bezahlt werden.
+      </p>
+
+      <% if (errorMessage) { %>
+        <div class="alert alert-danger"><%= errorMessage %></div>
+      <% } %>
+
+      <% if (canceled) { %>
+        <div class="alert alert-warning">Zahlung abgebrochen. Du kannst den Vorgang erneut starten.</div>
+      <% } %>
+
+      <% if (!codeConfigured) { %>
+        <div class="alert alert-secondary mb-0">
+          Direktzahlung ist derzeit nicht aktiv. Bitte Admin kontaktieren.
+        </div>
+      <% } else if (success) { %>
+        <div class="alert alert-success mb-0">
+          Zahlung erfolgreich. Betrag: <strong><%= amountValue %> EUR</strong>.
+        </div>
+      <% } else if (step === 'amount') { %>
+        <form method="POST" action="/direkt-zahlung/checkout">
+          <div class="mb-3">
+            <label for="amount_eur" class="form-label">Betrag in EUR</label>
+            <input
+              type="text"
+              id="amount_eur"
+              name="amount_eur"
+              class="form-control"
+              placeholder="z.B. 1250.00"
+              value="<%= amountValue || '' %>"
+              required
+            />
+            <small class="text-muted">Erlaubt: 0,01 bis 50.000 EUR</small>
+          </div>
+          <button type="submit" class="btn btn-dark">Weiter zu Stripe</button>
+        </form>
+      <% } else { %>
+        <form method="POST" action="/direkt-zahlung/code">
+          <div class="mb-3">
+            <label for="access_code" class="form-label">Freigabe-Code</label>
+            <input
+              type="password"
+              id="access_code"
+              name="access_code"
+              class="form-control"
+              autocomplete="off"
+              required
+            />
+          </div>
+          <button type="submit" class="btn btn-dark">Code prüfen</button>
+        </form>
+      <% } %>
+    </div>
+  </div>
+</section>
+
+<%- include('../../partials/footer', { footerColumns }) %>

@@ -522,10 +522,20 @@ const NO  = (C.no  || (I18N?.translations?.common?.no)  || 'No');
   }
 
   // HTML-Helfer
-  const iconCol = (icon, label, value) => {
-    if (!value && value !== 0) return '';
+  const isRenderableValue = (value) => {
+    if (value === null || value === undefined) return false;
     const val = String(value).trim();
-    if (!val || val === '–') return '';
+    if (!val || val === '–') return false;
+    const lower = val.toLowerCase();
+    if (lower === 'null' || lower === 'undefined') return false;
+    // 0-Werte im Icon-Bereich nicht anzeigen (z. B. Wohnfläche/Schlafzimmer/Badezimmer)
+    if (/^0([.,]0+)?$/.test(val)) return false;
+    return true;
+  };
+
+  const iconCol = (icon, label, value) => {
+    if (!isRenderableValue(value)) return '';
+    const val = String(value).trim();
     return `
       <div class="col">
         <div class="d-flex align-items-start gap-3">
@@ -771,6 +781,7 @@ const colorMap = {
   if (route === 'properties') {
     const dict = {
       location:  LP.location,
+      state:     LP.state,
       type:      LP.type,
       living:    LP.living,
       lot:       LP.lot,
@@ -783,6 +794,7 @@ const colorMap = {
     };
     const deFB = {
       location:  'ort',
+      state:     'bundesland',
       type:      'immobilientyp',
       living:    'wohnfläche (m²)',
       lot:       'grundstück',
@@ -794,6 +806,41 @@ const colorMap = {
       price:     'preis'
     };
     const IDX = makeSpecIndex(ITEM.specs, dict, deFB);
+
+    const propertyTypeMap = {
+      4:  '<%= t("properties.apartment", "Wohnung") %>',
+      5:  '<%= t("properties.penthouse", "Penthouse") %>',
+      6:  '<%= t("properties.villa", "Villa/Haus") %>',
+      8:  '<%= t("properties.maisonette", "Maisonette") %>',
+      10: '<%= t("properties.finca", "Finca") %>',
+      11: '<%= t("properties.private_island", "Privatinsel") %>',
+      12: '<%= t("properties.castle", "Schloss/Herrenhaus") %>',
+      255:'<%= t("common.other", "Sonstige") %>'
+    };
+
+    const investmentTypeMap = {
+      1: '<%= t("attribute.properties.investmenttype.1", "Wohnimmobilien") %>',
+      2: '<%= t("attribute.properties.investmenttype.2", "Hotels & Gastronomie") %>',
+      3: '<%= t("attribute.properties.investmenttype.3", "Gewerbe") %>',
+      4: '<%= t("attribute.properties.investmenttype.4", "Pflegeimmobilie") %>',
+      5: '<%= t("attribute.properties.investmenttype.5", "Gastronomie") %>',
+      6: '<%= t("attribute.properties.investmenttype.6", "Sonstiges") %>',
+      9: '<%= t("attribute.properties.investmenttype.9", "Grundstück") %>',
+      255: '<%= t("common.other", "Sonstige") %>'
+    };
+
+    const mapEnumValue = (raw, map) => {
+      if (!isRenderableValue(raw)) return '';
+      const keyNum = Number(raw);
+      if (Number.isFinite(keyNum) && Object.prototype.hasOwnProperty.call(map, keyNum)) {
+        return map[keyNum];
+      }
+      const keyStr = String(raw).trim();
+      if (Object.prototype.hasOwnProperty.call(map, keyStr)) {
+        return map[keyStr];
+      }
+      return '';
+    };
 
     // Flagge
     const iso2 = (name='') => {
@@ -832,8 +879,13 @@ const colorMap = {
         ? builtStr
         : '';
 
+    const propertyTypeValue = mapEnumValue(ITEM.propertytype, propertyTypeMap);
+    const investmentTypeValue = mapEnumValue(ITEM.investmenttype, investmentTypeMap);
+
     const cols = [
-      iconCol('house',        LP.type     || 'Immobilientyp',  IDX.type),
+      iconCol('house',        LP.type     || 'Immobilientyp',  propertyTypeValue),
+      iconCol('briefcase',    LP.investmentType || 'Rendite-Immobilien', investmentTypeValue),
+
       iconCol('aspect-ratio', LP.living   || 'Wohnfläche',     IDX.living),
       iconCol('rulers',       LP.lot      || 'Grundstück',     IDX.lot),
       iconCol('grid-3x3-gap', LP.rooms    || 'Zimmer',         IDX.rooms),
@@ -842,7 +894,6 @@ const colorMap = {
 
       iconCol('calendar3',    LP.built    || 'Baujahr',        builtValue),
       iconCol('cash-coin',    LP.price    || 'Preis',          price),
-      iconCol('geo-alt',      LP.location || 'Ort',            IDX.location),
       // Land mit Flagge als HTML
       country ? `
         <div class="col">
@@ -853,7 +904,9 @@ const colorMap = {
               <div class="fw-semibold">${country}</div>
             </div>
           </div>
-        </div>` : ''
+        </div>` : '',
+      iconCol('map',          LP.state    || 'Bundesland',     IDX.state),
+      iconCol('geo-alt',      LP.location || 'Ort',            IDX.location)
     ];
     return renderGrid(cols);
   }
@@ -1015,6 +1068,7 @@ const colorMap = {
     },
     propertyLabels: {
       location:  <%- JSON.stringify(T('labels.property.location',  'Ort')) %>,
+      state:     <%- JSON.stringify(T('labels.property.state',     'Bundesland')) %>,
       type:      <%- JSON.stringify(T('labels.property.type',      'Immobilientyp')) %>,
       living:    <%- JSON.stringify(T('labels.property.living',    'Wohnfläche')) %>,
       lot:       <%- JSON.stringify(T('labels.property.lot',       'Grundstück')) %>,

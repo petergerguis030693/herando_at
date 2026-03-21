@@ -628,6 +628,13 @@ router.post('/:category/bulk', loadEntities, async (req, res, next) => {
         `UPDATE \`${table}\` SET status=? WHERE id IN (${placeholders})`,
         [m.status, ...cleanIds]
       );
+    } else if (action === 'approve') {
+      await db.query(
+        `UPDATE \`${table}\`
+            SET status=?, visible=?, published=COALESCE(published, NOW())
+          WHERE id IN (${placeholders})`,
+        [m.status, m.visible, ...cleanIds]
+      );
     } else {
       await db.query(
         `UPDATE \`${table}\` SET status=?, visible=? WHERE id IN (${placeholders})`,
@@ -708,6 +715,13 @@ router.post('/:category/:id/action', loadEntities, async (req, res, next) => {
       await db.query(
         `UPDATE \`${table}\` SET status=? WHERE id=?`,
         [m.status, id]
+      );
+    } else if (action === 'approve') {
+      await db.query(
+        `UPDATE \`${table}\`
+            SET status=?, visible=?, published=COALESCE(published, NOW())
+          WHERE id=?`,
+        [m.status, m.visible, id]
       );
     } else {
       await db.query(
@@ -1411,7 +1425,7 @@ const entity = data.entId
       // 6) Marken & Modelle laden (falls relevant)
       let brands = [], models = [];
       if (entity) {
-        const routeTypeMap = { properties: 1, watches: 2, cars: 3, yachts: 4, lifestyles: 5 };
+        const routeTypeMap = { properties: 1, watches: 2, cars: 3, yachts: 4, lifestyles: 6 };
         [brands] = await db.query(
           `SELECT id, name FROM brands WHERE type = ? ORDER BY name`,
           [routeTypeMap[entity.route]]
@@ -1632,7 +1646,7 @@ router.get(
       );
 
       // Brands nach Entitätstyp filtern
-      const routeTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles:5 };
+      const routeTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
       let brands = [];
       if (entity) {
         [brands] = await db.query(
@@ -2157,48 +2171,62 @@ router.post(
       );
       if (!record) throw new Error('Inserat nicht gefunden');
 
-      // 2) Für lifestyles übernehmen wir einfach die übergebenen IDs
-      if (oldEnt.route === 'lifestyles') {
-        const catId = Number(req.body.category);       // entspricht brands.id
-        const subId = Number(req.body.subcategory);    // entspricht models.id
+      // 2) Zielfelder je nach neuer Kategorie setzen
+      if (newEnt.route === 'lifestyles') {
+        const catId = Number.parseInt(req.body.category, 10);       // entspricht brands.id
+        const parsedSubId = Number.parseInt(req.body.subcategory, 10); // entspricht models.id
+        let subId = Number.isFinite(parsedSubId) ? parsedSubId : null;
+
+        if (!Number.isFinite(catId) || catId <= 0) {
+          throw new Error(`Ungültige Lifestyle-Kategorie: ${req.body.category}`);
+        }
 
         // Validierung: existieren diese IDs?
         const [[brandCheck]] = await db.query(
-          'SELECT id FROM brands WHERE id = ? AND type = 5',
+          'SELECT id FROM brands WHERE id = ? AND type IN (5,6)',
           [catId]
         );
         if (!brandCheck) {
           throw new Error(`Ungültige Lifestyle-Kategorie: ${catId}`);
         }
-        const [[modelCheck]] = await db.query(
-          'SELECT id FROM models WHERE id = ? AND brand_id = ?',
-          [subId, catId]
-        );
-        if (subId && !modelCheck) {
-          throw new Error(`Ungültige Lifestyle-Unterkategorie: ${subId} für Kategorie ${catId}`);
+
+        // Einige Lifestyle-Kategorien haben keine Unterkategorien.
+        // In dem Fall ignorieren wir ggf. mitgesendete stale Werte aus dem Formular.
+        const hasSubcategories = Array.isArray(lifestyleSubcategories[catId]) &&
+          lifestyleSubcategories[catId].length > 0;
+        if (!hasSubcategories) {
+          subId = null;
+        } else if (subId) {
+          const [[modelCheck]] = await db.query(
+            'SELECT id FROM models WHERE id = ? AND brand_id = ?',
+            [subId, catId]
+          );
+          if (!modelCheck) {
+            throw new Error(`Ungültige Lifestyle-Unterkategorie: ${subId} für Kategorie ${catId}`);
+          }
         }
 
         record.brand_id = catId;
-        record.model_id = subId || null;
+        record.model_id = subId;
       }
 
       // 3) Weitere routespezifische Felder
-      if (oldEnt.route === 'cars') {
+      if (newEnt.route === 'cars') {
         record.brand_id = req.body.newBrandId ? parseInt(req.body.newBrandId, 10) : null;
         record.model_id = req.body.newModelId ? parseInt(req.body.newModelId, 10) : null;
       }
-      if (oldEnt.route === 'watches') {
+      if (newEnt.route === 'watches') {
         if (req.body.newBrandId)   record.brand_id  = parseInt(req.body.newBrandId, 10);
         if (req.body.newModelId)   record.model_id  = parseInt(req.body.newModelId, 10);
         if (req.body.newWatchType) record.watchtype = parseInt(req.body.newWatchType, 10);
       }
-      if (oldEnt.route === 'properties') {
+      if (newEnt.route === 'properties') {
         if (req.body.newInvestmentType)
           record.investmenttype = parseInt(req.body.newInvestmentType, 10);
         if (req.body.newPropertyType)
           record.propertytype   = parseInt(req.body.newPropertyType, 10);
       }
-      if (oldEnt.route === 'yachts') {
+      if (newEnt.route === 'yachts') {
         record.brand_id = req.body.newBrandId ? parseInt(req.body.newBrandId, 10) : null;
       }
 
@@ -2228,6 +2256,7 @@ router.post(
           : null;
       if (!entityCol) throw new Error('Ziel-Tabelle hat keine entitie/entity-Spalte');
       if (!copyCols.includes(entityCol)) copyCols.unshift(entityCol);
+      record[entityCol] = newEnt.id;
 
       // 5) INSERT‑Vorbereitung
       const colsList     = copyCols.map(c => `\`${c}\``).join(',');
@@ -2240,27 +2269,51 @@ router.post(
         return v;
       });
 
-      // 6) Insert in neue Tabelle
-      const [ins] = await db.query(
-        `INSERT INTO \`${newEnt.table_name}\` (${colsList})
-         VALUES (${placeholders})`,
-        values
-      );
-      const newId = ins.insertId;
+      // 6) Datensatz schreiben:
+      //    - gleiche Tabelle: UPDATE (verhindert Duplicate auf unique external)
+      //    - andere Tabelle: UPSERT, damit erneutes Verschieben idempotent bleibt
+      const sameTable = oldEnt.table_name === newEnt.table_name;
+      let newId = Number(id);
+
+      if (sameTable) {
+        const updateSet = copyCols.map(c => `\`${c}\` = ?`).join(',');
+        await db.query(
+          `UPDATE \`${newEnt.table_name}\`
+              SET ${updateSet}
+            WHERE id = ?`,
+          [...values, id]
+        );
+      } else {
+        const upsertSet = copyCols
+          .map(c => `\`${c}\` = VALUES(\`${c}\`)`)
+          .join(',');
+        const [ins] = await db.query(
+          `INSERT INTO \`${newEnt.table_name}\` (${colsList})
+           VALUES (${placeholders})
+           ON DUPLICATE KEY UPDATE
+             ${upsertSet},
+             id = LAST_INSERT_ID(id)`,
+          values
+        );
+        newId = ins.insertId;
+      }
 
       // 7) Bilder verschieben
       const mediaRoot = '/media/herando/images';
       const oldDir    = path.join(mediaRoot, oldEnt.route, String(id));
       const newDir    = path.join(mediaRoot, newEnt.route, String(newId));
-      if (fs.existsSync(oldDir)) {
+      const moveMedia = oldEnt.route !== newEnt.route || String(id) !== String(newId);
+      if (moveMedia && fs.existsSync(oldDir)) {
         fs.mkdirSync(newDir, { recursive: true });
         for (const fn of fs.readdirSync(oldDir)) {
           fs.copyFileSync(path.join(oldDir, fn), path.join(newDir, fn));
         }
       }
 
-      // 8) Alten Datensatz löschen
-      await db.query(`DELETE FROM \`${oldEnt.table_name}\` WHERE id = ?`, [id]);
+      // 8) Alten Datensatz löschen (nur wenn wirklich verschoben wurde)
+      if (oldEnt.table_name !== newEnt.table_name || String(id) !== String(newId)) {
+        await db.query(`DELETE FROM \`${oldEnt.table_name}\` WHERE id = ?`, [id]);
+      }
 
       req.flash('success', 'Kategorie und Typ erfolgreich geändert.');
       res.redirect(`/admin/listings/${newEnt.route}/${newId}/edit`);

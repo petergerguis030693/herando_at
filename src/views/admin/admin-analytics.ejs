@@ -1,9 +1,13 @@
 <%- include('../partials/header-admin') %>
 
-<div class="d-flex">
+<script>
+  document.body.classList.add('admin-page');
+</script>
+
+<div class="d-flex admin-layout">
   <!-- Sidebar -->
-  <aside class="sidebar bg-light p-3" style="width:250px;">
-    <%- include('./sidebar', { active: active }) %>
+  <aside class="sidebar bg-light p-3 admin-sidebar-host">
+    <%- include('./sidebar', { active: active, role: (typeof role !== 'undefined' ? role : null) }) %>
   </aside>
 
   <!-- Main -->
@@ -126,7 +130,7 @@
       </div>
 
       <!-- Tabs -->
-      <ul class="nav nav-pills mb-3" id="analyticsTabs" role="tablist">
+      <ul class="nav nav-pills mb-3 flex-wrap gap-2" id="analyticsTabs" role="tablist">
         <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pane-top">Top-Listen</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-insights">Auswertung</button></li>
         <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pane-tech">Geräte & Technik</button></li>

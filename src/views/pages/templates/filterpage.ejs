@@ -2867,7 +2867,7 @@ document.getElementById('fLifeType').addEventListener('change', async function (
   </form>
 </div>
 
-<script type="application/json" id="fp-country-tree-data"><%- JSON.stringify((filters.countries || []).map((c) => ({ id: Number(c.id), parentId: c.parent_id == null ? null : Number(c.parent_id), label: String(c.name || c.de || c.en || c.code || c.id) }))) %></script>
+<script type="application/json" id="fp-country-tree-data"><%- JSON.stringify((filters.countries || []).map((c) => ({ id: Number(c.id), parentId: null, label: String(c.name || c.de || c.en || c.code || c.id) }))) %></script>
 
 <script>
 (() => {

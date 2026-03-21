@@ -2305,7 +2305,7 @@ router.get(
         watches:     2,
         cars:        3,
         yachts:      4,
-        lifestyles:  5
+        lifestyles: 6
       };
 
       // 0) User laden
@@ -3025,7 +3025,7 @@ router.get('/edit-listing/:id', async (req, res, next) => {
       watches: 2,
       cars: 3,
       yachts: 4,
-      lifestyles: 5
+      lifestyles: 6
     };
 
     // 🧩 2) Benutzer laden (ohne registration_type)
@@ -3049,7 +3049,7 @@ router.get('/edit-listing/:id', async (req, res, next) => {
       { id: 2, name: 'watches' },
       { id: 3, name: 'cars' },
       { id: 4, name: 'yachts' },
-      { id: 5, name: 'lifestyles' }
+      { id: 6, name: 'lifestyles' }
     ];
 
     let item = null;
@@ -3387,6 +3387,25 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
     // ---------------------------------------------------------
     // 4) CHECKBOX-FIX (WICHTIG! GEGEN SQL-FEHLER)
     // ---------------------------------------------------------
+    const normalizeNumberInput = (value, { integer = false } = {}) => {
+      if (value === '' || value === null || value === undefined) return null;
+      if (typeof value === 'number') {
+        if (!Number.isFinite(value)) return null;
+        return integer ? Math.trunc(value) : value;
+      }
+
+      const raw = String(value).trim();
+      if (!raw) return null;
+      if (/^(nan|undefined|null)$/i.test(raw)) return null;
+
+      const normalized = raw.replace(',', '.');
+      const parsed = integer
+        ? Number.parseInt(normalized, 10)
+        : Number.parseFloat(normalized);
+
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
     for (const key in req.body) {
       const val = req.body[key];
 
@@ -3406,22 +3425,22 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
           // ---------------------------------------------------------
       // 🔥 GLOBAL NUMERIC SANITIZER (gegen '' bei INT/FLOAT/DECIMAL)
       // ---------------------------------------------------------
-      const numericTypes = ['int', 'tinyint', 'float', 'double', 'decimal'];
+      const numericTypes = ['int', 'tinyint', 'smallint', 'mediumint', 'bigint', 'float', 'double', 'decimal'];
 
       const [colInfo] = await db.query(`SHOW COLUMNS FROM \`${ent.table}\``);
 
-      const numericColumns = colInfo
-        .filter(c => numericTypes.some(t => c.Type.includes(t)))
-        .map(c => c.Field);
+      const numericColumns = new Map(
+        colInfo
+          .filter(c => numericTypes.some(t => String(c.Type || '').toLowerCase().includes(t)))
+          .map(c => [c.Field, String(c.Type || '').toLowerCase()])
+      );
 
       for (const key of Object.keys(req.body)) {
-        if (!numericColumns.includes(key)) continue;
-
-        if (req.body[key] === '' || req.body[key] === null) {
-          req.body[key] = null;
-        } else if (!isNaN(req.body[key])) {
-          req.body[key] = Number(req.body[key]);
-        }
+        const colType = numericColumns.get(key);
+        if (!colType) continue;
+        const isIntegerType = /(tinyint|smallint|mediumint|int|bigint)/.test(colType)
+          && !/(float|double|decimal)/.test(colType);
+        req.body[key] = normalizeNumberInput(req.body[key], { integer: isIntegerType });
       }
 
       console.log('🧹 GLOBAL NUMERIC CLEAN:', req.body);
@@ -3513,11 +3532,8 @@ router.post('/edit-listing/:id', upload.array('pictures'), async (req, res, next
       }
 
       for (const key of yachtNumeric) {
-        if (req.body[key] === "") {
-          req.body[key] = null;
-        } else if (!isNaN(req.body[key])) {
-          req.body[key] = parseFloat(req.body[key]);
-        }
+        if (!(key in req.body)) continue;
+        req.body[key] = normalizeNumberInput(req.body[key]);
       }
 
       console.log("⚓ Yacht Daten nach Normalisierung:", req.body);
@@ -3565,23 +3581,13 @@ if (ent.route === "cars") {
   // 🟦 INT → null oder parseInt
   for (const key of carIntFields) {
     if (!(key in req.body)) continue;
-
-    if (req.body[key] === "" || req.body[key] === null) {
-      req.body[key] = null;
-    } else if (!isNaN(req.body[key])) {
-      req.body[key] = parseInt(req.body[key], 10);
-    }
+    req.body[key] = normalizeNumberInput(req.body[key], { integer: true });
   }
 
   // 🟩 DECIMAL → null oder parseFloat
   for (const key of carDecimalFields) {
     if (!(key in req.body)) continue;
-
-    if (req.body[key] === "" || req.body[key] === null) {
-      req.body[key] = null;
-    } else if (!isNaN(req.body[key])) {
-      req.body[key] = parseFloat(req.body[key]);
-    }
+    req.body[key] = normalizeNumberInput(req.body[key]);
   }
 
   console.log("🚗 Cars normalisiert:", req.body);
@@ -3614,17 +3620,31 @@ if (ent.route === "cars") {
     // ---------------------------------------------------------
     // 8) GELÖSCHTE BILDER EMPFANGEN
     // ---------------------------------------------------------
-    let removed = [];
+    const removedSet = new Set();
+    const addRemovedValues = (value) => {
+      if (value == null) return;
+      const values = Array.isArray(value) ? value : [value];
+      for (const entry of values) {
+        const normalized = String(entry || '').trim();
+        if (normalized) removedSet.add(normalized);
+      }
+    };
 
-    if (req.body.removedImages) {
-      removed = Array.isArray(req.body.removedImages)
-        ? req.body.removedImages
-        : [req.body.removedImages];
+    addRemovedValues(req.body.removedImages);
+    addRemovedValues(req.body["removedImages[]"]);
+
+    if (req.body.removedImagesJson) {
+      try {
+        const parsed = typeof req.body.removedImagesJson === 'string'
+          ? JSON.parse(req.body.removedImagesJson)
+          : req.body.removedImagesJson;
+        addRemovedValues(parsed);
+      } catch (jsonErr) {
+        console.warn('⚠️ removedImagesJson konnte nicht geparst werden:', jsonErr.message);
+      }
     }
-    if (req.body["removedImages[]"]) {
-      const arr = req.body["removedImages[]"];
-      removed = removed.concat(Array.isArray(arr) ? arr : [arr]);
-    }
+
+    const removed = Array.from(removedSet);
 
     console.log("🔥 Entfernte Bilder:", removed);
 
@@ -3702,23 +3722,13 @@ if (ent.route === "properties") {
   // INT → null oder parseInt
   for (const key of propertyIntFields) {
     if (!(key in req.body)) continue;
-
-    if (req.body[key] === "" || req.body[key] === null) {
-      req.body[key] = null;
-    } else if (!isNaN(req.body[key])) {
-      req.body[key] = parseInt(req.body[key], 10);
-    }
+    req.body[key] = normalizeNumberInput(req.body[key], { integer: true });
   }
 
   // DOUBLE → null oder parseFloat
   for (const key of propertyDecimalFields) {
     if (!(key in req.body)) continue;
-
-    if (req.body[key] === "" || req.body[key] === null) {
-      req.body[key] = null;
-    } else if (!isNaN(req.body[key])) {
-      req.body[key] = parseFloat(req.body[key]);
-    }
+    req.body[key] = normalizeNumberInput(req.body[key]);
   }
 
   console.log("🏠 Properties normalisiert:", req.body);
@@ -3758,7 +3768,9 @@ if (ent.route === "properties") {
     // 13) SQL BUILD
     // ---------------------------------------------------------
     const keys = Object.keys(req.body);
-    const values = Object.values(req.body);
+    const values = Object.values(req.body).map((v) => (
+      typeof v === 'number' && !Number.isFinite(v) ? null : v
+    ));
 
     const setParts = keys.map(k => `\`${k}\`=?`);
     setParts.push("pictures=?");
@@ -3968,6 +3980,9 @@ router.post(
     try {
       const userId    = req.session.userId;
       const listingId = parseInt(req.params.id, 10);
+      const sessionRole = Number(req.session.role || 0);
+      const adminRoles = new Set([7, 8, 9]);
+      const isAdmin = adminRoles.has(sessionRole);
 
       console.log("👤 User:", userId);
       console.log("🆔 Listing:", listingId);
@@ -3983,15 +3998,42 @@ router.post(
       // ---------------------------------------------------------
       const tables = ['cars', 'yachts', 'watches', 'properties', 'lifestyles'];
       let ent = null;
+      let effectiveOwnerUserId = Number(userId || 0);
 
       for (const table of tables) {
         const [rows] = await db.query(
-          `SELECT id FROM \`${table}\` WHERE id=? AND user_id=?`,
+          `SELECT id, user_id FROM \`${table}\` WHERE id=? AND user_id=?`,
           [listingId, userId]
         );
         if (rows.length) {
           ent = table;
+          effectiveOwnerUserId = Number(rows[0].user_id || userId || 0);
           break;
+        }
+      }
+
+      // Admin darf via Edit-Grant auch fremde Inserate bearbeiten.
+      if (!ent && isAdmin) {
+        const grant = req.session.adminListingEditGrant;
+        const nowMs = Date.now();
+        const grantTable = String(grant?.table || '');
+        const grantUsable =
+          grant &&
+          tables.includes(grantTable) &&
+          Number(grant.listingId) === listingId &&
+          Number(grant.adminUserId) === Number(userId) &&
+          Number(grant.expiresAt || 0) > nowMs;
+
+        if (grantUsable) {
+          const [rows] = await db.query(
+            `SELECT id, user_id FROM \`${grantTable}\` WHERE id=? LIMIT 1`,
+            [listingId]
+          );
+          if (rows.length) {
+            ent = grantTable;
+            effectiveOwnerUserId = Number(rows[0].user_id || grant.ownerUserId || 0);
+            console.log('🛡️ Mainpicture: Admin-Grant aktiv', { ent, effectiveOwnerUserId });
+          }
         }
       }
 
@@ -4031,7 +4073,7 @@ router.post(
         `UPDATE \`${ent}\`
          SET mainpicture=?, visible='0'
          WHERE id=? AND user_id=?`,
-        [safeName, listingId, userId]
+        [safeName, listingId, effectiveOwnerUserId]
       );
 
       console.log("🏆 Neues Mainpicture gesetzt:", safeName);
@@ -5565,7 +5607,7 @@ router.get('/upgrade/success', ensureAuthenticated, async (req, res, next) => {
       LEFT JOIN properties props      ON props.id     = upo.item_id AND upo.entitie_id = 1
       LEFT JOIN watches watches       ON watches.id   = upo.item_id AND upo.entitie_id = 2
       LEFT JOIN yachts yachts         ON yachts.id    = upo.item_id AND upo.entitie_id = 3
-      LEFT JOIN lifestyles life       ON life.id      = upo.item_id AND upo.entitie_id = 5
+      LEFT JOIN lifestyles life       ON life.id      = upo.item_id AND upo.entitie_id = 6
 
       WHERE upo.stripe_session_id = ?
       LIMIT 1
@@ -5817,7 +5859,7 @@ const upgradeAdminAttachment = await tr(req, res, 'buyer.upgrade.admin.attachmen
 const upgradeAdminSystemNote = await tr(req, res, 'buyer.upgrade.admin.system_note', 'Automatische Systembenachrichtigung');
 
 await transporter.sendMail({
-  from: `"Herando System" <${process.env.SMTP_USER}>`,
+  from: `"Herando System" <accounting@herando.com>`,
   to: "accounting@herando.com",
   subject: upgradeAdminSubject,
   html: `
@@ -6832,7 +6874,7 @@ router.post("/profil/cancel-package", async (req, res) => {
     const cancelTypeValue = termination_date_type === 'manual' ? cancelTypeManual : cancelTypeNext;
 
     await transporter.sendMail({
-      from: process.env.SMTP_USER,
+      from: `"Herando System" <accounting@herando.com>`,
       to: userInfo.email,
       subject: cancelSubject,
       html: `
@@ -6953,7 +6995,7 @@ router.post("/profil/cancel-support", async (req, res) => {
         const supportSignature = await tr(req, res, 'buyer.cancel_support.admin.signature', 'Herando - Automatisierte Systembenachrichtigung');
 
         await transporter.sendMail({
-          from: process.env.SMTP_USER,
+          from: `"Herando System" <accounting@herando.com>`,
           to: process.env.ADMIN_EMAIL,
           cc: process.env.ADMIN_CC || "",
           subject: supportSubject,
@@ -7079,7 +7121,7 @@ router.post("/profil/cancel-support", async (req, res) => {
         const supportSignature = await tr(req, res, 'buyer.cancel_support.admin.signature', 'Herando - Automatisierte Systembenachrichtigung');
 
         await transporter.sendMail({
-          from: process.env.MAIL_FROM,
+          from: `"Herando System" <accounting@herando.com>`,
           to: process.env.ADMIN_EMAIL,
           cc: process.env.ADMIN_CC || "",
           subject: supportSubject,
@@ -7503,7 +7545,7 @@ router.post('/messages/compose', ensureAuthenticated, async (req, res, next) => 
     try {
       if (receiver.email) {
         await transporter.sendMail({
-          from: process.env.SMTP_USER,
+          from: `"Herando System" <info@herando.com>`,
           to:   receiver.email,
           subject,
           text: bodyRaw
@@ -7643,7 +7685,7 @@ router.post('/messages/:id/reply', ensureAuthenticated, async (req, res, next) =
       const [[recv]] = await db.query('SELECT email FROM users WHERE id = ?', [toUserId]);
       if (recv && recv.email) {
         await transporter.sendMail({
-          from: process.env.SMTP_USER,
+          from: `"Herando System" <accounting@herando.com>`,
           to:   recv.email,
           subject,
           text: bodyRaw

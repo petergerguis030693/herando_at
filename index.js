@@ -279,9 +279,6 @@ function getSafeBackPath(req, fallback = '/') {
   }
 }
 
-
-
-
 /* ────────────────────────────────────────────────────────────────────────────
  * Basis / App-Setup
  * ──────────────────────────────────────────────────────────────────────────── */
@@ -382,8 +379,10 @@ app.use(
 );
 /* Parser */
 app.use(cookieParser());
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// Admin-Seiten (z.B. /admin/pages/:slug/edit) senden über CKEditor oft größere HTML-Content-Bodies.
+// Default-Limits führen sonst zu "PayloadTooLargeError: request entity too large".
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 /* ────────────────────────────────────────────────────────────────────────────
  * Session / Flash
@@ -1350,6 +1349,19 @@ app.use(trackRouter);
 app.use('/admin', adminRouter);
 
 app.use('/', templateRouter);
+
+// Body-Parser Fehler (z.B. bei zu großen Formular-POSTs)
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.too.large' || err.name === 'PayloadTooLargeError')) {
+    console.error('[BodyParser] Payload too large:', {
+      url: req.originalUrl,
+      method: req.method,
+      contentLength: req.get('content-length') || null
+    });
+    return res.status(413).send('Payload zu groß. Bitte Text/HTML kürzen oder später erneut versuchen.');
+  }
+  return next(err);
+});
 
 
 // direkt nach dem session-Setup

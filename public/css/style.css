@@ -206,8 +206,9 @@ input[type=number] {
   text-align: center;
 }
 
-/* Nur Uhren-Slide auf der Startseite abdunkeln */
-.boxed-hero-shell .carousel-item.hero-slide-watch::before {
+/* Uhren- + Autos-Slide auf der Startseite abdunkeln */
+.boxed-hero-shell .carousel-item.hero-slide-watch::before,
+.boxed-hero-shell .carousel-item.hero-slide-car::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -216,7 +217,8 @@ input[type=number] {
   z-index: 1;
 }
 
-.boxed-hero-shell .carousel-item.hero-slide-watch .carousel-caption {
+.boxed-hero-shell .carousel-item.hero-slide-watch .carousel-caption,
+.boxed-hero-shell .carousel-item.hero-slide-car .carousel-caption {
   z-index: 2;
 }
 
@@ -366,7 +368,7 @@ input[type=number] {
 }
 
 .container {
-  max-width: 1500px !important;
+  max-width: 1520px !important;
 }
 
 /* Pfeile für das Carousel */

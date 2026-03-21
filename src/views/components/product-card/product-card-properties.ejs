@@ -93,12 +93,19 @@
       <%= item.priceFormatted || t('common.price_on_request', 'Preis auf Anfrage') %>
     </div>
 
-          <% if (item.countryCode) { %>
-        <div class="lux-card-country">
-          <i class="bi bi-geo-alt"></i>
-          <%= item.countryCode %>
-        </div>
-      <% } %>
+    <% if (item.countryCode || item.countryName) { %>
+      <div class="lux-card-country">
+        <% if (item.countryCode) { %>
+          <img
+            class="lux-card-flag"
+            src="https://flagcdn.com/24x18/<%= String(item.countryCode).toLowerCase() %>.png"
+            alt="<%= item.countryName || item.countryCode %>"
+            loading="lazy">
+        <% } %>
+        <span><%= item.countryName || item.countryCode %></span>
+      </div>
+      <!-- Alte Standort-Icon/Kürzel-Anzeige deaktiviert -->
+    <% } %>
 
   </div>
 </a>

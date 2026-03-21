@@ -1435,9 +1435,11 @@ const equipmentIcons = {
     <div class="p-3 mb-5">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold"><%= t('cars.more_items.title', 'Weitere') %></h4>
-        <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
-          <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
-        </a>
+        <% if (seller && seller.slug) { %>
+          <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+            <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+          </a>
+        <% } %>
       </div>
 
       <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">
@@ -2070,9 +2072,11 @@ const colorMap = {
         <h4 class="fw-bold">
           <%= t('watches.more_items.title', 'Weitere') %> <%= group.entity %> <%= t('watches.more_items.from_dealer', 'dieses Händlers') %>
         </h4>
-        <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
-          <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
-        </a>
+        <% if (seller && seller.slug) { %>
+          <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+            <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+          </a>
+        <% } %>
       </div>
 
       <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">
@@ -2191,38 +2195,75 @@ const colorMap = {
   const energyClassMap = {
     1: "A+", 2: "A", 3: "B", 4: "C", 5: "D", 6: "E", 7: "F", 8: "G"
   };
+
+  const toCleanStr = (v) => (v == null ? '' : String(v).trim());
+  const isNonZeroValue = (v) => {
+    const s = toCleanStr(v);
+    if (!s) return false;
+    const lower = s.toLowerCase();
+    if (lower === 'null' || lower === 'undefined') return false;
+    return !/^0([.,]0+)?$/.test(s);
+  };
+
+  const mappedPropertyType = propertyTypeMap[item.propertytype];
+  const mappedInvestmentType = investmentTypeMap[item.investmenttype];
+  const bedroomsValue = Number.parseInt(item.bedrooms, 10);
+  const bathroomsValue = Number.parseInt(item.bathrooms, 10);
+  const livingAreaValue = Number(item.livingarea);
+
 %>
 
 <div class="p-3 mb-4">
-  <h4 class="mb-3 fw-bold"><%= t('properties.data', 'Immobiliendaten') %></h4>
+  <h4 class="mb-3 fw-bold"><%= t('cars.technical_data', 'Technische Daten') %></h4>
   <table class="table table-borderless align-middle table-striped custom-striped">
     <tbody>
-      <% if (item.propertytype) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.type', 'Immobilienart') %></td><td><%= propertyTypeMap[item.propertytype] || item.propertytype %></td></tr>
+      <% if (mappedPropertyType) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-house-door custom-icon"></i> <%= t('properties.type', 'Immobilienart') %></td>
+          <td><%= mappedPropertyType %></td>
+        </tr>
       <% } %>
 
-      <% if (item.investmenttype) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.investment_type', 'Investment-Typ') %></td><td><%= investmentTypeMap[item.investmenttype] || item.investmenttype %></td></tr>
+      <% if (mappedInvestmentType) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-briefcase custom-icon"></i> <%= t('properties.investment_type', 'Investment-Typ') %></td>
+          <td><%= mappedInvestmentType %></td>
+        </tr>
       <% } %>
 
-      <% if (item.livingarea) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.living_area', 'Wohnfläche') %></td><td><%= new Intl.NumberFormat('de-DE').format(item.livingarea) %> m²</td></tr>
+      <% if (isNonZeroValue(item.livingarea) && Number.isFinite(livingAreaValue) && livingAreaValue > 0) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-aspect-ratio custom-icon"></i> <%= t('properties.living_area', 'Wohnfläche') %></td>
+          <td><%= new Intl.NumberFormat('de-DE').format(livingAreaValue) %> m²</td>
+        </tr>
       <% } %>
 
       <% if (item.landarea) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.land_area', 'Grundstücksfläche') %></td><td><%= new Intl.NumberFormat('de-DE').format(item.landarea) %> m²</td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-bounding-box custom-icon"></i> <%= t('properties.land_area', 'Grundstücksfläche') %></td>
+          <td><%= new Intl.NumberFormat('de-DE').format(item.landarea) %> m²</td>
+        </tr>
       <% } %>
 
       <% if (item.floors) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.floors', 'Etagen') %></td><td><%= item.floors %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-building custom-icon"></i> <%= t('properties.floors', 'Etagen') %></td>
+          <td><%= item.floors %></td>
+        </tr>
       <% } %>
 
-      <% if (item.bedrooms) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.bedrooms', 'Schlafzimmer') %></td><td><%= parseInt(item.bedrooms) %></td></tr>
+      <% if (isNonZeroValue(item.bedrooms) && Number.isFinite(bedroomsValue) && bedroomsValue > 0) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-door-open custom-icon"></i> <%= t('properties.bedrooms', 'Schlafzimmer') %></td>
+          <td><%= bedroomsValue %></td>
+        </tr>
       <% } %>
 
-      <% if (item.bathrooms) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.bathrooms', 'Badezimmer') %></td><td><%= parseInt(item.bathrooms) %></td></tr>
+      <% if (isNonZeroValue(item.bathrooms) && Number.isFinite(bathroomsValue) && bathroomsValue > 0) { %>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-droplet custom-icon"></i> <%= t('properties.bathrooms', 'Badezimmer') %></td>
+          <td><%= bathroomsValue %></td>
+        </tr>
       <% } %>
 
 <%
@@ -2241,7 +2282,7 @@ const qualityMap = {
       <% if (item.quality) { %>
         <tr>
           <td class="fw-semibold text-muted">
-            <%= t('properties.quality', 'Zustand') %>
+            <i class="bi bi-check2-circle custom-icon"></i> <%= t('properties.quality', 'Zustand') %>
           </td>
           <td><%= qualityMap[item.quality] || item.quality %></td>
         </tr>
@@ -2263,7 +2304,7 @@ const qualityMap = {
       <% if (item.propertyshape) { %>
         <tr>
           <td class="fw-semibold text-muted">
-            <%= t('properties.shape', 'Objektform') %>
+            <i class="bi bi-grid-3x3-gap custom-icon"></i> <%= t('properties.shape', 'Objektform') %>
           </td>
           <td><%= propertyShapeMap[item.propertyshape] || item.propertyshape %></td>
         </tr>
@@ -2279,40 +2320,64 @@ const qualityMap = {
           propertyYearStr.toLowerCase() !== 'null';
       %>
       <% if (hasValidPropertyYear) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.year_built', 'Baujahr') %></td><td><%= propertyYearStr %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-calendar custom-icon"></i> <%= t('properties.year_built', 'Baujahr') %></td>
+          <td><%= propertyYearStr %></td>
+        </tr>
       <% } %>
 
       <% if (item.monument_protection) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.monument', 'Denkmalschutz') %></td><td><%= item.monument_protection === 1 ? t('common.yes', 'Ja') : t('common.no', 'Nein') %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-building custom-icon"></i> <%= t('properties.monument', 'Denkmalschutz') %></td>
+          <td><%= item.monument_protection === 1 ? t('common.yes', 'Ja') : t('common.no', 'Nein') %></td>
+        </tr>
       <% } %>
 
       <% if (item.stage) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.stage', 'Bauphase') %></td><td><%= stageMap[item.stage] || item.stage %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-tools custom-icon"></i> <%= t('properties.stage', 'Bauphase') %></td>
+          <td><%= stageMap[item.stage] || item.stage %></td>
+        </tr>
       <% } %>
 
       <% if (item.heating) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.heating', 'Heizung') %></td><td><%= heatingMap[item.heating] || item.heating %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-thermometer-half custom-icon"></i> <%= t('properties.heating', 'Heizung') %></td>
+          <td><%= heatingMap[item.heating] || item.heating %></td>
+        </tr>
       <% } %>
 
       <% if (item.energysource) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_source', 'Energiequelle') %></td><td><%= energySourceMap[item.energysource] || item.energysource %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-lightning-charge custom-icon"></i> <%= t('properties.energy_source', 'Energiequelle') %></td>
+          <td><%= energySourceMap[item.energysource] || item.energysource %></td>
+        </tr>
       <% } %>
 
       <% if (item.energypass) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_certificate', 'Energieausweis') %></td><td><%= energyPassMap[item.energypass] || item.energypass %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-file-earmark-text custom-icon"></i> <%= t('properties.energy_certificate', 'Energieausweis') %></td>
+          <td><%= energyPassMap[item.energypass] || item.energypass %></td>
+        </tr>
       <% } %>
 
       <% if (item.energypass_type) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_certificate_type', 'Energieausweis Typ') %></td><td><%= energyPassTypeMap[item.energypass_type] || item.energypass_type %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-file-earmark custom-icon"></i> <%= t('properties.energy_certificate_type', 'Energieausweis Typ') %></td>
+          <td><%= energyPassTypeMap[item.energypass_type] || item.energypass_type %></td>
+        </tr>
       <% } %>
 
       <% if (item.energypass_value) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.energy_consumption', 'Energieverbrauch') %></td><td><%= item.energypass_value %> kWh/(m²·a)</td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-speedometer2 custom-icon"></i> <%= t('properties.energy_consumption', 'Energieverbrauch') %></td>
+          <td><%= item.energypass_value %> kWh/(m²·a)</td>
+        </tr>
       <% } %>
 
       <% if (item.base_price !== null) { %>
         <tr>
-          <td class="fw-semibold text-muted"><%= t('properties.base_price', 'Basispreis') %></td>
+          <td class="fw-semibold text-muted"><i class="bi bi-cash-stack custom-icon"></i> <%= t('properties.base_price', 'Basispreis') %></td>
           <td>
             <% if (item.base_price > 0) { %>
               <%= new Intl.NumberFormat('de-DE').format(item.base_price) %> <%= item.currency %>
@@ -2325,7 +2390,7 @@ const qualityMap = {
 
       <% if (item.price !== null) { %>
         <tr>
-          <td class="fw-semibold text-muted"><%= t('properties.price', 'Preis') %></td>
+          <td class="fw-semibold text-muted"><i class="bi bi-tag custom-icon"></i> <%= t('properties.price', 'Preis') %></td>
           <td>
             <% if (item.price > 0) { %>
               <%= new Intl.NumberFormat('de-DE').format(item.price) %> <%= item.currency %>
@@ -2337,7 +2402,10 @@ const qualityMap = {
       <% } %>
 
       <% if (item.vat !== null) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('properties.vat', 'MwSt.') %></td><td><%= item.vat === 1 ? t('properties.incl', 'inklusive') : t('properties.plus', 'zuzüglich') %></td></tr>
+        <tr>
+          <td class="fw-semibold text-muted"><i class="bi bi-percent custom-icon"></i> <%= t('properties.vat', 'MwSt.') %></td>
+          <td><%= item.vat === 1 ? t('properties.incl', 'inklusive') : t('properties.plus', 'zuzüglich') %></td>
+        </tr>
       <% } %>
     </tbody>
   </table>
@@ -2452,9 +2520,11 @@ const qualityMap = {
       <div class="p-3 mb-5">
         <div class="d-flex justify-content-between align-items-center mb-3">
           <h4 class="fw-bold"><%= t('properties.more_from_seller', 'Weitere Immobilien dieses Händlers') %></h4>
-          <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
-            <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
-          </a>
+          <% if (seller && seller.slug) { %>
+            <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+              <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+            </a>
+          <% } %>
         </div>
 
         <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">
@@ -2750,9 +2820,11 @@ const qualityMap = {
     <div class="p-3 mb-5">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <h4 class="fw-bold"><%= t('yachts.more_from_seller', 'Weitere Yachten dieses Händlers') %></h4>
-        <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
-          <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
-        </a>
+        <% if (seller && seller.slug) { %>
+          <a href="/seller/<%= seller.slug %>" class="small-coo fw-bold text-decoration-none">
+            <%= t('cars.more_items.show_all', 'Alle anzeigen') %>
+          </a>
+        <% } %>
       </div>
 
       <div id="carousel-<%= group.route %>" class="carousel slide custom-carousel">

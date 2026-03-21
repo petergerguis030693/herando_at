@@ -872,6 +872,7 @@ router.get('/', requireAdmin, async (req, res, next) => {
          u.city,
          u.postcode,
          u.email,
+         u.website,
          u.fax,
          IFNULL(u.modified, u.created) AS letzter_vertragstermin,
          ${expirationExpr} AS ablaufdatum,
@@ -2855,9 +2856,7 @@ function isWithinLast365DaysForOverview(row) {
 }
 
 function isEndedForOverview(row) {
-  const stopdate = row?.stopdate ? new Date(row.stopdate) : null;
-  if (!stopdate || Number.isNaN(stopdate.getTime())) return false;
-  return stopdate <= new Date();
+  return Number(row?.status) === 4 && Number(row?.visible) === 0;
 }
 
 function isStatusThree(value) {
