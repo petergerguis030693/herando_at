@@ -1,5 +1,11 @@
 <%- include('../../partials/header') %>
 <link rel="stylesheet" href="/css/buyer.css">
+<%
+  const _roleNum = Number(
+    (typeof role !== 'undefined' ? role : (typeof user !== 'undefined' && user ? user.role : 0)) || 0
+  );
+  const _brandModelRequiredAttr = [7, 8, 9].includes(_roleNum) ? '' : 'required';
+%>
           <style>
                 /* ========== NEW LISTING: STYLES ========== */
 .listing-box {
@@ -776,7 +782,7 @@
 <div class="row g-3 align-items-center mb-3">
     <div class="col-md-4">
       <label class="form-label">* <%= t('buyer.listing.model.brand') %></label>
-      <select id="brandSelect" name="brand_id" class="form-select" required>
+      <select id="brandSelect" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
         <option value="" disabled selected><%= t('global.form.choose') %></option>
         <% (filters.brands || []).filter(b => String(b.name || '').trim().toLowerCase() !== 'autos').forEach(b => { %>
           <option value="<%= b.id %>"><%= b.name %></option>
@@ -786,7 +792,7 @@
 
     <div class="col-md-4">
       <label class="form-label">* <%= t('buyer.listing.model.model') %></label>
-      <select id="modelSelect" name="model_id" class="form-select" required disabled>
+      <select id="modelSelect" name="model_id" class="form-select" <%= _brandModelRequiredAttr %> disabled>
         <option value=""><%= t('buyer.listing.model.choose_brand_first') %></option>
       </select>
     </div>
@@ -1431,7 +1437,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- Marke -->
     <div class="col-md-4">
       <label for="brand_id" class="form-label">* <%= t('buyer.listing.brand') %></label>
-      <select id="brand_id" name="brand_id" class="form-select" required>
+      <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
         <option value="" disabled selected><%= t('global.select_placeholder') %></option>
         <% filters.brands.forEach(b => { %>
           <option value="<%= b.id %>"><%= b.name %></option>
@@ -1442,7 +1448,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- Modell -->
     <div class="col-md-4">
       <label for="model_id" class="form-label">* <%= t('buyer.listing.model') %></label>
-      <select id="model_id" name="model_id" class="form-select" required disabled>
+      <select id="model_id" name="model_id" class="form-select" <%= _brandModelRequiredAttr %> disabled>
         <option value=""><%= t('buyer.listing.model_select_brand_first') %></option>
       </select>
     </div>
@@ -1752,6 +1758,7 @@ document.getElementById('brand_id').addEventListener('change', async function ()
     <option value="16"><%= t('watches.dial_color.16') %></option>
     <option value="13"><%= t('watches.dial_color.13') %></option>
     <option value="2"><%= t('watches.dial_color.2') %></option>
+    <option value="25"><%= t('watches.dial_color.25', 'Skelettiert') %></option>
   </select>
 </div>
 
@@ -2092,7 +2099,7 @@ document.getElementById('brand_id').addEventListener('change', async function ()
       <!-- Marke -->
       <div class="col-md-4">
         <label for="brand_id" class="form-label">* <%= t('buyer.listing.yacht.general.brand') %></label>
-        <select id="brand_id" name="brand_id" class="form-select" required>
+        <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
           <option value="" disabled selected><%= t('global.select_placeholder') %></option>
           <% (filters.brands || []).forEach(b => { %>
             <option value="<%= b.id %>"><%= b.name %></option>
@@ -2858,3 +2865,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 <%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

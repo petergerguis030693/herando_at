@@ -2,13 +2,17 @@
   const watchTypeLabels = {
     1: t('watches.type.armband', 'Armbanduhr'),
     2: t('watches.type.taschen', 'Taschenuhr'),
-    3: t('watches.type.smart', 'Smartwatch')
+    3: t('watch.type.tableclock', 'Tischuhr'),
+    4: t('watch.type.antiqueclock', 'Antike Uhr'),
+    5: t('watch.type.grandfatherclock', 'Standuhr'),
+    6: t('watch.type.wallclock', 'Wanduhr'),
+    255: t('common.other', 'Sonstige')
   };
 
   const genderLabels = {
-    1: t('watches.gender.men', 'Herren'),
-    2: t('watches.gender.women', 'Damen'),
-    3: t('watches.gender.unisex', 'Unisex')
+    1: t('watch.gender.men', 'Herren/Unisex'),
+    2: t('watches.gender.men', 'Herren/Unisex'),
+    3: t('watches.gender.women', 'Damen')
   };
 
   const movementLabels = {
@@ -18,10 +22,25 @@
   };
 
   const caseMaterialLabels = {
-    1: t('watches.case.steel', 'Edelstahl'),
-    2: t('watches.case.gold', 'Gold'),
-    3: t('watches.case.titan', 'Titan'),
-    4: t('watches.case.keramik', 'Keramik')
+    1: t('watch.case.rose_gold', 'Roségold'),
+    2: t('watch.case.steel', 'Edelstahl'),
+    3: t('watch.case.white_gold', 'Weißgold'),
+    4: t('watch.case.yellow_gold', 'Gelbgold'),
+    5: t('watch.case.platinum', 'Platin'),
+    6: t('watch.case.red_gold', 'Rotgold'),
+    7: t('watch.case.titanium', 'Titan'),
+    8: t('watch.case.gold_steel', 'Gold/Stahl'),
+    9: t('watch.case.ceramic', 'Keramik'),
+    10: t('watch.case.palladium', 'Palladium'),
+    11: t('watch.case.silver', 'Silber'),
+    12: t('watch.case.aluminium', 'Aluminium'),
+    13: t('watch.case.pvd', 'PVD-beschichtet'),
+    14: t('watch.case.plastic', 'Kunststoff'),
+    15: t('watch.case.bronze', 'Bronze'),
+    16: t('watch.case.carbon', 'Carbon'),
+    17: t('watch.case.tantalum', 'Tantal'),
+    18: t('watch.case.tungsten', 'Wolfram'),
+    255: t('common.other', 'Sonstige')
   };
 
   const watchTypeName = watchTypeLabels[item.watchtype] || null;
@@ -33,14 +52,18 @@
 <a href="<%= detailHref %>"
    class="lux-card lux-watch-card">
 
-  <!-- IMAGE -->
+  <!-- Responsive listing variants (srcset) oder *_largex2 -->
   <div class="lux-card-img">
-    <img 
-      src="<%= item.imageUrl || '/assets/herando-weblogo.png' %>" 
+    <% const _fallback = item.imageUrl || '/assets/herando-weblogo.png'; %>
+    <% const _cardSrc = item.imageSrcset ? item.imageUrl : (item.imageUrlLarge || _fallback); %>
+    <img src="<%= _cardSrc %>"
+      <% if (item.imageSrcset) { %>srcset="<%= item.imageSrcset %>" sizes="<%= item.imageSizes %>"<% } %>
       alt="<%= item.title %>"
+      width="580"
+      height="440"
       loading="lazy"
-      onerror="this.onerror=null;this.src='/assets/herando-weblogo.png';"
-    >
+      decoding="async"
+      onerror="this.onerror=null;this.src='/assets/herando-weblogo.png';">
   </div>
 
   <!-- BODY -->
@@ -101,6 +124,8 @@
             class="lux-card-flag"
             src="https://flagcdn.com/24x18/<%= String(item.countryCode).toLowerCase() %>.png"
             alt="<%= item.countryName || item.countryCode %>"
+            width="24"
+            height="18"
             loading="lazy">
         <% } %>
         <span><%= item.countryName || item.countryCode %></span>

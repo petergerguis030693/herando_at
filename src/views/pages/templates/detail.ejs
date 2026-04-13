@@ -90,8 +90,9 @@ tr {
       <div class="thumbnail-slider">
         <button id="prevThumb" disabled>&#10094;</button>
         <div class="product-single-thumbnails d-flex">
-          <% item.thumbnailUrls.forEach(url => { %>
+          <% item.thumbnailUrls.forEach((url, idx) => { %>
             <img src="<%= url %>"
+                 data-full="<%= (item.thumbnailFullUrls && item.thumbnailFullUrls[idx]) ? item.thumbnailFullUrls[idx] : url %>"
                  alt="Thumbnail von <%= item.title %>"
                  onclick="thumbClick(this)" />
           <% }) %>
@@ -116,16 +117,22 @@ tr {
     return Math.max(min, Math.min(max, v));
   }
 
-  function getContainMetrics() {
+  function getObjectFitMetrics() {
     const rect = img.getBoundingClientRect();
+    const iw = img.naturalWidth || 1;
+    const ih = img.naturalHeight || 1;
+    const cw = rect.width || 1;
+    const ch = rect.height || 1;
 
-    const iw = img.naturalWidth;
-    const ih = img.naturalHeight;
+    const objectFit = (window.getComputedStyle(img).objectFit || 'fill').trim();
+    const useContain = objectFit === 'contain';
+    const useCover = objectFit === 'cover';
 
-    const cw = rect.width;
-    const ch = rect.height;
-
-    const scale = Math.min(cw / iw, ch / ih);
+    const scale = useCover
+      ? Math.max(cw / iw, ch / ih)
+      : useContain
+        ? Math.min(cw / iw, ch / ih)
+        : Math.min(cw / iw, ch / ih);
 
     const w = iw * scale;
     const h = ih * scale;
@@ -133,19 +140,27 @@ tr {
     const x = (cw - w) * 0.5;
     const y = (ch - h) * 0.5;
 
-    return { rect, w, h, x, y };
+    return { rect, iw, ih, scale, w, h, x, y };
   }
 
   img.addEventListener('mousemove', e => {
     const zoomSrc = img.dataset.zoom || img.src;
-    const { rect, w, h, x, y } = getContainMetrics();
+    const { rect, iw, ih, scale, w, h, x, y } = getObjectFitMetrics();
 
-    // Maus relativ zum echten Bild (contain!)
-    const mx = e.clientX - rect.left - x;
-    const my = e.clientY - rect.top  - y;
+    // Maus relativ zum gerenderten Bild-Container
+    const lx = e.clientX - rect.left;
+    const ly = e.clientY - rect.top;
 
-    // Maus darf bis zum Rand
-    if (mx < 0 || my < 0 || mx > w || my > h) {
+    if (lx < 0 || ly < 0 || lx > rect.width || ly > rect.height) {
+      glass.style.display = 'none';
+      return;
+    }
+
+    // Bei object-fit: contain gibt es ggf. "leere" Balken.
+    // Dort die Lupe ausblenden, damit das Mapping nicht versetzt wirkt.
+    const px = lx - x;
+    const py = ly - y;
+    if (px < 0 || py < 0 || px > w || py > h) {
       glass.style.display = 'none';
       return;
     }
@@ -159,17 +174,17 @@ tr {
        LUPENPOSITION
        Maus = Startpunkt
        ========================= */
-    glass.style.left = (x + mx) + 'px';
-    glass.style.top  = (y + my) + 'px';
+    glass.style.left = lx + 'px';
+    glass.style.top  = ly + 'px';
 
     /* =========================
        ZOOM – PIXELGENAU + CLAMP
        ========================= */
-    const rx = mx / w * img.naturalWidth;
-    const ry = my / h * img.naturalHeight;
+    const rx = clamp(px / scale, 0, iw);
+    const ry = clamp(py / scale, 0, ih);
 
-    const maxBgX = img.naturalWidth  * ZOOM - gw;
-    const maxBgY = img.naturalHeight * ZOOM - gh;
+    const maxBgX = iw * ZOOM - gw;
+    const maxBgY = ih * ZOOM - gh;
 
     const bgX = -clamp(rx * ZOOM, 0, maxBgX);
     const bgY = -clamp(ry * ZOOM, 0, maxBgY);
@@ -177,8 +192,8 @@ tr {
     glass.style.backgroundImage = `url(${zoomSrc})`;
     glass.style.backgroundRepeat = 'no-repeat';
     glass.style.backgroundSize =
-      (img.naturalWidth * ZOOM) + 'px ' +
-      (img.naturalHeight * ZOOM) + 'px';
+      (iw * ZOOM) + 'px ' +
+      (ih * ZOOM) + 'px';
 
     glass.style.backgroundPosition = `${bgX}px ${bgY}px`;
   });
@@ -188,8 +203,8 @@ tr {
   });
 
 window.changeImage = function (el) {
-  const newSrc  = el.dataset.large || el.src;
-  const zoomSrc = el.dataset.full  || el.dataset.large || el.src;
+  const newSrc  = el.dataset.full || el.dataset.large || el.src;
+  const zoomSrc = el.dataset.full || el.dataset.zoom || el.dataset.large || el.src;
 
   imageReady = false;
   glass.style.display = 'none';
@@ -205,6 +220,10 @@ window.changeImage = function (el) {
 };
 
 })();
+
+window.thumbClick = function (el) {
+  window.changeImage(el);
+};
 </script>
 
 <script>
@@ -216,8 +235,8 @@ window.changeImage = function (el) {
   if (!img || thumbs.length === 0) return;
 
   function currentIndex() {
-    const file = img.src.split('/').pop();
-    const i = thumbs.findIndex(t => t.src.split('/').pop() === file);
+    const mainSrc = img.src;
+    const i = thumbs.findIndex(t => (t.dataset.full || t.src) === mainSrc);
     return i >= 0 ? i : 0;
   }
 
@@ -359,40 +378,14 @@ function show(i) {
         <% } %>
       </p>
 
+      
       <!-- Land -->
       <div class="d-flex align-items-center mb-3">
-        <%
-          let country = item.specs.find(s => s.label==='Land')?.value || '';
-          const countryMap = {
-            'Österreich':'at','Austria':'at',
-            'Deutschland':'de','Germany':'de',
-            'Schweiz':'ch','Switzerland':'ch',
-            'Italien':'it','Italy':'it',
-            'Frankreich':'fr','France':'fr',
-            'Spanien':'es','Spain':'es',
-            'Portugal':'pt',
-            'Niederlande':'nl','Netherlands':'nl',
-            'Belgien':'be','Belgium':'be',
-            'Luxemburg':'lu','Luxembourg':'lu',
-            'Großbritannien':'gb','United Kingdom':'gb','UK':'gb',
-            'USA':'us','United States':'us',
-            'Tschechien':'cz','Czech Republic':'cz',
-            'Polen':'pl','Poland':'pl',
-            'Türkei':'tr','Turkey':'tr',
-            'Griechenland':'gr','Greece':'gr',
-            'Kroatien':'hr','Croatia':'hr',
-            'Monaco':'mc',
-            'Ägypten':'eg','Egypt':'eg',
-            'Brasilien':'br','Brazil':'br',
-            'Singapur':'sg','Singapore':'sg',
-            'Indien':'in','India':'in'
-          };
-          const countryCode = countryMap[country] || null;
-        %>
-
+        <% const country = item.countryName || ''; %>
+        <% const countryCode = (item.countryCode || '').toLowerCase(); %>
         <% if (countryCode) { %>
-          <img src="https://flagcdn.com/h20/<%= countryCode %>.png" 
-               alt="<%= country %>" 
+          <img src="https://flagcdn.com/h20/<%= countryCode %>.png"
+               alt="<%= country %>"
                width="24" height="16" class="me-2" />
         <% } %>
         <span><%= country %></span>
@@ -518,7 +511,7 @@ function show(i) {
       <!-- Action Buttons UNTER den Seller-Details -->
       <div class="row g-2 mt-2 mb-4">
         <div class="col-6">
-          <button class="btn action-btn w-100" id="bookmarkBtn">
+          <button class="btn border-btn w-100" id="bookmarkBtn">
             <%= T('common.bookmark','Merken') %>
           </button>
         </div>
@@ -526,7 +519,7 @@ function show(i) {
         <div class="col-6">
 
           
-        <button id="shareBtn" class="btn action-btn w-100">
+        <button id="shareBtn" class="btn border-btn w-100">
           <%= t('offers.details.share.button', { fallback: 'Inserat teilen' }) %>
         </button>
 
@@ -697,36 +690,83 @@ const detailSlug = slugifyLocal(item.name);
                         </div>
 
                         <div class="col-12">
-                            <label for="modalPhone" class="form-label">
+                            <label class="form-label" for="modalPhoneCode">
                                 <%= T('product.contact.phone','Ihre Telefonnummer') %>
                             </label>
+                            <p class="small text-muted mb-2">
+                                <%= T('product.contact.phone_country_hint','Bitte wählen Sie zuerst das Land (Vorwahl). Wenn Sie eine Nummer angeben, ist die Vorwahl erforderlich.') %>
+                            </p>
 
-                            <div class="input-group">
-                                <!-- Flaggen + Ländervorwahl -->
-                                <select class="form-select" id="modalPhoneCode" style="max-width:150px;">
-
-                                    <option value="+43">🇦🇹 +43</option>
-                                    <option value="+49">🇩🇪 +49</option>
-                                    <option value="+41">🇨🇭 +41</option>
-                                    <option value="+39">🇮🇹 +39</option>
-                                    <option value="+34">🇪🇸 +34</option>
-                                    <option value="+33">🇫🇷 +33</option>
-                                    <option value="+44">🇬🇧 +44</option>
-                                    <option value="+1">🇺🇸 +1</option>
-                                    <option value="+971">🇦🇪 +971</option>
-                                    <option value="+966">🇸🇦 +966</option>
-                                    <option value="+961">🇱🇧 +961</option>
-                                    <option value="+20">🇪🇬 +20</option>
-
-                                    <!-- Falls du mehr Länder willst: sag Bescheid, ich gebe dir 240 Länder -->
+                            <div class="row g-2 align-items-stretch contact-modal-phone-row" role="group" aria-label="<%= T('product.contact.phone','Ihre Telefonnummer') %>">
+                                <div class="col-5 col-lg-4">
+                                <select class="form-select w-100 contact-modal-phone-select" id="modalPhoneCode" name="phoneCountryCode" aria-label="<%= T('product.contact.country_code','Land / Vorwahl') %>">
+                                    <option value=""><%= T('product.contact.country_select','Land wählen …') %></option>
+                                    <option value="+43">🇦🇹 <%= T('product.contact.cc.at','Österreich') %> +43</option>
+                                    <option value="+49">🇩🇪 <%= T('product.contact.cc.de','Deutschland') %> +49</option>
+                                    <option value="+41">🇨🇭 <%= T('product.contact.cc.ch','Schweiz') %> +41</option>
+                                    <option value="+423">🇱🇮 <%= T('product.contact.cc.li','Liechtenstein') %> +423</option>
+                                    <option value="+39">🇮🇹 <%= T('product.contact.cc.it','Italien') %> +39</option>
+                                    <option value="+34">🇪🇸 <%= T('product.contact.cc.es','Spanien') %> +34</option>
+                                    <option value="+33">🇫🇷 <%= T('product.contact.cc.fr','Frankreich') %> +33</option>
+                                    <option value="+44">🇬🇧 <%= T('product.contact.cc.gb','Vereinigtes Königreich') %> +44</option>
+                                    <option value="+1">🇺🇸 <%= T('product.contact.cc.usca','USA / Kanada') %> +1</option>
+                                    <option value="+31">🇳🇱 <%= T('product.contact.cc.nl','Niederlande') %> +31</option>
+                                    <option value="+32">🇧🇪 <%= T('product.contact.cc.be','Belgien') %> +32</option>
+                                    <option value="+352">🇱🇺 <%= T('product.contact.cc.lu','Luxemburg') %> +352</option>
+                                    <option value="+48">🇵🇱 <%= T('product.contact.cc.pl','Polen') %> +48</option>
+                                    <option value="+420">🇨🇿 <%= T('product.contact.cc.cz','Tschechien') %> +420</option>
+                                    <option value="+421">🇸🇰 <%= T('product.contact.cc.sk','Slowakei') %> +421</option>
+                                    <option value="+36">🇭🇺 <%= T('product.contact.cc.hu','Ungarn') %> +36</option>
+                                    <option value="+40">🇷🇴 <%= T('product.contact.cc.ro','Rumänien') %> +40</option>
+                                    <option value="+359">🇧🇬 <%= T('product.contact.cc.bg','Bulgarien') %> +359</option>
+                                    <option value="+30">🇬🇷 <%= T('product.contact.cc.gr','Griechenland') %> +30</option>
+                                    <option value="+351">🇵🇹 <%= T('product.contact.cc.pt','Portugal') %> +351</option>
+                                    <option value="+46">🇸🇪 <%= T('product.contact.cc.se','Schweden') %> +46</option>
+                                    <option value="+47">🇳🇴 <%= T('product.contact.cc.no','Norwegen') %> +47</option>
+                                    <option value="+45">🇩🇰 <%= T('product.contact.cc.dk','Dänemark') %> +45</option>
+                                    <option value="+358">🇫🇮 <%= T('product.contact.cc.fi','Finnland') %> +358</option>
+                                    <option value="+353">🇮🇪 <%= T('product.contact.cc.ie','Irland') %> +353</option>
+                                    <option value="+385">🇭🇷 <%= T('product.contact.cc.hr','Kroatien') %> +385</option>
+                                    <option value="+386">🇸🇮 <%= T('product.contact.cc.si','Slowenien') %> +386</option>
+                                    <option value="+381">🇷🇸 <%= T('product.contact.cc.rs','Serbien') %> +381</option>
+                                    <option value="+387">🇧🇦 <%= T('product.contact.cc.ba','Bosnien und Herzegowina') %> +387</option>
+                                    <option value="+389">🇲🇰 <%= T('product.contact.cc.mk','Nordmazedonien') %> +389</option>
+                                    <option value="+355">🇦🇱 <%= T('product.contact.cc.al','Albanien') %> +355</option>
+                                    <option value="+382">🇲🇪 <%= T('product.contact.cc.me','Montenegro') %> +382</option>
+                                    <option value="+90">🇹🇷 <%= T('product.contact.cc.tr','Türkei') %> +90</option>
+                                    <option value="+7">🇷🇺 <%= T('product.contact.cc.ru','Russland') %> +7</option>
+                                    <option value="+380">🇺🇦 <%= T('product.contact.cc.ua','Ukraine') %> +380</option>
+                                    <option value="+81">🇯🇵 <%= T('product.contact.cc.jp','Japan') %> +81</option>
+                                    <option value="+86">🇨🇳 <%= T('product.contact.cc.cn','China') %> +86</option>
+                                    <option value="+91">🇮🇳 <%= T('product.contact.cc.in','Indien') %> +91</option>
+                                    <option value="+61">🇦🇺 <%= T('product.contact.cc.au','Australien') %> +61</option>
+                                    <option value="+64">🇳🇿 <%= T('product.contact.cc.nz','Neuseeland') %> +64</option>
+                                    <option value="+55">🇧🇷 <%= T('product.contact.cc.br','Brasilien') %> +55</option>
+                                    <option value="+52">🇲🇽 <%= T('product.contact.cc.mx','Mexiko') %> +52</option>
+                                    <option value="+27">🇿🇦 <%= T('product.contact.cc.za','Südafrika') %> +27</option>
+                                    <option value="+971">🇦🇪 <%= T('product.contact.cc.ae','VAE') %> +971</option>
+                                    <option value="+966">🇸🇦 <%= T('product.contact.cc.sa','Saudi-Arabien') %> +966</option>
+                                    <option value="+974">🇶🇦 <%= T('product.contact.cc.qa','Katar') %> +974</option>
+                                    <option value="+965">🇰🇼 <%= T('product.contact.cc.kw','Kuwait') %> +965</option>
+                                    <option value="+973">🇧🇭 <%= T('product.contact.cc.bh','Bahrain') %> +973</option>
+                                    <option value="+968">🇴🇲 <%= T('product.contact.cc.om','Oman') %> +968</option>
+                                    <option value="+962">🇯🇴 <%= T('product.contact.cc.jo','Jordanien') %> +962</option>
+                                    <option value="+961">🇱🇧 <%= T('product.contact.cc.lb','Libanon') %> +961</option>
+                                    <option value="+964">🇮🇶 <%= T('product.contact.cc.iq','Irak') %> +964</option>
+                                    <option value="+20">🇪🇬 <%= T('product.contact.cc.eg','Ägypten') %> +20</option>
                                 </select>
-
-                                <!-- Nummer -->
+                                </div>
+                                <div class="col-7 col-lg-8">
                                 <input type="tel"
-                                      class="form-control"
+                                      class="form-control w-100 contact-modal-phone-input"
                                       id="modalPhone"
-                                      placeholder="<%= t('product.contact.phone_placeholder','Ihre Nummer') %>"
+                                      name="phoneLocal"
+                                      inputmode="tel"
+                                      autocomplete="tel-national"
+                                      placeholder="<%= t('product.contact.phone_placeholder','Nummer ohne Vorwahl') %>"
+                                      aria-label="<%= T('product.contact.phone_local','Telefonnummer ohne Vorwahl') %>"
                                 >
+                                </div>
                             </div>
                         </div>
 
@@ -781,41 +821,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.getElementById('modalMessage').value = msg;
 
-  const form = document.getElementById('sellerContactForm');
-  if (form) {
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      const code = document.getElementById('modalPhoneCode')?.value || '';
-      const num  = document.getElementById('modalPhone')?.value || '';
-      const full = (code + ' ' + num).trim();
-      const phoneHidden = document.getElementById('modalPhoneFull');
-      if (phoneHidden) phoneHidden.value = full;
-
-      try {
-        const res = await fetch(form.action, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams(new FormData(form)).toString()
-        });
-
-        const data = await res.json().catch(() => ({}));
-        if (res.ok && data.success) {
-          alert('Danke! Ihre Anfrage wurde gesendet.');
-          form.reset();
-          const modalEl = document.getElementById('contactModal');
-          if (modalEl && window.bootstrap) {
-            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
-            modal.hide();
-          }
-        } else {
-          alert(data.error || 'Fehler beim Senden. Bitte später erneut versuchen.');
-        }
-      } catch (err) {
-        alert('Fehler beim Senden. Bitte später erneut versuchen.');
-      }
-    });
-  }
+  // Kontakt-Absenden: ein einziger Handler in components/detail/script.ejs (verhindert Doppel-POST)
 });
 </script>
 
@@ -893,8 +899,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const interiorColorMap = colorMap;
 
   const climatisationMap = {
-    1: t('cars.climatisation.none', 'Keine Klimaanlage'),
-    2: t('cars.climatisation.basic', 'Klimaanlage'),
+    1: t('cars.climatisation.manual_or_auto', 'Klimaanlage oder -automatik'),
+    2: t('cars.climatisation.automatic', 'Klimaautomatik'),
     3: t('cars.climatisation.two_zone', '2-Zonen-Klimaautomatik'),
     4: t('cars.climatisation.three_zone', '3-Zonen-Klimaautomatik'),
     5: t('cars.climatisation.four_zone', '4-Zonen-Klimaautomatik'),
@@ -905,9 +911,11 @@ document.addEventListener('DOMContentLoaded', () => {
     1: t('cars.category.coupe', 'Coupé'),
     2: t('cars.category.cabrio', 'Cabrio'),
     3: t('cars.category.sedan', 'Limousine'),
-    4: t('cars.category.stretch', 'Stretch'),
+    4: t('cars.category.stretch', 'Stretch-Limousine'),
     5: t('cars.category.combi', 'Kombi'),
-    6: t('cars.category.pickup', 'Pickup')
+    6: t('cars.category.pickup', 'Pickup / SUV'),
+    254: t('cars.category.van_minibus', 'Van/Minibus'),
+    255: t('cars.category.other', 'Sonstiges')
   };
 
   const pollutionClassMap = {
@@ -917,9 +925,20 @@ document.addEventListener('DOMContentLoaded', () => {
 
   const interiorMapping = {
     1: t('cars.interior.fabric', 'Stoff'),
-    2: t('cars.interior.leather', 'Leder'),
+    2: t('cars.interior.alcantara', 'Alcantara'),
     3: t('cars.interior.part_leather', 'Teilleder'),
-    4: t('cars.interior.alcantara', 'Alcantara')
+    4: t('cars.interior.full_leather', 'Vollleder'),
+    5: t('cars.interior.velour', 'Velours'),
+    6: t('cars.interior.part_leather_alcantara', 'Teilleder/Alcantara'),
+    7: t('cars.interior.part_leather_fabric', 'Teilleder/Stoff'),
+    8: t('cars.interior.part_leather_velour', 'Teilleder/Velours')
+  };
+
+  const airbagsMap = {
+    1: t('cars.airbags.driver', 'Fahrerairbag'),
+    2: t('cars.airbags.front', 'Frontairbags'),
+    3: t('cars.airbags.front_side', 'Front- und Seitenairbags'),
+    4: t('cars.airbags.more', 'Weitere Airbags')
   };
 %>
 
@@ -944,7 +963,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <% if (item.cartype) { %>
         <tr>
           <td class="fw-semibold text-muted"><i class="bi bi-car-front custom-icon"></i> <%= t('cars.category', 'Kategorie') %></td>
-          <td><%= cartypeMap[item.cartype] %></td>
+          <td><%= cartypeMap[item.cartype] || item.cartype %></td>
         </tr>
       <% } %>
 
@@ -1045,7 +1064,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <% if (item.airbags) { %>
         <tr>
           <td class="fw-semibold text-muted"><i class="bi bi-shield-check custom-icon"></i> <%= t('cars.airbags', 'Airbags') %></td>
-          <td><%= item.airbags %></td>
+          <td><%= airbagsMap[item.airbags] || item.airbags %></td>
         </tr>
       <% } %>
 
@@ -1553,19 +1572,23 @@ const equipmentIcons = {
   };
 
   const genderMap = {     
-    1: t('watch.gender.men','Herren'),
-    2: t('watch.gender.women','Damen'),
-    3: t('watch.gender.unisex','Unisex')
+    1: t('watch.gender.men','Herren/Unisex'),
+    2: t('watch.gender.men','Herren/Unisex'),
+    3: t('watch.gender.women','Damen')
    };
 
   const watchtypeMap = {
     1: t('watch.type.wristwatch','Armbanduhr'),
     2: t('watch.type.pocketwatch','Taschenuhr'),
-    3: t('watch.type.smartwatch','Smartwatch')
+    3: t('watch.type.tableclock','Tischuhr'),
+    4: t('watch.type.antiqueclock','Antike Uhr'),
+    5: t('watch.type.grandfatherclock','Standuhr'),
+    6: t('watch.type.wallclock','Wanduhr'),
+    255: t('common.other','Sonstige')
   };
 
 const caseMaterialMap = {
-  2:   t('watch.case.gold_steel','Gold/Stahl'),
+  2:   t('watch.case.steel','Edelstahl'),
   3:   t('watch.case.white_gold','Weißgold'),
   4:   t('watch.case.yellow_gold','Gelbgold'),
   5:   t('watch.case.platinum','Platin'),
@@ -1650,19 +1673,28 @@ const strapColorMap = {
 const dialColorMap = {
   1:   t('color.black','Schwarz'),
   2:   t('color.white','Weiß'),
-  3:   t('color.silver','Silber'),
-  4:   t('color.gold','Gold'),
+  3:   t('color.red','Rot'),
+  4:   t('color.gray','Grau'),
   5:   t('color.blue','Blau'),
-  6:   t('color.gray','Grau'),
-  7:   t('color.brown','Braun'),
+  6:   t('color.silver','Silber'),
+  7:   t('color.orange','Orange'),
   8:   t('color.green','Grün'),
-  9:   t('color.red','Rot'),
-  10:  t('color.beige','Beige'),
-  11:  t('color.violet','Violett'),
-  12:  t('color.champagne','Champagner'),
-  13:  t('color.mother_of_pearl','Perlmutt'),
-  14:  t('color.rose','Rosé'),
-  15:  t('color.transparent','Transparent'),
+  9:   t('color.beige','Beige'),
+  10:  t('color.brown','Braun'),
+  11:  t('color.yellow','Gelb'),
+  12:  t('color.gold','Gold'),
+  13:  t('color.violet','Violett'),
+  14:  t('color.bronze','Bronze'),
+  15:  t('color.pearl_white','Perlweiß'),
+  16:  t('color.transparent','Transparent'),
+  17:  t('color.bordeaux','Bordeaux'),
+  18:  t('color.champagne','Champagner'),
+  19:  t('color.pink','Pink'),
+  20:  t('color.rose','Rosé'),
+  22:  t('color.mother_of_pearl','Perlmutt'),
+  23:  t('color.cream','Cremefarben'),
+  24:  t('strap.color.gold_steel','Gold/Stahl'),
+  25:  t('color.skeletonized','Skelettiert'),
   255: t('common.other','Sonstige')
 };
 
@@ -1671,33 +1703,40 @@ const dialColorMap = {
   { 
     1:   t('watch.shape.round','Rund'),
     2:   t('watch.shape.square','Quadratisch'),
-    3:   t('watch.shape.rectangle','Rechteckig'),
-    4:   t('watch.shape.tonneau','Tonneau'),
+    3:   t('watch.shape.octagonal','Achteckig'),
     255: t('common.other','Sonstige')
   };
 
 const dialNumbersMap = {
-  1: t('watch.dial.arabic','Arabisch'),
-  2: t('watch.dial.roman','Römisch'),
-  3: t('watch.dial.index','Striche'),
-  4: t('watch.dial.none','Keine')
+  1: t('watch.dial.none','Keine'),
+  2: t('watch.dial.arabic','Arabisch'),
+  3: t('watch.dial.roman','Römisch'),
+  // Legacy-Fallback aus neuerem Datenstand
+  255: t('common.other','Sonstige'),
+  // Historischer Fallback
+  4: t('watch.dial.index','Striche')
 };
 const movementMap = {
-  1: t('watch.movement.quartz','Quarz'),
-  2: t('watch.movement.automatic','Automatik'),
-  3: t('watch.movement.manual','Handaufzug')
+  1: t('watch.movement.automatic','Automatik'),
+  2: t('watch.movement.manual','Handaufzug'),
+  3: t('watch.movement.quartz','Quarz'),
+  255: t('common.other','Sonstige')
 };
 
 const crystalMap = {
-  1: t('watch.crystal.sapphire','Saphir'),
-  2: t('watch.crystal.mineral','Mineral'),
-  3: t('watch.crystal.plexi','Plexiglas')
+  1: t('watch.crystal.sapphire','Saphirglas'),
+  2: t('watch.crystal.plexi','Plexiglas'),
+  3: t('watch.crystal.plastic','Kunststoff'),
+  4: t('watch.crystal.mineral','Mineralglas'),
+  255: t('common.other','Sonstige')
 };
 
 const claspTypeMap = {
-  1: t('watch.clasp.fold','Faltschließe'),
-  2: t('watch.clasp.pin','Dornschließe'),
-  3: t('watch.clasp.butterfly','Butterfly')
+  1: t('watch.clasp.pin','Dornschließe'),
+  2: t('watch.clasp.fold','Faltschließe'),
+  3: t('watch.clasp.butterfly','Butterfly'),
+  4: t('watch.clasp.cover_fold','Cover Fold'),
+  5: t('watch.clasp.jewelry','Jewelry')
 };
 
 const colorMap = {
@@ -1879,6 +1918,13 @@ const colorMap = {
     <tr>
       <td class="fw-semibold text-muted"><%= t('watches.clasp','Schließe') %></td>
       <td><%= mapValue(item.clasp_type, claspTypeMap) %></td>
+    </tr>
+  <% } %>
+
+  <% if (item.clasp_material) { %>
+    <tr>
+      <td class="fw-semibold text-muted"><%= t('watches.clasp_material','Material Schließe') %></td>
+      <td><%= mapValue(item.clasp_material, caseMaterialMap) %></td>
     </tr>
   <% } %>
 
@@ -2375,31 +2421,6 @@ const qualityMap = {
         </tr>
       <% } %>
 
-      <% if (item.base_price !== null) { %>
-        <tr>
-          <td class="fw-semibold text-muted"><i class="bi bi-cash-stack custom-icon"></i> <%= t('properties.base_price', 'Basispreis') %></td>
-          <td>
-            <% if (item.base_price > 0) { %>
-              <%= new Intl.NumberFormat('de-DE').format(item.base_price) %> <%= item.currency %>
-            <% } else { %>
-              <%= t('common.price_on_request', 'Preis auf Anfrage') %>
-            <% } %>
-          </td>
-        </tr>
-      <% } %>
-
-      <% if (item.price !== null) { %>
-        <tr>
-          <td class="fw-semibold text-muted"><i class="bi bi-tag custom-icon"></i> <%= t('properties.price', 'Preis') %></td>
-          <td>
-            <% if (item.price > 0) { %>
-              <%= new Intl.NumberFormat('de-DE').format(item.price) %> <%= item.currency %>
-            <% } else { %>
-              <%= t('common.price_on_request', 'Preis auf Anfrage') %>
-            <% } %>
-          </td>
-        </tr>
-      <% } %>
 
       <% if (item.vat !== null) { %>
         <tr>
@@ -2641,7 +2662,8 @@ const qualityMap = {
         <td><%= item.model || '-' %></td>
       </tr>
       <% if (item.yachttype) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('yachts.type', 'Yachttyp') %></td><td><%= yachtTypeMap[item.yachttype] || item.yachttype %></td></tr>
+        <% const yachtTypeLabel = yachtTypeMap?.[item.yachttype]; %>
+        <tr><td class="fw-semibold text-muted"><%= t('yachts.type', 'Yachttyp') %></td><td><%= (yachtTypeLabel && String(yachtTypeLabel).trim()) ? yachtTypeLabel : (String(item.yachttype) === '255' ? t('common.other', 'Sonstige') : item.yachttype) %></td></tr>
       <% } %>
       <% if (item.category) { %>
         <tr><td class="fw-semibold text-muted"><%= t('yachts.category', 'Kategorie') %></td><td><%= categoryMap[item.category] || item.category %></td></tr>
@@ -2703,17 +2725,6 @@ const qualityMap = {
       <% } %>
       <% if (item.interior_designer) { %>
         <tr><td class="fw-semibold text-muted"><%= t('yachts.interior_designer', 'Innendesign') %></td><td><%= item.interior_designer %></td></tr>
-      <% } %>
-      <% if (item.price !== null) { %>
-        <tr><td class="fw-semibold text-muted"><%= t('yachts.price', 'Preis') %></td>
-          <td>
-            <% if (item.price > 0) { %>
-              <%= new Intl.NumberFormat('de-DE').format(item.price) %> <%= item.currency %>
-            <% } else { %>
-              <%= t('yachts.price_on_request', 'Preis auf Anfrage') %>
-            <% } %>
-          </td>
-        </tr>
       <% } %>
     </tbody>
   </table>
@@ -2949,19 +2960,7 @@ const qualityMap = {
           <%= T('product.tabs.details','Details') %>
         </a>
       </li>
-      <li class="nav-item" role="presentation">
-        <a
-          class="nav-link"
-          id="sicherheit-tab"
-          data-bs-toggle="tab"
-          href="#sicherheit"
-          role="tab"
-          aria-controls="sicherheit"
-          aria-selected="false"
-        >
-        <%= T('product.tabs.security','Sicherheit') %>
-        </a>
-      </li>
+
     </ul>
 
     <div class="tab-content mt-3" id="infoTabsContent">
@@ -2970,6 +2969,7 @@ const qualityMap = {
         class="tab-pane fade show active"
         role="tabpanel"
         aria-labelledby="details-tab"
+        style="margin-bottom: 100px;"
       >
         <div class="row">
           <div class="col-md-6">
@@ -2979,12 +2979,113 @@ const qualityMap = {
           <div class="col-md-6">
             <h4><%= T('product.tabs.base','Basisdaten') %></h4>
             <table class="table table-striped">
-              <% item.specs.forEach(spec => { %>
+              <%
+                const specs = Array.isArray(item.specs) ? item.specs : [];
+                const usedSpecIndexes = new Set();
+
+                const pickSpec = (labels = []) => {
+                  const wanted = labels.map(v => String(v).trim().toLowerCase());
+                  for (let i = 0; i < specs.length; i++) {
+                    const s = specs[i];
+                    const label = String(s?.label || '').trim().toLowerCase();
+                    const value = s?.value;
+                    if (!label || value === null || value === undefined || String(value).trim() === '') continue;
+                    if (wanted.includes(label)) {
+                      usedSpecIndexes.add(i);
+                      return String(value);
+                    }
+                  }
+                  return '';
+                };
+
+                const firstNonEmpty = (...values) => {
+                  for (const value of values) {
+                    if (value === null || value === undefined) continue;
+                    const text = String(value).trim();
+                    if (!text || text === '–') continue;
+                    return text;
+                  }
+                  return '';
+                };
+
+                const nonNumeric = (value) => {
+                  const text = String(value || '').trim();
+                  return /^\d+$/.test(text) ? '' : text;
+                };
+
+                const lifestyleCategoryLabel = (currentEntity.route === 'lifestyles' && item.brand_id)
+                  ? t(`lifestyle.brand.${item.brand_id}`, item.brandName || '')
+                  : '';
+                const lifestyleSubcategoryLabel = (currentEntity.route === 'lifestyles' && item.model_id)
+                  ? t(`lifestyle.subcategory.${item.model_id}`, item.modelName || '')
+                  : '';
+
+                const categoryValue = firstNonEmpty(
+                  pickSpec(['Kategorie', 'Category']),
+                  nonNumeric(lifestyleCategoryLabel),
+                  nonNumeric(item.brandName),
+                  item.categoryname,
+                  item.entity
+                );
+                const subcategoryValue = firstNonEmpty(
+                  pickSpec(['Unterkategorie', 'Subkategorie', 'Subcategory']),
+                  nonNumeric(lifestyleSubcategoryLabel),
+                  nonNumeric(item.modelName),
+                  item.subcategoryname,
+                  item.subcategory
+                );
+                const countryValue = firstNonEmpty(
+                  pickSpec(['Land', 'Country']),
+                  item.countryName,
+                  item.country
+                );
+                const stateValue = firstNonEmpty(
+                  pickSpec(['Bundesland', 'Region', 'State', 'State/Province']),
+                  item.stateName,
+                  item.state
+                );
+                const cityValue = firstNonEmpty(
+                  pickSpec(['Ort', 'Stadt', 'City', 'Location']),
+                  item.city,
+                  item.location
+                );
+              %>
+
+              <% if (categoryValue) { %>
                 <tr>
-                  <td><%= spec.label %></td>
-                  <td><%= spec.value %></td>
+                  <td><%= t('labels.common.category', 'Kategorie') %></td>
+                  <td><%= categoryValue %></td>
                 </tr>
-              <% }); %>
+              <% } %>
+
+              <% if (subcategoryValue) { %>
+                <tr>
+                  <td><%= t('labels.common.subcategory', 'Unterkategorie') %></td>
+                  <td><%= subcategoryValue %></td>
+                </tr>
+              <% } %>
+
+              <% if (countryValue) { %>
+                <tr>
+                  <td><%= t('labels.common.country', 'Land') %></td>
+                  <td><%= countryValue %></td>
+                </tr>
+              <% } %>
+
+              <% if (stateValue) { %>
+                <tr>
+                  <td><%= t('labels.property.state', 'Bundesland') %></td>
+                  <td><%= stateValue %></td>
+                </tr>
+              <% } %>
+
+              <% if (cityValue) { %>
+                <tr>
+                  <td><%= t('labels.property.location', 'Ort') %></td>
+                  <td><%= cityValue %></td>
+                </tr>
+              <% } %>
+
             </table>
           </div>
         </div>
@@ -3115,7 +3216,7 @@ const qualityMap = {
   // 1) Bild-URLs sammeln
   const pics = Array.from(
     document.querySelectorAll('.product-single-thumbnails img')
-  ).map(img => img.src);
+  ).map(img => img.dataset.full || img.src);
 
   // Fallback: Hauptbild, falls keine Thumbnails
   const mainImg = document.getElementById('mainImage');

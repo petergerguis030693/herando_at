@@ -7,6 +7,10 @@
     cs:'cs-CZ', ru:'ru-RU', es:'es-ES', nl:'nl-NL', pl:'pl-PL'
   };
   const _locale = _localeMap[_lang] || 'de-DE';
+  const _roleNum = Number(
+    (typeof role !== 'undefined' ? role : (typeof user !== 'undefined' && user ? user.role : 0)) || 0
+  );
+  const _brandModelRequiredAttr = [7, 8, 9].includes(_roleNum) ? '' : 'required';
 %>
                <link rel="stylesheet" href="/css/buyer.css">
                <style>
@@ -782,7 +786,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- Marke -->
     <div class="col-md-4">
       <label class="form-label">* <%= t('edit_listing.cars.brand','Marke') %></label>
-      <select id="brandSelect" name="brand_id" class="form-select" required>
+      <select id="brandSelect" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
         <option value="" disabled <%= !item.brand_id ? 'selected' : '' %>><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
         <% filters.brands.forEach(b => { %>
           <option value="<%= b.id %>" <%= item.brand_id === b.id ? 'selected' : '' %>><%= b.name %></option>
@@ -793,7 +797,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <!-- Modell -->
     <div class="col-md-4">
       <label class="form-label">* <%= t('edit_listing.cars.model','Modell') %></label>
-      <select id="modelSelect" name="model_id" class="form-select" required>
+      <select id="modelSelect" name="model_id" class="form-select" <%= _brandModelRequiredAttr %>>
         <option value=""><%= t('edit_listing.cars.model.choose_brand_first','Bitte zuerst Marke wählen …') %></option>
       </select>
     </div>
@@ -1045,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     <div class="col-md-4">
       <label for="drivetrain" class="form-label"><%= t('edit_listing.cars.drivetrain','Antrieb') %></label>
-      <select id="drivetrain" name="drivetrain" class="form-select" required>
+      <select id="drivetrain" name="drivetrain" class="form-select" >
         <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
         <% extras.drivetrain.forEach(o => { %>
           <option value="<%= o.value %>" <%= o.value == item.drivetrain ? 'selected' : '' %>><%= t('attribute.cars.drivetrain.' + o.value, o.label) %></option>
@@ -1208,23 +1212,6 @@ setTimeout(() => {
 
   <!-- Treibstoff & CO₂ -->
   <div class="row g-3 align-items-center mb-3">
-    <div class="col-md-4">
-      <label for="fuel" class="form-label"><%= t('edit_listing.cars.fuel','Treibstoff') %></label>
-      <select id="fuel" name="fuel" class="form-select">
-        <option value="">---</option>
-        <% if (extras.fuel && extras.fuel.length > 0) { %>
-          <% extras.fuel.forEach(o => { %>
-            <option 
-              value="<%= o.value %>"
-              <%= String(o.value) === String(item.fuel || '') ? 'selected' : '' %>>
-              <%= t('attribute.cars.fuel.' + o.value, o.label) %>
-            </option>
-          <% }) %>
-        <% } else { %>
-          <option disabled><%= t('edit_listing.select.none','Keine Optionen gefunden') %></option>
-        <% } %>
-      </select>
-    </div>
 
     <div class="col-md-4">
       <label for="co2" class="form-label"><%= t('edit_listing.cars.co2','CO₂ Emissionen komb. (g/km)') %></label>
@@ -1559,7 +1546,7 @@ document.addEventListener("DOMContentLoaded", () => {
     <!-- Marke -->
     <div class="col-md-4">
       <label for="brand_id" class="form-label">* <%= t('edit_listing.watches.brand','Marke') %></label>
-      <select id="brand_id" name="brand_id" class="form-select" required>
+      <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
         <option value="" disabled <%= !item.brand_id ? 'selected' : '' %>><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
         <% if (filters.brands && filters.brands.length) { %>
           <% filters.brands.forEach(b => { %>
@@ -1578,7 +1565,7 @@ document.addEventListener("DOMContentLoaded", () => {
     <!-- Modell -->
     <div class="col-md-4">
       <label for="model_id" class="form-label">* <%= t('edit_listing.watches.model','Modell') %></label>
-      <select id="model_id" name="model_id" class="form-select" required>
+      <select id="model_id" name="model_id" class="form-select" <%= _brandModelRequiredAttr %>>
         <% if (filters.models && filters.models.length && item.brand_id) { %>
           <% filters.models
               .filter(m => String(m.brand_id) === String(item.brand_id))
@@ -1894,6 +1881,11 @@ document.addEventListener("DOMContentLoaded", async () => {
             <%= c.name %>
           </option>
         <% }) %>
+        <% if (!strapColors.some(c => String(c.id) === '25')) { %>
+          <option value="25" <%= String(item.dial_color) === '25' ? 'selected' : '' %>>
+            <%= t('watches.dial_color.25', 'Skelettiert') %>
+          </option>
+        <% } %>
       </select>
     </div>
 
@@ -2333,7 +2325,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     <!-- Marke -->
     <div class="col-md-4">
       <label for="brand_id" class="form-label">* <%= t('edit_listing.yachts.brand','Marke') %></label>
-      <select id="brand_id" name="brand_id" class="form-select" required>
+      <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
         <option value="" disabled selected><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
         <% (filters.brands || []).forEach(b => { %>
           <option value="<%= b.id %>" <%= item.brand_id == b.id ? 'selected' : '' %>><%= b.name %></option>
@@ -2757,6 +2749,66 @@ document.addEventListener("DOMContentLoaded", () => {
 
   </div>
 </div>
+
+<% if (typeof canPickMainFromGallery !== 'undefined' && canPickMainFromGallery && Array.isArray(gallery) && gallery.length > 0) { %>
+  <div class="mb-3" id="mainpicture-gallery-picker">
+    <div class="form-label fw-semibold"><%= t('edit_listing.media.mainpicture_from_gallery','Titelbild aus vorhandener Galerie') %></div>
+    <div class="d-flex flex-wrap gap-2 align-items-start" role="list">
+      <% gallery.forEach((img) => {
+          const gfn = extractImageFilename(img);
+          if (!gfn) return;
+          const thumbPath = `/images/${ent.route}/${item.id}/${encodeURIComponent(gfn)}`;
+          const isMain = fileName === gfn;
+      %>
+        <button type="button"
+                class="btn btn-light p-0 border rounded overflow-hidden <%= isMain ? 'border-warning border-2' : '' %>"
+                style="width:96px;height:72px;"
+                data-filename="<%= gfn %>"
+                title="<%= t('edit_listing.media.set_as_main','Als Titelbild setzen') %>">
+          <img src="<%= thumbPath %>" alt="" class="w-100 h-100" style="object-fit:cover;">
+        </button>
+      <% }); %>
+    </div>
+    <small class="text-muted d-block mt-1"><%= t('edit_listing.media.mainpicture_from_gallery_hint','Auf ein Bild klicken – die Auswahl wird sofort gespeichert.') %></small>
+  </div>
+  <script>
+  (function () {
+    var root = document.getElementById('mainpicture-gallery-picker');
+    if (!root) return;
+    var preview = document.getElementById('mainPreview');
+    var basePath = '/images/<%= ent.route %>/<%= item.id %>/';
+    var failMsg = <%- JSON.stringify(t('edit_listing.media.upload_failed','Speichern fehlgeschlagen')) %>;
+    root.querySelectorAll('button[data-filename]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var filename = btn.getAttribute('data-filename');
+        if (!filename) return;
+        try {
+          var res = await fetch('/buyer/api/listing/<%= item.id %>/mainpicture/from-gallery', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ filename: filename })
+          });
+          var data = await res.json();
+          if (!data.success) {
+            alert(failMsg + (data.error ? ': ' + data.error : ''));
+            return;
+          }
+          var finalName = data.mainpicture || filename;
+          if (preview) preview.src = basePath + encodeURIComponent(finalName);
+          root.querySelectorAll('button[data-filename]').forEach(function (b) {
+            b.classList.remove('border-warning', 'border-2');
+            b.classList.add('border');
+          });
+          btn.classList.remove('border');
+          btn.classList.add('border-warning', 'border-2');
+        } catch (e) {
+          alert(failMsg);
+        }
+      });
+    });
+  })();
+  </script>
+<% } %>
 
 <input type="file" id="mainpicture-upload" class="form-control" accept="image/*"><br>
 
