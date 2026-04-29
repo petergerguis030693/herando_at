@@ -57,12 +57,12 @@ const entityHref = (routeName, suffix = "") => {
         <% if (route === 'autos') { %>
         <ul class="list-unstyled text-start">
           <% [
-            { slug: "lamborghini", name: "Lamborghini" },
-            { slug: "mercedes-benz", name: "Mercedes-Benz" },
-            { slug: "ferrari", name: "Ferrari" },
-            { slug: "porsche", name: "Porsche" },
             { slug: "aston-martin", name: "Aston-Martin" },
             { slug: "bentley", name: "Bentley" },
+            { slug: "ferrari", name: "Ferrari" },
+            { slug: "lamborghini", name: "Lamborghini" },
+            { slug: "mercedes-benz", name: "Mercedes-Benz" },
+            { slug: "porsche", name: "Porsche" },
             { slug: "rolls-royce", name: "Rolls-Royce" },
           ].forEach(b => { %>
             <li><a class="dropdown-item" href="<%= entityHref('cars', b.slug) %>"><%= b.name %></a></li>
@@ -77,14 +77,14 @@ const entityHref = (routeName, suffix = "") => {
         <% } else if (route === 'watches') { %>
         <ul class="list-unstyled text-start">
           <% [
-            { slug: "patek-philippe", name: "Patek Philippe" },
-            { slug: "rolex", name: "Rolex" },
+            { slug: "audemars-piguet", name: "Audemars Piguet" },
             { slug: "breitling", name: "Breitling" },
             { slug: "cartier", name: "Cartier" },
-            { slug: "audemars-piguet", name: "Audemars Piguet" },
-            { slug: "hublot", name: "Hublot" },
             { slug: "chopard", name: "Chopard" },
+            { slug: "hublot", name: "Hublot" },
             { slug: "iwc", name: "IWC" },
+            { slug: "patek-philippe", name: "Patek Philippe" },
+            { slug: "rolex", name: "Rolex" },
           ].forEach(b => { %>
             <li><a class="dropdown-item" href="<%= entityHref('watches', b.slug) %>"><%= b.name %></a></li>
           <% }) %>
@@ -94,14 +94,14 @@ const entityHref = (routeName, suffix = "") => {
         <% } else if (route === 'yachts') { %>
         <ul class="list-unstyled text-start">
           <% [
-            { slug: "sunseeker", name: "Sunseeker" },
-            { slug: "sanlorenzo", name: "Sanlorenzo" },
+            { slug: "alalunga", name: "Alalunga" },
             { slug: "azimut-yachts", name: "Azimut Yachts" },
             { slug: "benetti", name: "Benetti" },
-            { slug: "ferretti-yachts", name: "Ferretti Yachts" },
             { slug: "dominator", name: "Dominator" },
             { slug: "fairline", name: "Fairline" },
-            { slug: "alalunga", name: "Alalunga" },
+            { slug: "ferretti-yachts", name: "Ferretti Yachts" },
+            { slug: "sanlorenzo", name: "Sanlorenzo" },
+            { slug: "sunseeker", name: "Sunseeker" },
           ].forEach(b => { %>
             <li><a class="dropdown-item" href="<%= entityHref('yachts', b.slug) %>"><%= b.name %></a></li>
           <% }) %>
@@ -112,7 +112,7 @@ const entityHref = (routeName, suffix = "") => {
         <ul class="list-unstyled">
           <% [
             { slug: "10", name: "Finca" },
-            { slug: "8", name: "Maissonete" },
+            { slug: "8", name: "Maisonette" },
             { slug: "6", name: "Villa/Haus" },
             { slug: "4", name: "Wohnung" },
             { slug: "11", name: "Privatinsel" },
@@ -176,7 +176,7 @@ const entityHref = (routeName, suffix = "") => {
         <%= t('attribute.cars.cartype.6','Pickup') %>
       </a></li>
 
-      <li><a class="dropdown-item" href="<%= entityHref('cars', '?onlyOldtimer=1') %>">
+      <li><a class="dropdown-item" style="margin-top: 10px;" href="<%= entityHref('cars', '?onlyOldtimer=1') %>">
         <%= t('attribute.cars.cartype.7','Oldtimer') %>
       </a></li>
 
@@ -249,10 +249,6 @@ const entityHref = (routeName, suffix = "") => {
 
       <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=11&hp=1') %>">
         <%= t('attribute.yachts.yachttype.11') %>
-      </a></li>
-
-      <li><a class="dropdown-item" href="<%= entityHref('yachts', '?yachttype=12&hp=1') %>">
-        <%= t('attribute.yachts.yachttype.12') %>
       </a></li>
 
 

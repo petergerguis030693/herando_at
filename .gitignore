@@ -23,3 +23,5 @@ logs/
 # Videos / PDFs allgemein
 *.mp4
 *.pdf
+listing_translations_from_backup_20260417.sql
+listing_translations_from_backup_20260417_insert_ignore.sql

@@ -377,6 +377,18 @@
                 class="btn btn-sm btn-success w-100">
               <i class="bi bi-plus-circle me-1"></i> Neues Inserat
             </a>
+
+            <% if (canHardDeleteUsers) { %>
+              <form action="/admin/users/<%= u.id %>/hard-delete" method="post">
+                <button
+                  type="submit"
+                  class="btn btn-sm btn-outline-danger w-100"
+                  onclick="return confirm('Benutzer #<%= u.id %> wirklich komplett löschen? Diese Aktion entfernt auch Bestellungen/Zahlungen und kann nicht rückgängig gemacht werden.');"
+                >
+                  <i class="bi bi-trash me-1"></i> Benutzer löschen
+                </button>
+              </form>
+            <% } %>
           </div>
 
         </div>

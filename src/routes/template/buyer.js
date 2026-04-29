@@ -14,6 +14,19 @@ const { generateInvoice } = require('../../service/invoiceService');
 const nodemailer = require('nodemailer');
 const { PDFDocument, StandardFonts, rgb } = require("pdf-lib");
 const imagesPath = path.resolve('/', 'media', 'herando', 'images');
+const {
+  processListingImageFromPath,
+  deleteListingImageVariants,
+} = require('../../lib/listing-image-variants');
+const {
+  CUSTOMER_FIELDS,
+  ADVERT_FIELDS,
+  enqueueAkquise,
+  loadRowById,
+  pickPayload,
+  shouldEnqueueAdvert,
+} = require('../../lib/akquisemanager');
+const { validateEuVatLocally } = require('../../lib/vat-local-eu');
 
 
 
@@ -39,6 +52,38 @@ const bestTr = {};
 const WISHLIST_ALLOWED_TABLES = new Set(['cars', 'watches', 'properties', 'yachts', 'lifestyles']);
 const UI_LANG_COLS = ['de', 'en', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
 
+async function enqueueCustomerUpdate(userId) {
+  try {
+    const row = await loadRowById({ table: 'users', id: userId, fields: CUSTOMER_FIELDS });
+    if (!row) return;
+    await enqueueAkquise({
+      method: 'updateCustomer',
+      objectId: userId,
+      payload: pickPayload(row, CUSTOMER_FIELDS),
+    });
+  } catch (err) {
+    console.error(`[AKQUISE] updateCustomer failed for user ${userId}:`, err.message);
+  }
+}
+
+async function enqueueAdvertById(method, table, advertId) {
+  try {
+    const row = await loadRowById({
+      table,
+      id: advertId,
+      fields: [...ADVERT_FIELDS, 'status', 'visible'],
+    });
+    if (!row || !shouldEnqueueAdvert(row)) return;
+    await enqueueAkquise({
+      method,
+      objectId: advertId,
+      payload: pickPayload(row, ADVERT_FIELDS),
+    });
+  } catch (err) {
+    console.error(`[AKQUISE] ${method} failed for advert ${advertId}:`, err.message);
+  }
+}
+
 function resolveLang(req, res) {
   const raw = String(
     req.session?.lang ||
@@ -63,6 +108,22 @@ async function tr(req, res, key, fallback = '') {
   const txt = await tUi(key, resolveLang(req, res));
   if (txt && txt !== key) return txt;
   return fallback || key;
+}
+
+async function resolveValidCategoryId(rawCategoryId, fallback = 1) {
+  const numeric = Number.parseInt(rawCategoryId, 10);
+  const mappedCategoryId = numeric === 5 ? 6 : numeric;
+
+  if (!Number.isInteger(mappedCategoryId) || mappedCategoryId <= 0) {
+    return fallback;
+  }
+
+  const [[entity]] = await db.query(
+    'SELECT id FROM ententies WHERE id = ? LIMIT 1',
+    [mappedCategoryId]
+  );
+
+  return entity?.id || fallback;
 }
 
 function fillTpl(template, vars = {}) {
@@ -130,7 +191,6 @@ async function requireBillingData(req, res, next) {
 
   if (isCommercial) {
     if (!u.company || !u.company.trim()) missing.push('buyer.profile.company');
-    if (!u.vatid   || !u.vatid.trim())   missing.push('buyer.profile.vatid');
   } else {
     if (!u.firstname || !u.firstname.trim()) missing.push('buyer.profile.firstname');
     if (!u.lastname  || !u.lastname.trim())  missing.push('buyer.profile.lastname');
@@ -163,27 +223,63 @@ async function requireBillingData(req, res, next) {
 }
 
 
+function normalizeVatId(vatid) {
+  return String(vatid || '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, '');
+}
+
 async function validateVAT_VIES(vatid) {
-  const countryCode = vatid.slice(0, 2).toUpperCase();
-  const number = vatid.slice(2);
+  const d = await validateViesDetailed(vatid);
+  return d.viesOk === true;
+}
 
-  const resp = await fetch(
-    'https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        countryCode,
-        vatNumber: number
-      })
+/** VIES-Antwort für Checkout: unterscheidet „definitiv ungültig“ vs. Dienst-/Netzwerkproblem. */
+async function validateViesDetailed(vatid) {
+  const normalizedVatId = normalizeVatId(vatid);
+  console.log('🧾 [UID] VIES input:', { raw: vatid, normalized: normalizedVatId });
+  if (!/^[A-Z]{2}[A-Z0-9]{2,}$/.test(normalizedVatId)) {
+    console.log('⚠️ [UID] VAT-Format ungültig vor VIES-Check:', normalizedVatId);
+    return { viesOk: false, definitiveInvalid: false, raw: null };
+  }
+
+  const countryCode = normalizedVatId.slice(0, 2);
+  const number = normalizedVatId.slice(2);
+
+  try {
+    const resp = await fetch(
+      'https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number',
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          countryCode,
+          vatNumber: number
+        })
+      }
+    );
+
+    const data = await resp.json().catch(() => ({}));
+    console.log('🧾 [UID] VIES Antwort:', data);
+
+    if (!resp.ok) {
+      console.error('❌ [UID] VIES HTTP-Fehler:', resp.status, resp.statusText);
+      return { viesOk: false, definitiveInvalid: false, raw: data };
     }
-  );
-
-  const data = await resp.json();
-
-  console.log('🧾 VIES Antwort:', data);
-
-  return data.valid === true;
+    if (data && data.actionSucceed === false) {
+      return { viesOk: false, definitiveInvalid: false, raw: data };
+    }
+    if (data.valid === true) {
+      return { viesOk: true, definitiveInvalid: false, raw: data };
+    }
+    if (data.valid === false) {
+      return { viesOk: false, definitiveInvalid: true, raw: data };
+    }
+    return { viesOk: false, definitiveInvalid: false, raw: data };
+  } catch (err) {
+    console.error('❌ [UID] VIES Request fehlgeschlagen:', err.message);
+    return { viesOk: false, definitiveInvalid: false, raw: null };
+  }
 }
 
 
@@ -215,6 +311,45 @@ async function ensureAuthenticated(req, res, next) {
     console.error('❌ Fehler in ensureAuthenticated:', err);
     res.redirect('/auth/login');
   }
+}
+
+/** Dateinamen aus Galerie (PHP-serialized) + Mainpicture für Berechtigungsprüfung */
+function collectListingImageFilenames(picturesSerialized, mainpictureField) {
+  const names = new Set();
+  const addRaw = (raw) => {
+    if (raw == null || raw === '') return;
+    if (typeof raw === 'object') {
+      addRaw(raw.image || raw.path || raw.url);
+      return;
+    }
+    let s = String(raw).trim();
+    if (!s || s === 'Array') return;
+    const base = path.basename(s.split('?')[0].split('#')[0]);
+    if (base && base !== '.' && base !== '..') names.add(base);
+  };
+  let gallery = [];
+  try {
+    if (picturesSerialized) gallery = unserialize(picturesSerialized);
+  } catch {
+    gallery = [];
+  }
+  if (Array.isArray(gallery)) {
+    gallery.forEach((entry) => {
+      if (entry && typeof entry === 'object') addRaw(entry.image || entry.path || entry.url);
+      else addRaw(entry);
+    });
+  }
+  if (mainpictureField) {
+    const raw = String(mainpictureField).trim();
+    if (raw.startsWith('a:')) {
+      try {
+        addRaw(unserialize(raw));
+      } catch {}
+    } else {
+      addRaw(mainpictureField);
+    }
+  }
+  return names;
 }
 
 async function loadEntieties(req, res, next) {
@@ -831,6 +966,100 @@ function buildEmptyMonthlySeries(monthsBack = 12, localeTag = 'de-DE') {
   return { labels, visits: values, listings: values.map(() => 0) };
 }
 
+function buildEmptyDailySeries(daysBack = 14, localeTag = 'de-DE') {
+  const days = Math.max(1, Number(daysBack) || 14);
+  const labelFormatter = new Intl.DateTimeFormat(localeTag, { day: '2-digit', month: '2-digit' });
+  const labels = [];
+  const values = [];
+
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    labels.push(labelFormatter.format(d));
+    values.push(0);
+  }
+  return { labels, visits: values, listings: values.map(() => 0) };
+}
+
+async function loadBuyerDailyVisitorsFromVisitsHistory(userId, daysBack = 14, listingRows = [], localeTag = 'de-DE') {
+  const days = Math.max(1, Number(daysBack) || 14);
+  const emptySeries = buildEmptyDailySeries(days, localeTag);
+  if (!Array.isArray(listingRows) || !listingRows.length) return emptySeries;
+
+  const routeToAdvertIds = new Map();
+  for (const listing of listingRows) {
+    const route = String(listing?.entityRoute || '').trim();
+    const advertId = Number(listing?.id);
+    if (!route || !Number.isFinite(advertId)) continue;
+    if (!routeToAdvertIds.has(route)) routeToAdvertIds.set(route, new Set());
+    routeToAdvertIds.get(route).add(advertId);
+  }
+  if (!routeToAdvertIds.size) return emptySeries;
+
+  const labelFormatter = new Intl.DateTimeFormat(localeTag, { day: '2-digit', month: '2-digit' });
+  const dayKeys = [];
+  const labels = [];
+  const dayIndexByKey = new Map();
+  const dayValues = [];
+
+  for (let i = days - 1; i >= 0; i -= 1) {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    d.setHours(0, 0, 0, 0);
+    const key = d.toISOString().slice(0, 10);
+    dayIndexByKey.set(key, dayKeys.length);
+    dayKeys.push(key);
+    labels.push(labelFormatter.format(d));
+    dayValues.push(0);
+  }
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - (days - 1));
+  startDate.setHours(0, 0, 0, 0);
+  let hasTrackedRows = false;
+
+  const advertChunkSize = 400;
+  for (const [route, idSet] of routeToAdvertIds.entries()) {
+    const advertIds = [...idSet];
+    if (!advertIds.length) continue;
+
+    for (let i = 0; i < advertIds.length; i += advertChunkSize) {
+      const chunk = advertIds.slice(i, i + advertChunkSize);
+      const placeholders = chunk.map(() => '?').join(', ');
+      const [rows] = await db.query(
+        `SELECT
+           DATE(visited) AS visit_date,
+           SUM(visits) AS visitors
+         FROM visits
+         WHERE entity = ?
+           AND advert_id IN (${placeholders})
+           AND visited >= ?
+         GROUP BY DATE(visited)`,
+        [route, ...chunk, startDate]
+      );
+
+      if (rows.length) hasTrackedRows = true;
+      for (const row of rows) {
+        const rawDate = row?.visit_date;
+        if (!rawDate) continue;
+        const key = new Date(rawDate).toISOString().slice(0, 10);
+        const idx = dayIndexByKey.get(key);
+        if (idx == null) continue;
+        dayValues[idx] += Number(row.visitors) || 0;
+      }
+    }
+  }
+
+  if (!hasTrackedRows) return emptySeries;
+
+  return {
+    labels,
+    visits: dayValues,
+    listings: labels.map(() => 0)
+  };
+}
+
 async function loadBuyerMonthlyVisitorsFromVisitsHistory(userId, monthsBack = 12, listingRows = [], localeTag = 'de-DE') {
   const months = Math.max(1, Number(monthsBack) || 12);
   const emptySeries = buildEmptyMonthlySeries(months, localeTag);
@@ -966,9 +1195,15 @@ async function runCheckout(req, res, next, checkoutBody, options = {}) {
 
     // ✅ ENV prüfen & loggen
     const parseBool = (v) => /^true|1|yes|on$/i.test(String(v).trim());
-    const DISABLE_PAYMENT = parseBool(process.env.DISABLE_PAYMENT);
+    const DISABLE_PAYMENT_ENV = parseBool(process.env.DISABLE_PAYMENT);
+    const disableStripeForTestAngebot =
+      String(req.session?.checkoutSource || '') === 'test-angebot' &&
+      String(checkoutBody?.checkout_source || '') === 'test-angebot' &&
+      parseBool(checkoutBody?.test_angebot_disable_stripe || '0');
+    const DISABLE_PAYMENT = DISABLE_PAYMENT_ENV || disableStripeForTestAngebot;
     console.log('🔧 DISABLE_PAYMENT (raw):', process.env.DISABLE_PAYMENT);
     console.log('🔧 DISABLE_PAYMENT (bool):', DISABLE_PAYMENT);
+    console.log('🔧 test-angebot Stripe override:', disableStripeForTestAngebot);
 
     // 🔹 Request-Daten auslesen
     const { packageId, type, category_id } = checkoutBody || {};
@@ -981,7 +1216,7 @@ async function runCheckout(req, res, next, checkoutBody, options = {}) {
 
     const vatid = freshUser?.vatid || null;
 
-    console.log('🧾 VAT aus DB geladen:', vatid);
+    console.log('🧾 [UID] VAT aus DB geladen:', vatid);
 
 
     console.log('📦 Angeforderte Daten:', { packageId, type, vatid, country_id, category_id });
@@ -1062,28 +1297,70 @@ let taxRate = 21;
 const euCountries = ['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'];
 const countryCode = countryMeta.code || 'CZ';
 
-if (vatid && vatid.trim() !== '') {
-  console.log(`🔍 Prüfe VAT-ID über VIES: ${vatid}`);
+const normalizedVatId = normalizeVatId(vatid);
+console.log('🧾 [UID] Checkout VAT-Kontext:', {
+  userId: user?.id || null,
+  rawVatId: vatid,
+  normalizedVatId,
+  countryCode,
+  isEuCountry: euCountries.includes(countryCode)
+});
+if (normalizedVatId) {
+  console.log(`🔍 [UID] Prüfe VAT-ID über VIES: ${normalizedVatId}`);
 
-  const isValidVAT = await validateVAT_VIES(vatid);
+  const viesRes = await validateViesDetailed(normalizedVatId);
+  const viesOk = viesRes.viesOk === true;
+  console.log('🧾 [UID] VIES Ergebnis:', { viesOk, definitiveInvalid: viesRes.definitiveInvalid });
 
-  if (isValidVAT && euCountries.includes(countryCode) && countryCode !== 'CZ') {
+  let localOk = false;
+  if (!viesOk && !viesRes.definitiveInvalid && euCountries.includes(countryCode)) {
+    const loc = validateEuVatLocally(normalizedVatId, countryCode);
+    localOk = loc.valid === true;
+    if (localOk) {
+      console.log('✅ [UID] Lokaler VAT-Fallback (VIES nicht eindeutig):', loc.reason);
+    }
+  }
+
+  const reverseChargeOk = (viesOk || localOk) && euCountries.includes(countryCode) && countryCode !== 'CZ';
+
+  if (reverseChargeOk) {
     vatValidation = 'valid';
     applyVat = false;
     taxRate = 0;
-    console.log('✅ VIES gültig → Reverse Charge (0 %)');
+    console.log('✅ [UID] Reverse Charge (0 %)', { viesOk, localOk });
   } else {
     vatValidation = 'invalid';
     applyVat = true;
     taxRate = 21;
-    console.log('⚠️ VAT ungültig oder CZ → MwSt 21 %');
+    const reason = viesRes.definitiveInvalid
+      ? 'VIES definitiv ungültig'
+      : !euCountries.includes(countryCode)
+        ? 'country not in EU list'
+        : countryCode === 'CZ'
+          ? 'countryCode is CZ'
+          : !viesOk && !localOk
+            ? 'VIES/lokal nicht gültig'
+            : 'unknown';
+    console.log('⚠️ [UID] VAT führt zu MwSt 21 %:', {
+      reason,
+      viesOk,
+      localOk,
+      definitiveInvalid: viesRes.definitiveInvalid,
+      countryCode
+    });
   }
 } else {
   vatValidation = 'none';
   applyVat = true;
   taxRate = 21;
-  console.log('ℹ️ Keine VAT → MwSt 21 %');
+  console.log('ℹ️ [UID] Keine VAT → MwSt 21 %');
 }
+
+console.log('🧾 [UID] Final VAT-Entscheidung:', {
+  vatValidation,
+  applyVat,
+  taxRate
+});
 
 
 
@@ -1101,6 +1378,11 @@ if (vatid && vatid.trim() !== '') {
 
 
     // 5️⃣ Session speichern
+    const normalizedCategoryId = await resolveValidCategoryId(category_id, 1);
+    if (Number.parseInt(category_id, 10) !== normalizedCategoryId) {
+      console.warn('⚠️ Kategorie korrigiert:', { input: category_id, normalized: normalizedCategoryId });
+    }
+
     req.session.pendingOrder = {
       package_id: pkgInfo.id,
       package_name: pkgInfo.name,
@@ -1115,8 +1397,17 @@ if (vatid && vatid.trim() !== '') {
       discount_amount: parseFloat(checkoutBody?.discountAmount || 0),
       net_price: netPrice,
       gross_price: grossPrice,
-      category_id
+      category_id: normalizedCategoryId
     };
+
+    const [[nextOrderIdRow]] = await db.query(
+      `SELECT COALESCE(MAX(id), 0) + 1 AS next_order_id FROM orders`
+    );
+    const nextOrderId = Number(nextOrderIdRow?.next_order_id || 0);
+    if (!Number.isInteger(nextOrderId) || nextOrderId <= 0) {
+      return res.status(500).send('Order-ID konnte nicht ermittelt werden.');
+    }
+    req.session.pendingOrder.order_id = nextOrderId;
     console.log('✅ Session pendingOrder gespeichert.');
 
     // 6️⃣ TESTMODUS – Stripe überspringen
@@ -1167,10 +1458,12 @@ if (vatid && vatid.trim() !== '') {
         vat_status: vatValidation,
         tax_rate: baseTaxRate,
         country: countryMeta.code,
-        user_id: user?.id || 'unknown'
+        user_id: user?.id || 'unknown',
+        order_id: String(nextOrderId)
       },
+      client_reference_id: String(nextOrderId),
       success_url: `${req.protocol}://${req.get('host')}/buyer/zahlung/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${req.protocol}://${req.get('host')}/buyer/zahlung_failed?package_id=${encodeURIComponent(pkgInfo.id)}&country_id=${encodeURIComponent(country_id)}&category_id=${encodeURIComponent(category_id || 1)}&gross_price=${encodeURIComponent(grossPrice)}&vatid=${encodeURIComponent(vatid || '')}`,
+      cancel_url: `${req.protocol}://${req.get('host')}/buyer/zahlung_failed?package_id=${encodeURIComponent(pkgInfo.id)}&country_id=${encodeURIComponent(country_id)}&category_id=${encodeURIComponent(normalizedCategoryId)}&gross_price=${encodeURIComponent(grossPrice)}&vatid=${encodeURIComponent(vatid || '')}`,
     });
 
     console.log(`✅ Stripe-Session erstellt: ${session.id}`);
@@ -1269,6 +1562,9 @@ router.get('/zahlung/success', async (req, res, next) => {
       );
     }
 
+    const normalizedCategoryId = await resolveValidCategoryId(pending.category_id, 1);
+    pending.category_id = normalizedCategoryId;
+
     // ✅ Stripe-Check nur im Live-Modus
     let sessionObj = null;
     if (!isTest) {
@@ -1298,51 +1594,98 @@ router.get('/zahlung/success', async (req, res, next) => {
       );
     }
 
-    // 🧾 Paketinformationen
-    const [[pkg]] = await db.query(`SELECT name FROM packages WHERE id = ?`, [pending.package_id]);
+    let orderId;
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+      const reservedOrderId = Number(
+        pending.order_id ||
+        sessionObj?.metadata?.order_id ||
+        sessionObj?.client_reference_id ||
+        0
+      );
 
-    // 🧾 Order erstellen
-    const [orderRes] = await db.query(`
-      INSERT INTO orders (
-        user_id, package_id, product, country_id, category_id,
-        firstname, lastname, company, vatid, street, housenumber,
-        postcode, city, phone, email, created_at
-      )
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())
-    `, [
-      user.id,
-      pending.package_id,
-      pkg.name,
-      pending.country_id,
-      pending.category_id || 1,
-      user.firstname || '',
-      user.lastname || '',
-      user.company || null,
-      user.vatid || null,
-      user.street || '',
-      user.housenumber || '',
-      user.postcode || '',
-      user.city || '',
-      user.phone || null,
-      user.email || ''
-    ]);
+      // 🧾 Paketinformationen
+      const [[pkg]] = await conn.query(`SELECT name FROM packages WHERE id = ?`, [pending.package_id]);
 
-    const orderId = orderRes.insertId;
-    console.log(`✅ Neue Order erstellt: ID ${orderId}`);
+      // 🧾 Order erstellen
+      const canUseReservedOrderId = Number.isInteger(reservedOrderId) && reservedOrderId > 0;
+      const orderInsertSql = canUseReservedOrderId
+        ? `
+        INSERT INTO orders (
+          id, user_id, package_id, product, country_id, category_id,
+          firstname, lastname, company, vatid, street, housenumber,
+          postcode, city, phone, email, created_at
+        )
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())
+      `
+        : `
+        INSERT INTO orders (
+          user_id, package_id, product, country_id, category_id,
+          firstname, lastname, company, vatid, street, housenumber,
+          postcode, city, phone, email, created_at
+        )
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())
+      `;
+      const orderInsertParams = canUseReservedOrderId
+        ? [
+            reservedOrderId,
+            user.id,
+            pending.package_id,
+            pkg.name,
+            pending.country_id,
+            normalizedCategoryId,
+            user.firstname || '',
+            user.lastname || '',
+            user.company || null,
+            user.vatid || null,
+            user.street || '',
+            user.housenumber || '',
+            user.postcode || '',
+            user.city || '',
+            user.phone || null,
+            user.email || ''
+          ]
+        : [
+            user.id,
+            pending.package_id,
+            pkg.name,
+            pending.country_id,
+            normalizedCategoryId,
+            user.firstname || '',
+            user.lastname || '',
+            user.company || null,
+            user.vatid || null,
+            user.street || '',
+            user.housenumber || '',
+            user.postcode || '',
+            user.city || '',
+            user.phone || null,
+            user.email || ''
+          ];
+      const [orderRes] = await conn.query(orderInsertSql, orderInsertParams);
 
-    // 7️⃣ Paketlaufzeit und Inserate erfassen
+      orderId = Number(canUseReservedOrderId ? reservedOrderId : orderRes.insertId);
+      console.log(`✅ Neue Order erstellt: ID ${orderId}`);
+
+      // 7️⃣ Paketlaufzeit und Inserate erfassen
       console.log('📦 Speichere ausgewähltes Paket...');
 
       // Hole Dauer + Inseratenanzahl aus packages
-      const [[pkgData]] = await db.query(`
-        SELECT duration_unit, duration_amt, inseratenanzahl 
+      const [[pkgData]] = await conn.query(`
+        SELECT duration_unit, duration_amt, inseratenanzahl, name
         FROM packages 
         WHERE id = ?
       `, [pending.package_id]);
 
       // Laufzeit berechnen
       let endDateQuery = '';
-      if (pkgData.duration_unit === 'days') {
+      const normalizedPkgName = String(pkgData?.name || '').toLowerCase();
+      const isPrivat90Package =
+        normalizedPkgName.includes('privat') && normalizedPkgName.includes('90');
+      if (isPrivat90Package) {
+        endDateQuery = `DATE_ADD(NOW(), INTERVAL 90 DAY)`;
+      } else if (pkgData.duration_unit === 'days') {
         endDateQuery = `DATE_ADD(NOW(), INTERVAL ${pkgData.duration_amt} DAY)`;
       } else if (pkgData.duration_unit === 'months') {
         endDateQuery = `DATE_ADD(NOW(), INTERVAL ${pkgData.duration_amt} MONTH)`;
@@ -1352,7 +1695,7 @@ router.get('/zahlung/success', async (req, res, next) => {
         endDateQuery = `DATE_ADD(NOW(), INTERVAL 30 DAY)`; // Fallback
       }
 
-      await db.query(`
+      await conn.query(`
         INSERT INTO selected_packages (
           user_id,
           package_id,
@@ -1369,7 +1712,7 @@ router.get('/zahlung/success', async (req, res, next) => {
       `, [
         user.id,
         pending.package_id,
-        pending.category_id || 1,
+        normalizedCategoryId,
         pending.country_id,
         pkgData.inseratenanzahl || 0,
         orderId
@@ -1377,19 +1720,26 @@ router.get('/zahlung/success', async (req, res, next) => {
 
       console.log('✅ Paket erfolgreich in selected_packages eingetragen!');
 
+      // 💳 Payment speichern
+      await conn.query(`
+        INSERT INTO payments (order_id, amount, currency, provider_id, status, created_at)
+        VALUES (?,?,?,?,?,NOW())
+      `, [
+        orderId,
+        pending.gross_price,
+        'EUR',
+        isTest ? 'TEST_MODE' : sessionObj.payment_intent,
+        isTest ? 'simulated' : 'succeeded'
+      ]);
+      console.log('💰 Payment-Datensatz gespeichert.');
 
-    // 💳 Payment speichern
-    await db.query(`
-      INSERT INTO payments (order_id, amount, currency, provider_id, status, created_at)
-      VALUES (?,?,?,?,?,NOW())
-    `, [
-      orderId,
-      pending.gross_price,
-      'EUR',
-      isTest ? 'TEST_MODE' : sessionObj.payment_intent,
-      isTest ? 'simulated' : 'succeeded'
-    ]);
-    console.log('💰 Payment-Datensatz gespeichert.');
+      await conn.commit();
+    } catch (txErr) {
+      await conn.rollback();
+      throw txErr;
+    } finally {
+      conn.release();
+    }
 
     // 📦 Rechnungsdaten aus der DB holen (JOIN!)
     const [[orderData]] = await db.query(`
@@ -1555,6 +1905,45 @@ router.get('/zahlung/success', async (req, res, next) => {
 
         await transporter.sendMail(mailOptions);
         console.log(`📨 Rechnung Nr. ${orderId} erfolgreich an ${user.email} gesendet.`);
+
+        // 📧 Zusätzliche Accounting-Mail für /zahlung/success
+        const accountingRecipient = (process.env.ADMIN_EMAIL || 'accounting@herando.com').trim();
+        const accountingSubject = await tr(
+          req,
+          res,
+          'buyer.checkout.admin.subject',
+          'Neue Zahlung - Rechnung Nr. {{id}}'
+        );
+
+        await transporter.sendMail({
+          from: `"Herando System" <accounting@herando.com>`,
+          to: accountingRecipient,
+          subject: accountingSubject.replace('{{id}}', orderId),
+          html: `
+          <div style="font-family: Arial, sans-serif; background-color: #f6f6f6; padding: 20px;">
+            <div style="max-width: 600px; background: #ffffff; margin: auto; padding: 30px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
+              <p style="font-size: 15px; color: #333;"><strong>Neue erfolgreiche Zahlung</strong></p>
+              <p style="font-size: 14px; color: #333; line-height: 1.6;">
+                Rechnungsnummer: <strong>${orderId}</strong><br>
+                Kunde: <strong>${user.firstname || ''} ${user.lastname || ''}</strong><br>
+                E-Mail: ${user.email || '-'}<br>
+                Produkt: <strong>${orderData.product || '-'}</strong><br>
+                Betrag (netto): <strong>${Number(pending.net_price || 0).toFixed(2)} EUR</strong><br>
+                Zeitpunkt: ${new Date().toLocaleString()}
+              </p>
+              <p style="font-size: 12px; color: #777; margin-top: 18px;">Automatische Systembenachrichtigung</p>
+            </div>
+          </div>
+          `,
+          attachments: [
+            {
+              filename: `Rechnung_${orderId}.pdf`,
+              path: filePath,
+              contentType: 'application/pdf',
+            },
+          ],
+        });
+        console.log(`📨 Accounting-Mail für Rechnung Nr. ${orderId} an ${accountingRecipient} gesendet.`);
       } catch (mailErr) {
         console.error('❌ Fehler beim Mailversand der Rechnung:', mailErr);
       }
@@ -1637,6 +2026,8 @@ router.get('/zahlung_failed', async (req, res, next) => {
       };
     }
 
+    pending.category_id = await resolveValidCategoryId(pending.category_id, 1);
+
     // Paket holen
     const [[pkg]] = await db.query(
       `SELECT name FROM packages WHERE id = ?`,
@@ -1656,7 +2047,7 @@ router.get('/zahlung_failed', async (req, res, next) => {
       pending.package_id,
       pkg.name,
       pending.country_id,
-      pending.category_id || 1,
+      pending.category_id,
       user.firstname || '',
       user.lastname || '',
       user.company || null,
@@ -1891,13 +2282,16 @@ router.get('/statistiken', async (req, res, next) => {
 
     const urlPath = normalizePathUrl(req.path);
     const listingRows = await loadBuyerListingsForStatistics(userId);
+    const onlineListingRows = listingRows.filter(
+      (item) => Number(item?.status) === 3 && Number(item?.visible) === 1
+    );
     const localeTag = toIntlLocaleTag(res.locals.lang || req.session?.lang || req.locale || 'de');
 
     const [dashboardStats, visitorChartData, seoResult] = await Promise.all([
       loadBuyerDashboardStats(userId, listingRows),
-      loadBuyerMonthlyVisitorsFromVisitsHistory(userId, 12, listingRows, localeTag).catch((trackingErr) => {
-        console.warn('Statistiken: Fallback auf listing-basierte Monatswerte', trackingErr.message);
-        return buildMonthlyVisitorsSeries(listingRows, 12, localeTag);
+      loadBuyerDailyVisitorsFromVisitsHistory(userId, 14, onlineListingRows, localeTag).catch((trackingErr) => {
+        console.warn('Statistiken: Fallback auf leere Tageswerte', trackingErr.message);
+        return buildEmptyDailySeries(14, localeTag);
       }),
       db.query(
         `SELECT
@@ -1936,7 +2330,7 @@ router.get('/statistiken', async (req, res, next) => {
       user,
       currentPage: 'statistiken',
       dashboardStats,
-      listingRows,
+      listingRows: onlineListingRows,
       visitorChartData,
       userHasPackage: Boolean(res.locals.hasPackage)
     });
@@ -2950,13 +3344,17 @@ router.post(
       );
       await fs.ensureDir(destDir);
 
+      const isWatchListing = ent.route === 'watches';
+
       // 8️⃣ MAINPICTURE
       let mainPic = null;
       if (req.files?.mainpicture?.[0]) {
         const f = req.files.mainpicture[0];
         const ext = path.extname(f.originalname);
         const filename = `main_${Date.now()}_${f.filename}${ext}`;
-        await fs.move(f.path, path.join(destDir, filename));
+        const destPath = path.join(destDir, filename);
+        await fs.move(f.path, destPath);
+        await processListingImageFromPath(destPath, destDir, filename, { isWatch: isWatchListing });
         mainPic = filename;
       }
 
@@ -2965,7 +3363,9 @@ router.post(
       for (const f of (req.files?.pictures || [])) {
         const ext = path.extname(f.originalname);
         const filename = `${Date.now()}_${f.filename}${ext}`;
-        await fs.move(f.path, path.join(destDir, filename));
+        const destPath = path.join(destDir, filename);
+        await fs.move(f.path, destPath);
+        await processListingImageFromPath(destPath, destDir, filename, { isWatch: isWatchListing });
         gallery.push({ image: filename });
       }
 
@@ -2989,6 +3389,7 @@ router.post(
          WHERE id = ?`,
         [phpSerialize.serialize(gallery), mainPic, newId]
       );
+      await enqueueAdvertById('addAdvert', ent.table_name, newId);
 
       return res.redirect('historie');
 
@@ -3162,9 +3563,11 @@ router.get('/edit-listing/:id', async (req, res, next) => {
        WHERE c.visible = 1
           OR c.parent_id IS NOT NULL
           OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
+          OR c.id = ?
        ORDER BY
          CASE WHEN c.parent_id IS NULL THEN 0 ELSE 1 END,
-         c.de`
+         c.de`,
+      [item.country_id || 0]
     );
 
     // 🧩 8) Filterdaten (Marken, Modelle, etc.)
@@ -3270,6 +3673,8 @@ console.log('🎯 Finaler Item-Wert Hull vorm Rendern:', item?.hull);
 
     // 🧩 10) Template rendern
     console.log('✅ Alles geladen, rendere Seite...');
+    const sessionRole = Number(req.session.role || 0);
+    const canPickMainFromGallery = [7, 8, 9].includes(sessionRole);
     res.render('pages/templates/edit-listing', {
       mode: 'edit',
       user,
@@ -3280,6 +3685,7 @@ console.log('🎯 Finaler Item-Wert Hull vorm Rendern:', item?.hull);
       watchCheckboxGroups,
       item,
       gallery,
+      canPickMainFromGallery,
       seo: res.locals.seo || null,
       currentPage: 'edit-listing'
     });
@@ -3668,6 +4074,9 @@ if (ent.route === "cars") {
       }
 
       newPics.push(safe);
+      await processListingImageFromPath(dest, uploadDir, safe, {
+        isWatch: ent.route === 'watches',
+      });
     }
 
     console.log("🆕 Neue Bilder:", newPics);
@@ -3676,11 +4085,8 @@ if (ent.route === "cars") {
     // 10) BILDER LÖSCHEN
     // ---------------------------------------------------------
     for (const img of removed) {
-      const fp = path.join(uploadDir, img);
-      if (fs.existsSync(fp)) {
-        fs.unlinkSync(fp);
-        console.log("🗑️ Gelöscht:", fp);
-      }
+      deleteListingImageVariants(uploadDir, img);
+      console.log('🗑️ Gelöscht inkl. Varianten:', img);
     }
 
     // ---------------------------------------------------------
@@ -3731,6 +4137,30 @@ if (ent.route === "properties") {
     req.body[key] = normalizeNumberInput(req.body[key]);
   }
 
+  // Immobilien-Typen sind exklusiv: entweder propertytype ODER investmenttype.
+  // Das jeweils andere Feld wird beim Speichern aktiv auf NULL gesetzt.
+  const propVal = Object.prototype.hasOwnProperty.call(req.body, 'propertytype')
+    ? req.body.propertytype
+    : undefined;
+  const invVal = Object.prototype.hasOwnProperty.call(req.body, 'investmenttype')
+    ? req.body.investmenttype
+    : undefined;
+
+  if (propVal !== undefined && invVal !== undefined) {
+    if (propVal !== null && invVal !== null) {
+      // Falls manipuliert beide gesendet werden, gewinnt Immobilienart.
+      req.body.investmenttype = null;
+    } else if (propVal !== null) {
+      req.body.investmenttype = null;
+    } else if (invVal !== null) {
+      req.body.propertytype = null;
+    }
+  } else if (propVal !== undefined && propVal !== null) {
+    req.body.investmenttype = null;
+  } else if (invVal !== undefined && invVal !== null) {
+    req.body.propertytype = null;
+  }
+
   console.log("🏠 Properties normalisiert:", req.body);
 }
 
@@ -3752,16 +4182,20 @@ if (ent.route === "properties") {
 
 
           // Aktuellen Status holen
-      const [[currentState]] = await db.query(
+    let keepHidden = false;
+    let currentState = null;
+    if (!adminEditMode) {
+      [[currentState]] = await db.query(
         `SELECT status, visible FROM \`${ent.table}\` WHERE id=?`,
         [listingId]
       );
 
-      const keepHidden =
-        Number(currentState.status) === 0 &&
-        Number(currentState.visible) === 0;
+      keepHidden =
+        (Number(currentState.status) === 0 && Number(currentState.visible) === 0) ||
+        (Number(currentState.status) === 9 && Number(currentState.visible) === 0);
+    }
 
-      console.log("🔍 Vorheriger Zustand:", currentState, "keepHidden:", keepHidden);
+    console.log("🔍 Vorheriger Zustand:", currentState, "keepHidden:", keepHidden, "adminEditMode:", adminEditMode);
 
 
     // ---------------------------------------------------------
@@ -3775,14 +4209,18 @@ if (ent.route === "properties") {
     const setParts = keys.map(k => `\`${k}\`=?`);
     setParts.push("pictures=?");
     setParts.push("modified=NOW()");
-    if (keepHidden) {
-      setParts.push("status='0'");
-      setParts.push("visible='0'");
-      console.log("⛔ Inserat bleibt versteckt (0/0)");
+    if (!adminEditMode) {
+      if (keepHidden) {
+        setParts.push("status='0'");
+        setParts.push("visible='0'");
+        console.log("⛔ Inserat bleibt/verwandelt zu Entwurf (0/0)");
+      } else {
+        setParts.push("status='1'");
+        setParts.push("visible='0'");
+        console.log("✅ Inserat geht in Prüfung (1/0)");
+      }
     } else {
-      setParts.push("status='1'");
-      setParts.push("visible='0'");
-      console.log("✅ Inserat geht in Prüfung (1/0)");
+      console.log("🛡️ Admin-Edit: status/visible bleiben unverändert");
     }
 
     const sql = `
@@ -3799,6 +4237,7 @@ if (ent.route === "properties") {
     // 14) QUERY
     // ---------------------------------------------------------
     await db.query(sql, params);
+    await enqueueAdvertById('updateAdvert', ent.table, listingId);
 
     console.log("✅ UPDATE erfolgreich!");
     req.session.successMessage = "Inserat erfolgreich bearbeitet.";
@@ -3897,6 +4336,11 @@ router.post(
 
       console.log("📂 Galerie nach Löschung:", newGallery);
 
+      const uploadDirApi = path.join('/media/herando/images', ent, listingId.toString());
+      for (const img of toDelete) {
+        deleteListingImageVariants(uploadDirApi, img);
+      }
+
       // ---------------------------------------------------------
       // 4) Sortierung anwenden (optional)
       // ---------------------------------------------------------
@@ -3916,25 +4360,28 @@ router.post(
       // ---------------------------------------------------------
       console.log("\n⬆️ Speichere neue Uploads...");
 
-      const uploadDir = path.join("/media/herando/images", ent, listingId.toString());
+      const uploadDir = path.join('/media/herando/images', ent, listingId.toString());
       fs.ensureDirSync(uploadDir);
 
+      const isWatchApi = ent === 'watches';
+
       for (const file of req.files) {
-        const safeName = Date.now() + "_" + file.originalname.replace(/\s+/g, "_");
+        const safeName = Date.now() + '_' + file.originalname.replace(/\s+/g, '_');
         const target = path.join(uploadDir, safeName);
 
-        console.log("💾 Speichere:", safeName);
+        console.log('💾 Speichere:', safeName);
 
         fs.moveSync(file.path, target);
         newGallery.push(safeName);
+        await processListingImageFromPath(target, uploadDir, safeName, { isWatch: isWatchApi });
       }
 
-      console.log("📁 Galerie nach Upload:", newGallery);
+      console.log('📁 Galerie nach Upload:', newGallery);
 
       // ---------------------------------------------------------
       // 6) Serialisieren & speichern
       // ---------------------------------------------------------
-      console.log("\n💾 Serialisiere Galerie...");
+      console.log('\n💾 Serialisiere Galerie...');
 
       const serialized = phpSerialize.serialize(
         newGallery.map(img => ({ image: img }))
@@ -3942,7 +4389,7 @@ router.post(
 
       const mainPic = newGallery[0] || null;
 
-      console.log("🏆 Mainpicture:", mainPic);
+      console.log('🏆 Mainpicture:', mainPic);
 
       await db.query(
         `UPDATE \`${ent}\` 
@@ -3999,6 +4446,7 @@ router.post(
       const tables = ['cars', 'yachts', 'watches', 'properties', 'lifestyles'];
       let ent = null;
       let effectiveOwnerUserId = Number(userId || 0);
+      let usedAdminGrant = false;
 
       for (const table of tables) {
         const [rows] = await db.query(
@@ -4032,6 +4480,7 @@ router.post(
           if (rows.length) {
             ent = grantTable;
             effectiveOwnerUserId = Number(rows[0].user_id || grant.ownerUserId || 0);
+            usedAdminGrant = true;
             console.log('🛡️ Mainpicture: Admin-Grant aktiv', { ent, effectiveOwnerUserId });
           }
         }
@@ -4066,15 +4515,28 @@ router.post(
 
       fs.moveSync(req.file.path, target);
 
+      await processListingImageFromPath(target, uploadDir, safeName, {
+        isWatch: ent === 'watches',
+      });
+
       // ---------------------------------------------------------
       // 4) DB Update (NUR mainpicture)
       // ---------------------------------------------------------
-      await db.query(
-        `UPDATE \`${ent}\`
-         SET mainpicture=?, visible='0'
-         WHERE id=? AND user_id=?`,
-        [safeName, listingId, effectiveOwnerUserId]
-      );
+      if (usedAdminGrant) {
+        await db.query(
+          `UPDATE \`${ent}\`
+           SET mainpicture=?
+           WHERE id=? AND user_id=?`,
+          [safeName, listingId, effectiveOwnerUserId]
+        );
+      } else {
+        await db.query(
+          `UPDATE \`${ent}\`
+           SET mainpicture=?, visible='0'
+           WHERE id=? AND user_id=?`,
+          [safeName, listingId, effectiveOwnerUserId]
+        );
+      }
 
       console.log("🏆 Neues Mainpicture gesetzt:", safeName);
       console.log("===============================================\n");
@@ -4090,6 +4552,103 @@ router.post(
     }
   }
 );
+
+/**
+ * Titelbild auf ein bereits vorhandenes Galerie-Bild setzen (nur Rollen 7, 8, 9).
+ * Body: { "filename": "bild.jpg" }
+ */
+router.post('/api/listing/:id/mainpicture/from-gallery', async (req, res) => {
+  try {
+    const userId = req.session.userId;
+    const listingId = parseInt(req.params.id, 10);
+    const sessionRole = Number(req.session.role || 0);
+    const allowedRoles = new Set([7, 8, 9]);
+    const filenameRaw = req.body && (req.body.filename || req.body.existingFilename);
+    const filename = filenameRaw ? path.basename(String(filenameRaw).trim()) : '';
+
+    if (!allowedRoles.has(sessionRole)) {
+      return res.status(403).json({ success: false, error: 'Forbidden' });
+    }
+    if (!userId || !Number.isFinite(listingId) || !filename) {
+      return res.json({ success: false, error: 'Invalid request' });
+    }
+
+    const tables = ['cars', 'yachts', 'watches', 'properties', 'lifestyles'];
+    let ent = null;
+    let effectiveOwnerUserId = Number(userId || 0);
+    let usedAdminGrant = false;
+
+    for (const table of tables) {
+      const [rows] = await db.query(
+        `SELECT id, user_id FROM \`${table}\` WHERE id=? AND user_id=?`,
+        [listingId, userId]
+      );
+      if (rows.length) {
+        ent = table;
+        effectiveOwnerUserId = Number(rows[0].user_id || userId || 0);
+        break;
+      }
+    }
+
+    if (!ent) {
+      const grant = req.session.adminListingEditGrant;
+      const nowMs = Date.now();
+      const grantTable = String(grant?.table || '');
+      const grantUsable =
+        grant &&
+        tables.includes(grantTable) &&
+        Number(grant.listingId) === listingId &&
+        Number(grant.adminUserId) === Number(userId) &&
+        Number(grant.expiresAt || 0) > nowMs;
+
+      if (grantUsable) {
+        const [rows] = await db.query(
+          `SELECT id, user_id FROM \`${grantTable}\` WHERE id=? LIMIT 1`,
+          [listingId]
+        );
+        if (rows.length) {
+          ent = grantTable;
+          effectiveOwnerUserId = Number(rows[0].user_id || grant.ownerUserId || 0);
+          usedAdminGrant = true;
+        }
+      }
+    }
+
+    if (!ent) {
+      return res.json({ success: false, error: 'Listing not found' });
+    }
+
+    const [[row]] = await db.query(
+      `SELECT pictures, mainpicture FROM \`${ent}\` WHERE id=? LIMIT 1`,
+      [listingId]
+    );
+    if (!row) {
+      return res.json({ success: false, error: 'Listing not found' });
+    }
+
+    const allowed = collectListingImageFilenames(row.pictures, row.mainpicture);
+    if (!allowed.has(filename)) {
+      return res.json({ success: false, error: 'Image not in gallery' });
+    }
+
+    if (usedAdminGrant) {
+      await db.query(
+        `UPDATE \`${ent}\` SET mainpicture=? WHERE id=? AND user_id=?`,
+        [filename, listingId, effectiveOwnerUserId]
+      );
+    } else {
+      await db.query(
+        `UPDATE \`${ent}\` SET mainpicture=?, visible='0' WHERE id=? AND user_id=?`,
+        [filename, listingId, effectiveOwnerUserId]
+      );
+    }
+
+    return res.json({ success: true, mainpicture: filename });
+  } catch (err) {
+    console.error('🔥 mainpicture/from-gallery:', err);
+    return res.json({ success: false, error: err.message });
+  }
+});
 
 
 
@@ -4209,14 +4768,14 @@ router.post(
 
       // 4) Dateien verschieben und Dateinamen sammeln
       const gallery = [];
+      const isWatchUpload = ent.route === 'watches';
+
       for (const file of req.files) {
-        const ext      = path.extname(file.originalname);
+        const ext = path.extname(file.originalname);
         const filename = `${Date.now()}_${file.filename}${ext}`;
-        await fs.move(
-          file.path,
-          path.join(destDir, filename),
-          { overwrite: true }
-        );
+        const destPath = path.join(destDir, filename);
+        await fs.move(file.path, destPath, { overwrite: true });
+        await processListingImageFromPath(destPath, destDir, filename, { isWatch: isWatchUpload });
         gallery.push(filename);
       }
 
@@ -4994,6 +5553,7 @@ router.post('/edit-profile', async (req, res, next) => {
       );
     }
 
+    await enqueueCustomerUpdate(userId);
     req.session.successMessage = 'Profil erfolgreich aktualisiert.';
     return res.redirect('/buyer');
   } catch (err) {
@@ -5100,14 +5660,21 @@ router.get('/historie', async (req, res, next) => {
     // =============================
     const today = new Date();
 
+    const isExpiredListing = (i) => {
+      if (!i?.end_date) return false;
+      const d = new Date(i.end_date);
+      return !Number.isNaN(d.getTime()) && d < today;
+    };
+    const isDeletedListing = (i) => Number(i?.status) === 9;
+
     const groups = {
-      online:  listings.filter(i => i.status == 3 && i.visible == 1),
-      drafts:  listings.filter(i => i.status == 0),
-      review:  listings.filter(i => [1, 2].includes(i.status)),
-      paused: listings.filter(i => i.status == 3 && i.visible == 0),
-      deactivate: listings.filter(i => i.status == 4 && [0, 2].includes(Number(i.visible))),
-      deleted: listings.filter(i => i.status == 9),
-      expired: listings.filter(i => i.end_date && new Date(i.end_date) < today)
+      online: listings.filter(i => i.status == 3 && i.visible == 1 && !isExpiredListing(i)),
+      drafts: listings.filter(i => i.status == 0 && !isExpiredListing(i)),
+      review: listings.filter(i => [1, 2].includes(Number(i.status)) && !isExpiredListing(i)),
+      paused: listings.filter(i => i.status == 3 && i.visible == 0 && !isExpiredListing(i)),
+      deactivate: listings.filter(i => i.status == 4 && [0, 2].includes(Number(i.visible)) && !isExpiredListing(i)),
+      deleted: listings.filter(i => isDeletedListing(i)),
+      expired: listings.filter(i => isExpiredListing(i) && !isDeletedListing(i))
     };
 
     // =============================
@@ -5420,9 +5987,12 @@ router.post('/upgrade/:itemId', ensureAuthenticated, async (req, res, next) => {
     // 4) Laufzeit
     // ------------------------------------------------------------
     const startDate = moment().format('YYYY-MM-DD HH:mm:ss');
-    const endDate = moment()
-      .add(Number(pkg.duration_weeks) || 0, 'weeks')
-      .format('YYYY-MM-DD HH:mm:ss');
+    const normalizedUpgradePkgName = String(pkg.name || '').toLowerCase();
+    const isPrivat90 =
+      normalizedUpgradePkgName.includes('privat') && normalizedUpgradePkgName.includes('90');
+    const endDate = isPrivat90
+      ? moment().add(90, 'days').format('YYYY-MM-DD HH:mm:ss')
+      : moment().add(Number(pkg.duration_weeks) || 0, 'weeks').format('YYYY-MM-DD HH:mm:ss');
 
     // ------------------------------------------------------------
     // 5) Order anlegen
@@ -5640,6 +6210,7 @@ router.get('/upgrade/success', ensureAuthenticated, async (req, res, next) => {
       );
       return res.redirect('/buyer/online');
     }
+    const paidAmountCents = Math.max(0, Math.round(Number(stripeSession.amount_total || 0)));
 
     // 3) Status aktualisieren
     if (orderRec.status !== 'paid') {
@@ -5723,7 +6294,7 @@ router.get('/upgrade/success', ensureAuthenticated, async (req, res, next) => {
         orderRec.user_package_id,
         orderRec.product,
         orderRec.duration_weeks,
-        orderRec.price_cents,
+        paidAmountCents,
         orderRec.country_id,
         orderRec.partner_atu_nummer,
         orderRec.country_tax_rate,
@@ -5748,6 +6319,8 @@ router.get('/upgrade/success', ensureAuthenticated, async (req, res, next) => {
     // Die neue Order-ID holen wir ab:
     const [[lastOrder]] = await db.query(`SELECT LAST_INSERT_ID() AS oid`);
     orderRec.order_number = lastOrder.oid;  // Wichtig für die Rechnung!
+    orderRec.price_cents = paidAmountCents;
+    orderRec.amount = paidAmountCents / 100;
 
 
     // 6) Steuer bestimmen
@@ -5760,7 +6333,10 @@ router.get('/upgrade/success', ensureAuthenticated, async (req, res, next) => {
     orderRec.locale = locale;
 
     // 🏎 Entität übersetzen
-    orderRec.entity_key = `entity.${orderRec.entity_route || 'default'}`;
+    const normalizedEntityRoute = String(orderRec.entity_route || orderRec.entitie_id || 'default')
+      .trim()
+      .toLowerCase();
+    orderRec.entity_key = `entity.${normalizedEntityRoute}`;
 
     // 🎁 Paketname übersetzen
     orderRec.package_key = `package.${orderRec.product.toLowerCase().replace(/ /g,'_').replace(/-/g,'_')}`;
@@ -6065,7 +6641,7 @@ router.get('/sold', ensureAuthenticated, async (req, res, next) => {
         currentUrl: req.url,
         currentPage: 'sold',
         privatePackages: [],
-        commercialPackages: { LIGHT: [], PRO: [], PREMIUM: [] }
+        commercialPackages: { LIGHT: [], MEDIUM: [], PRO: [], PREMIUM: [] }
       });
     }
 
@@ -6074,12 +6650,19 @@ const [packages] = await db.query(`
   SELECT 
     p.id,
     p.name,
+    p.description,
     p.price,
     p.registration_type,
-    t.\`${locale}\` AS translated_description
+    tn.\`${locale}\` AS translated_name,
+    td.\`${locale}\` AS translated_description
   FROM packages p
-  LEFT JOIN ui_translations t
-    ON t.key = CONCAT('package.', REPLACE(p.id, '-', '_'))
+  LEFT JOIN ui_translations tn
+    ON tn.key = CONCAT(
+      'package.',
+      REPLACE(REPLACE(REPLACE(LOWER(TRIM(p.name)), ' ', '_'), '-', '_'), '__', '_')
+    )
+  LEFT JOIN ui_translations td
+    ON td.key = CONCAT('package.', REPLACE(p.id, '-', '_'))
   WHERE p.registration_type = ?
   ORDER BY p.sort_order
 `, [registrationType]);
@@ -6140,7 +6723,7 @@ const [packages] = await db.query(`
 
     // 🧊 Paket-Gruppierung
     const privatePackages = [];
-    const commercialPackages = { LIGHT: [], PRO: [], PREMIUM: [] };
+    const commercialPackages = { LIGHT: [], MEDIUM: [], PRO: [], PREMIUM: [] };
 
     for (const pkg of activePackages) {
       const categoryInfo = CATEGORY_MAP[pkg.category_id] || null;
@@ -6148,14 +6731,17 @@ const [packages] = await db.query(`
         categoryInfo?.route ||
         categoryInfo?.name ||
         `Kategorie ${pkg.category_id}`;
-      const pkgName = pkg.package_name.toLowerCase();
+      const pkgId = String(pkg.package_id || '').toLowerCase();
+      const pkgName = String(pkg.package_name || '').toLowerCase();
+      const pkgKey = pkgId || pkgName;
 
       if (pkg.registration_type === 'private') {
         privatePackages.push(categoryName);
       } else {
-        if (pkgName.includes('light')) commercialPackages.LIGHT.push(categoryName);
-        else if (pkgName.includes('pro')) commercialPackages.PRO.push(categoryName);
-        else if (pkgName.includes('premium')) commercialPackages.PREMIUM.push(categoryName);
+        if (pkgKey.includes('light')) commercialPackages.LIGHT.push(categoryName);
+        else if (pkgKey.includes('medium')) commercialPackages.MEDIUM.push(categoryName);
+        else if (pkgKey.includes('pro')) commercialPackages.PRO.push(categoryName);
+        else if (pkgKey.includes('premium')) commercialPackages.PREMIUM.push(categoryName);
       }
     }
 
@@ -6313,9 +6899,10 @@ router.get("/profil", async (req, res) => {
         pm.status AS payment_status,
         CONCAT('/assets/pdf/invoices/invoice_', o.id, '.pdf') AS pdf_path
       FROM orders o
-      JOIN payments pm ON pm.order_id = o.id AND pm.status = 'paid'
+      JOIN payments pm ON pm.order_id = o.id AND pm.status IN ('paid', 'succeeded', 'simulated')
       LEFT JOIN packages p ON p.id = o.package_id
       WHERE o.user_id = ?
+        AND o.id <> 100184639
       ORDER BY o.created_at DESC
     `, [userId]);
 
@@ -6346,7 +6933,7 @@ router.get("/profil", async (req, res) => {
 
         -- WICHTIG !!!
         JOIN orders o ON o.id = sp.order_id
-        JOIN payments pm ON pm.order_id = o.id AND pm.status = 'paid'
+        JOIN payments pm ON pm.order_id = o.id AND pm.status IN ('paid', 'succeeded', 'simulated')
 
         WHERE sp.user_id = ?
           AND sp.end_date > NOW()
@@ -6372,6 +6959,8 @@ router.get("/profil", async (req, res) => {
       const [countries] = await db.query(`
         SELECT id, de AS name
         FROM countries
+        WHERE parent_id IS NULL
+          AND visible = 1
         ORDER BY de
       `);
 
@@ -6447,6 +7036,7 @@ router.post("/profil", async (req, res) => {
         userId,
       ]
     );
+    await enqueueCustomerUpdate(userId);
 
     res.redirect("/buyer/profil");
   } catch (err) {
@@ -6499,6 +7089,7 @@ router.post("/profile/update", async (req, res) => {
         "UPDATE users SET email = ?, password = ?, modified = NOW() WHERE id = ?",
         [email, hashed, userId]
       );
+      await enqueueCustomerUpdate(userId);
 
       return res.redirect("/buyer/profil?success=Login-Daten aktualisiert.");
     }
@@ -6563,6 +7154,7 @@ router.post("/profile/update", async (req, res) => {
           userId
         ]
       );
+      await enqueueCustomerUpdate(userId);
 
       if (!result.affectedRows) {
         return res.redirect("/buyer/profil?error=Profil konnte nicht gespeichert werden.");

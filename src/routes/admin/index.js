@@ -14,6 +14,7 @@ const path    = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const upload = multer({ dest: '/tmp' });
+const ADMIN_EXPIRED_VISIBLE_EMAIL = 'peter.gerguis@gmail.com';
 const stateFilters = {
   all:       { where: [] },
   active: { where: ['visible = 1', 'status = 3', '(published IS NULL OR published <= NOW())'] },
@@ -31,6 +32,8 @@ toapprove: {
   ended:     { where: ['status = 4', 'visible = 0'] },
   deleted:   { where: ['status = 9'] }
 };
+   
+
 const states = [
   'all',
   'active',
@@ -104,12 +107,46 @@ function placementOrderSql(alias) {
 
 const INVOICE_PDF_DIR = path.join(__dirname, '../../public/assets/pdf/invoices');
 const ACCOUNTING_SUCCESS_PAYMENT_STATUSES = ['succeeded', 'paid', 'simulated'];
+const LIVE_PAYMENT_STATUSES = ['succeeded'];
 
 function paidOrderExistsSql(orderAlias = 'o') {
   const a = /^[a-z_][a-z0-9_]*$/i.test(orderAlias) ? orderAlias : 'o';
   const statuses = ACCOUNTING_SUCCESS_PAYMENT_STATUSES.map(s => `'${s}'`).join(', ');
   return `EXISTS (
     SELECT 1
+      FROM payments pm
+     WHERE pm.order_id = ${a}.id
+       AND pm.status IN (${statuses})
+  )`;
+}
+
+function paidOrderAmountSql(orderAlias = 'o') {
+  const a = /^[a-z_][a-z0-9_]*$/i.test(orderAlias) ? orderAlias : 'o';
+  const statuses = ACCOUNTING_SUCCESS_PAYMENT_STATUSES.map(s => `'${s}'`).join(', ');
+  return `(
+    SELECT COALESCE(SUM(pm.amount), 0)
+      FROM payments pm
+     WHERE pm.order_id = ${a}.id
+       AND pm.status IN (${statuses})
+  )`;
+}
+
+function liveOrderExistsSql(orderAlias = 'o') {
+  const a = /^[a-z_][a-z0-9_]*$/i.test(orderAlias) ? orderAlias : 'o';
+  const statuses = LIVE_PAYMENT_STATUSES.map(s => `'${s}'`).join(', ');
+  return `EXISTS (
+    SELECT 1
+      FROM payments pm
+     WHERE pm.order_id = ${a}.id
+       AND pm.status IN (${statuses})
+  )`;
+}
+
+function liveOrderAmountSql(orderAlias = 'o') {
+  const a = /^[a-z_][a-z0-9_]*$/i.test(orderAlias) ? orderAlias : 'o';
+  const statuses = LIVE_PAYMENT_STATUSES.map(s => `'${s}'`).join(', ');
+  return `(
+    SELECT COALESCE(SUM(pm.amount), 0)
       FROM payments pm
      WHERE pm.order_id = ${a}.id
        AND pm.status IN (${statuses})
@@ -863,12 +900,14 @@ function isAllowedPathForRole(role, path) {
   if (role === 8) {
     if (p === '/' || p === '/api/stats') return true;
     if (p === '/logout') return true;
+    if (p === '/listings/translate-queue' || p.startsWith('/listings/translate-queue')) return false;
     return (
       p === '/listings' || p.startsWith('/listings/') ||
       p === '/jobs' || p.startsWith('/jobs/') ||
       p === '/users' || p.startsWith('/users/') ||
       p === '/modbrand' || p.startsWith('/modbrand/') ||
       p === '/bund' || p.startsWith('/bund/') ||
+      p === '/monitoring' || p.startsWith('/monitoring/') ||
       p === '/analytics' || p.startsWith('/analytics/') ||
       p === '/accounting' || p.startsWith('/accounting/') ||
       p === '/seo' || p.startsWith('/seo/') ||
@@ -879,6 +918,7 @@ function isAllowedPathForRole(role, path) {
   if (role === 7) {
     if (p === '/') return true;
     if (p === '/logout') return true;
+    if (p === '/listings/translate-queue' || p.startsWith('/listings/translate-queue')) return false;
     return (
       p === '/listings' || p.startsWith('/listings/') ||
       p === '/jobs' || p.startsWith('/jobs/') ||
@@ -1358,11 +1398,10 @@ router.get('/', async (req, res, next) => {
            FROM orders o
           WHERE o.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
             AND ${paidOrderExistsSql('o')}) AS invoices_24h,
-        (SELECT COALESCE(SUM(p.price),0)
+        (SELECT COALESCE(SUM(${liveOrderAmountSql('o')}),0)
            FROM orders o
-           LEFT JOIN packages p ON p.id = o.package_id
           WHERE o.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-            AND ${paidOrderExistsSql('o')}) AS revenue_24h
+            AND ${liveOrderExistsSql('o')}) AS revenue_24h
     `);
 
     // 4f) Neue Kunden (letzte 10) inkl. letzter Aktivität
@@ -1516,6 +1555,46 @@ router.get('/', async (req, res, next) => {
   }
 });
 
+async function measureDbPingMs() {
+  const started = Date.now();
+  await db.query('SELECT 1');
+  return Date.now() - started;
+}
+
+router.get('/monitoring', async (req, res, next) => {
+  if (![8, 9].includes(Number(req.session.role))) return res.status(403).end();
+  try {
+    const monitor = req.app.locals.runtimeMonitor;
+    const snapshot = monitor ? monitor.getSnapshot() : null;
+    const dbPingMs = await measureDbPingMs().catch(() => null);
+
+    res.render('admin/monitoring', {
+      active: 'monitoring',
+      role: req.session.role,
+      snapshot,
+      dbPingMs
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.get('/monitoring/api', async (req, res, next) => {
+  if (![8, 9].includes(Number(req.session.role))) return res.status(403).end();
+  try {
+    const monitor = req.app.locals.runtimeMonitor;
+    const snapshot = monitor ? monitor.getSnapshot() : null;
+    const dbPingMs = await measureDbPingMs().catch(() => null);
+    res.json({
+      ok: true,
+      dbPingMs,
+      snapshot
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 
 
  
@@ -1588,20 +1667,107 @@ router.get('/accounting', async (req, res, next) => {
   if (![8, 9].includes(Number(req.session.role))) return res.status(403).end();
 
   try {
+    const paymentFilterRaw = String(req.query.paymentFilter || '').toLowerCase();
+    const allowedPaymentFilters = new Set(['succeeded', 'simulated', 'incomplete']);
+    if (!allowedPaymentFilters.has(paymentFilterRaw)) {
+      return res.redirect('/admin/accounting?paymentFilter=succeeded');
+    }
+    const paymentFilter = paymentFilterRaw;
+
+    const paymentFilterWhereByKey = {
+      succeeded: `COALESCE((
+                    SELECT SUM(CASE WHEN pm.status = 'succeeded' THEN pm.amount ELSE 0 END)
+                      FROM payments pm
+                     WHERE pm.order_id = o.id
+                  ), 0) > 0`,
+      simulated: `COALESCE((
+                    SELECT SUM(CASE WHEN pm.status = 'simulated' THEN pm.amount ELSE 0 END)
+                      FROM payments pm
+                     WHERE pm.order_id = o.id
+                  ), 0) > 0`,
+      incomplete: `EXISTS (
+                     SELECT 1
+                       FROM payments pm
+                      WHERE pm.order_id = o.id
+                        AND pm.status NOT IN ('succeeded', 'paid', 'simulated')
+                   )`
+    };
+
+    const paymentFilterAmountSqlByKey = {
+      succeeded: `COALESCE((
+                    SELECT SUM(CASE WHEN pm.status = 'succeeded' THEN pm.amount ELSE 0 END)
+                      FROM payments pm
+                     WHERE pm.order_id = o.id
+                  ), 0)`,
+      simulated: `COALESCE((
+                    SELECT SUM(CASE WHEN pm.status = 'simulated' THEN pm.amount ELSE 0 END)
+                      FROM payments pm
+                     WHERE pm.order_id = o.id
+                  ), 0)`,
+      incomplete: `COALESCE((
+                     SELECT SUM(CASE WHEN pm.status NOT IN ('succeeded', 'paid', 'simulated') THEN pm.amount ELSE 0 END)
+                       FROM payments pm
+                      WHERE pm.order_id = o.id
+                  ), 0)`
+    };
+    const invoiceFilterWhereSql = paymentFilterWhereByKey[paymentFilter] || paymentFilterWhereByKey.succeeded;
+    const invoiceAmountSql = paymentFilterAmountSqlByKey[paymentFilter] || paymentFilterAmountSqlByKey.succeeded;
+
     const [[summary]] = await db.query(`
       SELECT
         COUNT(*) AS total_invoices,
-        COALESCE(SUM(p.price), 0) AS total_revenue,
+        COALESCE(SUM(${liveOrderAmountSql('o')}), 0) AS total_revenue,
         COUNT(DISTINCT o.user_id) AS billed_customers,
         SUM(CASE WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN 1 ELSE 0 END) AS invoices_24h,
-        COALESCE(SUM(CASE WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN p.price ELSE 0 END), 0) AS revenue_24h,
+        COALESCE(SUM(CASE WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN ${liveOrderAmountSql('o')} ELSE 0 END), 0) AS revenue_24h,
         SUM(CASE WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN 1 ELSE 0 END) AS invoices_30d,
-        COALESCE(SUM(CASE WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN p.price ELSE 0 END), 0) AS revenue_30d,
+        COALESCE(SUM(CASE WHEN o.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN ${liveOrderAmountSql('o')} ELSE 0 END), 0) AS revenue_30d,
         SUM(CASE WHEN YEAR(o.created_at)=YEAR(CURDATE()) AND MONTH(o.created_at)=MONTH(CURDATE()) THEN 1 ELSE 0 END) AS invoices_mtd,
-        COALESCE(SUM(CASE WHEN YEAR(o.created_at)=YEAR(CURDATE()) AND MONTH(o.created_at)=MONTH(CURDATE()) THEN p.price ELSE 0 END), 0) AS revenue_mtd
+        COALESCE(SUM(CASE WHEN YEAR(o.created_at)=YEAR(CURDATE()) AND MONTH(o.created_at)=MONTH(CURDATE()) THEN ${liveOrderAmountSql('o')} ELSE 0 END), 0) AS revenue_mtd
+        ,
+        (
+          SELECT COALESCE(SUM(oup.price_cents / 100), 0)
+          FROM orders_user_packages oup
+          WHERE oup.payment_status IN ('paid', 'succeeded')
+            AND oup.stripe_session_id LIKE 'cs_live_%'
+        ) AS marketing_total_revenue,
+        (
+          SELECT COALESCE(SUM(CASE WHEN oup.created_at >= DATE_SUB(NOW(), INTERVAL 24 HOUR) THEN oup.price_cents / 100 ELSE 0 END), 0)
+          FROM orders_user_packages oup
+          WHERE oup.payment_status IN ('paid', 'succeeded')
+            AND oup.stripe_session_id LIKE 'cs_live_%'
+        ) AS marketing_revenue_24h,
+        (
+          SELECT COALESCE(SUM(CASE WHEN oup.created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY) THEN oup.price_cents / 100 ELSE 0 END), 0)
+          FROM orders_user_packages oup
+          WHERE oup.payment_status IN ('paid', 'succeeded')
+            AND oup.stripe_session_id LIKE 'cs_live_%'
+        ) AS marketing_revenue_30d,
+        (
+          SELECT COALESCE(SUM(CASE WHEN YEAR(oup.created_at)=YEAR(CURDATE()) AND MONTH(oup.created_at)=MONTH(CURDATE()) THEN oup.price_cents / 100 ELSE 0 END), 0)
+          FROM orders_user_packages oup
+          WHERE oup.payment_status IN ('paid', 'succeeded')
+            AND oup.stripe_session_id LIKE 'cs_live_%'
+        ) AS marketing_revenue_mtd
       FROM orders o
-      LEFT JOIN packages p ON p.id = o.package_id
-      WHERE ${paidOrderExistsSql('o')}
+      WHERE ${liveOrderExistsSql('o')}
+    `);
+    summary.total_revenue = Number(summary.total_revenue || 0)
+      + Number(summary.marketing_total_revenue || 0);
+    summary.revenue_24h = Number(summary.revenue_24h || 0)
+      + Number(summary.marketing_revenue_24h || 0);
+    summary.revenue_30d = Number(summary.revenue_30d || 0)
+      + Number(summary.marketing_revenue_30d || 0);
+    summary.revenue_mtd = Number(summary.revenue_mtd || 0)
+      + Number(summary.marketing_revenue_mtd || 0);
+
+    const [[invoiceFilterCounts]] = await db.query(`
+      SELECT
+        COUNT(DISTINCT CASE WHEN pm.status = 'succeeded' THEN pm.order_id END) AS succeeded_count,
+        COUNT(DISTINCT CASE WHEN pm.status = 'simulated' THEN pm.order_id END) AS simulated_count,
+        COUNT(DISTINCT CASE WHEN pm.status NOT IN ('succeeded', 'paid', 'simulated') THEN pm.order_id END) AS incomplete_count
+      FROM payments pm
+      WHERE pm.order_id IS NOT NULL
     `);
 
     const [invoiceRows] = await db.query(
@@ -1609,7 +1775,7 @@ router.get('/accounting', async (req, res, next) => {
       SELECT
         o.id,
         CONCAT('Order #', o.id) AS document,
-        COALESCE(p.price, 0) AS amount,
+        ${invoiceAmountSql} AS amount,
         o.user_id,
         DATE_FORMAT(o.created_at, '%Y-%m-%d %H:%i:%s') AS created,
         NULL AS modified,
@@ -1617,8 +1783,7 @@ router.get('/accounting', async (req, res, next) => {
         u.email
       FROM orders o
       LEFT JOIN users u ON u.id = o.user_id
-      LEFT JOIN packages p ON p.id = o.package_id
-      WHERE ${paidOrderExistsSql('o')}
+      WHERE ${invoiceFilterWhereSql}
       ORDER BY o.created_at DESC, o.id DESC
       `,
       []
@@ -1635,11 +1800,23 @@ router.get('/accounting', async (req, res, next) => {
     }
 
     const [revenueRaw] = await db.query(`
-      SELECT DATE_FORMAT(o.created_at, '%Y-%m') AS month, COALESCE(SUM(p.price),0) AS revenue
-      FROM orders o
-      LEFT JOIN packages p ON p.id = o.package_id
-      WHERE o.created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
-        AND ${paidOrderExistsSql('o')}
+      SELECT month, COALESCE(SUM(revenue), 0) AS revenue
+      FROM (
+        SELECT DATE_FORMAT(o.created_at, '%Y-%m') AS month, COALESCE(SUM(${liveOrderAmountSql('o')}), 0) AS revenue
+        FROM orders o
+        WHERE o.created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+          AND ${liveOrderExistsSql('o')}
+        GROUP BY month
+
+        UNION ALL
+
+        SELECT DATE_FORMAT(oup.created_at, '%Y-%m') AS month, COALESCE(SUM(oup.price_cents / 100), 0) AS revenue
+        FROM orders_user_packages oup
+        WHERE oup.payment_status IN ('paid', 'succeeded')
+          AND oup.stripe_session_id LIKE 'cs_live_%'
+          AND oup.created_at >= DATE_SUB(CURDATE(), INTERVAL 12 MONTH)
+        GROUP BY month
+      ) rev
       GROUP BY month
       ORDER BY month
     `);
@@ -1697,6 +1874,8 @@ router.get('/accounting', async (req, res, next) => {
       role: req.session.role,
       summary: summary || {},
       invoiceRows,
+      invoiceFilter: paymentFilter,
+      invoiceFilterCounts: invoiceFilterCounts || {},
       revenueByMonth12,
       recentListingPackages,
       recentAdPackages,
@@ -1768,10 +1947,36 @@ router.get('/listings', async (req, res, next) => {
       );
     }
 
+    let specialExpiredUserId = null;
+    try {
+      const [[specialUser]] = await db.query(
+        `SELECT id
+           FROM users
+          WHERE LOWER(email) = LOWER(?)
+          LIMIT 1`,
+        [ADMIN_EXPIRED_VISIBLE_EMAIL]
+      );
+      specialExpiredUserId = Number(specialUser?.id) || null;
+    } catch (lookupErr) {
+      console.warn('[ADMIN listings] Special expired user lookup failed:', lookupErr.message);
+    }
+
+    const activeStateClauseForSpecialUser = specialExpiredUserId
+      ? `((visible = 1 AND status = 3) OR (status = 4 AND user_id = ${specialExpiredUserId}))`
+      : '(visible = 1 AND status = 3)';
+
     // 2) Counts pro State (Alias t.) inkl. Ads-Filter
     const counts = {};
     for (const st of Object.keys(stateFilters)) {
-      const rawWheres = stateFilters[st].where || [];
+      const rawWheres = [...(stateFilters[st].where || [])];
+      if (st === 'active') {
+        const visibleIdx = rawWheres.indexOf('visible = 1');
+        const statusIdx = rawWheres.indexOf('status = 3');
+        if (visibleIdx >= 0) rawWheres.splice(visibleIdx, 1);
+        const statusIdxAfterVisible = rawWheres.indexOf('status = 3');
+        if (statusIdxAfterVisible >= 0) rawWheres.splice(statusIdxAfterVisible, 1);
+        rawWheres.unshift(activeStateClauseForSpecialUser);
+      }
       const clausesCount = rawWheres.map(cond =>
         cond
           .replace(/\bmodified\b/g,  't.modified')
@@ -1860,7 +2065,14 @@ router.get('/listings', async (req, res, next) => {
 
     // 6) WHERE-Clauses bauen
     const filter    = stateFilters[state] || stateFilters.all;
-    const rawWheres = filter.where || [];
+    const rawWheres = [...(filter.where || [])];
+    if (state === 'active') {
+      const visibleIdx = rawWheres.indexOf('visible = 1');
+      if (visibleIdx >= 0) rawWheres.splice(visibleIdx, 1);
+      const statusIdx = rawWheres.indexOf('status = 3');
+      if (statusIdx >= 0) rawWheres.splice(statusIdx, 1);
+      rawWheres.unshift(activeStateClauseForSpecialUser);
+    }
     const clauses   = rawWheres.map(cond =>
       cond
         .replace(/\bmodified\b/g,  't.modified')
@@ -2164,8 +2376,10 @@ router.get('/listings', async (req, res, next) => {
             AND column_name = 'propertytype'
           ORDER BY sort_order`
       );
-      extraOptions.investmentTypes = it;
-      extraOptions.propertyTypes   = pt;
+      const isBlockedPropertyLabel = (row) =>
+        String(row?.label || '').trim().toLowerCase() === 'grundstück/fläche';
+      extraOptions.investmentTypes = it.filter((row) => !isBlockedPropertyLabel(row));
+      extraOptions.propertyTypes   = pt.filter((row) => !isBlockedPropertyLabel(row));
     }
 
     // 12) Rendering
@@ -2483,7 +2697,16 @@ router.get('/listings/:category/:id/edit', async (req, res, next) => {
 
     // Länder + Filterdaten
     const [countries] = await db.query(
-      `SELECT id, de AS name FROM countries WHERE visible = 1 ORDER BY name`
+      `SELECT c.id, c.parent_id, c.de AS name
+         FROM countries c
+        WHERE c.visible = 1
+           OR c.parent_id IS NOT NULL
+           OR c.id IN (SELECT DISTINCT parent_id FROM countries WHERE parent_id IS NOT NULL)
+           OR c.id = ?
+        ORDER BY
+          CASE WHEN c.parent_id IS NULL THEN 0 ELSE 1 END,
+          c.de`,
+      [item.country_id || 0]
     );
 
     let brands = [], models = [], lifestyleTypes = [], lifestyleSubcategories = [];
@@ -2552,16 +2775,38 @@ router.get('/listings/:category/:id/edit', async (req, res, next) => {
 
     // Admin-Edit wird über das gemeinsame buyer-Formular gespeichert.
     // Wir legen daher einen kurzlebigen Session-Grant für genau dieses Inserat ab.
+    const rawReferer = String(req.get('referer') || '');
+    const rawReturnTo = String(req.query?.returnTo || '').trim();
+    let adminReturnTo = req.originalUrl;
+
+    if (rawReturnTo.startsWith('/admin/listings')) {
+      adminReturnTo = rawReturnTo;
+    }
+
+    if (rawReferer) {
+      try {
+        const parsedRef = new URL(rawReferer, 'http://localhost');
+        const refPathWithQuery = `${parsedRef.pathname || ''}${parsedRef.search || ''}`;
+        if (adminReturnTo === req.originalUrl && refPathWithQuery.startsWith('/admin/listings')) {
+          adminReturnTo = refPathWithQuery;
+        }
+      } catch (_) {
+        // ignore invalid referer and keep fallback
+      }
+    }
+
     req.session.adminListingEditGrant = {
       listingId: Number(item.id),
       table: String(ent.table_name),
       ownerUserId: Number(item.user_id || 0),
       adminUserId: Number(req.session.userId || 0),
       expiresAt: Date.now() + (15 * 60 * 1000),
-      returnTo: req.originalUrl
+      returnTo: adminReturnTo
     };
 
     // 5) Rendern
+    const sessionRole = Number(req.session.role || 0);
+    const canPickMainFromGallery = [7, 8, 9].includes(sessionRole);
     res.render('pages/templates/edit-listing', {
       active:        'listings',
       currentEntity: ent,
@@ -2575,7 +2820,8 @@ router.get('/listings/:category/:id/edit', async (req, res, next) => {
       filters,
       checkboxGroups,
       watchCheckboxGroups,
-      gallery: Array.isArray(pics) ? pics : []
+      gallery: Array.isArray(pics) ? pics : [],
+      canPickMainFromGallery
     });
 
   } catch (err) {
@@ -3072,6 +3318,16 @@ router.post('/seller-requests/:id/send', async (req, res, next) => {
       safeBuyerPhone,
       safeListingUrl
     });
+    const adminHtml = `
+      <div style="font-family:Arial,Helvetica,sans-serif;line-height:1.5;color:#111;">
+        <h2 style="margin:0 0 12px;">Seller-Request weitergeleitet</h2>
+        <p style="margin:0 0 10px;">Eine Verkäuferanfrage wurde erfolgreich an den Kunden weitergeleitet.</p>
+        <p style="margin:0 0 6px;"><strong>Request-ID:</strong> ${requestId}</p>
+        <p style="margin:0 0 6px;"><strong>Kunde:</strong> ${safeBuyerName}${buyerEmailRaw ? ` (${safeBuyerEmail})` : ''}</p>
+        <p style="margin:0 0 6px;"><strong>Empfänger:</strong> ${adminEscapeHtml(sellerEmailRaw)}</p>
+        <p style="margin:0 0 6px;"><strong>Inserat:</strong> <a href="${safeListingUrl}" target="_blank" rel="noopener">${safeListingUrl}</a></p>
+      </div>
+    `;
 
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
@@ -3088,6 +3344,12 @@ router.post('/seller-requests/:id/send', async (req, res, next) => {
         from: `"Herando A.S." <info@herando.com>`,
         to: sellerEmailRaw,
         subject: copy.sellerSubject,
+        html: sellerHtml
+      });
+      await transporter.sendMail({
+        from: `"Herando A.S." <info@herando.com>`,
+        to: 'info@herando.com',
+        subject: `Admin Info: Anfrage #${requestId} weitergeleitet`,
         html: sellerHtml
       });
     } catch (mailErr) {
@@ -3465,9 +3727,11 @@ router.use('/newsletter', require('./newsletter'));
 router.use('/jobs', require('./jobs'));
 const analyticsRouter = require('./analytics');
 router.use('/analytics', analyticsRouter);
+router.use('/bot-simulator', require('./bot-simulator'));
 router.use('/seo', require('./seo'));
 router.use('/ui', require('./ui'));
 router.use('/sitemap', require('./sitemap'));
+router.use('/cloudflare', require('./cloudflare'));
 
 
 

@@ -6,6 +6,13 @@
   const adPkgs = Array.isArray(recentAdPackages) ? recentAdPackages : [];
   const rev12 = Array.isArray(revenueByMonth12) ? revenueByMonth12 : [];
   const pg = (typeof pagination !== 'undefined' && pagination) ? pagination : { page: 1, totalPages: 1, totalRows: 0 };
+  const invFilter = (typeof invoiceFilter === 'string' && invoiceFilter) ? invoiceFilter : 'succeeded';
+  const invCounts = (typeof invoiceFilterCounts !== 'undefined' && invoiceFilterCounts) ? invoiceFilterCounts : {};
+  const filterTabs = [
+    { key: 'succeeded', label: 'Live Zahlungen', count: Number(invCounts.succeeded_count || 0) },
+    { key: 'simulated', label: 'Simulierte Zahlungen', count: Number(invCounts.simulated_count || 0) },
+    { key: 'incomplete', label: 'Nicht abgeschlossene Zahlungen', count: Number(invCounts.incomplete_count || 0) }
+  ];
   const num = (v) => Number(v || 0).toLocaleString('de-DE');
   const money = (v) => Number(v || 0).toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const page = Math.max(1, Number(pg.page || 1));
@@ -157,6 +164,26 @@
       <div class="col-12">
         <div class="card shadow-sm">
           <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Rechnungen filtern</span>
+            <span class="small text-muted">Kategorie wählen</span>
+          </div>
+          <div class="card-body">
+            <div class="d-flex flex-wrap gap-2">
+              <% filterTabs.forEach((tab) => { %>
+                <a
+                  href="/admin/accounting?paymentFilter=<%= encodeURIComponent(tab.key) %>"
+                  class="btn btn-sm <%= invFilter === tab.key ? 'btn-primary' : 'btn-outline-secondary' %>"
+                >
+                  <%= tab.label %> (<%= num(tab.count) %>)
+                </a>
+              <% }) %>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-header d-flex justify-content-between align-items-center">
             <span>Alle Rechnungen</span>
             <span class="small text-muted"><%= num(pg.totalRows) %> Einträge gesamt</span>
           </div>
@@ -165,12 +192,11 @@
               <table class="table table-sm mb-0 align-middle">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Dokument</th>
+                    <th>Rechnungsnummer</th>
+                    <th>Bestellnummer</th>
                     <th>Kunde</th>
                     <th>E-Mail</th>
                     <th>Erstellt</th>
-                    <th>Geändert</th>
                     <th class="text-end">Betrag</th>
                     <th class="text-end">PDF</th>
                   </tr>
@@ -186,7 +212,6 @@
                       <td class="text-truncate" style="max-width: 190px;"><a href="/admin/users/<%= r.user_id %>/edit" class="text-decoration-none"><%= r.customer_name %></a></td>
                       <td class="text-truncate" style="max-width: 220px;"><%= r.email || '–' %></td>
                       <td><%= r.created || '–' %></td>
-                      <td><%= r.modified || '–' %></td>
                       <td class="text-end fw-semibold"><%= money(r.amount) %> €</td>
                       <td class="text-end">
                         <% if (r.pdf_exists) { %>

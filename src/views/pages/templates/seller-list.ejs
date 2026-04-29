@@ -77,19 +77,7 @@
   <div class="info">
     <h2><%= sellerProfile.company %></h2>
 
-    <% if (sellerProfile.company) { %>
-      <p>
-        <strong><%= t('seller.company', 'Firma:') %></strong>
-        <%= sellerProfile.company %>
-      </p>
-    <% } %>
 
-    <% if (sellerProfile.address) { %>
-      <p>
-        <strong><%= t('seller.address', 'Adresse:') %></strong>
-        <%= sellerProfile.address %>
-      </p>
-    <% } %>
   </div>
 </div>
 
@@ -107,7 +95,7 @@
                 src="<%= item.image %>"
                 alt="<%= item.title %>"
                 loading="lazy"
-                class="seller-card-img">
+                class="seller-card-img<%= item.sellerImageCoverFit ? ' seller-card-img--placeholder-cover' : '' %>">
             </div>
           </div>
 
@@ -432,3 +420,6 @@ document.getElementById('itemsPerPage')?.addEventListener('change', function () 
 </section>
 
 <%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

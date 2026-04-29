@@ -9,6 +9,13 @@ const { unserialize } = require('php-unserialize');
 
 const fs    = require('fs');
 const path  = require('path');
+const {
+  ADVERT_FIELDS,
+  enqueueAkquise,
+  loadRowById,
+  pickPayload,
+  shouldEnqueueAdvert,
+} = require('../../lib/akquisemanager');
 
 // Multer: temporäre Speicherung im Arbeitsspeicher
 const upload = multer({ storage: multer.memoryStorage() });
@@ -40,6 +47,31 @@ const MAX_TRANSLATION_SPLIT_DEPTH = (() => {
   return Number.isInteger(n) && n >= 1 ? n : 4;
 })();
 const AI_ERROR_PREVIEW_CHARS = 500;
+
+async function enqueueAdvertFromTable(method, table, advertId) {
+  try {
+    const row = await loadRowById({
+      table,
+      id: advertId,
+      fields: [...ADVERT_FIELDS, 'status', 'visible'],
+    });
+    if (!row || !shouldEnqueueAdvert(row)) return;
+    await enqueueAkquise({
+      method,
+      objectId: advertId,
+      payload: pickPayload(row, ADVERT_FIELDS),
+    });
+  } catch (err) {
+    console.error(`[AKQUISE] ${method} failed for advert ${advertId}:`, err.message);
+  }
+}
+
+/** Alle Listing-Übersetzungen strikt nacheinander (siehe `src/lib/listing-translate-queue.js`). */
+const listingTranslateQueue = require('../../lib/listing-translate-queue');
+
+function enqueueListingTranslateJob(fn, meta = {}) {
+  return listingTranslateQueue.enqueue(fn, meta);
+}
 
 function tlog(...args){ if (TLOG) console.log('[BULK-TRANSLATE]', ...args); }
 
@@ -175,6 +207,48 @@ function estimateCompletionTokens(textLength) {
   return Math.min(MAX_TRANSLATION_OUTPUT_TOKENS, Math.max(900, estimate));
 }
 
+const AI_RATE_LIMIT_MAX_RETRIES = (() => {
+  const n = parseInt(process.env.AI_RATE_LIMIT_MAX_RETRIES || '5', 10);
+  return Number.isInteger(n) && n >= 0 ? n : 5;
+})();
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function isRateLimitError(err) {
+  const status = Number(err?.status || err?.statusCode || 0);
+  if (status === 429) return true;
+  const msg = String(err?.message || '');
+  return /rate limit|429/i.test(msg);
+}
+
+function extractRetryDelayMs(err, fallbackMs = 200) {
+  const msg = String(err?.message || '');
+  const msMatch = msg.match(/try again in\s+(\d+)\s*ms/i);
+  if (msMatch) return Math.max(50, Number(msMatch[1]));
+  const secMatch = msg.match(/try again in\s+(\d+(?:\.\d+)?)\s*s/i);
+  if (secMatch) return Math.max(50, Math.round(Number(secMatch[1]) * 1000));
+  return fallbackMs;
+}
+
+async function withAiRateLimitRetry(requestFn, scope = 'unknown') {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await requestFn();
+    } catch (err) {
+      if (!isRateLimitError(err) || attempt >= AI_RATE_LIMIT_MAX_RETRIES) throw err;
+      const delay = extractRetryDelayMs(err, 150 + (attempt * 120));
+      const jitter = Math.floor(Math.random() * 60);
+      const waitMs = delay + jitter;
+      console.warn(`[AI ${scope}] rate-limited (attempt ${attempt + 1}/${AI_RATE_LIMIT_MAX_RETRIES}), retry in ${waitMs}ms`);
+      await sleep(waitMs);
+      attempt += 1;
+    }
+  }
+}
+
 async function translateChunkJson({ text, sourceLang, targetLang, fieldLabel }) {
   const payload = {
     sourceLang: sourceLang || 'auto',
@@ -187,30 +261,33 @@ async function translateChunkJson({ text, sourceLang, targetLang, fieldLabel }) 
 - Bewahre HTML-Tags, Zeilenumbrüche, Zahlen und Sonderzeichen exakt.
 - Antworte NUR als JSON: {"text":"..."}.`;
 
-  const resp = await aiClient.chat.completions.create({
-    model: AI_MODEL,
-    messages: [
-      { role: 'system', content: system },
-      { role: 'user', content: JSON.stringify(payload) }
-    ],
-    temperature: 0,
-    max_completion_tokens: estimateCompletionTokens(payload.text.length),
-    response_format: {
-      type: 'json_schema',
-      json_schema: {
-        name: 'translated_chunk',
-        strict: true,
-        schema: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['text'],
-          properties: {
-            text: { type: 'string' }
+  const resp = await withAiRateLimitRetry(
+    () => aiClient.chat.completions.create({
+      model: AI_MODEL,
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: JSON.stringify(payload) }
+      ],
+      temperature: 0,
+      max_completion_tokens: estimateCompletionTokens(payload.text.length),
+      response_format: {
+        type: 'json_schema',
+        json_schema: {
+          name: 'translated_chunk',
+          strict: true,
+          schema: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['text'],
+            properties: {
+              text: { type: 'string' }
+            }
           }
         }
       }
-    }
-  });
+    }),
+    `translateChunkJson:${fieldLabel}`
+  );
 
   const out = resp.choices?.[0]?.message?.content || '{}';
   const finishReason = resp.choices?.[0]?.finish_reason;
@@ -310,6 +387,13 @@ function getTargetLangs() {
     .split(',').map(s => s.trim()).filter(Boolean);
 }
 
+// Normalize once at module load (env does not change during runtime).
+const TARGET_LANGS = [...new Set(
+  getTargetLangs()
+    .map((lang) => String(lang || '').trim().toLowerCase())
+    .filter(Boolean)
+)];
+
 function resolveTitleColumn(columns) {
   const lc = new Set(columns.map(c => c.toLowerCase()));
   if (lc.has('name'))  return 'name';
@@ -347,14 +431,17 @@ async function detectLanguage({ title, description }) {
 
   for (const attempt of attempts) {
     try {
-      const resp = await aiClient.chat.completions.create({
-        model: AI_MODEL,
-        messages: [
-          { role: 'system', content: 'Return only JSON {"lang":"xx"} where xx is ISO 639-1.' },
-          { role: 'user', content: text || ' ' }
-        ],
-        response_format: attempt.response_format
-      });
+      const resp = await withAiRateLimitRetry(
+        () => aiClient.chat.completions.create({
+          model: AI_MODEL,
+          messages: [
+            { role: 'system', content: 'Return only JSON {"lang":"xx"} where xx is ISO 639-1.' },
+            { role: 'user', content: text || ' ' }
+          ],
+          response_format: attempt.response_format
+        }),
+        `detectLanguage:${attempt.label}`
+      );
 
       const out = resp.choices?.[0]?.message?.content || '{}';
       const obj = parseJsonObjectLoose(out);
@@ -441,84 +528,156 @@ async function loadPackages(req, res, next) {
   }
 }
 
-// Helper: eine ID übersetzen + Originalsprache/Originaltext persistieren
-async function translateOne({ id, table, ent }) {
-  try {
-    const targetLangs = [...new Set(
-      getTargetLangs()
-        .map((lang) => String(lang || '').trim().toLowerCase())
-        .filter(Boolean)
-    )];
-    if (!targetLangs.length) {
-      console.warn('[TRANSLATE] target langs leer'); 
-      // wir übersetzen zwar nicht, aber Originalsprache können wir trotzdem speichern:
-      // (der Block unten läuft trotzdem)
+/**
+ * Lädt Kontext und entscheidet, ob noch KI-Übersetzungen nötig sind (ohne zu übersetzen).
+ * Wird vor Queue + in translateOne genutzt; bei Übergabe von `plan` an translateOne kein zweites Mal ausführen.
+ */
+const translationPlanTableMetaCache = new Map();
+async function getTranslationPlanTableMeta(table) {
+  if (translationPlanTableMetaCache.has(table)) {
+    return translationPlanTableMetaCache.get(table);
+  }
+
+  const [schema] = await db.query(
+    `SELECT COLUMN_NAME FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+    [table]
+  );
+
+  const cols = schema.map(r => r.COLUMN_NAME);
+  const titleCol = resolveTitleColumn(cols);
+  const hasDesc = cols.includes('description');
+  const hasSrc = cols.includes('source_lang');
+
+  const meta = { titleCol, hasDesc, hasSrc };
+  translationPlanTableMetaCache.set(table, meta);
+  return meta;
+}
+
+async function fetchTranslationPlan(id, table, ent) {
+  if (!TARGET_LANGS.length) {
+    return { skip: true, reason: 'target-langs-empty' };
+  }
+
+  const { titleCol, hasDesc, hasSrc } = await getTranslationPlanTableMeta(table);
+
+  const [[row]] = await db.query(
+    `SELECT id,
+            \`${titleCol}\` AS title,
+            ${hasDesc ? 'description' : 'NULL AS description'}
+            ${hasSrc ? ', source_lang' : ''}
+     FROM \`${table}\` WHERE id=?`,
+    [id]
+  );
+  if (!row) {
+    return { skip: true, reason: 'no-row' };
+  }
+
+  let source = (hasSrc && row.source_lang) ? row.source_lang : null;
+  if (!source) {
+    source = await detectLanguage({ title: row.title, description: row.description });
+    source = (source || '').toLowerCase().slice(0, 2) || 'auto';
+    console.log('[TRANSLATE] detected', { id, source });
+    if (hasSrc && source && source !== 'auto') {
+      await db.query(`UPDATE \`${table}\` SET source_lang=? WHERE id=?`, [source, id]);
     }
+  }
 
-    // Schema ermitteln
-    const [schema] = await db.query(
-      `SELECT COLUMN_NAME FROM information_schema.COLUMNS
-       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
-      [table]
-    );
-    const cols     = schema.map(r => r.COLUMN_NAME);
-    const titleCol = resolveTitleColumn(cols);
-    const hasDesc  = cols.includes('description');
-    const hasSrc   = cols.includes('source_lang');
+  const originalTitle = row.title || '';
+  const originalDesc = row.description || '';
+  const sourceLc = String(source || '').toLowerCase();
 
-    // Originaldaten laden
-    const [[row]] = await db.query(
-      `SELECT id,
-              \`${titleCol}\` AS title,
-              ${hasDesc ? 'description' : 'NULL AS description'}
-              ${hasSrc ? ', source_lang' : ''}
-       FROM \`${table}\` WHERE id=?`,
-      [id]
-    );
-    if (!row) { console.warn('[TRANSLATE] keine row für id', id); return; }
+  const [existingRows] = await db.query(
+    `SELECT language, title, description
+       FROM listing_translations
+      WHERE entitie_id = ? AND advert_id = ?`,
+    [ent.id, id]
+  );
+  const existingByLang = new Map(
+    existingRows.map((r) => [String(r.language || '').toLowerCase(), r])
+  );
+  const sourceSnapshot = (sourceLc && sourceLc !== 'auto') ? existingByLang.get(sourceLc) : null;
+  const sourceUnchanged = !!sourceSnapshot
+    && String(sourceSnapshot.title ?? '') === originalTitle
+    && String(sourceSnapshot.description ?? '') === originalDesc;
 
-    // Quellsprache bestimmen/setzen
-    let source = (hasSrc && row.source_lang) ? row.source_lang : null;
-    if (!source) {
-      source = await detectLanguage({ title: row.title, description: row.description });
-      source = (source || '').toLowerCase().slice(0,2) || 'auto';
-      console.log('[TRANSLATE] detected', { id, source });
-      if (hasSrc && source && source !== 'auto') {
-        await db.query(`UPDATE \`${table}\` SET source_lang=? WHERE id=?`, [source, id]);
-      }
-    }
-
-    const originalTitle = row.title || '';
-    const originalDesc  = row.description || '';
-    const sourceLc = String(source || '').toLowerCase();
-
-    const [existingRows] = await db.query(
-      `SELECT language, title, description
-         FROM listing_translations
-        WHERE entitie_id = ? AND advert_id = ?`,
-      [ent.id, id]
-    );
-    const existingByLang = new Map(
-      existingRows.map((r) => [String(r.language || '').toLowerCase(), r])
-    );
-    const sourceSnapshot = (sourceLc && sourceLc !== 'auto') ? existingByLang.get(sourceLc) : null;
-    const sourceUnchanged = !!sourceSnapshot
-      && String(sourceSnapshot.title ?? '') === originalTitle
-      && String(sourceSnapshot.description ?? '') === originalDesc;
-
-    let pendingTargetLangs = targetLangs.filter((lang) => !sourceLc || lang !== sourceLc);
-    if (sourceUnchanged) {
-      pendingTargetLangs = pendingTargetLangs.filter((lang) => !existingByLang.has(lang));
-      if (!pendingTargetLangs.length) {
-        console.log('[TRANSLATE] skip unchanged source + all target languages already present', { id, source: sourceLc });
-        return;
-      }
-      console.log('[TRANSLATE] unchanged source, translate only missing target languages', {
+  let pendingTargetLangs = TARGET_LANGS.filter((lang) => !sourceLc || lang !== sourceLc);
+  if (sourceUnchanged) {
+    pendingTargetLangs = pendingTargetLangs.filter((lang) => !existingByLang.has(lang));
+    if (!pendingTargetLangs.length) {
+      return {
+        skip: true,
+        reason: 'unchanged-all-langs-present',
         id,
-        source: sourceLc,
-        missing: pendingTargetLangs
-      });
+        source: sourceLc
+      };
     }
+    console.log('[TRANSLATE] unchanged source, translate only missing target languages', {
+      id,
+      source: sourceLc,
+      missing: pendingTargetLangs
+    });
+  } else if (sourceLc === 'auto') {
+    // If language detection failed ('auto'), we still want to avoid re-translating
+    // target languages that already exist.
+    pendingTargetLangs = pendingTargetLangs.filter((lang) => !existingByLang.has(lang));
+    if (!pendingTargetLangs.length) {
+      return {
+        skip: true,
+        reason: 'auto-source-targets-present',
+        id,
+        source: sourceLc
+      };
+    }
+  }
+
+  return {
+    skip: false,
+    ctx: {
+      source,
+      sourceLc,
+      originalTitle,
+      originalDesc,
+      existingByLang,
+      sourceSnapshot,
+      sourceUnchanged,
+      pendingTargetLangs,
+      ent,
+      id,
+      table
+    }
+  };
+}
+
+// Helper: eine ID übersetzen + Originalsprache/Originaltext persistieren
+async function translateOne({ id, table, ent, plan: precomputedPlan }) {
+  try {
+    const plan = precomputedPlan || await fetchTranslationPlan(id, table, ent);
+    if (plan.skip) {
+      if (plan.reason === 'target-langs-empty') {
+        console.warn('[TRANSLATE] target langs leer');
+      } else if (plan.reason === 'no-row') {
+        console.warn('[TRANSLATE] keine row für id', id);
+      } else if (plan.reason === 'unchanged-all-langs-present') {
+        console.log('[TRANSLATE] skip unchanged source + all target languages already present', {
+          id: plan.id,
+          source: plan.source
+        });
+      } else {
+        console.log('[TRANSLATE] skip', plan);
+      }
+      return;
+    }
+
+    const c = plan.ctx;
+    const {
+      source,
+      originalTitle,
+      originalDesc,
+      sourceUnchanged,
+      pendingTargetLangs,
+      ent: entRef
+    } = c;
 
     // (A) IMMER: Originalsprache + Originaltext in listing_translations sichern
     if (source && source !== 'auto') {
@@ -531,14 +690,13 @@ async function translateOne({ id, table, ent }) {
              title=VALUES(title),
              description=VALUES(description),
              updated_at=CURRENT_TIMESTAMP`,
-          [ent.id, id, source, originalTitle, originalDesc]
+          [entRef.id, id, source, originalTitle, originalDesc]
         );
-        console.log('[TRANSLATE] saved ORIGINAL', { id, source, titlePreview: originalTitle.slice(0,60) });
+        console.log('[TRANSLATE] saved ORIGINAL', { id, source, titlePreview: originalTitle.slice(0, 60) });
       } else {
         console.log('[TRANSLATE] ORIGINAL unchanged', { id, source });
       }
     } else {
-      // Fallback: wenn "auto", Original nicht einsortieren – dann nur Zielsprachen
       console.warn('[TRANSLATE] source=auto – Original nicht als Sprache gespeichert');
     }
 
@@ -565,16 +723,41 @@ async function translateOne({ id, table, ent }) {
            title=VALUES(title),
            description=VALUES(description),
            updated_at=CURRENT_TIMESTAMP`,
-        [ent.id, id, lang, title, description]
+        [entRef.id, id, lang, title, description]
       );
 
-      console.log('[TRANSLATE] saved', { id, lang, titlePreview: (title||'').slice(0,60) });
+      console.log('[TRANSLATE] saved', { id, lang, titlePreview: (title || '').slice(0, 60) });
     }
   } catch (err) {
     console.error('[TRANSLATE] Fehler bei ID', id, err);
   }
 }
 
+// === Übersetzungs-Warteschlange (nur Rolle 9) — vor parametrisierten /:category-Routen registrieren
+router.get('/translate-queue/api', (req, res) => {
+  const role = Number(req.session.role);
+  if (role !== 9) {
+    return res.status(403).json({ ok: false, message: 'Forbidden' });
+  }
+  res.json({ ok: true, ...listingTranslateQueue.getSnapshot() });
+});
+
+router.get('/translate-queue', (req, res, next) => {
+  try {
+    const role = Number(req.session.role);
+    if (role !== 9) {
+      return res.status(403).send('Zugriff verweigert');
+    }
+    res.render('admin/translate-queue', {
+      role,
+      active: 'translate-queue',
+      title: 'Übersetzungs-Warteschlange',
+      initialQueue: listingTranslateQueue.getSnapshot()
+    });
+  } catch (err) {
+    next(err);
+  }
+});
 
 // === BULK ===
 router.post('/:category/bulk', loadEntities, async (req, res, next) => {
@@ -613,7 +796,8 @@ router.post('/:category/bulk', loadEntities, async (req, res, next) => {
       reject:  { status: 8, keepVisible: true },
       stop:    { status: 3, visible: 0 },
       delete:  { status: 9, visible: 0 },
-      restore: { status: 1, visible: 0 }
+      restore: { status: 1, visible: 0 },
+      setdate2010: { status: 3, visible: 1 }
     };
     const m = map[action];
     if (!m) {
@@ -623,7 +807,14 @@ router.post('/:category/bulk', loadEntities, async (req, res, next) => {
 
     // Sofort UPDATE
     const placeholders = cleanIds.map(() => '?').join(',');
-    if (m.keepVisible) {
+    if (action === 'setdate2010') {
+      await db.query(
+        `UPDATE \`${table}\`
+            SET status=?, visible=?, created='2010-01-01 00:00:00'
+          WHERE id IN (${placeholders})`,
+        [m.status, m.visible, ...cleanIds]
+      );
+    } else if (m.keepVisible) {
       await db.query(
         `UPDATE \`${table}\` SET status=? WHERE id IN (${placeholders})`,
         [m.status, ...cleanIds]
@@ -643,20 +834,48 @@ router.post('/:category/bulk', loadEntities, async (req, res, next) => {
     }
     console.log('[BULK] Update OK', { count: cleanIds.length, action });
 
-    // Sofort Redirect
+    // Akquise-Enqueue bewusst in den Hintergrund legen:
+    // Das kann bei vielen IDs/DB-Latenz lange dauern und sonst Nginx-Timeouts auslösen.
+    setImmediate(async () => {
+      for (const advertId of cleanIds) {
+        try {
+          await enqueueAdvertFromTable('updateAdvert', table, advertId);
+        } catch (err) {
+          console.error('[BULK] enqueueAdvertFromTable failed', { advertId, message: err?.message || err });
+        }
+      }
+    });
+
+    // Sofort antworten (AJAX = JSON, sonst Redirect)
     const qs = new URLSearchParams({
       category,
       state: req.body.state || ''
     });
-    if (req.body.search)   qs.set('search', req.body.search);
-    if (req.body.adType)   qs.set('adType', req.body.adType);
+    if (req.body.search) qs.set('search', req.body.search);
+    if (req.body.adType) qs.set('adType', req.body.adType);
     if (req.body.priceMin) qs.set('priceMin', req.body.priceMin);
     if (req.body.priceMax) qs.set('priceMax', req.body.priceMax);
-    if (req.body.sort)     qs.set('sort', req.body.sort);
-    res.redirect(`/admin/listings?${qs.toString()}`);
+    if (req.body.sort) qs.set('sort', req.body.sort);
+    const redirectUrl = `/admin/listings?${qs.toString()}`;
+    const wantsJson = String(req.query.ajax || '').trim() === '1' ||
+      req.xhr ||
+      String(req.get('Accept') || '').includes('application/json');
+    if (wantsJson) {
+      res.status(200).json({
+        ok: true,
+        action,
+        count: cleanIds.length,
+        redirectUrl
+      });
+    } else {
+      res.redirect(redirectUrl);
+    }
 
     // Hintergrund-Übersetzung
-    const shouldTranslate = action === 'approve' || String(req.body.translate || '') === '1';
+    const shouldTranslate =
+      action === 'approve' ||
+      action === 'setdate2010' ||
+      String(req.body.translate || '') === '1';
     if (shouldTranslate && process.env.OPENAI_API_KEY) {
       const entCopy   = { ...ent };
       const tableCopy = table;
@@ -664,19 +883,123 @@ router.post('/:category/bulk', loadEntities, async (req, res, next) => {
 
       setImmediate(async () => {
         console.log('✅ [BULK] BACKGROUND TRANSLATE START', { ids: idsCopy });
+        let last = Promise.resolve();
         for (const id of idsCopy) {
-          try {
-            await translateOne({ id, table: tableCopy, ent: entCopy });
-            console.log(`✅ [BULK] Übersetzt ID=${id}`);
-          } catch (e) {
-            console.error('[BULK] Fehler bei Übersetzung ID', id, e.message);
-          }
+          last = enqueueListingTranslateJob(async () => {
+            try {
+              await translateOne({ id, table: tableCopy, ent: entCopy });
+              console.log(`✅ [BULK] Übersetzt ID=${id}`);
+            } catch (e) {
+              console.error('[BULK] Fehler bei Übersetzung ID', id, e.message);
+            }
+          }, { id, route: entCopy.route, source: 'bulk' });
         }
-        console.log('✅ [BULK] BACKGROUND TRANSLATE DONE');
+        last.then(() => console.log('✅ [BULK] BACKGROUND TRANSLATE DONE'));
       });
     }
   } catch (err) {
     console.error('❌ Fehler in Bulk-Route:', err);
+    next(err);
+  }
+});
+
+// === BULK ALL PAGES (toapprove) ===
+// Freigaben über alle Seiten hinweg, bis keine passenden Inserate mehr existieren.
+// Startet Hintergrund-Loop und antwortet sofort.
+router.post('/:category/approve-all-pages', loadEntities, async (req, res, next) => {
+  try {
+    const { category } = req.params;
+    const state = String(req.body.state || req.query.state || 'toapprove').toLowerCase();
+    if (state !== 'toapprove') {
+      return res.status(400).json({ ok: false, message: 'Unsupported state (use toapprove)' });
+    }
+
+    const ent = res.locals.entieties.find(e => e.route === category);
+    if (!ent) return res.status(404).json({ ok: false, message: 'Entity not found' });
+
+    const table = ent.table_name;
+    const chunkSizeRaw = parseInt(String(req.body.chunkSize || req.query.chunkSize || '300'), 10);
+    const chunkSize = Number.isFinite(chunkSizeRaw) ? Math.max(50, Math.min(1000, chunkSizeRaw)) : 300;
+
+    const translateRequested = String(req.body.translate ?? '1') === '1';
+    const shouldTranslate = translateRequested && Boolean(process.env.OPENAI_API_KEY);
+
+    // Kein langes Warten in der HTTP-Response.
+    setImmediate(async () => {
+      try {
+        const entCopy = { ...ent };
+        let processed = 0;
+        let batches = 0;
+
+        while (true) {
+          batches += 1;
+
+          const [rows] = await db.query(
+            `SELECT id
+               FROM \`${table}\`
+              WHERE status IN (1,2)
+                AND (modified >= DATE_SUB(NOW(), INTERVAL 365 DAY)
+                     OR created  >= DATE_SUB(NOW(), INTERVAL 365 DAY))
+              ORDER BY id ASC
+              LIMIT ?`,
+            [chunkSize]
+          );
+
+          const ids = rows
+            .map(r => Number(r.id))
+            .filter(id => Number.isInteger(id) && id > 0);
+
+          if (!ids.length) break;
+
+          const placeholders = ids.map(() => '?').join(',');
+          await db.query(
+            `UPDATE \`${table}\`
+                SET status = 3,
+                    visible = 1,
+                    published = COALESCE(published, NOW())
+              WHERE id IN (${placeholders})`,
+            ids
+          );
+
+          processed += ids.length;
+
+          if (shouldTranslate) {
+            for (const id of ids) {
+              enqueueListingTranslateJob(
+                async () => {
+                  await translateOne({ id, table, ent: entCopy });
+                },
+                { id, route: entCopy.route, source: 'approve-all-pages' }
+              );
+            }
+          }
+
+          if (batches % 5 === 0) {
+            console.log('[BULK-ALL-PAGES]', {
+              category,
+              table,
+              processed,
+              batches,
+              lastBatch: ids.length
+            });
+          }
+        }
+
+        console.log('[BULK-ALL-PAGES] DONE', { category, table, processed, shouldTranslate });
+      } catch (err) {
+        console.error('[BULK-ALL-PAGES] Failed', err);
+      }
+    });
+
+    return res.json({
+      ok: true,
+      started: true,
+      category,
+      state,
+      chunkSize,
+      translate: shouldTranslate
+    });
+  } catch (err) {
     next(err);
   }
 });
@@ -730,6 +1053,7 @@ router.post('/:category/:id/action', loadEntities, async (req, res, next) => {
       );
     }
     console.log('[SINGLE] Update OK:', { id, action });
+    await enqueueAdvertFromTable('updateAdvert', table, Number(id));
 
     // Redirect sofort
     const qs = new URLSearchParams({
@@ -751,10 +1075,21 @@ router.post('/:category/:id/action', loadEntities, async (req, res, next) => {
       setImmediate(async () => {
         try {
           console.log('✅ [SINGLE] BACKGROUND TRANSLATE START', { id: idNum });
-          await translateOne({ id: idNum, table: tableCopy, ent: entCopy });
-          console.log('✅ [SINGLE] BACKGROUND TRANSLATE DONE', { id: idNum });
+          const plan = await fetchTranslationPlan(idNum, tableCopy, entCopy);
+          if (plan.skip) {
+            console.log('[TRANSLATE] not queued', { id: idNum, reason: plan.reason, source: 'single' });
+            return;
+          }
+          enqueueListingTranslateJob(async () => {
+            try {
+              await translateOne({ id: idNum, table: tableCopy, ent: entCopy, plan });
+              console.log('✅ [SINGLE] BACKGROUND TRANSLATE DONE', { id: idNum });
+            } catch (e) {
+              console.error('[SINGLE] Background translate failed', e);
+            }
+          }, { id: idNum, route: entCopy.route, source: 'single' });
         } catch (e) {
-          console.error('[SINGLE] Background translate failed', e);
+          console.error('[SINGLE] fetchTranslationPlan', e);
         }
       });
     }
@@ -782,7 +1117,17 @@ router.post('/:category/:id/translate', loadEntities, async (req, res, next) => 
     }
 
     const table = ent.table_name;
-    await translateOne({ id: parseInt(id, 10), table, ent });
+    const advertId = parseInt(id, 10);
+    const plan = await fetchTranslationPlan(advertId, table, ent);
+    if (plan.skip) {
+      console.log('[TRANSLATE] not queued', { id: advertId, reason: plan.reason, source: 'manual' });
+      return res.status(200).json({ ok: true, id, skipped: true, reason: plan.reason });
+    }
+    await enqueueListingTranslateJob(() => translateOne({ id: advertId, table, ent, plan }), {
+      id: advertId,
+      route: ent.route || category,
+      source: 'manual'
+    });
     console.log(`[TRANSLATE] Erfolgreich für ID=${id}`);
 
     return res.status(200).json({ ok: true, id });
@@ -1973,6 +2318,7 @@ async function finalizeInsert(data, entieties, req, res) {
 
   const [insResult] = await db.query(sql, vals);
   const listingId   = insResult.insertId;
+  await enqueueAdvertFromTable('addAdvert', table, listingId);
 
   // Bilder-Verzeichnis verschieben
   const previewDir = path.join('/media/herando/images', ent.route, String(effectiveUserId));
@@ -2221,10 +2567,36 @@ router.post(
         if (req.body.newWatchType) record.watchtype = parseInt(req.body.newWatchType, 10);
       }
       if (newEnt.route === 'properties') {
-        if (req.body.newInvestmentType)
-          record.investmenttype = parseInt(req.body.newInvestmentType, 10);
-        if (req.body.newPropertyType)
-          record.propertytype   = parseInt(req.body.newPropertyType, 10);
+        // Bei Immobilien gilt strikt "entweder/oder":
+        // Investmenttyp ODER Immobilientyp, niemals beide.
+        const parsePositiveIntOrNull = (value) => {
+          if (value === undefined || value === null || String(value).trim() === '') return null;
+          const parsed = parseInt(value, 10);
+          return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+        };
+
+        const mode = String(req.body.propertiesMode || '').trim();
+        const nextInvestmentType = parsePositiveIntOrNull(req.body.newInvestmentType);
+        const nextPropertyType = parsePositiveIntOrNull(req.body.newPropertyType);
+        const currentInvestmentType = parsePositiveIntOrNull(record.investmenttype);
+        const currentPropertyType = parsePositiveIntOrNull(record.propertytype);
+
+        if (mode === 'investmenttype') {
+          record.investmenttype = nextInvestmentType ?? currentInvestmentType;
+          record.propertytype = null;
+        } else if (mode === 'propertytype') {
+          record.propertytype = nextPropertyType ?? currentPropertyType;
+          record.investmenttype = null;
+        } else if (nextInvestmentType !== null) {
+          record.investmenttype = nextInvestmentType;
+          record.propertytype = null;
+        } else if (nextPropertyType !== null) {
+          record.propertytype = nextPropertyType;
+          record.investmenttype = null;
+        } else if (currentInvestmentType !== null && currentPropertyType !== null) {
+          // Alt-Daten bereinigen, falls beide gesetzt sind.
+          record.propertytype = null;
+        }
       }
       if (newEnt.route === 'yachts') {
         record.brand_id = req.body.newBrandId ? parseInt(req.body.newBrandId, 10) : null;
@@ -2272,51 +2644,143 @@ router.post(
       // 6) Datensatz schreiben:
       //    - gleiche Tabelle: UPDATE (verhindert Duplicate auf unique external)
       //    - andere Tabelle: UPSERT, damit erneutes Verschieben idempotent bleibt
+      //    WICHTIG: Erst Medien absichern/kopieren, dann DB, dann Delete.
       const sameTable = oldEnt.table_name === newEnt.table_name;
       let newId = Number(id);
 
-      if (sameTable) {
-        const updateSet = copyCols.map(c => `\`${c}\` = ?`).join(',');
-        await db.query(
-          `UPDATE \`${newEnt.table_name}\`
-              SET ${updateSet}
-            WHERE id = ?`,
-          [...values, id]
-        );
-      } else {
-        const upsertSet = copyCols
-          .map(c => `\`${c}\` = VALUES(\`${c}\`)`)
-          .join(',');
-        const [ins] = await db.query(
-          `INSERT INTO \`${newEnt.table_name}\` (${colsList})
-           VALUES (${placeholders})
-           ON DUPLICATE KEY UPDATE
-             ${upsertSet},
-             id = LAST_INSERT_ID(id)`,
-          values
-        );
-        newId = ins.insertId;
+      const mediaRoot = '/media/herando/images';
+      const oldDir = path.join(mediaRoot, oldEnt.route, String(id));
+      const hasMediaReferences = Boolean(
+        (record.mainpicture && String(record.mainpicture).trim()) ||
+        (record.sliderpicture && String(record.sliderpicture).trim()) ||
+        (record.pictures && String(record.pictures).trim() && String(record.pictures).trim() !== 'a:0:{}')
+      );
+      const needsMediaMove = !sameTable && oldEnt.route !== newEnt.route;
+
+      const copyFiles = (srcDir, dstDir) => {
+        fs.mkdirSync(dstDir, { recursive: true });
+        const names = fs.readdirSync(srcDir);
+        for (const fn of names) {
+          const src = path.join(srcDir, fn);
+          const dst = path.join(dstDir, fn);
+          const stat = fs.statSync(src);
+          if (stat.isFile()) {
+            fs.copyFileSync(src, dst);
+          }
+        }
+        return fs.readdirSync(dstDir).filter((fn) => {
+          try {
+            return fs.statSync(path.join(dstDir, fn)).isFile();
+          } catch (_) {
+            return false;
+          }
+        });
+      };
+
+      const oldFiles = fs.existsSync(oldDir)
+        ? fs.readdirSync(oldDir).filter((fn) => {
+            try {
+              return fs.statSync(path.join(oldDir, fn)).isFile();
+            } catch (_) {
+              return false;
+            }
+          })
+        : [];
+
+      // Falls ein Inserat laut DB Bilder hat, aber das Quellverzeichnis fehlt/leer ist,
+      // nicht weitermachen, um Datenverlust zu verhindern.
+      if (needsMediaMove && hasMediaReferences && oldFiles.length === 0) {
+        throw new Error('Medienquelle fehlt oder ist leer. Abbruch ohne Löschung.');
       }
 
-      // 7) Bilder verschieben
-      const mediaRoot = '/media/herando/images';
-      const oldDir    = path.join(mediaRoot, oldEnt.route, String(id));
-      const newDir    = path.join(mediaRoot, newEnt.route, String(newId));
-      const moveMedia = oldEnt.route !== newEnt.route || String(id) !== String(newId);
-      if (moveMedia && fs.existsSync(oldDir)) {
-        fs.mkdirSync(newDir, { recursive: true });
-        for (const fn of fs.readdirSync(oldDir)) {
-          fs.copyFileSync(path.join(oldDir, fn), path.join(newDir, fn));
+      let tempDir = null;
+      if (needsMediaMove && oldFiles.length > 0) {
+        tempDir = path.join(
+          mediaRoot,
+          '.tmp-migration',
+          `${oldEnt.route}-${id}-to-${newEnt.route}-${Date.now()}`
+        );
+        const tempFiles = copyFiles(oldDir, tempDir);
+        if (tempFiles.length !== oldFiles.length) {
+          throw new Error('Medien konnten nicht vollständig in den temporären Ordner kopiert werden.');
         }
       }
 
-      // 8) Alten Datensatz löschen (nur wenn wirklich verschoben wurde)
-      if (oldEnt.table_name !== newEnt.table_name || String(id) !== String(newId)) {
-        await db.query(`DELETE FROM \`${oldEnt.table_name}\` WHERE id = ?`, [id]);
+      await db.query('START TRANSACTION');
+      try {
+        if (sameTable) {
+          const updateSet = copyCols.map(c => `\`${c}\` = ?`).join(',');
+          await db.query(
+            `UPDATE \`${newEnt.table_name}\`
+                SET ${updateSet}
+              WHERE id = ?`,
+            [...values, id]
+          );
+        } else {
+          const upsertSet = copyCols
+            .map(c => `\`${c}\` = VALUES(\`${c}\`)`)
+            .join(',');
+          const [ins] = await db.query(
+            `INSERT INTO \`${newEnt.table_name}\` (${colsList})
+             VALUES (${placeholders})
+             ON DUPLICATE KEY UPDATE
+               ${upsertSet},
+               id = LAST_INSERT_ID(id)`,
+            values
+          );
+          newId = ins.insertId;
+        }
+
+        // 7) Bilder aus TEMP ins Ziel kopieren + verifizieren
+        const newDir = path.join(mediaRoot, newEnt.route, String(newId));
+        const moveMedia = !sameTable && (oldEnt.route !== newEnt.route || String(id) !== String(newId));
+        if (moveMedia && tempDir) {
+          const copiedToNew = copyFiles(tempDir, newDir);
+          if (copiedToNew.length < oldFiles.length) {
+            throw new Error('Medien konnten nicht vollständig ins Ziel kopiert werden.');
+          }
+        } else if (moveMedia && oldFiles.length > 0) {
+          // Fallback ohne tempDir (sollte eigentlich nicht passieren)
+          const copiedToNew = copyFiles(oldDir, newDir);
+          if (copiedToNew.length < oldFiles.length) {
+            throw new Error('Medien konnten nicht vollständig ins Ziel kopiert werden.');
+          }
+        }
+
+        // 8) Alten Datensatz erst JETZT löschen
+        if (!sameTable && (oldEnt.table_name !== newEnt.table_name || String(id) !== String(newId))) {
+          await db.query(`DELETE FROM \`${oldEnt.table_name}\` WHERE id = ?`, [id]);
+        }
+
+        await db.query('COMMIT');
+      } catch (txErr) {
+        await db.query('ROLLBACK');
+        throw txErr;
+      } finally {
+        if (tempDir && fs.existsSync(tempDir)) {
+          try { fs.rmSync(tempDir, { recursive: true, force: true }); } catch (_) {}
+        }
       }
 
-      req.flash('success', 'Kategorie und Typ erfolgreich geändert.');
-      res.redirect(`/admin/listings/${newEnt.route}/${newId}/edit`);
+      const successMessage = 'Kategorie und Typ erfolgreich geändert.';
+      const fallbackListUrl = `/admin/listings?category=${encodeURIComponent(newEnt.route)}&state=active`;
+      const wantsJson =
+        req.xhr ||
+        req.query.ajax === '1' ||
+        String(req.get('accept') || '').includes('application/json');
+
+      if (wantsJson) {
+        return res.json({
+          ok: true,
+          message: successMessage,
+          newId,
+          newRoute: newEnt.route,
+          redirectUrl: fallbackListUrl
+        });
+      }
+
+      req.flash('success', successMessage);
+      res.redirect(req.get('Referer') || fallbackListUrl);
     } catch (err) {
       console.error('Fehler beim Kategorie-/Typ-Wechsel:', err);
       next(err);

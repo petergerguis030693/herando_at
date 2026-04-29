@@ -57,6 +57,8 @@
           appendQs('priceMax', priceMax) +
           appendQs('sort', sort);
         const adTypeQs = appendQs('adType', adType);
+        const stateOrder = ['active', 'toapprove', 'pending', 'all', 'stopped', 'ended', 'rejected', 'deleted'];
+        const orderedStates = stateOrder.filter(st => states.includes(st) && Boolean(stateLabels[st]));
       %>
 
       <!-- Kategorien-Buttons -->
@@ -187,7 +189,7 @@
       <!-- Status-Überschrift & Tabs -->
       <h1 class="h4 mb-3"><%= stateLabels[state] %> Inserate</h1>
 <ul id="stateTabs" class="nav nav-tabs mb-3">
-  <% states.filter(st => Boolean(stateLabels[st])).forEach(st => { 
+  <% orderedStates.forEach(st => { 
        const isActive = state === st;
   %>
     <li class="nav-item" data-state="<%= st %>">
@@ -204,84 +206,72 @@
   <% }) %>
 </ul>
 
-<script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const order = ["toapprove", "active", "pending", "all", "stopped", "ended", "rejected", "deleted"];
-    const tabs = document.querySelector("#stateTabs");
-    if (tabs) {
-      const items = Array.from(tabs.querySelectorAll(".nav-item"));
-      // neu sortieren nach order
-      items.sort((a, b) => order.indexOf(a.dataset.state) - order.indexOf(b.dataset.state));
-      items.forEach(item => tabs.appendChild(item)); // neu anhängen = neue Reihenfolge
-    }
-  });
-</script>
 
 
+      <div id="listingsGrid">
+        <% if (!rows.length) { %>
+          <p class="text-muted">Keine Inserate in diesem Zustand.</p>
+        <% } else { %>
+          <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
+            <% rows.forEach(item => { %>
+              <div class="col">
+                <div class="card border-0 shadow-none position-relative h-100">
+                  <!-- Bulk -->
+                  <input type="checkbox" name="ids[]" value="<%= item.id %>" form="bulkForm"
+                         class="bulk-checkbox position-absolute"
+                         style="top:8px; left:8px; width:1.5rem; height:1.5rem;">
 
-      <% if (!rows.length) { %>
-        <p class="text-muted">Keine Inserate in diesem Zustand.</p>
-      <% } else { %>
-        <div class="row row-cols-1 row-cols-sm-2 row-cols-md-3 g-4">
-          <% rows.forEach(item => { %>
-            <div class="col">
-              <div class="card border-0 shadow-none position-relative h-100">
-                <!-- Bulk -->
-                <input type="checkbox" name="ids[]" value="<%= item.id %>" form="bulkForm"
-                       class="bulk-checkbox position-absolute"
-                       style="top:8px; left:8px; width:1.5rem; height:1.5rem;">
-
-                <!-- Thumb -->
-                <% if (item.thumbUrl) { %>
-                  <img src="<%= item.thumbUrl %>" alt="<%= item.name %>"
-                       class="card-img-top" style="object-fit:contain; max-height:350px;">
-                <% } else { %>
-                  <div class="bg-secondary text-white d-flex justify-content-center align-items-center"
-                       style="height:200px;">Kein Bild</div>
-                <% } %>
-
-                <div class="card-body d-flex flex-column">
-                  <h5 class="card-title mb-1"><%= item.name %></h5>
-                  <small class="text-muted mb-2">
-                    Inserat-ID:<%= item.id %><br>
-                    <% if (item.user_id) { %>
-                      User-ID: <a href="/admin/users?search_id=<%= item.user_id %>"><%= item.user_id %></a>
-                    <% } %>
-                  </small>
-                  <% if (item.company_name) { %>
-                    <p class="small text-muted mb-1">
-                      Firma:
-                      <a href="/admin/users?search_company=<%= encodeURIComponent(item.company_name) %>">
-                        <%= item.company_name %>
-                      </a>
-                    </p>
-                  <% } else if (item.user_firstname || item.user_lastname) { %>
-                    <p class="small text-muted mb-1">
-                      Nutzer: <%= [item.user_firstname, item.user_lastname].filter(Boolean).join(' ') %>
-                    </p>
+                  <!-- Thumb -->
+                  <% if (item.thumbUrl) { %>
+                    <img src="<%= item.thumbUrl %>" alt="<%= item.name %>"
+                         class="card-img-top" style="object-fit:contain; max-height:350px;">
+                  <% } else { %>
+                    <div class="bg-secondary text-white d-flex justify-content-center align-items-center"
+                         style="height:200px;">Kein Bild</div>
                   <% } %>
-                  <p class="mb-2">
-                    <strong>
+
+                  <div class="card-body d-flex flex-column">
+                    <h5 class="card-title mb-1"><%= item.name %></h5>
+                    <small class="text-muted mb-2">
+                      Inserat-ID:<%= item.id %><br>
+                      <% if (item.user_id) { %>
+                        User-ID: <a href="/admin/users?search_id=<%= item.user_id %>"><%= item.user_id %></a>
+                      <% } %>
+                    </small>
+                    <% if (item.company_name) { %>
+                      <p class="small text-muted mb-1">
+                        Firma:
+                        <a href="/admin/users?search_company=<%= encodeURIComponent(item.company_name) %>">
+                          <%= item.company_name %>
+                        </a>
+                      </p>
+                    <% } else if (item.user_firstname || item.user_lastname) { %>
+                      <p class="small text-muted mb-1">
+                        Nutzer: <%= [item.user_firstname, item.user_lastname].filter(Boolean).join(' ') %>
+                      </p>
+                    <% } %>
+                    <p class="mb-2">
+                      <strong>
                         <% const priceNum = Number(item.price); %>
                         <% if (Number.isFinite(priceNum) && priceNum > 0) { %>
                           <%= priceNum.toLocaleString() %> <%= item.currency %>
                         <% } else { %>
                           Preis auf Anfrage
                         <% } %>
-                    </strong>
-                  </p>
-                  <p class="small text-muted mb-1">Erstellt: <%= new Date(item.created).toLocaleDateString('de-DE') %></p>
-                  <p class="small text-muted mb-3">Aktualisiert: <%= new Date(item.modified).toLocaleDateString('de-DE') %></p>
-                  <% if (item.isAdActive && Array.isArray(item.activeAdPlacements) && item.activeAdPlacements.length) { %>
-                    <div class="mb-3">
-                      <span class="badge bg-success me-1">Werbung aktiv</span>
-                      <% item.activeAdPlacements.forEach((placement) => { %>
-                        <span class="badge bg-warning text-dark me-1"><%= placement.label %></span>
-                      <% }) %>
-                    </div>
-                  <% } %>
+                      </strong>
+                    </p>
+                    <p class="small text-muted mb-1">Erstellt: <%= new Date(item.created).toLocaleDateString('de-DE') %></p>
+                    <p class="small text-muted mb-3">Aktualisiert: <%= new Date(item.modified).toLocaleDateString('de-DE') %></p>
+                    <% if (item.isAdActive && Array.isArray(item.activeAdPlacements) && item.activeAdPlacements.length) { %>
+                      <div class="mb-3">
+                        <span class="badge bg-success me-1">Werbung aktiv</span>
+                        <% item.activeAdPlacements.forEach((placement) => { %>
+                          <span class="badge bg-warning text-dark me-1"><%= placement.label %></span>
+                        <% }) %>
+                      </div>
+                    <% } %>
 
-                  <form method="POST" action="/admin/listings/<%= category %>/<%= item.id %>/action" class="mt-auto">
+                    <form method="POST" action="/admin/listings/<%= category %>/<%= item.id %>/action" class="mt-auto">
                     <!-- Filter-Kontext mitschicken (für Redirects) -->
                     <input type="hidden" name="state"  value="<%= state %>">
                     <input type="hidden" name="search" value="<%= search %>">
@@ -344,7 +334,7 @@
                         type="button"
                         class="btn btn-link p-0"
                         title="Bearbeiten"
-                        onclick="window.open('/admin/listings/<%= category %>/<%= item.id %>/edit', '_blank')">
+                        onclick="window.open('/admin/listings/<%= category %>/<%= item.id %>/edit?returnTo=' + encodeURIComponent(window.location.pathname + window.location.search), '_blank')">
                         <i class="bi bi-pencil fs-2 text-warning"></i>
                       </button>
 
@@ -367,10 +357,10 @@
                         <i class="bi bi-arrow-left-right fs-2 text-info"></i>
                       </button>
                     </div>
-                  </form>
+                    </form>
+                  </div>
                 </div>
               </div>
-            </div>
           <% }) %>
         </div>
 
@@ -388,11 +378,20 @@
             <button type="submit" name="action" value="stop"    class="btn btn-secondary">stoppen</button>
             <button type="submit" name="action" value="delete"  class="btn btn-danger">löschen</button>
             <button type="submit" name="action" value="restore" class="btn btn-outline-primary">wiederherstellen</button>
+            <button type="submit" name="action" value="setdate2010" class="btn btn-outline-dark">Datumfelder auf 01.01.2010 setzen</button>
+
+            <% if (state === 'toapprove') { %>
+              <!--<button
+                type="button"
+                id="approveAllPagesBtn"
+                class="btn btn-warning"
+                title="gibt toapprove über alle Seiten hinweg frei (Server-seitig)">
+                veröff. alle Seiten
+              </button>-->
+              <div id="approveAllPagesStatus" class="small text-muted mt-2" style="display:none;"></div>
+            <% } %>
 
             <!-- Optionales Übersetzen bei Bulk-Approve -->
-            <label class="ms-3 small d-inline-flex align-items-center gap-2" title="Bei Freigabe automatisch übersetzen">
-              <input type="checkbox" id="bulkTranslateChk"> automatisch übersetzen
-            </label>
 
             <input type="hidden" name="category" value="<%= category %>">
             <input type="hidden" name="state"    value="<%= state %>">
@@ -585,8 +584,17 @@ document.addEventListener('DOMContentLoaded', () => {
           const route  = entieties.find(e => e.id === entId).route;
           const opts   = data.extraOptions;
           let html = '';
+          const canonicalWatchTypes = [
+            { id: '1', label: 'Armbanduhr' },
+            { id: '2', label: 'Taschenuhr' },
+            { id: '3', label: 'Tischuhr' },
+            { id: '4', label: 'Antike Uhr' },
+            { id: '5', label: 'Standuhr' },
+            { id: '6', label: 'Wanduhr' },
+            { id: '255', label: 'Sonstige Uhr' }
+          ];
 
-          if (opts.brands) {
+          if (opts.brands && route !== 'watches') {
             html += `
               <div class="mb-3">
                 <label class="form-label">Marke</label>
@@ -599,13 +607,29 @@ document.addEventListener('DOMContentLoaded', () => {
               </div>`;
           }
 
-          if (route === 'watches' && opts.watchTypes) {
+          if (route === 'watches') {
+            const watchTypesMap = new Map();
+            (Array.isArray(opts.watchTypes) ? opts.watchTypes : []).forEach((wt) => {
+              if (wt && wt.id != null) {
+                watchTypesMap.set(String(wt.id), {
+                  id: String(wt.id),
+                  label: wt.label || wt.name || String(wt.id)
+                });
+              }
+            });
+            canonicalWatchTypes.forEach((wt) => {
+              if (!watchTypesMap.has(String(wt.id))) watchTypesMap.set(String(wt.id), wt);
+            });
+            const watchTypes = canonicalWatchTypes
+              .map((wt) => watchTypesMap.get(String(wt.id)))
+              .filter(Boolean);
+
             html += `
               <div class="mb-3">
                 <label class="form-label">Uhrentyp</label>
                 <select name="newWatchType" class="form-select">
-                  ${opts.watchTypes.map(wt =>
-                    `<option value="${wt.id}" ${wt.id === record.watchtype ? 'selected' : ''}>${wt.label}</option>`
+                  ${watchTypes.map(wt =>
+                    `<option value="${wt.id}" ${String(wt.id) === String(record.watchtype) ? 'selected' : ''}>${wt.label}</option>`
                   ).join('')}
                 </select>
               </div>`;
@@ -615,9 +639,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         function renderProperties(mode) {
-          const list  = mode === 'propertytype'
+          const rawList  = mode === 'propertytype'
             ? data.extraOptions.propertyTypes
             : data.extraOptions.investmentTypes;
+          const list = (rawList || []).filter(o => {
+            const rawLabel = String(o?.label || o?.name || '').trim().toLowerCase();
+            return rawLabel !== 'grundstück/fläche';
+          });
           const label = mode === 'propertytype'
             ? 'Immobilienart'
             : 'Rendite-Immobilie';
@@ -628,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
           extraContainer.innerHTML = `
             <div class="mb-3">
               <label class="form-label">Art der Immobilie</label>
-              <select id="modeSelect" class="form-select mb-3">
+              <select id="modeSelect" name="propertiesMode" class="form-select mb-3">
                 <option value="propertytype"${mode === 'propertytype' ? ' selected' : ''}>Immobilienart</option>
                 <option value="investmenttype"${mode === 'investmenttype' ? ' selected' : ''}>Rendite-Immobilie</option>
               </select>
@@ -743,7 +771,68 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
     });
+
+    changeModalEl.addEventListener('submit', async (ev) => {
+      const form = ev.target;
+      if (!(form instanceof HTMLFormElement)) return;
+      if (!form.action.includes('/change-category')) return;
+
+      ev.preventDefault();
+      const submitBtn = form.querySelector('button[type="submit"]');
+      if (submitBtn) submitBtn.disabled = true;
+
+      try {
+        const fd = new FormData(form);
+        const body = new URLSearchParams();
+        for (const [k, v] of fd.entries()) body.append(k, String(v));
+
+        const postUrl = form.action + (form.action.includes('?') ? '&ajax=1' : '?ajax=1');
+        const res = await fetch(postUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+            'Accept': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          body: body.toString()
+        });
+
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || !data.ok) {
+          throw new Error(data.message || 'Änderung konnte nicht gespeichert werden.');
+        }
+
+        // Scroll-Position merken, damit die Seite nach dem Reload an gleicher Stelle bleibt
+        try {
+          sessionStorage.setItem('adminListingsScrollY', String(window.scrollY || 0));
+        } catch (_) {}
+
+        // Auf derselben Ansicht bleiben (kein Sprung auf andere Kategorie/State/Page)
+        const currentUrl = new URL(window.location.href);
+        currentUrl.searchParams.set('_t', Date.now().toString());
+        window.location.replace(currentUrl.toString());
+      } catch (err) {
+        alert('Fehler: ' + (err?.message || err));
+      } finally {
+        if (submitBtn) submitBtn.disabled = false;
+      }
+    });
   }
+});
+</script>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    const saved = sessionStorage.getItem('adminListingsScrollY');
+    if (!saved) return;
+    const y = Number(saved);
+    if (Number.isFinite(y) && y >= 0) {
+      // Nach dem Rendern exakt an die alte Position springen
+      requestAnimationFrame(() => window.scrollTo(0, y));
+    }
+    sessionStorage.removeItem('adminListingsScrollY');
+  } catch (_) {}
 });
 </script>
 
@@ -832,8 +921,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const current = new URL(location.href);
     const adType  = current.searchParams.get('adType');
     if (adType) {
-      const tabs = document.querySelector('.nav.nav-tabs');
-      if (tabs) tabs.style.display = 'none';
       const hdr = document.querySelector('h1.h4.mb-3');
       const label = {
         slider: 'Slider-Ads – Inserate',
@@ -1148,14 +1235,141 @@ document.addEventListener('submit', async function (ev) {
 
     // 2) Aus UI entfernen
     checked.forEach(cb => { const col = cb.closest('.col'); if (col) col.remove(); });
-
-    // 3) Für jede ID Translation im Hintergrund
-    for (const id of ids) {
-      const translateUrl = `/admin/listings/<%= category %>/${encodeURIComponent(id)}/translate`;
-      fetch(translateUrl, { method: 'POST' }).catch(() => {});
-    }
   } catch (err) {
     alert('Fehler bei Bulk-Approve: ' + (err?.message || err));
   }
+});
+
+// Approve: serverseitig über alle Seiten laufen lassen
+document.addEventListener('DOMContentLoaded', () => {
+  const btn = document.getElementById('approveAllPagesBtn');
+  if (!btn) return;
+
+  const statusEl = document.getElementById('approveAllPagesStatus');
+  const SOURCE = 'approve-all-pages';
+
+  btn.addEventListener('click', async () => {
+    if (!confirm('toapprove für diese Kategorie freigeben (über alle Seiten)?')) return;
+    btn.disabled = true;
+
+    try {
+      const body = new URLSearchParams({
+        state: 'toapprove',
+        chunkSize: '300',
+        translate: '1'
+      }).toString();
+
+      const res = await fetch(`/admin/listings/${encodeURIComponent('<%= category %>')}/approve-all-pages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok || !data?.ok) {
+        alert(data?.message || 'Fehler beim Starten');
+      } else {
+        if (statusEl) {
+          statusEl.style.display = '';
+          statusEl.textContent = `Freigabe gestartet. Übersetzungen laufen (Queue zeigt Fortschritt an)…`;
+        }
+
+        // Polling ohne Reload: beobachten, bis keine Jobs mit source=approve-all-pages mehr aktiv/warten.
+        const pollMs = 2000;
+        const startedAt = Date.now();
+        const maxMs = 60 * 60 * 1000; // 1h Sicherheitsgrenze
+
+        const sp0 = new URLSearchParams(window.location.search);
+        let uiPage = parseInt(String(sp0.get('page') || '1'), 10);
+        if (!Number.isFinite(uiPage) || uiPage < 1) uiPage = 1;
+        const fixedCategory = '<%= category %>';
+        const fixedState = 'toapprove';
+
+        let lastUiUpdateAt = 0;
+        const refreshUI = async () => {
+          // UI-Nachladen nur in moderaten Abständen (Sonst erzeugen wir unnötige Last).
+          if (Date.now() - lastUiUpdateAt < 5000) return;
+          lastUiUpdateAt = Date.now();
+
+          const sp = new URLSearchParams(window.location.search);
+          sp.set('category', fixedCategory);
+          sp.set('state', fixedState);
+          sp.set('page', String(uiPage));
+          const url = window.location.pathname + '?' + sp.toString();
+
+          const r = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+          if (!r.ok) return;
+          const html = await r.text();
+          const doc = new DOMParser().parseFromString(html, 'text/html');
+
+          const newGrid = doc.getElementById('listingsGrid');
+          const newPagination = doc.querySelector('div.d-flex.justify-content-between.align-items-center.mt-4');
+
+          const curGrid = document.getElementById('listingsGrid');
+          const curPagination = document.querySelector('div.d-flex.justify-content-between.align-items-center.mt-4');
+
+          if (newGrid && curGrid) curGrid.replaceWith(newGrid);
+          if (newPagination && curPagination) curPagination.replaceWith(newPagination);
+
+          // Wenn die aktuelle Seite gerade leer ist und es noch eine "Weiter"-Seite gibt:
+          // dann automatisch uiPage erhöhen (page=2, page=3, ...) bis keine Seite mehr existiert.
+          const gridHasCards = Boolean(newGrid && newGrid.querySelector('.card'));
+          const hasNext = Boolean(newPagination && newPagination.textContent && newPagination.textContent.includes('Weiter'));
+          // Springe zur nächsten Seite, sobald im Pagination-UI ein "Weiter" existiert.
+          // Dadurch siehst du unmittelbar Seite 2, auch wenn Seite 1 noch nicht leer ist.
+          if (hasNext) uiPage += 1;
+
+          return { gridHasCards, hasNext, uiPage };
+        };
+
+        const timer = setInterval(async () => {
+          try {
+            // Immer UI refreshen und page-advance machen (nicht vom Queue-Status abhängig).
+            const uiRes = await refreshUI();
+            if (!uiRes) return;
+
+            // Optional: Queue-Fortschritt anzeigen (aber nicht als Stop-Kriterium verwenden).
+            let snap = null;
+            try {
+              const r = await fetch('/admin/listings/translate-queue/api');
+              if (r.ok) snap = await r.json();
+            } catch (_) {}
+
+            const isActive =
+              (snap?.current?.source === SOURCE) ||
+              (Array.isArray(snap?.waiting) && snap.waiting.some(j => j?.source === SOURCE));
+
+            if (statusEl && snap) {
+              const running = snap?.current?.id
+                ? `laufen: id=${snap.current.id} (${snap.current.source})`
+                : 'laufen: —';
+              statusEl.textContent =
+                `Freigabe: ${data?.category || ''} | ${running} | backlog=${snap?.backlog ?? 0}.` +
+                ` (nach ${Math.round((Date.now() - startedAt) / 1000)}s)`;
+            }
+
+            // Stop, wenn die Seite leer ist und es keine "Weiter"-Seite gibt.
+            if ((!uiRes.gridHasCards && !uiRes.hasNext) || Date.now() - startedAt > maxMs) {
+              clearInterval(timer);
+              if (statusEl) {
+                statusEl.textContent = (!uiRes.gridHasCards && !uiRes.hasNext)
+                  ? 'Freigabe übersetzt/abgearbeitet.'
+                  : 'Zeitlimit erreicht: bitte in der Queue nachsehen.';
+              }
+              setTimeout(() => {
+                try { window.location.reload(); } catch (_) {}
+              }, 1200);
+            }
+          } catch (_) {
+            // ignore transient errors
+          }
+        }, pollMs);
+      }
+    } catch (err) {
+      alert('Fehler: ' + (err?.message || err));
+    } finally {
+      btn.disabled = false;
+    }
+  });
 });
 </script>

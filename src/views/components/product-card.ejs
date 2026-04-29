@@ -12,8 +12,14 @@
           <div class="cardPeter mb-4 me-4">
             <div class="imageBild">
               <div class="bild">
-                <img src="<%= item.imageUrl || '/assets/herando-weblogo.png' %>"
-                     alt="<%= item.title %>" loading="lazy" />
+                <% const _cardSrc = item.imageSrcset ? item.imageUrl : (item.imageUrl || '/assets/herando-weblogo.png'); %>
+                <img src="<%= _cardSrc %>"
+                     <% if (item.imageSrcset) { %>srcset="<%= item.imageSrcset %>" sizes="<%= item.imageSizes %>"<% } %>
+                     alt="<%= item.title %>"
+                     width="580"
+                     height="440"
+                     loading="lazy"
+                     decoding="async" />
               </div>
             </div>
 

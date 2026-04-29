@@ -67,12 +67,36 @@
                     }
 
                     .listing-price-controls {
-                      flex-direction: column;
-                      align-items: stretch;
+                      flex-direction: row;
+                      flex-wrap: wrap;
+                      align-items: center;
+                      gap: 0.65rem;
                     }
 
-                    .listing-price-input-wrap,
-                    .listing-currency-wrap,
+                    .listing-price-controls .listing-price-input-wrap {
+                      flex: 1 1 58%;
+                      min-width: 180px;
+                      width: auto !important;
+                    }
+
+                    .listing-price-controls .form-switch {
+                      flex: 1 1 38%;
+                      min-width: 130px;
+                      margin: 0 !important;
+                    }
+
+                    .listing-price-controls .listing-currency-wrap {
+                      flex: 1 1 42%;
+                      min-width: 120px;
+                      width: auto !important;
+                    }
+
+                    .listing-price-controls .form-check:not(.form-switch) {
+                      flex: 1 1 54%;
+                      min-width: 170px;
+                      margin: 0 !important;
+                    }
+
                     .listing-month-select {
                       width: 100% !important;
                       flex: 1 1 auto;
@@ -90,6 +114,24 @@
                     .listing-alert {
                       min-width: 0 !important;
                       width: min(92vw, 520px);
+                    }
+
+                    .listing-location-section .row {
+                      margin-bottom: 0.9rem !important;
+                    }
+
+                    .listing-location-section .col-form-label {
+                      text-align: left !important;
+                      margin-bottom: 0.35rem;
+                      padding-top: 0;
+                      padding-bottom: 0;
+                    }
+
+                    .listing-location-section .col-sm-3,
+                    .listing-location-section .col-sm-4 {
+                      flex: 0 0 100%;
+                      width: 100%;
+                      max-width: 100%;
                     }
                   }
 
@@ -405,9 +447,12 @@ function togglePriceState() {
     <select id="propertytype" name="propertytype" class="form-select">
       <option value="">---</option>
       <% extras.propertytype.forEach(o => { %>
-        <option value="<%= o.value %>" <%= item.propertytype == o.value ? 'selected' : '' %>>
-          <%= t('attribute.properties.propertytype.' + o.value, o.label) %>
-        </option>
+        <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+        <% if (rawLabel !== 'grundstück/fläche') { %>
+          <option value="<%= o.value %>" <%= item.propertytype == o.value ? 'selected' : '' %>>
+            <%= t('attribute.properties.propertytype.' + o.value, o.label) %>
+          </option>
+        <% } %>
       <% }) %>
     </select>
   </div>
@@ -419,9 +464,12 @@ function togglePriceState() {
     <select id="investmenttype" name="investmenttype" class="form-select">
       <option value="">---</option>
       <% extras.investmenttype.forEach(o => { %>
-        <option value="<%= o.value %>" <%= item.investmenttype == o.value ? 'selected' : '' %>>
-          <%= t('attribute.properties.investmenttype.' + o.value, o.label) %>
-        </option>
+        <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+        <% if (rawLabel !== 'grundstück/fläche') { %>
+          <option value="<%= o.value %>" <%= item.investmenttype == o.value ? 'selected' : '' %>>
+            <%= t('attribute.properties.investmenttype.' + o.value, o.label) %>
+          </option>
+        <% } %>
       <% }) %>
     </select>
   </div>
@@ -1708,9 +1756,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       <label for="gender" class="form-label"><%= t('edit_listing.watches.gender','Geschlecht') %></label>
       <select id="gender" name="gender" class="form-select">
         <option value="" <%= !item.gender ? 'selected' : '' %>>---</option>
-        <option value="1" <%= item.gender == 1 ? 'selected' : '' %>><%= t('edit_listing.watches.gender.men','Herren') %></option>
-        <option value="2" <%= item.gender == 2 ? 'selected' : '' %>><%= t('edit_listing.watches.gender.women','Damen') %></option>
-        <option value="3" <%= item.gender == 3 ? 'selected' : '' %>><%= t('edit_listing.watches.gender.unisex','Unisex') %></option>
+        <option value="2" <%= item.gender == 2 ? 'selected' : '' %>><%= t('watch.gender.men','Herren/Unisex') %></option>
+        <option value="3" <%= item.gender == 3 ? 'selected' : '' %>><%= t('watch.gender.women','Damen') %></option>
       </select>
     </div>
 
@@ -3069,7 +3116,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 <!-- Standort -->
-<fieldset class="mb-4 p-3 border bg-white rounded shadow-sm">
+<fieldset class="mb-4 p-3 border bg-white rounded shadow-sm listing-location-section">
   <legend><%= t('edit_listing.location.legend','Standort') %></legend>
   <%
     const countryRows = Array.isArray(filters.countries) ? filters.countries : [];
@@ -3094,7 +3141,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <!-- Land -->
   <div class="row mb-3 align-items-center">
-    <label for="country_parent_id" class="col-sm-3 col-form-label text-end fw-semibold"><%= t('edit_listing.location.country','Land') %></label>
+    <label for="country_parent_id" class="col-sm-3 col-form-label text-start fw-semibold"><%= t('edit_listing.location.country','Land') %></label>
     <div class="col-sm-4">
       <select id="country_parent_id" class="form-select" required>
         <option value="" disabled <%= !selectedParentRaw ? 'selected' : '' %>><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
@@ -3111,7 +3158,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <!-- Bundesland / Region -->
   <div class="row mb-3 align-items-center" id="region_row" style="display:none;">
-    <label for="region_id" class="col-sm-3 col-form-label text-end fw-semibold"><%= t('filter.region', 'Bundesland / Region') %></label>
+    <label for="region_id" class="col-sm-3 col-form-label text-start fw-semibold"><%= t('filter.region', 'Bundesland / Region') %></label>
     <div class="col-sm-4">
       <select
         id="region_id"
@@ -3128,7 +3175,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <!-- Stadt -->
   <div class="row mb-3 align-items-center">
-    <label for="city" class="col-sm-3 col-form-label text-end fw-semibold"><%= t('edit_listing.location.city','Stadt') %></label>
+    <label for="city" class="col-sm-3 col-form-label text-start fw-semibold"><%= t('edit_listing.location.city','Stadt') %></label>
     <div class="col-sm-4">
       <input 
         id="city" 

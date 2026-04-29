@@ -9,6 +9,7 @@ const multer = require('multer');
 
 // ⬇️ Passen: falls dein DB-Modul woanders liegt, z.B. '../../src/config/db'
 const db = require('../../db');
+const { buildHomeHeroVariants } = require('../../lib/responsive-hero-images');
 
 const SUPPORTED = ['de','en','fr','it','tr','ja','cs','ru','es','nl','pl'];
 const PAGE_SIZE = 25;
@@ -378,7 +379,14 @@ router.post(
         let nextPath = currentByKey[slide.key] || slide.fallback;
         if (manualPath) nextPath = manualPath;
         if (resetRequested) nextPath = slide.fallback;
-        if (uploaded?.filename) nextPath = `/uploads/home-hero/${uploaded.filename}`;
+        if (uploaded?.filename) {
+          nextPath = `/uploads/home-hero/${uploaded.filename}`;
+          try {
+            await buildHomeHeroVariants(path.join(HOME_HERO_UPLOAD_DIR, uploaded.filename));
+          } catch (e) {
+            console.error('home-hero variants:', e.message);
+          }
+        }
 
         await upsertUiTranslationAllLocales(slide.key, nextPath);
       }

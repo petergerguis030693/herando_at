@@ -1,6 +1,6 @@
   <!-- Header -->
   <%- include('../../partials/header', { entieties, active: 'magazin' }) %>
-  <link rel="stylesheet" href="/css/magazin.css">
+  <link rel="stylesheet" href="/css/magazin.min.css">
 
   <div class="container my-4">
     <!-- Breadcrumb -->
@@ -20,9 +20,12 @@
       <!-- Featured Article -->
       <section class="featured">
         <a href="/magazin/<%= featured.slug %>">
-          <img src="<%= featured.image %>" alt="<%= featured.title %>">
+          <img src="<%= featured.image %>" alt="<%= featured.title %>" width="1200" height="675" loading="lazy" decoding="async">
         </a>
         <div class="featured-content">
+          <% if (featured.published_at && new Date(featured.published_at) > new Date()) { %>
+            <p class="small text-muted mb-1"><%= t('magazin.badge_upcoming', 'Demnächst') %> · <%= new Date(featured.published_at).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) %></p>
+          <% } %>
           <h1>
             <a href="/magazin/<%= featured.slug %>" class="text-decoration-none text-dark">
               <%= featured.title %>
@@ -34,16 +37,19 @@
 
       <!-- Aktuelle Artikel -->
       <section>
-        <h2 class="mb-3" style="font-family:Georgia, serif; color:#111;">
+        <h2 class="mb-3">
           <%= t('magazin.latest_articles', 'Aktuelle Artikel') %>
         </h2>
         <div class="mag-grid">
           <% others.slice(0,4).forEach(post => { %>
             <div class="mag-item shadow-sm">
               <a href="/magazin/<%= post.slug %>">
-                <img src="<%= post.image %>" alt="<%= post.title %>">
+                <img src="<%= post.image %>" alt="<%= post.title %>" width="600" height="338" loading="lazy" decoding="async">
               </a>
               <div class="info">
+                <% if (post.published_at && new Date(post.published_at) > new Date()) { %>
+                  <p class="small text-muted mb-1"><%= t('magazin.badge_upcoming', 'Demnächst') %> · <%= new Date(post.published_at).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) %></p>
+                <% } %>
                 <h3>
                   <a href="/magazin/<%= post.slug %>" class="text-decoration-none text-dark">
                     <%= post.title %>
@@ -63,9 +69,12 @@
             <% others.slice(4).forEach(post => { %>
               <div class="mag-item shadow-sm">
                 <a href="/magazin/<%= post.slug %>">
-                  <img src="<%= post.image %>" alt="<%= post.title %>">
+                  <img src="<%= post.image %>" alt="<%= post.title %>" width="600" height="338" loading="lazy" decoding="async">
                 </a>
                 <div class="info">
+                  <% if (post.published_at && new Date(post.published_at) > new Date()) { %>
+                    <p class="small text-muted mb-1"><%= t('magazin.badge_upcoming', 'Demnächst') %> · <%= new Date(post.published_at).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) %></p>
+                  <% } %>
                   <h3>
                     <a href="/magazin/<%= post.slug %>" class="text-decoration-none text-dark">
                       <%= post.title %>

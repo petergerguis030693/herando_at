@@ -1,0 +1,183 @@
+@font-face {
+  font-display: swap;
+  font-family: "bootstrap-icons";
+  src: url("/fonts/bootstrap-icons-detail-subset.woff2") format("woff2");
+}
+
+.bi::before,
+[class^="bi-"]::before,
+[class*=" bi-"]::before {
+  display: inline-block;
+  font-family: bootstrap-icons !important;
+  font-style: normal;
+  font-weight: normal !important;
+  font-variant: normal;
+  text-transform: none;
+  line-height: 1;
+  vertical-align: -.125em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.bi-activity::before { content: "\f66b"; }
+.bi-android::before { content: "\f7d0"; }
+.bi-apple::before { content: "\f65b"; }
+.bi-archive::before { content: "\f10d"; }
+.bi-arrow-bar-down::before { content: "\f112"; }
+.bi-arrow-left-right::before { content: "\f12b"; }
+.bi-arrow-repeat::before { content: "\f130"; }
+.bi-arrows-angle-contract::before { content: "\f149"; }
+.bi-arrows-expand::before { content: "\f14c"; }
+.bi-arrows-move::before { content: "\f14e"; }
+.bi-aspect-ratio::before { content: "\f150"; }
+.bi-award::before { content: "\f154"; }
+.bi-badge-ad::before { content: "\f161"; }
+.bi-battery-charging::before { content: "\f185"; }
+.bi-bluetooth::before { content: "\f682"; }
+.bi-bounding-box::before { content: "\f1b6"; }
+.bi-box::before { content: "\f1c8"; }
+.bi-box-arrow-in-right::before { content: "\f1be"; }
+.bi-box-arrow-right::before { content: "\f1c3"; }
+.bi-briefcase::before { content: "\f1cc"; }
+.bi-brightness-alt-high::before { content: "\f1ce"; }
+.bi-brightness-alt-low::before { content: "\f1d0"; }
+.bi-brightness-high::before { content: "\f1d2"; }
+.bi-brightness-low::before { content: "\f1d4"; }
+.bi-broadcast::before { content: "\f1d6"; }
+.bi-brush::before { content: "\f1d8"; }
+.bi-building::before { content: "\f1dd"; }
+.bi-bullseye::before { content: "\f1de"; }
+.bi-calendar::before { content: "\f1f6"; }
+.bi-calendar-date::before { content: "\f1e4"; }
+.bi-calendar-event::before { content: "\f1e8"; }
+.bi-calendar3::before { content: "\f214"; }
+.bi-camera-video::before { content: "\f21f"; }
+.bi-car-front::before { content: "\f7e1"; }
+.bi-car-front-fill::before { content: "\f7e0"; }
+.bi-cash-coin::before { content: "\f632"; }
+.bi-cash-stack::before { content: "\f246"; }
+.bi-chat-square-text::before { content: "\f264"; }
+.bi-check-circle::before { content: "\f26b"; }
+.bi-check2::before { content: "\f272"; }
+.bi-check2-circle::before { content: "\f270"; }
+.bi-chevron-down::before { content: "\f282"; }
+.bi-chevron-left::before { content: "\f284"; }
+.bi-chevron-right::before { content: "\f285"; }
+.bi-circle::before { content: "\f28a"; }
+.bi-circle-fill::before { content: "\f287"; }
+.bi-circle-half::before { content: "\f288"; }
+.bi-circle-square::before { content: "\f289"; }
+.bi-clock-history::before { content: "\f292"; }
+.bi-cloud::before { content: "\f2c1"; }
+.bi-cloud-fog2::before { content: "\f2a2"; }
+.bi-cloud-rain::before { content: "\f2b6"; }
+.bi-cloud-sun::before { content: "\f2be"; }
+.bi-columns-gap::before { content: "\f2cd"; }
+.bi-compass::before { content: "\f2d1"; }
+.bi-cpu::before { content: "\f2d6"; }
+.bi-dash-circle::before { content: "\f2e6"; }
+.bi-disc::before { content: "\f2ff"; }
+.bi-display::before { content: "\f302"; }
+.bi-door-closed::before { content: "\f306"; }
+.bi-door-open::before { content: "\f308"; }
+.bi-droplet::before { content: "\f30d"; }
+.bi-droplet-fill::before { content: "\f30b"; }
+.bi-emoji-dizzy::before { content: "\f319"; }
+.bi-emoji-smile::before { content: "\f327"; }
+.bi-envelope::before { content: "\f32f"; }
+.bi-envelope-paper-heart::before { content: "\f73c"; }
+.bi-exclamation-triangle::before { content: "\f33b"; }
+.bi-eye::before { content: "\f341"; }
+.bi-eye-slash::before { content: "\f340"; }
+.bi-facebook::before { content: "\f344"; }
+.bi-file-earmark::before { content: "\f392"; }
+.bi-file-earmark-text::before { content: "\f38b"; }
+.bi-fire::before { content: "\f7f6"; }
+.bi-fuel-pump::before { content: "\f83e"; }
+.bi-gear::before { content: "\f3e5"; }
+.bi-gear-wide::before { content: "\f3e4"; }
+.bi-geo-alt::before { content: "\f3e8"; }
+.bi-globe-americas::before { content: "\f882"; }
+.bi-globe2::before { content: "\f3ef"; }
+.bi-graph-up-arrow::before { content: "\f673"; }
+.bi-grid::before { content: "\f3fc"; }
+.bi-grid-3x3-gap::before { content: "\f3f9"; }
+.bi-hash::before { content: "\f40a"; }
+.bi-headset::before { content: "\f414"; }
+.bi-heart::before { content: "\f417"; }
+.bi-house::before { content: "\f425"; }
+.bi-house-door::before { content: "\f423"; }
+.bi-house-door-fill::before { content: "\f422"; }
+.bi-house-heart::before { content: "\f776"; }
+.bi-key::before { content: "\f44f"; }
+.bi-key-fill::before { content: "\f44e"; }
+.bi-life-preserver::before { content: "\f467"; }
+.bi-lightbulb::before { content: "\f46b"; }
+.bi-lightning::before { content: "\f46f"; }
+.bi-lightning-charge::before { content: "\f46d"; }
+.bi-link-45deg::before { content: "\f470"; }
+.bi-lock::before { content: "\f47b"; }
+.bi-map::before { content: "\f47f"; }
+.bi-mic::before { content: "\f490"; }
+.bi-moon-stars::before { content: "\f496"; }
+.bi-music-note::before { content: "\f4a0"; }
+.bi-music-player::before { content: "\f4a2"; }
+.bi-palette::before { content: "\f4b1"; }
+.bi-patch-check::before { content: "\f4b6"; }
+.bi-pc-display::before { content: "\f6a6"; }
+.bi-person::before { content: "\f4e1"; }
+.bi-person-arms-up::before { content: "\f8f6"; }
+.bi-person-circle::before { content: "\f4d7"; }
+.bi-person-gear::before { content: "\f8a7"; }
+.bi-person-lines-fill::before { content: "\f4db"; }
+.bi-person-plus::before { content: "\f4dd"; }
+.bi-person-standing::before { content: "\f8f9"; }
+.bi-person-vcard::before { content: "\f8c9"; }
+.bi-pinterest::before { content: "\f663"; }
+.bi-plus-circle::before { content: "\f4fa"; }
+.bi-power::before { content: "\f4ff"; }
+.bi-rulers::before { content: "\f523"; }
+.bi-search::before { content: "\f52a"; }
+.bi-shield-check::before { content: "\f52f"; }
+.bi-shield-lock::before { content: "\f538"; }
+.bi-shield-plus::before { content: "\f53a"; }
+.bi-sign-stop::before { content: "\f82e"; }
+.bi-signpost::before { content: "\f54a"; }
+.bi-signpost-2::before { content: "\f546"; }
+.bi-signpost-split::before { content: "\f549"; }
+.bi-slash-circle::before { content: "\f567"; }
+.bi-sliders::before { content: "\f56b"; }
+.bi-snow::before { content: "\f56d"; }
+.bi-snow2::before { content: "\f56e"; }
+.bi-snow3::before { content: "\f56f"; }
+.bi-speaker::before { content: "\f57e"; }
+.bi-speedometer::before { content: "\f57f"; }
+.bi-speedometer2::before { content: "\f580"; }
+.bi-star::before { content: "\f588"; }
+.bi-stars::before { content: "\f589"; }
+.bi-sun::before { content: "\f5a2"; }
+.bi-sun-fill::before { content: "\f5a1"; }
+.bi-sunrise::before { content: "\f5a5"; }
+.bi-tablet::before { content: "\f5ae"; }
+.bi-taxi-front::before { content: "\f8ad"; }
+.bi-telephone-inbound::before { content: "\f5b8"; }
+.bi-thermometer-half::before { content: "\f5cd"; }
+.bi-thermometer-sun::before { content: "\f5d1"; }
+.bi-tools::before { content: "\f5db"; }
+.bi-tree::before { content: "\f5e2"; }
+.bi-triangle::before { content: "\f5e5"; }
+.bi-truck::before { content: "\f5ea"; }
+.bi-truck-front::before { content: "\f821"; }
+.bi-tv::before { content: "\f5ed"; }
+.bi-twitter-x::before { content: "\f8db"; }
+.bi-universal-access::before { content: "\f826"; }
+.bi-usb-symbol::before { content: "\f6dd"; }
+.bi-watch::before { content: "\f616"; }
+.bi-water::before { content: "\f617"; }
+.bi-whatsapp::before { content: "\f618"; }
+.bi-wifi::before { content: "\f61c"; }
+.bi-wind::before { content: "\f61d"; }
+.bi-window::before { content: "\f620"; }
+.bi-wrench::before { content: "\f621"; }
+.bi-x-lg::before { content: "\f659"; }
+.bi-youtube::before { content: "\f62b"; }

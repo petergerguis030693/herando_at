@@ -42,6 +42,12 @@
         </div>
       </div>
 
+      <div class="mb-3">
+        <label for="published_at" class="form-label">Veröffentlichung</label>
+        <input type="datetime-local" id="published_at" name="published_at" class="form-control" value="<%= typeof publishedAtInput !== 'undefined' ? publishedAtInput : '' %>">
+        <div class="form-text">Datum und Uhrzeit, ab wann der Artikel öffentlich sichtbar ist. Feld leeren = Entwurf (nur im Admin, nicht auf der Website). Beim neuen Artikel ist standardmäßig „jetzt“ vorausgewählt.</div>
+      </div>
+
       <!-- Cover Image -->
       <div class="mb-3">
         <label class="form-label">Cover-Bild</label>

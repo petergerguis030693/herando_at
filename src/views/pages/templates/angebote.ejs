@@ -311,7 +311,7 @@ body.modal-open .custom-backdrop {
         <div class="tab-content">
           <!-- 🟩 LOGIN -->
           <div class="tab-pane fade show active" id="login">
-            <form id="loginForm">
+            <form id="loginForm" method="post" action="/auth/login" autocomplete="on">
               <div class="mb-3">
                 <label class="form-label"><%= t('offers.auth.email', { fallback: 'E-Mail-Adresse' }) %></label>
                 <input type="email" class="form-control" name="email" required>
@@ -330,7 +330,7 @@ body.modal-open .custom-backdrop {
           <div class="tab-pane fade" id="register">
             <!-- GEWERBLICH -->
             <div id="commercialForm" class="d-none">
-              <form id="formCommercial">
+              <form id="formCommercial" method="post" action="/auth/register" autocomplete="on">
                 <h5 class="mb-3"><%= t('offers.auth.register.commercial.title', { fallback: 'Als gewerblicher Anbieter registrieren' }) %></h5>
 
                 <!-- 👤 Anrede -->
@@ -387,19 +387,19 @@ body.modal-open .custom-backdrop {
                     <input type="text" name="postcode" class="form-control" required>
                   </div>
                   <div class="col-md-8 mb-3">
-                    <label for="city" class="form-label">
+                    <label for="regCommercialCity" class="form-label">
                       <%= t('offers.auth.city', { fallback: 'Ort *' }) %>
                     </label>
-                    <input type="text" id="city" name="city" class="form-control" required>
+                    <input type="text" id="regCommercialCity" name="city" class="form-control" required>
                   </div>
                 </div>
 
                 <div class="row">
                   <div class="col-12 mb-3">
-                    <label for="country" class="form-label">
+                    <label for="regCommercialCountry" class="form-label">
                       <%= t('offers.auth.country', { fallback: 'Land *' }) %>
                     </label>
-                    <select id="country" name="country_id" class="form-select" required>
+                    <select id="regCommercialCountry" name="country_id" class="form-select" required>
                       <option value="">
                         <%= t('offers.modal.country.placeholder', { fallback: '– bitte wählen –' }) %>
                       </option>
@@ -472,7 +472,7 @@ body.modal-open .custom-backdrop {
 
             <!-- PRIVAT -->
             <div id="privateForm" class="d-none">
-              <form id="formPrivate">
+              <form id="formPrivate" method="post" action="/auth/register" autocomplete="on">
                 <h5 class="mb-3"><%= t('offers.auth.register.private.title', { fallback: 'Als privater Kunde registrieren' }) %></h5>
 
                 <!-- 👤 Anrede -->
@@ -525,20 +525,20 @@ body.modal-open .custom-backdrop {
                   </div>
 
                   <div class="col-md-8 mb-3">
-                    <label class="form-label">
+                    <label for="regPrivateCity" class="form-label">
                       <%= t('offers.auth.city', { fallback: 'Ort' }) %>
                     </label>
-                    <input type="text" name="city" class="form-control">
+                    <input type="text" id="regPrivateCity" name="city" class="form-control">
                   </div>
                 </div>
 
                 <div class="row">
                   <div class="col-12 mb-3">
-                    <label for="country" class="form-label">
+                    <label for="regPrivateCountry" class="form-label">
                       <%= t('offers.auth.country', { fallback: 'Land *' }) %>
                     </label>
 
-                    <select id="country" name="country_id" class="form-select" required>
+                    <select id="regPrivateCountry" name="country_id" class="form-select" required>
                       <option value=""><%= t('offers.modal.country.placeholder',{fallback:'– bitte wählen –'}) %></option>
                       <% countries.forEach(c => { %>
                         <option value="<%= c.id %>"><%= c.name %></option>
@@ -773,8 +773,8 @@ body.modal-open .custom-backdrop {
                   </select>
                 </div>
                 <div class="mb-3">
-                  <label for="country" class="form-label"><%= t('offers.modal.country',{fallback:'Land'}) %></label>
-                  <select id="country" name="country_id" class="form-select" required>
+                  <label for="buyModalCountry" class="form-label"><%= t('offers.modal.country',{fallback:'Land'}) %></label>
+                  <select id="buyModalCountry" name="country_id" class="form-select" required>
                     <option value=""><%= t('offers.modal.country.placeholder',{fallback:'– bitte wählen –'}) %></option>
                     <% countries.forEach(c => { %>
                       <option value="<%= c.id %>"><%= c.name %></option>
@@ -815,8 +815,8 @@ body.modal-open .custom-backdrop {
                     <input type="text" id="postcode" name="postcode" class="form-control" required>
                   </div>
                   <div class="col-6 mb-3">
-                    <label for="city" class="form-label"><%= t('offers.modal.city',{fallback:'Stadt'}) %> *</label>
-                    <input type="text" id="city" name="city" class="form-control" required>
+                    <label for="buyModalCity" class="form-label"><%= t('offers.modal.city',{fallback:'Stadt'}) %> *</label>
+                    <input type="text" id="buyModalCity" name="city" class="form-control" required>
                   </div>
                 </div>
                 <div class="mb-3">

@@ -519,6 +519,8 @@
   display: flex;
   justify-content: center;
   align-items: center;
+  /* Platz reservieren (Listing-Thumb _smallx2 = 580×440), auch wenn <img> keine HTML-Maße hat */
+  aspect-ratio: 580 / 440;
 }
 
 .offer-card .bild img {
@@ -532,8 +534,17 @@
 .offer-card.cars .bild img,
 .offer-card.yachts .bild img {
   width: 100%;
-  min-height: 400px;
+  height: 100%;
+  min-height: 0;
   object-fit: cover;
+}
+
+/* Properties / Watches / Lifestyles: anderes Seitenverhältnis als 580/440 */
+.offer-card.properties .bild,
+.offer-card.watches .bild,
+.offer-card.lifestyles .bild {
+  aspect-ratio: unset;
+  min-height: 400px;
 }
 
 /* Properties → rechteckig */
@@ -787,16 +798,32 @@
     display: block;
   }
 
-  /* Aktuelle Top-Angebote (nur mobile): Bildhöhe auf 350px fixieren */
-  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.cars .bild img,
-  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.yachts .bild img {
+  /* Mobile Top-Angebote: alle Karten in .topOffersWrapper-mobile — inkl. #myUniqueProducts-mobile
+     (dort kein verschachteltes section#mobile-carousel-*, daher früher keine feste Bildhöhe). */
+  .topOffersWrapper-mobile .offer-card.cars .bild,
+  .topOffersWrapper-mobile .offer-card.yachts .bild {
+    aspect-ratio: unset;
+    min-height: 350px;
+    height: 350px;
+  }
+
+  .topOffersWrapper-mobile .offer-card.cars .bild img,
+  .topOffersWrapper-mobile .offer-card.yachts .bild img {
     height: 350px !important;
     min-height: 350px !important;
   }
 
-  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.properties .bild img,
-  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.watches .bild img,
-  .topOffersWrapper-mobile section[id^="mobile-carousel-"] .offer-card.lifestyles .bild img {
+  .topOffersWrapper-mobile .offer-card.properties .bild,
+  .topOffersWrapper-mobile .offer-card.watches .bild,
+  .topOffersWrapper-mobile .offer-card.lifestyles .bild {
+    aspect-ratio: unset;
+    min-height: 350px;
+    height: auto;
+  }
+
+  .topOffersWrapper-mobile .offer-card.properties .bild img,
+  .topOffersWrapper-mobile .offer-card.watches .bild img,
+  .topOffersWrapper-mobile .offer-card.lifestyles .bild img {
     height: 350px !important;
   }
 }
@@ -806,4 +833,21 @@
   .topOffersWrapper-desktop {
     display: block;
   }
+}
+
+/* CLS: „Entdecken Sie Herando“ – Slides werden per JS nach API befüllt. Ohne Mindesthöhe
+   kollabiert das Karussell zunächst; der folgende Block (.herando-section, u. a. „Exklusivität …“)
+   springt nach unten (Lighthouse meldet oft die Section als Shift-Element).
+   450px war zu niedrig: Karten haben Bild ~400px + Textzeilen → Zielhöhe eher ~560px. */
+#myUniqueProducts .my-carousel {
+  min-height: 560px;
+}
+
+#myUniqueProducts-tablet .tablet-carousel {
+  min-height: 560px;
+}
+
+#myUniqueProducts-mobile .mobile-carousel {
+  /* Gleiche Größenordnung wie Desktop/Tablet bis API-Slides da sind */
+  min-height: 560px;
 }

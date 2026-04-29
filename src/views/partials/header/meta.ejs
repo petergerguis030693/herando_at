@@ -18,7 +18,7 @@
 <title><%= seo?.title || "Herando – Luxus-Autos, Yachten, Immobilien & Uhren" %></title>
 
 <meta name="description" content="<%= seo?.meta_description || 'Entdecken Sie über 100.000 Premium-Angebote: Luxus-Autos, exklusive Yachten, Immobilien & Uhren bei Herando.' %>">
-<meta name="robots" content="<%= seo?.robots || 'noindex, nofollow' %>">
+<meta name="robots" content="<%= seo?.robots || 'index, follow' %>">
 
 <link rel="canonical" href="<%= canonicalUrl %>" />
 
@@ -28,7 +28,7 @@
 
 <link rel="alternate" hreflang="x-default" href="<%= xDefaultUrl %>" />
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta http-equiv="X-UA-Compatible" content="IE=edge">
 <meta property="og:title" content="<%= seo?.og_title || seo?.title || 'Herando – Luxus-Autos, Yachten, Immobilien & Uhren' %>">
 <meta property="og:description" content="<%= seo?.og_description || seo?.meta_description || 'Entdecken Sie über 100.000 Premium-Angebote weltweit.' %>">

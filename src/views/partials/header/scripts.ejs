@@ -7,48 +7,56 @@
   const __forceTracking = !!(__trackUser && __trackUser.id);
   const __trackRole = (__trackUser && __trackUser.role != null) ? Number(__trackUser.role) : null;
 %>
+<% if (typeof isHomePage === 'undefined' || !isHomePage) { %>
+  <% if (!(typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile)) { %>
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <% } %>
+<% } %>
+<% if (typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile) { %>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js" defer></script>
+<% } else { %>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<% } %>
+<script type="application/json" id="herando-track-cfg"><%- JSON.stringify({ force: __forceTracking, role: __trackRole }) %></script>
+<script src="/js/header-ui.min.js" defer></script>
+<script src="/js/analytics-tracker.min.js" defer></script>
+<!-- Matomo -->
 <script>
-  window.__herandoForceTracking = <%= __forceTracking ? 'true' : 'false' %>;
-  window.__herandoActorRole = <%= __trackRole == null ? 'null' : __trackRole %>;
+  var _paq = window._paq = window._paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u = "//herando.at/admin/matomo/";
+    var host = (window.location.hostname || '').toLowerCase();
+    var siteIdByHost = {
+      'herando.at': '2',
+      'www.herando.at': '2',
+      'herando.de': '3',
+      'www.herando.de': '3',
+      'herando.es': '1',
+      'www.herando.es': '1',
+      'herando.cz': '1',
+      'www.herando.cz': '1',
+      'herando.ch': '4',
+      'www.herando.ch': '4',
+      'herando.fr': '1',
+      'www.herando.fr': '1',
+      'herando.it': '1',
+      'www.herando.it': '1',
+      'herando.nl': '1',
+      'www.herando.nl': '1',
+      'herando.pl': '1',
+      'www.herando.pl': '1',
+      'herando.co.uk': '1',
+      'www.herando.co.uk': '1',
+      'herando.com': '1',
+      'www.herando.com': '1'
+    };
+    var siteId = siteIdByHost[host] || '1';
+    _paq.push(['setTrackerUrl', u + 'matomo.php']);
+    _paq.push(['setSiteId', siteId]);
+    var d = document, g = d.createElement('script'), s = d.getElementsByTagName('script')[0];
+    g.async = true; g.src = u + 'matomo.js'; s.parentNode.insertBefore(g, s);
+  })();
 </script>
-<script src="/js/analytics-tracker.js" defer></script>
-
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const modal = document.getElementById("settingsModal");
-  const openBtn = document.getElementById("settingsButton");
-  const closeBtn = document.getElementById("closeModal");
-  const cancelBtn = document.getElementById("cancelBtn");
-  const saveBtn = document.getElementById("saveBtn");
-
-  openBtn?.addEventListener("click", () => modal.classList.remove("d-none"));
-  closeBtn?.addEventListener("click", () => modal.classList.add("d-none"));
-  cancelBtn?.addEventListener("click", () => modal.classList.add("d-none"));
-
-  modal.addEventListener("click", e => {
-    if (e.target === modal) modal.classList.add("d-none");
-  });
-
-  saveBtn?.addEventListener("click", () => {
-    const lang = document.getElementById("languageSelect").value;
-    const currency = document.getElementById("currencySelect").value;
-    const country = document.getElementById("countrySelect").value;
-    window.location.href = `/lang/${lang}?currency=${currency}&country=${country}`;
-  });
-});
-</script>
-
-<script>
-  window.addEventListener('load', () => {
-    const loader = document.getElementById('page-loader');
-    if (!loader) return;
-
-    loader.style.opacity = '0';
-
-    setTimeout(() => {
-      loader.remove();
-    }, 300);
-  });
-</script>
+<!-- End Matomo Code -->

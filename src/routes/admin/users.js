@@ -7,11 +7,32 @@ const { ensureActivityLogTable } = require('../../service/activity-log');
 const path      = require('path');
 const fs        = require('fs').promises;
 const { unserialize } = require('php-unserialize');
+const {
+  CUSTOMER_FIELDS,
+  enqueueAkquise,
+  loadRowById,
+  pickPayload,
+} = require('../../lib/akquisemanager');
 const router    = express.Router();
+const HARD_DELETE_ALLOWED_EMAIL = 'peter.gerguis@gmail.com';
 
 // multer für Upload im Memory
 const multer = require('multer');
 const uploadMemory = multer();
+
+async function enqueueCustomer(method, userId) {
+  try {
+    const row = await loadRowById({ table: 'users', id: userId, fields: CUSTOMER_FIELDS });
+    if (!row) return;
+    await enqueueAkquise({
+      method,
+      objectId: userId,
+      payload: pickPayload(row, CUSTOMER_FIELDS),
+    });
+  } catch (err) {
+    console.error(`[AKQUISE] ${method} failed for user ${userId}:`, err.message);
+  }
+}
  
 // Middleware: nur Admins dürfen
 async function requireAdmin(req, res, next) {
@@ -23,7 +44,7 @@ async function requireAdmin(req, res, next) {
       return res.status(403).send('Forbidden: not logged in');
     }
     const [[user]] = await db.query(
-      'SELECT role FROM users WHERE id = ?',
+      'SELECT id, role, email FROM users WHERE id = ?',
       [userId]
     );
     console.log('requireAdmin: Rolle aus DB =', user && user.role);
@@ -980,12 +1001,100 @@ router.get('/', requireAdmin, async (req, res, next) => {
       entityFilter,
       sort,
       allPackages,
-      allEntities
+      allEntities,
+      canHardDeleteUsers: String(req.user?.email || '').toLowerCase() === HARD_DELETE_ALLOWED_EMAIL
     });
 
   } catch (err) {
     console.error('GET /admin/users/ Error:', err);
     next(err);
+  }
+});
+
+router.post('/:id/hard-delete', requireAdmin, async (req, res, next) => {
+  try {
+    const adminEmail = String(req.user?.email || '').toLowerCase();
+    if (adminEmail !== HARD_DELETE_ALLOWED_EMAIL) {
+      return res.status(403).send('Forbidden: hard delete not allowed');
+    }
+
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      req.flash('error', 'Ungültiger Benutzer.');
+      return res.redirect(req.get('Referer') || '/admin/users');
+    }
+
+    if (Number(req.user?.id) === id) {
+      req.flash('error', 'Eigener Admin-Benutzer kann nicht gelöscht werden.');
+      return res.redirect(req.get('Referer') || '/admin/users');
+    }
+
+    const conn = await db.getConnection();
+    try {
+      await conn.beginTransaction();
+
+      const [orderRows] = await conn.query('SELECT id FROM orders WHERE user_id = ?', [id]);
+      const orderIds = orderRows.map(r => Number(r.id)).filter(Number.isFinite);
+
+      const [orderRefs] = await conn.query(
+        `SELECT TABLE_NAME, COLUMN_NAME
+           FROM information_schema.KEY_COLUMN_USAGE
+          WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
+            AND REFERENCED_TABLE_NAME = 'orders'`
+      );
+
+      if (orderIds.length) {
+        const orderPlaceholders = orderIds.map(() => '?').join(', ');
+        for (const ref of orderRefs) {
+          const tableName = String(ref.TABLE_NAME || '');
+          const columnName = String(ref.COLUMN_NAME || '');
+          if (!/^[A-Za-z0-9_]+$/.test(tableName) || !/^[A-Za-z0-9_]+$/.test(columnName)) continue;
+          if (tableName === 'orders') continue;
+          await conn.query(
+            `DELETE FROM \`${tableName}\` WHERE \`${columnName}\` IN (${orderPlaceholders})`,
+            orderIds
+          );
+        }
+      }
+
+      const [userRefs] = await conn.query(
+        `SELECT TABLE_NAME, COLUMN_NAME
+           FROM information_schema.KEY_COLUMN_USAGE
+          WHERE REFERENCED_TABLE_SCHEMA = DATABASE()
+            AND REFERENCED_TABLE_NAME = 'users'`
+      );
+
+      for (const ref of userRefs) {
+        const tableName = String(ref.TABLE_NAME || '');
+        const columnName = String(ref.COLUMN_NAME || '');
+        if (!/^[A-Za-z0-9_]+$/.test(tableName) || !/^[A-Za-z0-9_]+$/.test(columnName)) continue;
+        if (tableName === 'users') continue;
+        await conn.query(`DELETE FROM \`${tableName}\` WHERE \`${columnName}\` = ?`, [id]);
+      }
+
+      await conn.query('DELETE FROM users WHERE id = ?', [id]);
+      await conn.commit();
+    } catch (txErr) {
+      await conn.rollback();
+      throw txErr;
+    } finally {
+      conn.release();
+    }
+
+    try {
+      const userImageDir = path.join('/media/herando/images/users', String(id));
+      await fs.rm(userImageDir, { recursive: true, force: true });
+    } catch (_) {
+      // ignore cleanup errors
+    }
+
+    await enqueueCustomer('deleteCustomer', id);
+    req.flash('success', `Benutzer #${id} wurde vollständig gelöscht.`);
+    return res.redirect('/admin/users');
+  } catch (err) {
+    console.error('POST /admin/users/:id/hard-delete Error:', err);
+    req.flash('error', 'Fehler beim vollständigen Löschen des Benutzers.');
+    return res.redirect(req.get('Referer') || '/admin/users');
   }
 });
 
@@ -1847,9 +1956,14 @@ router.post(
         assignment_package_id,
         assignment_category_id,
         users_package_id,
-        selected_listing
+        selected_listing,
+        new_password,
+        new_password_repeat
       } = req.body;
       const logo = req.file ? req.file.buffer : null;
+      const passwordRaw = String(new_password || '').trim();
+      const passwordRepeatRaw = String(new_password_repeat || '').trim();
+      const wantsPasswordChange = passwordRaw.length > 0 || passwordRepeatRaw.length > 0;
 
       const toArray = (value) => {
         if (Array.isArray(value)) return value;
@@ -1904,6 +2018,14 @@ router.post(
       if (!firstname) errors.push({ msg: 'Vorname ist erforderlich.' });
       if (!lastname)  errors.push({ msg: 'Nachname ist erforderlich.' });
       if (!email)     errors.push({ msg: 'E-Mail ist erforderlich.' });
+      if (wantsPasswordChange) {
+        if (passwordRaw.length < 8) {
+          errors.push({ msg: 'Neues Passwort muss mindestens 8 Zeichen haben.' });
+        }
+        if (passwordRaw !== passwordRepeatRaw) {
+          errors.push({ msg: 'Passwort und Wiederholung stimmen nicht überein.' });
+        }
+      }
       for (const row of parsedAssignments) {
         const hasPackage = Boolean(String(row.package_id || '').trim());
         const hasCategory = Boolean(String(row.category_id || '').trim());
@@ -2054,6 +2176,19 @@ router.post(
           id
         ]
       );
+      await enqueueCustomer('updateCustomer', Number(id));
+
+      // Passwort nur setzen, wenn im Formular ausdrücklich angegeben.
+      if (wantsPasswordChange) {
+        const passwordHash = await bcrypt.hash(passwordRaw, 10);
+        await db.query(
+          `UPDATE users
+              SET password = ?,
+                  modified = NOW()
+            WHERE id = ?`,
+          [passwordHash, id]
+        );
+      }
 
       // Alte Package-Zuordnungen löschen
       await db.query(`DELETE FROM selected_packages WHERE user_id = ?`, [id]);
@@ -2477,7 +2612,12 @@ router.post('/:id/addons/:addonOrderId/activate', requireAdmin, async (req, res,
 router.get('/new', requireAdmin, async (req, res, next) => {
   console.log('GET /admin/users/new – form anzeigen');
   try {
-    const [countries]  = await db.query(`SELECT id, en AS label FROM countries ORDER BY en`);
+    const [countries]  = await db.query(`
+      SELECT id, COALESCE(de, en) AS label
+      FROM countries
+      WHERE COALESCE(parent_id, 0) = 0
+      ORDER BY label
+    `);
     const [companies]  = await db.query(`SELECT id, name FROM companies ORDER BY name`);
     const [packages]   = await db.query(`
       SELECT id, name, description, price, duration_unit, duration_amt
@@ -2547,13 +2687,33 @@ router.post(
       details:     req.body.details || 0,
       package_id:  req.body.package_id || null,
       category_id: req.body.category_id || null,
-      users_package_id: req.body.users_package_id || null   // bleibt im data, wird aber nicht genutzt
+      users_package_id: req.body.users_package_id || null,   // bleibt im data, wird aber nicht genutzt
+      new_password: req.body.new_password || '',
+      new_password_repeat: req.body.new_password_repeat || ''
     };
+
+    const pw = String(data.new_password || '');
+    const pwRepeat = String(data.new_password_repeat || '');
+    const wantsManualPassword = Boolean(pw || pwRepeat);
+    if (wantsManualPassword) {
+      if (!pw || !pwRepeat) {
+        errors.errors.push({ msg: 'Bitte Passwort und Wiederholung ausfüllen.' });
+      } else if (pw !== pwRepeat) {
+        errors.errors.push({ msg: 'Passwort und Wiederholung stimmen nicht überein.' });
+      } else if (pw.length < 8) {
+        errors.errors.push({ msg: 'Passwort muss mindestens 8 Zeichen lang sein.' });
+      }
+    }
 
     // ➜ Validierungsfehler → Formular zurückrendern
     if (!errors.isEmpty()) {
       console.log('Re-render form wegen Errors');
-      const [countries]     = await db.query(`SELECT id, en AS label FROM countries ORDER BY en`);
+      const [countries]     = await db.query(`
+        SELECT id, en AS label
+        FROM countries
+        WHERE COALESCE(parent_id, 0) = 0
+        ORDER BY en
+      `);
       const [companies]     = await db.query(`SELECT id, name FROM companies ORDER BY name`);
       const [packages]      = await db.query(`
         SELECT id, name, description, price, duration_unit, duration_amt
@@ -2580,7 +2740,9 @@ router.post(
 
     try {
       console.log('1) Generiere Passwort & hash');
-      const passwordPlain = crypto.randomBytes(6).toString('hex');
+      const passwordPlain = wantsManualPassword
+        ? pw
+        : crypto.randomBytes(6).toString('hex');
       const passwordHash  = await bcrypt.hash(passwordPlain, 10);
 
       console.log('2) INSERT INTO users');
@@ -2623,6 +2785,7 @@ router.post(
       );
       console.log('Neuer User ID:', result.insertId);
       const newUserId = result.insertId;
+      await enqueueCustomer('addCustomer', Number(newUserId));
 
       // 3) Logo speichern, falls hochgeladen
       if (req.file) {
@@ -2721,13 +2884,23 @@ router.post(
       // KEIN INSERT mehr in user_package_orders hier!
 
       delete req.session.userDraft;
-      req.flash('success', `Neuer Benutzer #${newUserId} angelegt. Passwort: ${passwordPlain}`);
+      req.flash(
+        'success',
+        wantsManualPassword
+          ? `Neuer Benutzer #${newUserId} angelegt. Passwort wurde gesetzt.`
+          : `Neuer Benutzer #${newUserId} angelegt. Passwort: ${passwordPlain}`
+      );
       res.redirect('/admin/users');
     } catch (err) {
       console.error('POST /admin/users/new Error:', err);
       if (err.code === 'ER_DUP_ENTRY') {
         console.log('E-Mail duplicate, re-render form');
-        const [countries]     = await db.query(`SELECT id, en AS label FROM countries ORDER BY en`);
+        const [countries]     = await db.query(`
+          SELECT id, en AS label
+          FROM countries
+          WHERE COALESCE(parent_id, 0) = 0
+          ORDER BY en
+        `);
         const [companies]     = await db.query(`SELECT id, name FROM companies ORDER BY name`);
         const [packages]      = await db.query(`
           SELECT id, name, description, price, duration_unit, duration_amt
@@ -3153,7 +3326,8 @@ router.get('/:id/activity', requireAdmin, async (req, res, next) => {
     }
 
     const [[user]] = await db.query(
-      `SELECT id, role, email, firstname, lastname, company, created, lastrun AS last_online
+      `SELECT id, role, email, firstname, lastname, company, created, lastrun AS last_online,
+              DATE_FORMAT(lastrun, '%d.%m.%Y') AS last_online_date
          FROM users
         WHERE id = ?
         LIMIT 1`,

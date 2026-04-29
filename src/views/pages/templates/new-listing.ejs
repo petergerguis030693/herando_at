@@ -62,12 +62,36 @@
   }
 
   .listing-price-controls {
-    flex-direction: column;
-    align-items: stretch;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.65rem;
   }
 
-  .listing-price-input-wrap,
-  .listing-currency-wrap,
+  .listing-price-controls .listing-price-input-wrap {
+    flex: 1 1 58%;
+    min-width: 180px;
+    width: auto !important;
+  }
+
+  .listing-price-controls .form-switch {
+    flex: 1 1 38%;
+    min-width: 130px;
+    margin: 0 !important;
+  }
+
+  .listing-price-controls .listing-currency-wrap {
+    flex: 1 1 42%;
+    min-width: 120px;
+    width: auto !important;
+  }
+
+  .listing-price-controls .form-check:not(.form-switch) {
+    flex: 1 1 54%;
+    min-width: 170px;
+    margin: 0 !important;
+  }
+
   .listing-month-select {
     width: 100% !important;
     flex: 1 1 auto;
@@ -85,6 +109,24 @@
   .listing-alert {
     min-width: 0 !important;
     width: min(92vw, 520px);
+  }
+
+  .listing-location-section .row {
+    margin-bottom: 0.9rem !important;
+  }
+
+  .listing-location-section .col-form-label {
+    text-align: left !important;
+    margin-bottom: 0.35rem;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  .listing-location-section .col-sm-3,
+  .listing-location-section .col-sm-4 {
+    flex: 0 0 100%;
+    width: 100%;
+    max-width: 100%;
   }
 }
 
@@ -434,7 +476,10 @@
       <select id="propertytype" name="propertytype" class="form-select">
         <option value="" selected>---</option>
         <% extras.propertytype.forEach(o => { %>
-          <option value="<%= o.value %>"><%= t('attribute.properties.propertytype.' + o.value) %></option>
+          <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+          <% if (rawLabel !== 'grundstück/fläche') { %>
+            <option value="<%= o.value %>"><%= t('attribute.properties.propertytype.' + o.value) %></option>
+          <% } %>
         <% }) %>
       </select>
     </div>
@@ -446,7 +491,10 @@
       <select id="investmenttype" name="investmenttype" class="form-select">
         <option value="" selected>---</option>
         <% extras.investmenttype.forEach(o => { %>
-          <option value="<%= o.value %>"><%= t('attribute.properties.investmenttype.' + o.value) %></option>
+          <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+          <% if (rawLabel !== 'grundstück/fläche') { %>
+            <option value="<%= o.value %>"><%= t('attribute.properties.investmenttype.' + o.value) %></option>
+          <% } %>
         <% }) %>
       </select>
     </div>
@@ -1536,9 +1584,8 @@ document.getElementById('brand_id').addEventListener('change', async function ()
       <label for="gender" class="form-label"><%= t('buyer.listing.gender') %></label>
       <select id="gender" name="gender" class="form-select">
         <option value="" selected>---</option>
-        <option value="1"><%= t('attribute.watch.gender.1') %></option>
-        <option value="2"><%= t('attribute.watch.gender.2') %></option>
-        <option value="3"><%= t('attribute.watch.gender.3') %></option>
+        <option value="2"><%= t('watch.gender.men', 'Herren/Unisex') %></option>
+        <option value="3"><%= t('watch.gender.women', 'Damen') %></option>
       </select>
     </div>
 
@@ -2157,8 +2204,8 @@ document.getElementById('brand_id').addEventListener('change', async function ()
 
       <!-- Bootstyp -->
       <div class="col-md-4">
-        <label for="yachttype" class="form-label">* <%= t('buyer.listing.yacht.general.type') %></label>
-        <select id="yachttype" name="yachttype" class="form-select" required>
+        <label for="yachttype" class="form-label"><%= t('buyer.listing.yacht.general.type') %></label>
+        <select id="yachttype" name="yachttype" class="form-select">
           <option value="" disabled selected>---</option>
           <% (extras.yachttype || []).forEach(o => { %>
             <option value="<%= o.value %>"><%= t('attribute.yachts.yachttype.' + o.value) ||  o.label %></option>
@@ -2351,7 +2398,7 @@ document.getElementById('brand_id').addEventListener('change', async function ()
         <% /* ---------- LIFESTYLES ---------- */ %>
       <%  if (ent.route === 'lifestyles') { %>
         
-<fieldset class="mb-4 p-3 border bg-white rounded">
+<fieldset class="mb-4 p-3 border bg-white rounded listing-location-section">
   <legend class="fw-semibold px-2"><%= t('buyer.listing.lifestyle.title') %></legend>
 
   <!-- Kategorie -->
@@ -2509,7 +2556,7 @@ document.addEventListener("DOMContentLoaded", () => {
 %>
 
 <div class="row mb-3">
-  <label for="country_parent_id" class="col-sm-3 col-form-label text-end">
+  <label for="country_parent_id" class="col-sm-3 col-form-label text-start">
     <%= t('buyer.listing.location.country') %>
   </label>
   <div class="col-sm-4">
@@ -2523,7 +2570,7 @@ document.addEventListener("DOMContentLoaded", () => {
 </div>
 
 <div class="row mb-3" id="region_row" style="display:none;">
-  <label for="region_id" class="col-sm-3 col-form-label text-end">
+  <label for="region_id" class="col-sm-3 col-form-label text-start">
     <%= t('filter.region', 'Bundesland / Region') %>
   </label>
   <div class="col-sm-4">
@@ -2541,7 +2588,7 @@ document.addEventListener("DOMContentLoaded", () => {
 <script type="application/json" id="country_tree_data_new_listing"><%- JSON.stringify(countryTreeData) %></script>
 
   <div class="row mb-3">
-    <label for="city" class="col-sm-3 col-form-label text-end">
+    <label for="city" class="col-sm-3 col-form-label text-start">
       <%= t('buyer.listing.location.city') %>
     </label>
     <div class="col-sm-4">

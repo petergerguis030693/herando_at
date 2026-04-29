@@ -1,0 +1,804 @@
+<%- include('../partials/header-admin') %>
+
+<script>
+  document.body.classList.add('admin-page');
+</script>
+
+<div class="d-flex admin-layout">
+  <aside class="sidebar bg-light p-3 admin-sidebar-host">
+    <%- include('./sidebar', { active: active, role: (typeof role !== 'undefined' ? role : null) }) %>
+  </aside>
+
+  <main class="main-content flex-fill px-4 py-3">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3">
+      <div>
+        <h4 class="mb-1"><i class="bi bi-robot me-2"></i>Bot Simulator</h4>
+        <div class="small text-muted">Eigene Testseite fuer Besucher-Simulation (Tag/Woche/Monat) mit Durchschnittsberechnung.</div>
+      </div>
+      <div class="small text-muted">
+        Testzweck auf eigener Infrastruktur. Keine Fremdseiten.
+      </div>
+    </div>
+
+    <div id="botSimError" class="alert alert-danger d-none py-2 mb-3"></div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header">Zielwerte berechnen</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-3">
+            <label class="form-label">Zeitraum-Modell</label>
+            <select id="planMode" class="form-select">
+              <option value="day">Tag</option>
+              <option value="week">Woche</option>
+              <option value="month">Monat</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Ziel-Besucher</label>
+            <input id="targetVisitors" class="form-control" type="number" min="1" value="30000">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Startdatum</label>
+            <input id="fromDate" class="form-control" type="date" value="<%= from %>">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Enddatum</label>
+            <input id="toDate" class="form-control" type="date" value="<%= to %>">
+          </div>
+        </div>
+        <div class="row g-3 mt-1">
+          <div class="col-md-3">
+            <div class="border rounded p-3">
+              <div class="small text-muted">Durchschnitt / Tag</div>
+              <div class="fs-5 fw-bold" id="avgPerDay">0</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="border rounded p-3">
+              <div class="small text-muted">Durchschnitt / Stunde</div>
+              <div class="fs-5 fw-bold" id="avgPerHour">0</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="border rounded p-3">
+              <div class="small text-muted">Durchschnitt / Woche</div>
+              <div class="fs-5 fw-bold" id="avgPerWeek">0</div>
+            </div>
+          </div>
+          <div class="col-md-3">
+            <div class="border rounded p-3">
+              <div class="small text-muted">Durchschnitt / Monat</div>
+              <div class="fs-5 fw-bold" id="avgPerMonth">0</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm mb-3">
+      <div class="card-header d-flex justify-content-between align-items-center">
+        <span>Reale Analytics-Werte (Besucher/Pageviews)</span>
+        <div class="d-flex gap-2">
+          <select id="statsPeriod" class="form-select form-select-sm">
+            <option value="day">Tag</option>
+            <option value="week">Woche</option>
+            <option value="month">Monat</option>
+          </select>
+          <button id="btnLoadStats" class="btn btn-sm btn-outline-primary">Laden</button>
+        </div>
+      </div>
+      <div class="card-body">
+        <div class="row g-3 mb-2">
+          <div class="col-md-3"><div class="border rounded p-2"><small class="text-muted">Besucher gesamt</small><div class="fw-bold" id="statsVisitors">0</div></div></div>
+          <div class="col-md-3"><div class="border rounded p-2"><small class="text-muted">Pageviews gesamt</small><div class="fw-bold" id="statsPageviews">0</div></div></div>
+          <div class="col-md-3"><div class="border rounded p-2"><small class="text-muted">Ø Besucher / Bucket</small><div class="fw-bold" id="statsAvgVisitors">0</div></div></div>
+          <div class="col-md-3"><div class="border rounded p-2"><small class="text-muted">Ø Pageviews / Bucket</small><div class="fw-bold" id="statsAvgPageviews">0</div></div></div>
+        </div>
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead><tr><th>Bucket</th><th class="text-end">Besucher</th><th class="text-end">Pageviews</th></tr></thead>
+            <tbody id="statsTable"><tr><td colspan="3" class="text-muted">Noch keine Daten geladen.</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <div class="card shadow-sm">
+      <div class="card-header">Echter Besuchsablauf (Unterseiten + min. 20s + Scroll)</div>
+      <div class="card-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label class="form-label">Ziel-Domains (eine pro Zeile)</label>
+            <textarea id="simTargetOrigins" rows="3" class="form-control" placeholder="https://www.herando.com&#10;https://www.herando.de"></textarea>
+            <div class="small text-muted mt-1">Der Background-Runner verteilt Sessions/Requests zufaellig auf diese Domains.</div>
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Parallel laufende Sessions</label>
+            <input id="simParallel" type="number" class="form-control" min="1" max="20" value="5">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Anzahl Sessions</label>
+            <input id="simSessions" type="number" class="form-control" min="1" max="200" value="5">
+          </div>
+          <div class="col-md-3">
+            <label class="form-label">Min. Sekunden / Seite</label>
+            <input id="simMinSeconds" type="number" class="form-control" min="20" value="20">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label">Unterseiten (eine pro Zeile, relativ)</label>
+            <textarea id="simPaths" rows="4" class="form-control">/
+/autos
+/kontakt</textarea>
+            <div class="d-flex flex-wrap gap-2 mt-2">
+              <input id="crawlBasePath" class="form-control form-control-sm" style="max-width: 220px;" value="/autos">
+              <button id="btnDiscoverPaths" class="btn btn-sm btn-outline-secondary">
+                Unterseiten finden
+              </button>
+              <input id="discoverDepth" type="number" class="form-control form-control-sm" style="max-width: 120px;" min="1" max="4" value="2">
+              <span class="small text-muted align-self-center" id="discoverStatus">Keine Suche gestartet.</span>
+            </div>
+          </div>
+        </div>
+        <div class="d-flex gap-2 mt-3">
+          <button id="btnStartSim" class="btn btn-primary"><i class="bi bi-play-fill me-1"></i>Background-Runner starten</button>
+          <button id="btnStopSim" class="btn btn-outline-danger"><i class="bi bi-stop-fill me-1"></i>Runner stoppen</button>
+          <button id="btnOpenLivePopup" class="btn btn-outline-secondary"><i class="bi bi-window me-1"></i>Live-Popup öffnen</button>
+          <button id="btnVisualPreview" class="btn btn-outline-dark"><i class="bi bi-eye me-1"></i>Visuelle Vorschau (Popups)</button>
+          <% if (canViewErrorReports) { %>
+            <button id="btnIdentifyErrors" class="btn btn-warning"><i class="bi bi-bug me-1"></i>Fehlermeldung identifizieren</button>
+          <% } %>
+        </div>
+        <div class="small text-muted mt-2" id="simStatus">Bereit.</div>
+        <div class="small mt-1" id="runnerMetrics"></div>
+        <pre id="simLog" class="mt-2 p-2 border rounded bg-light" style="max-height:220px;overflow:auto;font-size:12px;">[bot-simulator] Bereit.</pre>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const errEl = document.getElementById('botSimError');
+  const planModeEl = document.getElementById('planMode');
+  const targetVisitorsEl = document.getElementById('targetVisitors');
+  const fromDateEl = document.getElementById('fromDate');
+  const toDateEl = document.getElementById('toDate');
+  const statsPeriodEl = document.getElementById('statsPeriod');
+  const btnLoadStats = document.getElementById('btnLoadStats');
+  const statsTableEl = document.getElementById('statsTable');
+  const simStatusEl = document.getElementById('simStatus');
+  const runnerMetricsEl = document.getElementById('runnerMetrics');
+  const simLogEl = document.getElementById('simLog');
+  const simSessionsEl = document.getElementById('simSessions');
+  const simParallelEl = document.getElementById('simParallel');
+  const simTargetOriginsEl = document.getElementById('simTargetOrigins');
+  const simMinSecondsEl = document.getElementById('simMinSeconds');
+  const simPathsEl = document.getElementById('simPaths');
+  const crawlBasePathEl = document.getElementById('crawlBasePath');
+  const discoverDepthEl = document.getElementById('discoverDepth');
+  const btnDiscoverPaths = document.getElementById('btnDiscoverPaths');
+  const discoverStatusEl = document.getElementById('discoverStatus');
+  const btnStartSim = document.getElementById('btnStartSim');
+  const btnStopSim = document.getElementById('btnStopSim');
+  const btnOpenLivePopup = document.getElementById('btnOpenLivePopup');
+  const btnVisualPreview = document.getElementById('btnVisualPreview');
+  const btnIdentifyErrors = document.getElementById('btnIdentifyErrors');
+
+  let stopSimulation = false;
+  let runnerPollTimer = null;
+
+  function fmt(n, maxDigits = 2) {
+    return new Intl.NumberFormat('de-DE', { maximumFractionDigits: maxDigits }).format(Number(n || 0));
+  }
+
+  function showError(message) {
+    errEl.textContent = message || 'Fehler.';
+    errEl.classList.remove('d-none');
+  }
+
+  function clearError() {
+    errEl.textContent = '';
+    errEl.classList.add('d-none');
+  }
+
+  function appendSimLog(line) {
+    const entry = `[${new Date().toLocaleTimeString('de-DE')}] ${line}`;
+    if (!simLogEl) return;
+    simLogEl.textContent += `\n${entry}`;
+    const maxChars = 18000;
+    if (simLogEl.textContent.length > maxChars) {
+      simLogEl.textContent = simLogEl.textContent.slice(simLogEl.textContent.length - maxChars);
+    }
+    simLogEl.scrollTop = simLogEl.scrollHeight;
+    console.log(line);
+  }
+
+  function parseDate(v) {
+    const d = new Date(`${v}T00:00:00`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  function daysBetweenInclusive(from, to) {
+    const ms = to.getTime() - from.getTime();
+    return Math.floor(ms / 86400000) + 1;
+  }
+
+  function updatePlan() {
+    const mode = String(planModeEl.value || 'day');
+    const target = Math.max(1, Number(targetVisitorsEl.value || 0));
+    const from = parseDate(fromDateEl.value);
+    const to = parseDate(toDateEl.value);
+    if (!from || !to || from > to) return;
+
+    const days = Math.max(1, daysBetweenInclusive(from, to));
+    const weeks = days / 7;
+    const months = days / 30;
+    let perDay = target;
+    if (mode === 'week') perDay = target / 7;
+    if (mode === 'month') perDay = target / 30;
+
+    // Wenn Datumsbereich gesetzt ist, rechnen wir auch den Schnitt fuer diesen Zeitraum.
+    const scopedPerDay = target / days;
+
+    document.getElementById('avgPerDay').textContent = fmt(scopedPerDay);
+    document.getElementById('avgPerHour').textContent = fmt(scopedPerDay / 24);
+    document.getElementById('avgPerWeek').textContent = fmt((target / Math.max(weeks, 0.01)));
+    document.getElementById('avgPerMonth').textContent = fmt((target / Math.max(months, 0.01)));
+
+    console.log(`[bot-simulator] plan mode=${mode} target=${target} rangeDays=${days} avg/day=${scopedPerDay.toFixed(2)} base/day=${perDay.toFixed(2)}`);
+  }
+
+  async function loadStats() {
+    clearError();
+    const p = new URLSearchParams();
+    p.set('period', statsPeriodEl.value || 'day');
+    p.set('from', fromDateEl.value);
+    p.set('to', toDateEl.value);
+    const r = await fetch(`/admin/bot-simulator/stats.json?${p.toString()}`);
+    if (!r.ok) throw new Error(await r.text());
+    const data = await r.json();
+    const totals = data.totals || {};
+    document.getElementById('statsVisitors').textContent = fmt(totals.visitors);
+    document.getElementById('statsPageviews').textContent = fmt(totals.pageviews);
+    document.getElementById('statsAvgVisitors').textContent = fmt(totals.avgVisitorsPerBucket);
+    document.getElementById('statsAvgPageviews').textContent = fmt(totals.avgPageviewsPerBucket);
+
+    const rows = Array.isArray(data.rows) ? data.rows : [];
+    if (!rows.length) {
+      statsTableEl.innerHTML = '<tr><td colspan="3" class="text-muted">Keine Daten im Zeitraum.</td></tr>';
+      return;
+    }
+    statsTableEl.innerHTML = rows.map((row) => (
+      `<tr>
+        <td>${row.bucket}</td>
+        <td class="text-end">${fmt(row.visitors)}</td>
+        <td class="text-end">${fmt(row.pageviews)}</td>
+      </tr>`
+    )).join('');
+  }
+
+  async function wait(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
+  async function postJson(url, payload) {
+    const r = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload || {})
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      throw new Error(data.message || `${r.status} ${r.statusText}`);
+    }
+    return data;
+  }
+
+  async function fetchRunnerStatus() {
+    const r = await fetch('/admin/bot-simulator/runner/status.json');
+    if (!r.ok) throw new Error(await r.text());
+    return r.json();
+  }
+
+  function renderRunnerStatus(status) {
+    const running = Boolean(status?.running);
+    const total = Number(status?.totalSessions || 0);
+    const started = Number(status?.startedSessions || 0);
+    const done = Number(status?.finishedSessions || 0);
+    const requests = Number(status?.totalRequests || 0);
+    const fails = Number(status?.failedRequests || 0);
+    const workers = Number(status?.activeWorkers || 0);
+    simStatusEl.textContent = running
+      ? `Background-Runner laeuft: ${done}/${total} Sessions abgeschlossen`
+      : (status?.stopRequested ? 'Runner stop angefordert...' : 'Runner gestoppt.');
+    if (runnerMetricsEl) {
+      runnerMetricsEl.textContent = `Sessions gestartet: ${started} | abgeschlossen: ${done}/${total} | aktive Worker: ${workers} | Requests: ${requests} | Fehler: ${fails}`;
+    }
+    if (Array.isArray(status?.logs)) {
+      simLogEl.textContent = status.logs.join('\n') || '[bot-simulator] Keine Logs.';
+      simLogEl.scrollTop = simLogEl.scrollHeight;
+    }
+    btnStartSim.disabled = running;
+    btnStopSim.disabled = !running;
+  }
+
+  async function refreshRunnerStatus() {
+    try {
+      const status = await fetchRunnerStatus();
+      renderRunnerStatus(status);
+    } catch (err) {
+      showError(err.message || 'Runner-Status konnte nicht geladen werden.');
+    }
+  }
+
+  function ensureRunnerPolling() {
+    if (runnerPollTimer) return;
+    runnerPollTimer = setInterval(() => {
+      refreshRunnerStatus();
+    }, 3000);
+  }
+
+  function ensureVirtualCursor(popup) {
+    const doc = popup.document;
+    if (!doc || doc.getElementById('botSimVirtualCursor')) return;
+    const style = doc.createElement('style');
+    style.textContent = `
+      #botSimVirtualCursor{
+        position:fixed;left:0;top:0;width:14px;height:14px;border-radius:50%;
+        background:rgba(220,53,69,0.95);border:2px solid #fff;z-index:2147483647;
+        pointer-events:none;box-shadow:0 0 10px rgba(0,0,0,0.35);transform:translate(-50%,-50%);
+      }
+      .bot-sim-hover{
+        outline:2px dashed rgba(13,110,253,.8)!important;
+        outline-offset:2px;
+      }
+    `;
+    doc.head.appendChild(style);
+    const cursor = doc.createElement('div');
+    cursor.id = 'botSimVirtualCursor';
+    doc.body.appendChild(cursor);
+  }
+
+  function moveVirtualCursor(popup, x, y) {
+    const el = popup.document.getElementById('botSimVirtualCursor');
+    if (!el) return;
+    el.style.left = `${x}px`;
+    el.style.top = `${y}px`;
+  }
+
+  function pickHoverTarget(doc) {
+    const candidates = Array.from(doc.querySelectorAll('a, button, [role="button"], .btn'))
+      .filter((el) => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 12 && rect.height > 12;
+      });
+    if (!candidates.length) return null;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  async function hoverRandomInteractiveElement(popup) {
+    const doc = popup.document;
+    const target = pickHoverTarget(doc);
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    const x = Math.max(10, Math.floor(rect.left + rect.width / 2));
+    const y = Math.max(10, Math.floor(rect.top + rect.height / 2));
+    moveVirtualCursor(popup, x, y);
+    target.classList.add('bot-sim-hover');
+    target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: x, clientY: y }));
+    target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y }));
+    await wait(350 + Math.floor(Math.random() * 950));
+    target.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, clientX: x, clientY: y }));
+    target.classList.remove('bot-sim-hover');
+  }
+
+  function isVisibleElement(el) {
+    if (!el) return false;
+    const rect = el.getBoundingClientRect();
+    return rect.width > 12 && rect.height > 12 && rect.bottom > 0 && rect.top < window.innerHeight;
+  }
+
+  function pickPriorityClickTarget(doc) {
+    const sliderSelectors = [
+      '.swiper-button-next', '.swiper-button-prev',
+      '.carousel-control-next', '.carousel-control-prev',
+      '[data-bs-slide]', '.slick-next', '.slick-prev'
+    ];
+    for (const sel of sliderSelectors) {
+      const matches = Array.from(doc.querySelectorAll(sel)).filter(isVisibleElement);
+      if (matches.length) return matches[Math.floor(Math.random() * matches.length)];
+    }
+
+    const categorySelectors = [
+      'nav a[href*="/"]',
+      '.menu a[href]',
+      '.navbar a[href]',
+      '.category a[href]',
+      '[class*="category"] a[href]',
+      'a[href*="/autos"]',
+      'a[href*="/katalog"]'
+    ];
+    const categoryLinks = [];
+    for (const sel of categorySelectors) {
+      const matches = Array.from(doc.querySelectorAll(sel)).filter((el) => {
+        if (!isVisibleElement(el)) return false;
+        const href = String(el.getAttribute('href') || '').trim();
+        return href && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:');
+      });
+      categoryLinks.push(...matches);
+    }
+    if (categoryLinks.length && Math.random() < 0.45) {
+      return categoryLinks[Math.floor(Math.random() * categoryLinks.length)];
+    }
+
+    const listingSelectors = [
+      'a[href*="/inserat"]',
+      'a[href*="/listing"]',
+      '.listing a[href]',
+      '.listing-card a[href]',
+      '.result-item a[href]',
+      '.card a[href]'
+    ];
+    const listingLinks = [];
+    for (const sel of listingSelectors) {
+      const matches = Array.from(doc.querySelectorAll(sel)).filter((el) => {
+        if (!isVisibleElement(el)) return false;
+        const href = String(el.getAttribute('href') || '').trim();
+        return href && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:');
+      });
+      listingLinks.push(...matches);
+    }
+    if (listingLinks.length) return listingLinks[Math.floor(Math.random() * listingLinks.length)];
+
+    const fallback = Array.from(doc.querySelectorAll('a[href], button, [role="button"]')).filter(isVisibleElement);
+    if (!fallback.length) return null;
+    return fallback[Math.floor(Math.random() * fallback.length)];
+  }
+
+  function normalizeInternalPath(href, targetOrigin) {
+    if (!href) return '';
+    try {
+      const url = new URL(href, targetOrigin);
+      if (url.origin !== targetOrigin) return '';
+      if (!url.pathname || url.pathname === '/admin/bot-simulator') return '';
+      return `${url.pathname}${url.search || ''}`;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  async function performHumanClick(popup, target, sessionId, targetOrigin) {
+    const rect = target.getBoundingClientRect();
+    const x = Math.floor(rect.left + Math.max(8, Math.min(rect.width - 8, rect.width * 0.5)));
+    const y = Math.floor(rect.top + Math.max(8, Math.min(rect.height - 8, rect.height * 0.5)));
+    moveVirtualCursor(popup, x, y);
+    target.classList.add('bot-sim-hover');
+    target.dispatchEvent(new MouseEvent('mouseover', { bubbles: true, clientX: x, clientY: y }));
+    target.dispatchEvent(new MouseEvent('mousemove', { bubbles: true, clientX: x, clientY: y }));
+    await wait(280 + Math.floor(Math.random() * 420));
+    target.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, clientX: x, clientY: y, button: 0 }));
+    await wait(70 + Math.floor(Math.random() * 120));
+    target.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, clientX: x, clientY: y, button: 0 }));
+    target.dispatchEvent(new MouseEvent('click', { bubbles: true, clientX: x, clientY: y, button: 0 }));
+    const href = String(target.getAttribute?.('href') || '').trim();
+    appendSimLog(`[S${sessionId}] click ${target.tagName.toLowerCase()} ${href || '(no-href)'}`);
+    target.classList.remove('bot-sim-hover');
+    return normalizeInternalPath(href, targetOrigin);
+  }
+
+  async function runPageBehavior(popup, minSeconds, sessionId, currentPath, targetOrigin) {
+    const started = Date.now();
+    const minMs = Math.max(20000, Number(minSeconds || 20) * 1000);
+    let downDirection = true;
+    let actionCount = 0;
+    let queuedNextPath = '';
+    while (!stopSimulation && Date.now() - started < minMs) {
+      try {
+        const doc = popup.document;
+        ensureVirtualCursor(popup);
+        const maxY = Math.max(
+          0,
+          (doc.documentElement?.scrollHeight || 0) - (popup.innerHeight || 800)
+        );
+        const currentY = Math.max(0, Math.floor(popup.scrollY || 0));
+        const step = 120 + Math.floor(Math.random() * 280);
+        const direction = downDirection ? 1 : -1;
+        let y = currentY + (step * direction);
+        if (y < 0) y = 0;
+        if (y > maxY) y = maxY;
+        if (actionCount % 3 === 2) downDirection = !downDirection;
+        popup.scrollTo({ top: y, behavior: 'smooth' });
+        popup.dispatchEvent(new Event('scroll'));
+        appendSimLog(`[S${sessionId}] scroll ${direction > 0 ? 'down' : 'up'} on ${currentPath} -> y=${y}`);
+
+        const x = Math.floor(80 + Math.random() * 900);
+        const pointerY = Math.floor(80 + Math.random() * 520);
+        moveVirtualCursor(popup, x, pointerY);
+        const evt = new MouseEvent('mousemove', {
+          bubbles: true,
+          clientX: x,
+          clientY: pointerY
+        });
+        doc.dispatchEvent(evt);
+        if (Math.random() < 0.55) {
+          const target = pickPriorityClickTarget(doc);
+          if (target) {
+            const clickedPath = await performHumanClick(popup, target, sessionId, targetOrigin);
+            if (!queuedNextPath && clickedPath && clickedPath !== currentPath) {
+              queuedNextPath = clickedPath;
+            }
+            await wait(1000 + Math.floor(Math.random() * 1600));
+          } else {
+            await hoverRandomInteractiveElement(popup);
+          }
+        } else {
+          await hoverRandomInteractiveElement(popup);
+        }
+        actionCount += 1;
+      } catch (err) {
+        appendSimLog(`[S${sessionId}] behavior step failed: ${err.message || err}`);
+      }
+      await wait(1400 + Math.floor(Math.random() * 1300));
+    }
+    return queuedNextPath;
+  }
+
+  async function discoverSubPaths(basePath, maxDepth) {
+    const cleanBase = String(basePath || '').trim() || '/';
+    const normBase = cleanBase.startsWith('/') ? cleanBase : `/${cleanBase}`;
+    const depth = Math.max(1, Math.min(4, Number(maxDepth || 2)));
+    const visited = new Set();
+    const found = new Set([normBase]);
+    const queue = [{ path: normBase, level: 0 }];
+
+    while (queue.length) {
+      const { path, level } = queue.shift();
+      if (visited.has(path)) continue;
+      visited.add(path);
+      const targetUrl = `${window.location.origin}${path}`;
+      let html = '';
+      try {
+        const r = await fetch(targetUrl);
+        if (!r.ok) continue;
+        html = await r.text();
+      } catch (_) {
+        continue;
+      }
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const anchors = Array.from(doc.querySelectorAll('a[href]'));
+      for (const a of anchors) {
+        const href = a.getAttribute('href') || '';
+        if (!href || href.startsWith('#') || href.startsWith('mailto:') || href.startsWith('tel:')) continue;
+        try {
+          const url = new URL(href, window.location.origin);
+          if (url.origin !== window.location.origin) continue;
+          const p = url.pathname + (url.search || '');
+          if (!url.pathname.startsWith(normBase.replace(/\/+$/, ''))) continue;
+          if (!found.has(p)) found.add(p);
+          if (level + 1 < depth && !visited.has(p) && queue.length < 120) {
+            queue.push({ path: p, level: level + 1 });
+          }
+        } catch (_) {
+          // noop
+        }
+      }
+      if (found.size >= 120) break;
+    }
+
+    return [...found];
+  }
+
+  function normalizeOriginInput(raw) {
+    const value = String(raw || '').trim();
+    if (!value) return '';
+    const normalized = value.match(/^https?:\/\//i) ? value : `https://${value}`;
+    try {
+      return new URL(normalized).origin;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function buildTargetOriginsText() {
+    const rows = String(simTargetOriginsEl.value || '')
+      .split('\n')
+      .map((line) => normalizeOriginInput(line))
+      .filter(Boolean);
+    if (!rows.length) return window.location.origin;
+    return rows.join('\n');
+  }
+
+  function buildTargetOrigin() {
+    const rows = String(simTargetOriginsEl.value || '')
+      .split('\n')
+      .map((line) => normalizeOriginInput(line))
+      .filter(Boolean);
+    return rows[0] || window.location.origin;
+  }
+
+  async function runSingleSession(sessionId, paths, minSeconds, targetOrigin, popup) {
+    if (stopSimulation || !popup) return;
+    try {
+      const queue = [...paths];
+      const seen = new Set();
+      const maxVisits = Math.min(24, Math.max(paths.length + 6, 10));
+      let visits = 0;
+      while (!stopSimulation && queue.length && visits < maxVisits) {
+        const path = queue.shift();
+        if (!path) continue;
+        const normalized = path.startsWith('/') ? path : `/${path}`;
+        if (seen.has(normalized) && Math.random() < 0.7) continue;
+        seen.add(normalized);
+        visits += 1;
+
+        if (stopSimulation) break;
+        const targetUrl = `${targetOrigin}${normalized}${normalized.includes('?') ? '&' : '?'}bot_sim=1&session=${sessionId}&step=${visits}`;
+        simStatusEl.textContent = `Session ${sessionId}: ${normalized} (${visits}/${maxVisits})`;
+        appendSimLog(`[S${sessionId}] open ${targetUrl}`);
+        popup.location.href = targetUrl;
+        await wait(3000);
+        const discoveredNext = await runPageBehavior(popup, minSeconds, sessionId, normalized, targetOrigin);
+        if (discoveredNext && !seen.has(discoveredNext)) {
+          queue.push(discoveredNext);
+          appendSimLog(`[S${sessionId}] queued next ${discoveredNext}`);
+        }
+      }
+      appendSimLog(`[S${sessionId}] done`);
+    } catch (err) {
+      appendSimLog(`[S${sessionId}] failed: ${err.message || err}`);
+      showError(err.message || 'Simulation fehlgeschlagen.');
+    }
+  }
+
+  async function simulateSessions() {
+    clearError();
+    stopSimulation = false;
+    const sessions = Math.min(200, Math.max(1, Number(simSessionsEl.value || 1)));
+    const parallel = Math.min(20, Math.max(1, Number(simParallelEl.value || 1)));
+    const minSeconds = Math.max(20, Number(simMinSecondsEl.value || 20));
+    const targetOrigin = buildTargetOrigin();
+    const paths = String(simPathsEl.value || '')
+      .split('\n')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((p) => p.startsWith('/') ? p : `/${p}`);
+    if (!paths.length) throw new Error('Bitte mindestens eine Unterseite eintragen.');
+
+    simStatusEl.textContent = `Simulation laeuft: ${sessions} Sessions, parallel ${parallel}, ${paths.length} Seiten/Session, min ${minSeconds}s pro Seite...`;
+    appendSimLog(`[bot-simulator] start sessions=${sessions} parallel=${parallel} origin=${targetOrigin} paths=${paths.join(',')}`);
+
+    // WICHTIG: Popups direkt beim Start (User-Gesture) oeffnen, sonst blocken Browser meist alle ausser dem ersten.
+    const popupPool = [];
+    for (let i = 0; i < Math.min(parallel, sessions); i += 1) {
+      const popup = window.open('about:blank', `botWorker_${Date.now()}_${i}`, 'width=1280,height=900');
+      if (!popup) {
+        appendSimLog(`[bot-simulator] popup ${i + 1} blocked by browser`);
+        break;
+      }
+      popupPool.push(popup);
+    }
+    if (!popupPool.length) {
+      throw new Error('Alle Popups wurden blockiert. Bitte Popups erlauben.');
+    }
+    if (popupPool.length < Math.min(parallel, sessions)) {
+      appendSimLog(`[bot-simulator] reduced parallel workers to ${popupPool.length} due popup limits`);
+    }
+
+    let nextSessionId = 1;
+    const workers = popupPool.map(async (popup, workerIdx) => {
+      while (!stopSimulation && nextSessionId <= sessions) {
+        const sessionId = nextSessionId;
+        nextSessionId += 1;
+        appendSimLog(`[W${workerIdx + 1}] start session ${sessionId}`);
+        await runSingleSession(sessionId, paths, minSeconds, targetOrigin, popup);
+        await wait(300 + Math.floor(Math.random() * 900));
+      }
+    });
+    for (const w of workers) {
+      await w;
+    }
+
+    popupPool.forEach((popup) => {
+      try { popup.close(); } catch (_) {}
+    });
+
+    const status = stopSimulation ? 'Simulation manuell gestoppt.' : 'Simulation abgeschlossen.';
+    simStatusEl.textContent = status;
+    appendSimLog(`[bot-simulator] done stop=${stopSimulation}`);
+  }
+
+  [planModeEl, targetVisitorsEl, fromDateEl, toDateEl].forEach((el) => {
+    el.addEventListener('change', updatePlan);
+  });
+  btnLoadStats.addEventListener('click', () => {
+    loadStats().catch((err) => {
+      showError(err.message || 'Stats konnten nicht geladen werden.');
+      console.error(err);
+    });
+  });
+  btnStartSim.addEventListener('click', () => {
+    clearError();
+    const targetOrigins = buildTargetOriginsText();
+    const payload = {
+      targetOrigins,
+      sessions: Number(simSessionsEl.value || 1),
+      parallel: Number(simParallelEl.value || 1),
+      minSeconds: Number(simMinSecondsEl.value || 20),
+      paths: simPathsEl.value || ''
+    };
+    postJson('/admin/bot-simulator/runner/start', payload)
+      .then((data) => {
+        appendSimLog(`[bot-simulator] ${data.message || 'Runner gestartet.'}`);
+        renderRunnerStatus(data.status || {});
+        ensureRunnerPolling();
+      })
+      .catch((err) => {
+        showError(err.message || 'Runner konnte nicht gestartet werden.');
+      });
+  });
+  btnDiscoverPaths.addEventListener('click', () => {
+    clearError();
+    discoverStatusEl.textContent = 'Suche Unterseiten...';
+    discoverSubPaths(crawlBasePathEl.value, discoverDepthEl.value)
+      .then((found) => {
+        if (!found.length) {
+          discoverStatusEl.textContent = 'Keine Unterseiten gefunden.';
+          return;
+        }
+        const existing = new Set(
+          String(simPathsEl.value || '')
+            .split('\n')
+            .map((s) => s.trim())
+            .filter(Boolean)
+        );
+        found.forEach((p) => existing.add(p));
+        simPathsEl.value = [...existing].join('\n');
+        discoverStatusEl.textContent = `${found.length} Unterseiten gefunden (rekursiv) und eingefuegt.`;
+        appendSimLog(`[bot-simulator] discovered ${found.length} subpaths from ${crawlBasePathEl.value} depth=${discoverDepthEl.value}`);
+      })
+      .catch((err) => {
+        showError(err.message || 'Unterseiten konnten nicht gelesen werden.');
+        discoverStatusEl.textContent = 'Suche fehlgeschlagen.';
+      });
+  });
+  btnStopSim.addEventListener('click', () => {
+    clearError();
+    postJson('/admin/bot-simulator/runner/stop', {})
+      .then((data) => {
+        appendSimLog(`[bot-simulator] ${data.message || 'Stop angefordert.'}`);
+        renderRunnerStatus(data.status || {});
+      })
+      .catch((err) => {
+        showError(err.message || 'Runner konnte nicht gestoppt werden.');
+      });
+  });
+  btnOpenLivePopup.addEventListener('click', () => {
+    const popup = window.open('/admin/bot-simulator/runner/live', `botRunnerLive_${Date.now()}`, 'width=1100,height=850');
+    if (!popup) {
+      showError('Popup blockiert. Bitte Popups erlauben.');
+    }
+  });
+  btnVisualPreview.addEventListener('click', () => {
+    clearError();
+    simulateSessions().catch((err) => {
+      showError(err.message || 'Visuelle Vorschau fehlgeschlagen.');
+      console.error(err);
+    });
+  });
+  btnIdentifyErrors?.addEventListener('click', () => {
+    const popup = window.open('/admin/bot-simulator/runner/errors-popup', `botRunnerErrors_${Date.now()}`, 'width=1200,height=850');
+    if (!popup) {
+      showError('Popup blockiert. Bitte Popups erlauben.');
+    }
+  });
+
+  simTargetOriginsEl.value = `${window.location.origin}\nhttps://www.herando.com`;
+  updatePlan();
+  loadStats().catch((err) => {
+    showError(err.message || 'Initiale Stats konnten nicht geladen werden.');
+    console.error(err);
+  });
+  ensureRunnerPolling();
+  refreshRunnerStatus();
+</script>

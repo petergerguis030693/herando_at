@@ -1,5 +1,6 @@
 <%- include('../../partials/header') %>
 <link rel="stylesheet" href="/css/category.css">
+<link rel="stylesheet" href="/css/category/seo-description.css">
 <link rel="stylesheet" href="/css/product.css">
 <link rel="stylesheet" href="/css/product-cards/cars.css">
 <link rel="stylesheet" href="/css/product-cards/watches.css">
@@ -55,7 +56,7 @@
 
 <section class="boxed-hero-shell">
   <div id="heroSection" class="hero-section boxed-hero-stage">
-    <img id="heroImage" src="<%= heroData.img %>" alt="<%= heroData.caption %>" class="hero-image" fetchpriority="high" loading="eager">
+    <img id="heroImage" src="<%= heroData.img %>" alt="<%= heroData.caption %>" class="hero-image" width="1920" height="640" fetchpriority="high" loading="eager">
   </div>
 </section>
 
@@ -169,7 +170,16 @@
   }
 
   let descHtml = '';
+  const brandSeoHtml = (typeof selectedBrandSeoText === 'string')
+    ? selectedBrandSeoText.trim()
+    : '';
+
+  if (brandSeoHtml) {
+    descHtml = brandSeoHtml;
+  }
+
   for (const k of keys) {
+    if (descHtml) break;
     const v = fromT(k);
     if (v && v.trim()) { descHtml = v; break; }
   }
@@ -178,11 +188,38 @@
 
 <% if (descHtml && descHtml.trim()) { %>
 <section class="container mb-5" style="max-width: 1800px !important;">
-  <div class="p-4">
+  <div>
     <div class="entity-description"><%- descHtml %></div>
   </div>
 </section>
 <% } %>
+
+<style>
+.entity-description .brand-taxonomy-flex {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 20px;
+  margin-top: 12px;
+}
+.entity-description .brand-taxonomy-section {
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+.entity-description .brand-taxonomy-section h2,
+.entity-description .brand-taxonomy-section h3 {
+  margin-bottom: 8px;
+}
+.entity-description .brand-taxonomy-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.entity-description .brand-taxonomy-list li {
+  margin: 0 0 4px;
+  line-height: 1.4;
+}
+</style>
 
 
 <%- include('../../components/script') %>
@@ -237,7 +274,72 @@ function updateLimit(limit){
 }
 </script>
 
+<script>
+(() => {
+  const root = document.querySelector('.entity-description');
+  if (!root) return;
+
+  const allNodes = Array.from(root.children || []);
+  if (!allNodes.length) return;
+
+  const startIndex = allNodes.findIndex((node) => {
+    if (!node || !/^H[23]$/i.test(node.tagName || '')) return false;
+    const text = String(node.textContent || '').trim().toLowerCase();
+    return text.includes('alle') && text.includes('modelle') && text.includes('varianten');
+  });
+  if (startIndex < 0) return;
+
+  const tail = allNodes.slice(startIndex);
+  const groups = [];
+  let current = null;
+
+  for (const node of tail) {
+    const tag = String(node.tagName || '').toUpperCase();
+    if (tag === 'H2' || tag === 'H3') {
+      current = { heading: node, items: [] };
+      groups.push(current);
+      continue;
+    }
+    if (!current) continue;
+    if (tag !== 'P') continue;
+    const text = String(node.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!text || text === '_') continue;
+    current.items.push(text);
+  }
+
+  const validGroups = groups.filter((g) => g.heading && g.items.length);
+  if (!validGroups.length) return;
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'brand-taxonomy-flex';
+
+  validGroups.forEach((g) => {
+    const section = document.createElement('section');
+    section.className = 'brand-taxonomy-section';
+
+    section.appendChild(g.heading.cloneNode(true));
+
+    const ul = document.createElement('ul');
+    ul.className = 'brand-taxonomy-list';
+    g.items.forEach((itemText) => {
+      const li = document.createElement('li');
+      li.textContent = itemText;
+      ul.appendChild(li);
+    });
+
+    section.appendChild(ul);
+    wrapper.appendChild(section);
+  });
+
+  tail.forEach((node) => node.remove());
+  root.appendChild(wrapper);
+})();
+</script>
+
 
 
 
 <%- include('../../partials/footer') %>
+
+</body>
+</html>

@@ -24,8 +24,45 @@
   </div>
 </nav>
 
+<script type="application/json" id="herando-track-cfg"><%- JSON.stringify({ force: true, role: (typeof role !== 'undefined' && role != null) ? Number(role) : null }) %></script>
+<script src="/js/analytics-tracker.min.js" defer></script>
+<!-- Matomo -->
 <script>
-  window.__herandoForceTracking = true;
-  window.__herandoActorRole = <%= (typeof role !== 'undefined' && role != null) ? Number(role) : 'null' %>;
+  var _paq = window._paq = window._paq || [];
+  _paq.push(['trackPageView']);
+  _paq.push(['enableLinkTracking']);
+  (function() {
+    var u = "//herando.at/admin/matomo/";
+    var host = (window.location.hostname || '').toLowerCase();
+    var siteIdByHost = {
+      'herando.at': '2',
+      'www.herando.at': '2',
+      'herando.de': '3',
+      'www.herando.de': '3',
+      'herando.es': '1',
+      'www.herando.es': '1',
+      'herando.cz': '1',
+      'www.herando.cz': '1',
+      'herando.ch': '4',
+      'www.herando.ch': '4',
+      'herando.fr': '1',
+      'www.herando.fr': '1',
+      'herando.it': '1',
+      'www.herando.it': '1',
+      'herando.nl': '1',
+      'www.herando.nl': '1',
+      'herando.pl': '1',
+      'www.herando.pl': '1',
+      'herando.co.uk': '1',
+      'www.herando.co.uk': '1',
+      'herando.com': '1',
+      'www.herando.com': '1'
+    };
+    var siteId = siteIdByHost[host] || '1';
+    _paq.push(['setTrackerUrl', u + 'matomo.php']);
+    _paq.push(['setSiteId', siteId]);
+    var d = document, g = d.createElement('script'), s = d.getElementsByTagName('script')[0];
+    g.async = true; g.src = u + 'matomo.js'; s.parentNode.insertBefore(g, s);
+  })();
 </script>
-<script src="/js/analytics-tracker.js" defer></script>
+<!-- End Matomo Code -->

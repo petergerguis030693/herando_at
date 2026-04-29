@@ -11,6 +11,9 @@ const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
 const geoip = require('geoip-lite');
+const { buildListingImageResponsive } = require('../../lib/responsive-listing-images');
+const { buildPostingCoverResponsive } = require('../../lib/responsive-posting-cover');
+const { buildResponsiveHeroAttrs } = require('../../lib/responsive-hero-images');
 const DISABLE_PAYMENT = process.env.DISABLE_PAYMENT === 'true';
 
 const imagesBase = path.resolve('/', 'media', 'herando', 'images');
@@ -578,14 +581,17 @@ const [magRows] = await db.query(`
     ON pt.post_id = p.id
    AND pt.language = ?
   WHERE p.category = 'magazin'
-  ORDER BY p.created DESC
+    AND p.published_at IS NOT NULL
+    AND p.published_at <= NOW()
+  ORDER BY p.published_at DESC
   LIMIT 8
 `, [currentLang]);
 
-const magazinPosts = magRows.map(p => ({
+const magazinPosts = magRows.map((p, idx) => ({
   title:   p.title,
   slug:    p.slug,
   image:   `/uploads/postings/${p.slug}/${p.cover_image || 'placeholder.jpg'}`,
+  coverImg: buildPostingCoverResponsive(p.slug, p.cover_image, idx === 0 ? 'main' : 'side'),
   author:  p.author,
   excerpt: (p.content || '')
              .replace(/<[^>]+>/g, '')   // HTML-Tags weg
@@ -596,20 +602,28 @@ const magazinPosts = magRows.map(p => ({
 
 
 
+    const heroSlide1PreloadHref = buildResponsiveHeroAttrs(
+      t('home_hero_slide1_image', '/assets/herando-home-slider-luxusimmobilien.webp')
+    ).preloadHref;
+
     // Rendern – JETZT MIT ui UND lang
     res.render('pages/templates/index', {
       items,
       brandChunks,
       currentEntitieId,
       entieties,
+      isHomePage: true,
+      homeEntityOrder: [],
       footerColumns,
       magazinPosts,
       user,
       popularModels: [],
       moreModelLinks: [],
       ui,
-      lang, 
+      lang,
       t,
+      heroSlide1PreloadHref,
+      buildResponsiveHeroAttrs,
     });
 
   } catch (err) {
@@ -733,6 +747,12 @@ router.get('/api/catalog_ads/:entitieId', async (req, res, next) => {
         ? first.image
         : String(first || '');
       const filename = resolveImageFilename(ent.table_name, row.advertId, candidate);
+      const listingImg = buildListingImageResponsive(
+        ent.table_name,
+        row.advertId,
+        filename,
+        ent.table_name === 'watches'
+      );
 
       return {
         catalogAdId: row.catalogAdId,
@@ -740,7 +760,9 @@ router.get('/api/catalog_ads/:entitieId', async (req, res, next) => {
         title:       row.title || `${row.brand || ''} ${row.model || ''}`.trim(),
         price:       row.price,
         priceFormatted: row.price ? new Intl.NumberFormat('de-DE').format(row.price) + ' €' : null,
-        imageUrl:    `/images/${ent.table_name}/${row.advertId}/${encodeURIComponent(filename)}`,
+        imageUrl:    listingImg.src,
+        imageSrcset: listingImg.srcset,
+        imageSizes: listingImg.sizes,
         countryId:   row.countryId,
         countryCode: row.countryCode,
         countryNameDe: row.countryNameDe,
@@ -893,7 +915,12 @@ router.get('/api/advert_inserat/:entitieId', async (req, res, next) => {
         : String(first || '');
       const filename = resolveImageFilename(ent.table_name, row.itemId, candidate);
       const cleanTitle = row.title || `${row.brand || ''} ${row.model || ''}`.trim();
-
+      const listingImg = buildListingImageResponsive(
+        ent.table_name,
+        row.itemId,
+        filename,
+        ent.table_name === 'watches'
+      );
 
       return {
         id:        row.adId,
@@ -902,7 +929,9 @@ router.get('/api/advert_inserat/:entitieId', async (req, res, next) => {
         slug:      makeUrlSlug(cleanTitle), // fürs Routing
         price:     row.price,
         priceFormatted: row.price ? new Intl.NumberFormat('de-DE').format(row.price) + ' €' : null,
-        imageUrl:  `/images/${ent.table_name}/${row.itemId}/${encodeURIComponent(filename)}`,
+        imageUrl:  listingImg.src,
+        imageSrcset: listingImg.srcset,
+        imageSizes: listingImg.sizes,
         countryId: row.countryId,
         countryCode: row.countryCode,
         countryNameDe: row.countryNameDe,
@@ -1637,10 +1666,13 @@ router.get('/magazin', async (req, res, next) => {
 
     // Magazin-Posts (Basisdaten)
     const [rows] = await db.query(`
-      SELECT id, title, slug, cover_image, author, content
+      SELECT id, title, slug, cover_image, author, content, published_at
       FROM postings
       WHERE category = 'magazin'
-      ORDER BY created DESC
+        AND published_at IS NOT NULL
+      ORDER BY (published_at <= NOW()) DESC,
+        CASE WHEN published_at <= NOW() THEN published_at END DESC,
+        CASE WHEN published_at > NOW() THEN published_at END ASC
       LIMIT 10
     `);
     console.log("📰 Gefundene Magazin-Posts:", rows.length);
@@ -1692,7 +1724,8 @@ router.get('/magazin', async (req, res, next) => {
         author: p.author,
         excerpt: (content || '').replace(/<[^>]+>/g, '').substring(0, 200).trim() + '…',
         seo_title: seoTitle,
-        seo_description: seoDesc
+        seo_description: seoDesc,
+        published_at: p.published_at
       };
     });
 
@@ -1831,9 +1864,10 @@ router.get('/magazin/:slug', async (req, res, next) => {
 
     // Original-Posting
     const [[page]] = await db.query(`
-      SELECT id, title, slug, author, location, cover_image, additional_images, content, created
+      SELECT id, title, slug, author, location, cover_image, additional_images, content, created, published_at
       FROM postings
       WHERE slug = ?
+        AND published_at IS NOT NULL
     `, [slug]);
 
     if (!page) {
@@ -1887,10 +1921,13 @@ router.get('/magazin/:slug', async (req, res, next) => {
 
     console.log("🔧 SEO Row geladen:", seoRow ? "Ja" : "Nein");
 
+    const isUpcoming =
+      page.published_at && new Date(page.published_at) > new Date();
+
     const seo = {
       title: translation?.seo_title || seoRow?.title || page.title,
       meta_description: translation?.seo_description || seoRow?.meta_description || null,
-      robots: seoRow?.robots || 'index,follow',
+      robots: isUpcoming ? 'noindex,follow' : (seoRow?.robots || 'index,follow'),
       canonical_url: buildCanonical(req),
       og_title: translation?.seo_title || seoRow?.og_title || null,
       og_description: translation?.seo_description || seoRow?.og_description || null,

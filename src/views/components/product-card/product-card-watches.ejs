@@ -122,10 +122,11 @@
         <% if (item.countryCode) { %>
           <img
             class="lux-card-flag"
-            src="https://flagcdn.com/24x18/<%= String(item.countryCode).toLowerCase() %>.png"
+            src="/direct/flags/4x3/<%= encodeURIComponent(String(item.countryCode).toLowerCase()) %>.svg"
             alt="<%= item.countryName || item.countryCode %>"
             width="24"
             height="18"
+            style="border-radius:0 !important;"
             loading="lazy">
         <% } %>
         <span><%= item.countryName || item.countryCode %></span>

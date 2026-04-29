@@ -3,7 +3,8 @@ const multer  = require('multer');
 const fs      = require('fs');
 const path    = require('path');
 const slugify = require('slugify');
-const db      = require('../../db'); 
+const db      = require('../../db');
+const { processPostingCoverVariants } = require('../../lib/responsive-posting-cover');
 const OpenAI = require('openai');
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });  
 
@@ -28,11 +29,29 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
+/** Für <input type="datetime-local"> (lokale Uhrzeit) */
+function formatDatetimeLocal(d) {
+  if (!d) return '';
+  const dt = d instanceof Date ? d : new Date(d);
+  if (Number.isNaN(dt.getTime())) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+}
+
+/** Aus Formular; leer = Entwurf (nicht öffentlich) */
+function parsePublishedAtInput(raw) {
+  if (raw == null || String(raw).trim() === '') return null;
+  const d = new Date(String(raw).trim());
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 // GET: Liste aller Postings
 router.get('/', ensureAdmin, async (req, res, next) => {
   try {
     const [rows] = await db.query(
-      'SELECT id, title, category, author, location, slug, created FROM postings ORDER BY created DESC'
+      `SELECT id, title, category, author, location, slug, created, published_at
+       FROM postings
+       ORDER BY COALESCE(published_at, created) DESC`
     );
     res.render('admin/postings/list', {
       postings: rows,
@@ -49,6 +68,7 @@ router.get('/new', ensureAdmin, (req, res) => {
   res.render('admin/postings/edit', {
     action: 'new',
     posting: {},
+    publishedAtInput: formatDatetimeLocal(new Date()),
     active: 'postings',
     messages: req.flash()
   });
@@ -65,6 +85,7 @@ router.post(
   async (req, res, next) => {
     try {
       const { title, category, author, location, content } = req.body;
+      const publishedAt = parsePublishedAtInput(req.body.published_at);
       const slug = slugify(title, { lower: true, strict: true });
       const cover = req.files.cover_image?.[0]?.filename || null;
       const extras = JSON.stringify(
@@ -74,12 +95,20 @@ router.post(
       // 1) Original-Posting speichern (roh, ohne warten auf KI)
       const [result] = await db.query(
         `INSERT INTO postings 
-         (title, category, author, location, slug, cover_image, additional_images, content, created)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-        [title, category, author, location, slug, cover, extras, content]
+         (title, category, author, location, slug, cover_image, additional_images, content, created, published_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?)`,
+        [title, category, author, location, slug, cover, extras, content, publishedAt]
       );
 
       const postId = result.insertId;
+
+      if (cover) {
+        setImmediate(() => {
+          processPostingCoverVariants(slug, cover).catch((err) =>
+            console.error('posting cover variants:', err.message)
+          );
+        });
+      }
 
       // ✅ sofort Rückmeldung an Admin
       req.flash(
@@ -180,6 +209,7 @@ router.get('/:slug/edit', ensureAdmin, async (req, res, next) => {
     res.render('admin/postings/edit', {
       action: 'edit',
       posting: post,
+      publishedAtInput: post.published_at ? formatDatetimeLocal(post.published_at) : '',
       active: 'postings',
       messages: req.flash()
     });
@@ -200,6 +230,7 @@ router.post(
     try {
       const oldSlug = req.params.slug;
       const { title, category, author, location, content, _old_additional } = req.body;
+      const publishedAt = parsePublishedAtInput(req.body.published_at);
       const newSlug = slugify(title, { lower: true, strict: true });
 
       // Cover-Image
@@ -223,7 +254,8 @@ router.post(
       await db.query(
         `UPDATE postings
            SET title = ?, category = ?, author = ?, location = ?, slug = ?,
-               cover_image = ?, additional_images = ?, content = ?, modified = NOW()
+               cover_image = ?, additional_images = ?, content = ?, modified = NOW(),
+               published_at = ?
          WHERE slug = ?`,
         [
           title,
@@ -234,6 +266,7 @@ router.post(
           coverImage,
           allExtras,
           content,
+          publishedAt,
           oldSlug
         ]
       );
@@ -244,6 +277,14 @@ router.post(
         [newSlug]
       );
       const postId = post.id;
+
+      if (req.files.cover_image && coverImage) {
+        setImmediate(() => {
+          processPostingCoverVariants(newSlug, coverImage).catch((err) =>
+            console.error('posting cover variants:', err.message)
+          );
+        });
+      }
 
       // ✅ Sofortige Antwort für Admin
       req.flash(

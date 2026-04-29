@@ -1,10 +1,5 @@
-# für alle Crawler
+# Herando – Standard-Robot-Direktiven (ohne experimentelle Felder wie Content-Signal)
 User-agent: *
-Disallow: /
+Disallow: /admin/
 
-# oder nur für Google
-User-agent: Googlebot
-Disallow: /
-
-User-agent: Google
-Disallow: /
+Sitemap: https://www.herando.com/sitemap_index.xml

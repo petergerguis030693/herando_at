@@ -147,8 +147,8 @@
   border-radius: 10px;
   min-height: 44px;
   padding: 10px 12px;
-  margin-bottom: 12px;
   background: #fff;
+  color: black;
 }
 
 .job-apply-card textarea {
@@ -165,6 +165,13 @@
 
 .job-phone-row input {
   margin-bottom: 0;
+}
+
+.job-phone-row .job-phone-prefix,
+.job-phone-row #phone {
+  box-sizing: border-box;
+  min-height: 44px;
+  height: 44px;
 }
 
 .job-phone-prefix {
@@ -219,6 +226,7 @@
   border: 1px solid #bfedcb;
   color: #156a2f;
 }
+
 
 @media (max-width: 1099px) {
   .job-detail-layout {

@@ -1,4 +1,4 @@
-<%- include('../../partials/header') %>
+<%- include('../../partials/headerzwei') %>
 <body class="route-<%= currentEntity.route %>">
 <link rel="stylesheet" href="/css/detail/detail-<%= currentEntity.route %>.css">
 <style>
@@ -27,6 +27,28 @@ tr {
   }
 }
 
+.product-single-thumbnails img.is-active {
+  border: 2px solid #b6864b;
+  opacity: 1;
+}
+
+@media (min-width: 768px) {
+  .thumbnail-slider {
+    overflow: hidden;
+  }
+
+  .thumbnail-slider .product-single-thumbnails {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  .thumbnail-slider .product-single-thumbnails::-webkit-scrollbar {
+    width: 0 !important;
+    height: 0 !important;
+    display: none !important;
+  }
+}
+
 </style>
 
 
@@ -44,7 +66,11 @@ tr {
 %>
 
 
+<% if (typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile) { %>
+<link rel="stylesheet" href="/css/detail.min.css">
+<% } else { %>
 <link rel="stylesheet" href="/css/detail.css">
+<% } %>
 
 <body>
 
@@ -79,10 +105,17 @@ tr {
       </nav>
 
       <div class="product-single-images">
-        <img id="mainImage"
-            src="<%= item.imageUrl %>"
-            data-zoom="<%= item.imageUrlOriginal || item.imageUrl %>"
-            alt="<%= item.title %>" />
+        <picture>
+          <source id="mainImageSourceMobile" media="(max-width: 767.98px)" srcset="<%= item.imageUrlMobile || item.imageUrl %>">
+          <img id="mainImage"
+              src="<%= item.imageUrl %>"
+              data-full="<%= item.imageUrlOriginal || item.imageUrl %>"
+              data-zoom="<%= item.imageUrlOriginal || item.imageUrl %>"
+              fetchpriority="high"
+              loading="eager"
+              decoding="async"
+              alt="<%= item.title %>" />
+        </picture>
 
         <div id="magnifier"></div>
       </div>
@@ -91,10 +124,17 @@ tr {
         <button id="prevThumb" disabled>&#10094;</button>
         <div class="product-single-thumbnails d-flex">
           <% item.thumbnailUrls.forEach((url, idx) => { %>
-            <img src="<%= url %>"
-                 data-full="<%= (item.thumbnailFullUrls && item.thumbnailFullUrls[idx]) ? item.thumbnailFullUrls[idx] : url %>"
-                 alt="Thumbnail von <%= item.title %>"
-                 onclick="thumbClick(this)" />
+            <% const mobileThumbRaw = (item.thumbnailMobileUrls && item.thumbnailMobileUrls[idx]) ? item.thumbnailMobileUrls[idx] : url; %>
+            <picture>
+              <source media="(max-width: 767.98px)" srcset="<%= mobileThumbRaw %>">
+              <img src="<%= url %>"
+                  data-full="<%= (item.thumbnailFullUrls && item.thumbnailFullUrls[idx]) ? item.thumbnailFullUrls[idx] : url %>"
+                  loading="<%= idx === 0 ? 'eager' : 'lazy' %>"
+                  fetchpriority="<%= idx === 0 ? 'high' : 'low' %>"
+                  decoding="async"
+                  alt="Thumbnail von <%= item.title %>"
+                  onclick="thumbClick(this)" />
+            </picture>
           <% }) %>
         </div>
         <button id="nextThumb">&#10095;</button>
@@ -112,6 +152,7 @@ tr {
   const img   = document.getElementById('mainImage');
   const glass = document.getElementById('magnifier');
   const ZOOM  = 2;
+  const canUseHoverZoom = window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
   function clamp(v, min, max) {
     return Math.max(min, Math.min(max, v));
@@ -143,60 +184,64 @@ tr {
     return { rect, iw, ih, scale, w, h, x, y };
   }
 
-  img.addEventListener('mousemove', e => {
-    const zoomSrc = img.dataset.zoom || img.src;
-    const { rect, iw, ih, scale, w, h, x, y } = getObjectFitMetrics();
+  if (canUseHoverZoom) {
+    img.addEventListener('mousemove', e => {
+      const zoomSrc = img.dataset.zoom || img.src;
+      const { rect, iw, ih, scale, w, h, x, y } = getObjectFitMetrics();
 
-    // Maus relativ zum gerenderten Bild-Container
-    const lx = e.clientX - rect.left;
-    const ly = e.clientY - rect.top;
+      // Maus relativ zum gerenderten Bild-Container
+      const lx = e.clientX - rect.left;
+      const ly = e.clientY - rect.top;
 
-    if (lx < 0 || ly < 0 || lx > rect.width || ly > rect.height) {
-      glass.style.display = 'none';
-      return;
-    }
+      if (lx < 0 || ly < 0 || lx > rect.width || ly > rect.height) {
+        glass.style.display = 'none';
+        return;
+      }
 
-    // Bei object-fit: contain gibt es ggf. "leere" Balken.
-    // Dort die Lupe ausblenden, damit das Mapping nicht versetzt wirkt.
-    const px = lx - x;
-    const py = ly - y;
-    if (px < 0 || py < 0 || px > w || py > h) {
-      glass.style.display = 'none';
-      return;
-    }
+      // Bei object-fit: contain gibt es ggf. "leere" Balken.
+      // Dort die Lupe ausblenden, damit das Mapping nicht versetzt wirkt.
+      const px = lx - x;
+      const py = ly - y;
+      if (px < 0 || py < 0 || px > w || py > h) {
+        glass.style.display = 'none';
+        return;
+      }
 
-    glass.style.display = 'block';
+      glass.style.display = 'block';
 
-    const gw = glass.clientWidth;
-    const gh = glass.clientHeight;
+      const gw = glass.clientWidth;
+      const gh = glass.clientHeight;
 
-    /* =========================
-       LUPENPOSITION
-       Maus = Startpunkt
-       ========================= */
-    glass.style.left = lx + 'px';
-    glass.style.top  = ly + 'px';
+      /* =========================
+         LUPENPOSITION
+         Maus = Startpunkt
+         ========================= */
+      glass.style.left = lx + 'px';
+      glass.style.top  = ly + 'px';
 
-    /* =========================
-       ZOOM – PIXELGENAU + CLAMP
-       ========================= */
-    const rx = clamp(px / scale, 0, iw);
-    const ry = clamp(py / scale, 0, ih);
+      /* =========================
+         ZOOM – PIXELGENAU + CLAMP
+         ========================= */
+      const rx = clamp(px / scale, 0, iw);
+      const ry = clamp(py / scale, 0, ih);
 
-    const maxBgX = iw * ZOOM - gw;
-    const maxBgY = ih * ZOOM - gh;
+      const maxBgX = iw * ZOOM - gw;
+      const maxBgY = ih * ZOOM - gh;
 
-    const bgX = -clamp(rx * ZOOM, 0, maxBgX);
-    const bgY = -clamp(ry * ZOOM, 0, maxBgY);
+      const bgX = -clamp(rx * ZOOM, 0, maxBgX);
+      const bgY = -clamp(ry * ZOOM, 0, maxBgY);
 
-    glass.style.backgroundImage = `url(${zoomSrc})`;
-    glass.style.backgroundRepeat = 'no-repeat';
-    glass.style.backgroundSize =
-      (iw * ZOOM) + 'px ' +
-      (ih * ZOOM) + 'px';
+      glass.style.backgroundImage = `url(${zoomSrc})`;
+      glass.style.backgroundRepeat = 'no-repeat';
+      glass.style.backgroundSize =
+        (iw * ZOOM) + 'px ' +
+        (ih * ZOOM) + 'px';
 
-    glass.style.backgroundPosition = `${bgX}px ${bgY}px`;
-  });
+      glass.style.backgroundPosition = `${bgX}px ${bgY}px`;
+    });
+  } else {
+    glass.style.display = 'none';
+  }
 
   img.addEventListener('mouseleave', () => {
     glass.style.display = 'none';
@@ -205,24 +250,108 @@ tr {
 window.changeImage = function (el) {
   const newSrc  = el.dataset.full || el.dataset.large || el.src;
   const zoomSrc = el.dataset.full || el.dataset.zoom || el.dataset.large || el.src;
+  const mobileSrc = (() => {
+    const sourceEl = el && el.parentElement ? el.parentElement.querySelector('source') : null;
+    return (sourceEl && sourceEl.srcset) ? sourceEl.srcset : newSrc;
+  })();
+  const mainMobileSource = document.getElementById('mainImageSourceMobile');
 
   imageReady = false;
   glass.style.display = 'none';
 
-  const temp = new Image();
-  temp.src = newSrc;
+  const requestId = ++window.__mainImageRequestId;
 
-  temp.onload = () => {
-    img.src = newSrc;
-    img.dataset.zoom = zoomSrc;
-    imageReady = true;
-  };
+  resolveBestMainImageUrl(newSrc).then(bestSrc => {
+    if (requestId !== window.__mainImageRequestId) return;
+
+    const temp = new Image();
+    temp.src = bestSrc;
+
+    temp.onload = () => {
+      if (requestId !== window.__mainImageRequestId) return;
+      if (mainMobileSource) {
+        mainMobileSource.srcset = mobileSrc;
+      }
+      img.src = bestSrc;
+      img.dataset.full = bestSrc;
+      img.dataset.zoom = bestSrc || zoomSrc;
+      imageReady = true;
+    };
+
+    temp.onerror = () => {
+      if (requestId !== window.__mainImageRequestId) return;
+      if (mainMobileSource) {
+        mainMobileSource.srcset = mobileSrc;
+      }
+      img.src = newSrc;
+      img.dataset.full = newSrc;
+      img.dataset.zoom = zoomSrc;
+      imageReady = true;
+    };
+  });
 };
+
+function addLargeX2Suffix(url) {
+  if (!url) return '';
+  const match = String(url).match(/^([^?#]+)(\?[^#]*)?(#.*)?$/);
+  if (!match) return url;
+
+  const basePath = match[1] || '';
+  const query = match[2] || '';
+  const hash = match[3] || '';
+  if (/_largex2$/i.test(basePath) || /_largex2\.[^.\/]+$/i.test(basePath)) return url;
+
+  const lastDot = basePath.lastIndexOf('.');
+  const lastSlash = basePath.lastIndexOf('/');
+  const hasExt = lastDot > lastSlash;
+  const withSuffix = hasExt
+    ? `${basePath.slice(0, lastDot)}_largex2${basePath.slice(lastDot)}`
+    : `${basePath}_largex2`;
+  return `${withSuffix}${query}${hash}`;
+}
+
+function imageExists(url) {
+  return new Promise(resolve => {
+    if (!url) return resolve(false);
+    const testImg = new Image();
+    testImg.onload = () => resolve(true);
+    testImg.onerror = () => resolve(false);
+    testImg.src = url;
+  });
+}
+
+const bestMainImageUrlCache = new Map();
+async function resolveBestMainImageUrl(url) {
+  if (!url) return url;
+  if (bestMainImageUrlCache.has(url)) return bestMainImageUrlCache.get(url);
+
+  const candidate = addLargeX2Suffix(url);
+  if (!candidate || candidate === url) {
+    bestMainImageUrlCache.set(url, url);
+    return url;
+  }
+
+  const exists = await imageExists(candidate);
+  const best = exists ? candidate : url;
+  bestMainImageUrlCache.set(url, best);
+  return best;
+}
+
+window.__mainImageRequestId = 0;
+resolveBestMainImageUrl(img.dataset.full || img.src).then(bestSrc => {
+  if (!bestSrc || bestSrc === img.src) return;
+  img.src = bestSrc;
+  img.dataset.full = bestSrc;
+  img.dataset.zoom = bestSrc;
+});
 
 })();
 
 window.thumbClick = function (el) {
   window.changeImage(el);
+  const thumbs = Array.from(document.querySelectorAll('.product-single-thumbnails img'));
+  thumbs.forEach(t => t.classList.remove('is-active'));
+  if (el) el.classList.add('is-active');
 };
 </script>
 
@@ -231,13 +360,48 @@ window.thumbClick = function (el) {
   const img = document.getElementById('mainImage');
   const thumbs = Array.from(document.querySelectorAll('.product-single-thumbnails img'));
   const thumbWrap = document.querySelector('.product-single-thumbnails');
+  const prevBtn = document.getElementById('prevThumb');
+  const nextBtn = document.getElementById('nextThumb');
 
   if (!img || thumbs.length === 0) return;
 
+  function toAbsoluteUrl(url) {
+    if (!url) return '';
+    try {
+      return new URL(url, window.location.origin).href;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function normalizeThumbCompareUrl(url) {
+    const absolute = toAbsoluteUrl(url);
+    if (!absolute) return '';
+    // Compare original/full URLs regardless of optional size suffixes.
+    return absolute
+      .replace(/_largex2(?=(\.[^.\/?#]+)?([?#]|$))/i, '')
+      .replace(/_small(?=(\.[^.\/?#]+)?([?#]|$))/i, '');
+  }
+
   function currentIndex() {
-    const mainSrc = img.src;
-    const i = thumbs.findIndex(t => (t.dataset.full || t.src) === mainSrc);
+    const mainSrc = normalizeThumbCompareUrl(img.src);
+    const i = thumbs.findIndex(t => {
+      const candidate = normalizeThumbCompareUrl(t.dataset.full || t.src);
+      return candidate === mainSrc;
+    });
     return i >= 0 ? i : 0;
+  }
+
+  function markActive(i) {
+    thumbs.forEach((t, idx) => {
+      t.classList.toggle('is-active', idx === i);
+    });
+  }
+
+  function updateThumbNavState(activeIdx = currentIndex()) {
+    if (!prevBtn || !nextBtn) return;
+    prevBtn.disabled = activeIdx <= 0;
+    nextBtn.disabled = activeIdx >= (thumbs.length - 1);
   }
 
 function show(i) {
@@ -246,6 +410,7 @@ function show(i) {
 
   const el = thumbs[i];
   window.changeImage(el);
+  markActive(i);
 
   // 👉 Thumbnail automatisch mitscrollen
   el.scrollIntoView({
@@ -278,6 +443,24 @@ function show(i) {
     if (dx < 0) show(i + 1); // swipe left
     else show(i - 1);        // swipe right
   }, { passive: true });
+
+  // Initial den aktuell sichtbaren Thumb markieren
+  markActive(currentIndex());
+
+  if (thumbWrap && prevBtn && nextBtn) {
+    prevBtn.addEventListener('click', () => {
+      const i = currentIndex();
+      show(i - 1);
+      updateThumbNavState(Math.max(0, i - 1));
+    });
+    nextBtn.addEventListener('click', () => {
+      const i = currentIndex();
+      show(i + 1);
+      updateThumbNavState(Math.min(thumbs.length - 1, i + 1));
+    });
+    window.addEventListener('resize', () => updateThumbNavState(currentIndex()));
+    setTimeout(() => updateThumbNavState(currentIndex()), 0);
+  }
 })();
 </script>
 
@@ -384,9 +567,9 @@ function show(i) {
         <% const country = item.countryName || ''; %>
         <% const countryCode = (item.countryCode || '').toLowerCase(); %>
         <% if (countryCode) { %>
-          <img src="https://flagcdn.com/h20/<%= countryCode %>.png"
+          <img src="/direct/flags/4x3/<%= encodeURIComponent(countryCode) %>.svg"
                alt="<%= country %>"
-               width="24" height="16" class="me-2" />
+               width="24" height="16" class="me-2" style="border-radius:0 !important;" />
         <% } %>
         <span><%= country %></span>
       </div>
@@ -2076,7 +2259,7 @@ const colorMap = {
         <% } %>
       </div>
 
-      <% if (similarItems.length > 4) { %>
+      <% if (similarItems.length > 1) { %>
         <!-- Custom Pfeile im gleichen Design wie meine my-carousel-Buttons -->
         <button class="my-carousel-prev"
                 type="button"
@@ -2210,36 +2393,67 @@ const colorMap = {
   const propertyTypeMap = {
     4: t('properties.apartment', 'Wohnung'),
     5: t('properties.penthouse', 'Penthouse'),
-    6: t('properties.villa', 'Villa/Haus'),
+    6: t('properties.villa', 'Villa'),
+    7: t('properties.house', 'Haus'),
     8: t('properties.maisonette', 'Maisonette'),
+    9: t('properties.area', 'Grundstück/Fläche'),
     10: t('properties.finca', 'Finca'),
     11: t('properties.private_island', 'Privatinsel'),
     12: t('properties.castle', 'Schloss/Herrenhaus'),
     255: t('common.other', 'Sonstige')
   };
 
-  const conditionMap = {
-    1: t('condition.new', 'Neu'),
-    2: t('condition.as_new', 'Neuwertig'),
-    3: t('condition.renovated', 'Renoviert'),
-    4: t('condition.maintained', 'Gepflegt'),
-    5: t('condition.needs_renovation', 'Sanierungsbedürftig'),
-    255: t('common.other', 'Sonstige')
+  const investmentTypeMap = {
+    1: t('properties.investment.residential_real_estate', 'Wohnimmobilien'),
+    2: t('properties.investment.hotels', 'Hotels'),
+    3: t('properties.investment.business', 'Gewerbe'),
+    4: t('properties.investment.realties', 'Grundstücke'),
+    5: t('properties.investment.care', 'Pflegeimmobilien'),
+    6: t('properties.investment.house', 'Haus')
   };
 
   const heatingMap = {
-    1: t('heating.gas', 'Gasheizung'),
-    2: t('heating.oil', 'Ölheizung'),
-    3: t('heating.district', 'Fernwärme'),
-    4: t('heating.heatpump', 'Wärmepumpe'),
-    5: t('heating.solar', 'Solar'),
-    6: t('heating.pellets', 'Pellets'),
-    7: t('heating.electric', 'Elektro'),
+    1: t('heating.self_contained_central', 'Etagenheizung'),
+    2: t('heating.stove', 'Ofenheizung'),
+    3: t('heating.central', 'Zentralheizung'),
+    4: t('heating.combined_heat_power', 'Blockheizkraftwerk'),
+    5: t('heating.electric', 'Elektroheizung'),
+    6: t('heating.district', 'Fernwärme'),
+    7: t('heating.floor', 'Fußbodenheizung'),
+    8: t('heating.gas', 'Gasheizung'),
+    9: t('heating.pellets', 'Holzpelletheizung'),
+    10: t('heating.night_storage', 'Nachtspeicherheizung'),
+    11: t('heating.oil', 'Ölheizung'),
+    12: t('heating.solar', 'Solarheizung'),
+    13: t('heating.heatpump', 'Wärmepumpe'),
     255: t('common.other', 'Sonstige')
   };
 
-  const energyClassMap = {
-    1: "A+", 2: "A", 3: "B", 4: "C", 5: "D", 6: "E", 7: "F", 8: "G"
+  const energySourceMap = {
+    1: t('properties.energy.wood', 'Holz'),
+    2: t('properties.energy.oil', 'Öl'),
+    3: t('properties.energy.gas', 'Gas'),
+    4: t('properties.energy.electricity', 'Strom'),
+    5: t('properties.energy.solar', 'Solar'),
+    6: t('properties.energy.geothermal', 'Geothermie'),
+    7: t('properties.energy.alternative', 'Alternative')
+  };
+
+  const energyPassMap = {
+    0: t('properties.energypass.not_available', 'Nicht vorhanden'),
+    1: t('properties.energypass.available', 'Vorhanden'),
+    2: t('properties.energypass.unnecessary', 'Nicht erforderlich')
+  };
+
+  const energyPassTypeMap = {
+    1: t('properties.energypass.type.consumption', 'Verbrauchsausweis'),
+    2: t('properties.energypass.type.demand', 'Bedarfsausweis')
+  };
+
+  const stageMap = {
+    1: t('properties.stage.planned', 'Geplant'),
+    2: t('properties.stage.construction', 'Im Bau'),
+    3: t('properties.stage.completed', 'Fertiggestellt')
   };
 
   const toCleanStr = (v) => (v == null ? '' : String(v).trim());
@@ -2314,13 +2528,10 @@ const colorMap = {
 
 <%
 const qualityMap = {
-  1: t('quality.first_use','Erstbezug'),
-  2: t('quality.first_use_after_renovation','Erstbezug nach Sanierung'),
-  3: t('quality.like_new','Neuwertig'),
-  4: t('quality.renovated','Saniert'),
-  5: t('quality.modernized','Modernisiert'),
-  6: t('quality.refurbished','Renoviert'),
-  7: t('quality.well_maintained','Gepflegt')
+  1: t('quality.standard','Standard'),
+  2: t('quality.medium','Mittel'),
+  3: t('quality.high','Hochwertig'),
+  4: t('quality.luxury','Luxus')
 };
 %>
 
@@ -2400,7 +2611,7 @@ const qualityMap = {
         </tr>
       <% } %>
 
-      <% if (item.energypass) { %>
+      <% if (item.energypass !== null && item.energypass !== undefined && String(item.energypass).trim() !== '') { %>
         <tr>
           <td class="fw-semibold text-muted"><i class="bi bi-file-earmark-text custom-icon"></i> <%= t('properties.energy_certificate', 'Energieausweis') %></td>
           <td><%= energyPassMap[item.energypass] || item.energypass %></td>
@@ -2418,14 +2629,6 @@ const qualityMap = {
         <tr>
           <td class="fw-semibold text-muted"><i class="bi bi-speedometer2 custom-icon"></i> <%= t('properties.energy_consumption', 'Energieverbrauch') %></td>
           <td><%= item.energypass_value %> kWh/(m²·a)</td>
-        </tr>
-      <% } %>
-
-
-      <% if (item.vat !== null) { %>
-        <tr>
-          <td class="fw-semibold text-muted"><i class="bi bi-percent custom-icon"></i> <%= t('properties.vat', 'MwSt.') %></td>
-          <td><%= item.vat === 1 ? t('properties.incl', 'inklusive') : t('properties.plus', 'zuzüglich') %></td>
         </tr>
       <% } %>
     </tbody>
@@ -3154,11 +3357,11 @@ const qualityMap = {
 
       </div>
 
-        <% if (similarItems.length > 4) { %>
+        <% if (similarItems.length > 1) { %>
           <!-- Custom Pfeile im gleichen Design wie meine my-carousel-Buttons -->
           <button class="my-carousel-prev"
                   type="button"
-                  data-bs-target="#carousel-similar"
+                  data-bs-target="#carousel-similar-lifestyle"
                   data-bs-slide="prev">
             ‹
             <span class="visually-hidden">Vorherige</span>
@@ -3166,7 +3369,7 @@ const qualityMap = {
 
           <button class="my-carousel-next"
                   type="button"
-                  data-bs-target="#carousel-similar"
+                  data-bs-target="#carousel-similar-lifestyle"
                   data-bs-slide="next">
             ›
             <span class="visually-hidden">Nächste</span>
@@ -3175,7 +3378,7 @@ const qualityMap = {
           <div class="carousel-indicators mt-3 d-none d-md-flex">
             <% for (let i = 0; i < Math.ceil(similarItems.length / 4); i++) { %>
               <button type="button"
-                      data-bs-target="#carousel-similar"
+                      data-bs-target="#carousel-similar-lifestyle"
                       data-bs-slide-to="<%= i %>"
                       class="line-indicator <%= i === 0 ? 'active' : '' %>">
               </button>
@@ -3213,6 +3416,7 @@ const qualityMap = {
 </div>
 <script>
 (function(){
+  function initLightbox() {
   // 1) Bild-URLs sammeln
   const pics = Array.from(
     document.querySelectorAll('.product-single-thumbnails img')
@@ -3264,10 +3468,15 @@ const qualityMap = {
   function showLightbox(idx) {
     const wasOpen = overlay.style.display === 'flex';
     currentIndex = idx;
-    imgEl.src = pics[currentIndex];
+    const requestedUrl = pics[currentIndex];
+    imgEl.src = requestedUrl;
     overlay.setAttribute('aria-hidden', 'false');
     overlay.style.display = 'flex';
     if (!wasOpen) lockPageScroll();
+    resolveBestLightboxUrl(requestedUrl).then(bestUrl => {
+      if (currentIndex !== idx) return;
+      if (bestUrl && imgEl.src !== bestUrl) imgEl.src = bestUrl;
+    });
   }
   function hideLightbox()    {
     overlay.style.display = 'none';
@@ -3277,11 +3486,71 @@ const qualityMap = {
   function showPrev()        { showLightbox((currentIndex - 1 + pics.length) % pics.length); }
   function showNext()        { showLightbox((currentIndex + 1) % pics.length); }
 
+  function toAbsoluteUrl(url) {
+    if (!url) return '';
+    try {
+      return new URL(url, window.location.origin).href;
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function addLargeX2Suffix(url) {
+    if (!url) return '';
+    const match = String(url).match(/^([^?#]+)(\?[^#]*)?(#.*)?$/);
+    if (!match) return url;
+
+    const basePath = match[1] || '';
+    const query = match[2] || '';
+    const hash = match[3] || '';
+    if (/_largex2$/i.test(basePath) || /_largex2\.[^.\/]+$/i.test(basePath)) return url;
+
+    const lastDot = basePath.lastIndexOf('.');
+    const lastSlash = basePath.lastIndexOf('/');
+    const hasExt = lastDot > lastSlash;
+    const withSuffix = hasExt
+      ? `${basePath.slice(0, lastDot)}_largex2${basePath.slice(lastDot)}`
+      : `${basePath}_largex2`;
+    return `${withSuffix}${query}${hash}`;
+  }
+
+  function normalizeLightboxUrl(url) {
+    return toAbsoluteUrl(url).replace(/_largex2(?=(\.[^.\/?#]+)?([?#]|$))/i, '');
+  }
+
+  function imageExists(url) {
+    return new Promise(resolve => {
+      if (!url) return resolve(false);
+      const testImg = new Image();
+      testImg.onload = () => resolve(true);
+      testImg.onerror = () => resolve(false);
+      testImg.src = url;
+    });
+  }
+
+  const bestLightboxUrlCache = new Map();
+  async function resolveBestLightboxUrl(url) {
+    if (!url) return url;
+    if (bestLightboxUrlCache.has(url)) return bestLightboxUrlCache.get(url);
+
+    const candidate = addLargeX2Suffix(url);
+    if (!candidate || candidate === url) {
+      bestLightboxUrlCache.set(url, url);
+      return url;
+    }
+
+    const exists = await imageExists(candidate);
+    const best = exists ? candidate : url;
+    bestLightboxUrlCache.set(url, best);
+    return best;
+  }
+
   // 2) Klick auf Hauptbild: öffne an der aktuell angezeigten Stelle
   if (mainImg) {
     mainImg.style.cursor = 'zoom-in';
     mainImg.addEventListener('click', () => {
-      const idx = pics.findIndex(src => src === mainImg.src);
+      const currentMain = normalizeLightboxUrl(mainImg.dataset.full || mainImg.dataset.zoom || mainImg.src);
+      const idx = pics.findIndex(src => normalizeLightboxUrl(src) === currentMain);
       showLightbox(idx >= 0 ? idx : 0);
     });
   }
@@ -3341,6 +3610,22 @@ const qualityMap = {
       if (e.key === 'ArrowRight') showNext();
     }
   });
+  }
+
+  const run = () => {
+    try { initLightbox(); } catch (_) {}
+  };
+
+  const isMobileViewport = window.matchMedia('(max-width: 767.98px)').matches;
+  if (isMobileViewport) {
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(run, { timeout: 1200 });
+    } else {
+      setTimeout(run, 300);
+    }
+  } else {
+    run();
+  }
 })();
 </script>
 

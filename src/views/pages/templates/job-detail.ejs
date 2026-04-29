@@ -8,13 +8,6 @@
         <p class="job-detail-hero__eyebrow"><%= jt('jobs.detail.hero_eyebrow', 'Stellenangebot') %></p>
         <h1><%= job.title %></h1>
 
-        <div class="job-detail-hero__facts">
-          <% if (job.location) { %><span><%= job.location %></span><% } %>
-          <% if (job.department) { %><span><%= job.department %></span><% } %>
-          <% if (job.employment_type) { %><span><%= job.employment_type %></span><% } %>
-          <% if (job.workplace_type) { %><span><%= job.workplace_type %></span><% } %>
-        </div>
-
         <% if (job.short_description) { %>
           <p class="job-detail-hero__lead"><%= job.short_description %></p>
         <% } %>
@@ -80,7 +73,6 @@
             <% (countries || []).forEach((country) => { %>
               <option
                 value="<%= country.id %>"
-                data-prefix="<%= country.prefix || '' %>"
                 <%= String(formData.country_id || '') === String(country.id) ? 'selected' : '' %>
               >
                 <%= country.name %> (<%= country.code %>)
@@ -90,15 +82,19 @@
 
           <label for="phone"><%= jt('jobs.apply.label.phone', 'Telefon') %></label>
           <div class="job-phone-row">
-            <input
-              id="phone_prefix_display"
-              class="job-phone-prefix"
-              type="text"
-              readonly
-              value="<%= formData.phone_prefix || selectedCountryPrefix || '' %>"
-              placeholder="<%= jt('jobs.apply.placeholder.phone_prefix', 'Vorwahl') %>"
-            >
-            <input id="phone_prefix" name="phone_prefix" type="hidden" value="<%= formData.phone_prefix || selectedCountryPrefix || '' %>">
+            <select id="phone_prefix" name="phone_prefix" class="job-phone-prefix">
+              <option value=""><%= jt('jobs.apply.placeholder.phone_prefix', 'Vorwahl') %></option>
+              <% const prefixMap = new Map(); %>
+              <% (countries || []).forEach((country) => { %>
+                <% const pfx = String(country.prefix || '').trim(); %>
+                <% if (pfx && !prefixMap.has(pfx)) prefixMap.set(pfx, country.name); %>
+              <% }) %>
+              <% Array.from(prefixMap.entries()).sort((a, b) => a[0].localeCompare(b[0], 'de')).forEach(([prefix, countryName]) => { %>
+                <option value="<%= prefix %>" <%= String(formData.phone_prefix || '') === String(prefix) ? 'selected' : '' %>>
+                  <%= prefix %> (<%= countryName %>)
+                </option>
+              <% }) %>
+            </select>
             <input id="phone" name="phone" type="text" value="<%= formData.phone || '' %>">
           </div>
 
@@ -128,36 +124,5 @@
 
 <%- include('../../partials/footer', { footerColumns }) %>
 
-<script>
-  (function () {
-    var country = document.getElementById('country_id');
-    var prefixDisplay = document.getElementById('phone_prefix_display');
-    var prefixHidden = document.getElementById('phone_prefix');
-    if (!country || !prefixDisplay || !prefixHidden) return;
-
-    function syncPrefix(force) {
-      var selected = country.options[country.selectedIndex];
-      var selectedPrefix = selected ? String(selected.getAttribute('data-prefix') || '').trim() : '';
-      if (!selectedPrefix) {
-        if (force) {
-          prefixDisplay.value = '';
-          prefixHidden.value = '';
-        }
-        return;
-      }
-
-      if (!prefixHidden.value || force) {
-        prefixDisplay.value = selectedPrefix;
-        prefixHidden.value = selectedPrefix;
-      } else {
-        prefixDisplay.value = prefixHidden.value;
-      }
-    }
-
-    country.addEventListener('change', function () {
-      syncPrefix(true);
-    });
-
-    syncPrefix(false);
-  })();
-</script>
+</body>
+</html>

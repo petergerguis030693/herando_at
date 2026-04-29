@@ -182,6 +182,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.__cookieInit = true;
 
   const overlay = document.getElementById('cookie-overlay');
+  const html = document.documentElement;
+  const body = document.body;
   const intro = document.getElementById('cookie-intro');
   const settings = document.getElementById('cookie-settings-body');
   const stats = document.getElementById('cookieStats');
@@ -211,12 +213,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function open(settingsMode=false) {
     overlay.classList.add('open');
+    html.classList.add('cookie-open');
+    body.classList.add('cookie-open');
     intro.style.display = settingsMode ? 'none' : 'block';
     settings.classList.toggle('is-hidden', !settingsMode);
   }
 
   function close() {
     overlay.classList.remove('open');
+    html.classList.remove('cookie-open');
+    body.classList.remove('cookie-open');
     intro.style.display = 'block';
     settings.classList.add('is-hidden');
   }

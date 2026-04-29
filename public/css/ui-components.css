@@ -154,3 +154,13 @@ img {
   color: #c39052 !important;
 }
 
+.border-btn{
+  border: 2px solid #c39052;
+  color: #c39052;
+  line-height: 1.2;
+  background-color: white;
+  font-weight: bold;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: background-color .2s;
+}

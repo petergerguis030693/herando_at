@@ -1,0 +1,349 @@
+<%- include('../partials/header-admin') %>
+
+<style>
+  .monitor-kpi {
+    border-radius: 0.75rem;
+    border: 1px solid #e9ecef;
+    padding: 1rem;
+    background: #fff;
+    height: 100%;
+  }
+  .monitor-kpi .label {
+    font-size: 0.85rem;
+    color: #6c757d;
+  }
+  .monitor-kpi .value {
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+  .monitor-badge-ok { background: #198754; }
+  .monitor-badge-warn { background: #fd7e14; }
+  .monitor-badge-critical { background: #dc3545; }
+  .monitor-small {
+    font-size: 0.83rem;
+    color: #6c757d;
+  }
+  .monitor-table td, .monitor-table th {
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .monitor-list {
+    max-height: 340px;
+    overflow: auto;
+  }
+  .monitor-muted {
+    color: #6c757d;
+  }
+  .monitor-section-card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.75rem;
+  }
+  .monitor-route-item {
+    border-bottom: 1px solid #f1f3f5;
+    padding: 0.75rem 1rem;
+  }
+  .monitor-route-item:last-child {
+    border-bottom: 0;
+  }
+  .monitor-route-title {
+    font-weight: 600;
+    word-break: break-word;
+  }
+  .monitor-route-metrics {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+  }
+  .monitor-metric-chip {
+    font-size: 0.78rem;
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 999px;
+    padding: 0.15rem 0.55rem;
+  }
+  .monitor-request-item {
+    border-bottom: 1px solid #f1f3f5;
+    padding: 0.65rem 0.9rem;
+  }
+  .monitor-request-item:last-child {
+    border-bottom: 0;
+  }
+  .monitor-request-path {
+    word-break: break-word;
+    font-size: 0.88rem;
+  }
+</style>
+
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="flex-fill p-4">
+    <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+      <div>
+        <h1 class="mb-1">Live Monitoring</h1>
+        <div class="monitor-small">
+          Letztes Update: <span id="lastUpdated">-</span> |
+          Auto-Refresh: 5s |
+          DB-Ping: <span id="dbPing"><%= dbPingMs == null ? '-' : dbPingMs + ' ms' %></span>
+        </div>
+      </div>
+      <div>
+        <button class="btn btn-outline-primary btn-sm" id="refreshNowBtn">
+          <i class="bi bi-arrow-clockwise me-1"></i> Jetzt aktualisieren
+        </button>
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <span id="healthBadge" class="badge monitor-badge-ok">HEALTHY</span>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="monitor-kpi">
+          <div class="label">Requests gesamt</div>
+          <div class="value" id="kpiRequests">0</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="monitor-kpi">
+          <div class="label">Response p95</div>
+          <div class="value" id="kpiP95">0 ms</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="monitor-kpi">
+          <div class="label">5xx-Rate</div>
+          <div class="value" id="kpi5xx">0 %</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="monitor-kpi">
+          <div class="label">CPU (Node)</div>
+          <div class="value" id="kpiCpu">0 %</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="monitor-kpi">
+          <div class="label">Heap genutzt</div>
+          <div class="value" id="kpiHeap">0 %</div>
+        </div>
+      </div>
+      <div class="col-12 col-md-6 col-xl-4">
+        <div class="monitor-kpi">
+          <div class="label">Event-Loop p95</div>
+          <div class="value" id="kpiLag">0 ms</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mb-3">
+      <div class="col-12 col-xl-6">
+        <div class="card h-100 monitor-section-card">
+          <div class="card-header fw-semibold">Warnungen / Kritisch</div>
+          <div class="card-body">
+            <div class="monitor-list">
+              <ul class="mb-0" id="warningsList"></ul>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-xl-6">
+        <div class="card h-100 monitor-section-card">
+          <div class="card-header fw-semibold">Prozess & System</div>
+          <div class="card-body">
+            <div class="row g-2 monitor-small">
+              <div class="col-6"><strong>PID:</strong> <span id="metaPid">-</span></div>
+              <div class="col-6"><strong>Node:</strong> <span id="metaNode">-</span></div>
+              <div class="col-6"><strong>Uptime:</strong> <span id="metaUptime">-</span></div>
+              <div class="col-6"><strong>RSS:</strong> <span id="metaRss">-</span></div>
+              <div class="col-6"><strong>Heap:</strong> <span id="metaHeap">-</span></div>
+              <div class="col-6"><strong>Load 1/5/15:</strong> <span id="metaLoad">-</span></div>
+              <div class="col-12"><strong>Host:</strong> <span id="metaHost">-</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3">
+      <div class="col-12">
+        <div class="card monitor-section-card">
+          <div class="card-header fw-semibold">Langsame Routen (Top p95)</div>
+          <div class="card-body p-0 monitor-list" id="slowRoutesBody">
+            <div class="monitor-muted text-center py-3">Keine Daten</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12">
+        <div class="card monitor-section-card">
+          <div class="card-header fw-semibold">Letzte Requests</div>
+          <div class="card-body p-0 monitor-list" id="recentRequestsBody">
+            <div class="monitor-muted text-center py-3">Keine Daten</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script id="monitoringBootstrap" type="application/json"><%- JSON.stringify({ snapshot: snapshot || null, dbPingMs: dbPingMs ?? null }) %></script>
+<script>
+  (() => {
+    const bootEl = document.getElementById('monitoringBootstrap');
+    const boot = bootEl ? JSON.parse(bootEl.textContent || '{}') : {};
+    const toNum = (v, fallback = 0) => Number.isFinite(Number(v)) ? Number(v) : fallback;
+
+    const el = {
+      lastUpdated: document.getElementById('lastUpdated'),
+      dbPing: document.getElementById('dbPing'),
+      healthBadge: document.getElementById('healthBadge'),
+      kpiRequests: document.getElementById('kpiRequests'),
+      kpiP95: document.getElementById('kpiP95'),
+      kpi5xx: document.getElementById('kpi5xx'),
+      kpiCpu: document.getElementById('kpiCpu'),
+      kpiHeap: document.getElementById('kpiHeap'),
+      kpiLag: document.getElementById('kpiLag'),
+      metaPid: document.getElementById('metaPid'),
+      metaNode: document.getElementById('metaNode'),
+      metaUptime: document.getElementById('metaUptime'),
+      metaRss: document.getElementById('metaRss'),
+      metaHeap: document.getElementById('metaHeap'),
+      metaLoad: document.getElementById('metaLoad'),
+      metaHost: document.getElementById('metaHost'),
+      warningsList: document.getElementById('warningsList'),
+      slowRoutesBody: document.getElementById('slowRoutesBody'),
+      recentRequestsBody: document.getElementById('recentRequestsBody'),
+      refreshNowBtn: document.getElementById('refreshNowBtn')
+    };
+
+    function esc(text) {
+      return String(text || '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function setHealthBadge(health) {
+      const crit = Array.isArray(health?.critical) ? health.critical : [];
+      const warn = Array.isArray(health?.warnings) ? health.warnings : [];
+      el.healthBadge.className = 'badge';
+      if (crit.length) {
+        el.healthBadge.classList.add('monitor-badge-critical');
+        el.healthBadge.textContent = `CRITICAL (${crit.length})`;
+      } else if (warn.length) {
+        el.healthBadge.classList.add('monitor-badge-warn');
+        el.healthBadge.textContent = `WARNING (${warn.length})`;
+      } else {
+        el.healthBadge.classList.add('monitor-badge-ok');
+        el.healthBadge.textContent = 'HEALTHY';
+      }
+    }
+
+    function renderWarnings(health) {
+      const crit = Array.isArray(health?.critical) ? health.critical : [];
+      const warn = Array.isArray(health?.warnings) ? health.warnings : [];
+      const entries = [
+        ...crit.map((msg) => ({ level: 'Kritisch', msg })),
+        ...warn.map((msg) => ({ level: 'Warnung', msg }))
+      ];
+      if (!entries.length) {
+        el.warningsList.innerHTML = '<li class="monitor-muted">Keine Warnungen aktiv.</li>';
+        return;
+      }
+      el.warningsList.innerHTML = entries
+        .map((item) => `<li><strong>${esc(item.level)}:</strong> ${esc(item.msg)}</li>`)
+        .join('');
+    }
+
+    function renderSlowRoutes(routes) {
+      if (!Array.isArray(routes) || !routes.length) {
+        el.slowRoutesBody.innerHTML = '<div class="monitor-muted text-center py-3">Keine Daten</div>';
+        return;
+      }
+      el.slowRoutesBody.innerHTML = routes.map((r) => `
+        <div class="monitor-route-item">
+          <div class="monitor-route-title">${esc(r.routeKey)}</div>
+          <div class="monitor-route-metrics">
+            <span class="monitor-metric-chip">Requests: ${toNum(r.count)}</span>
+            <span class="monitor-metric-chip">Avg: ${toNum(r.avgMs).toFixed(1)} ms</span>
+            <span class="monitor-metric-chip">p95: ${toNum(r.p95Ms).toFixed(1)} ms</span>
+            <span class="monitor-metric-chip">Max: ${toNum(r.maxMs).toFixed(1)} ms</span>
+            <span class="monitor-metric-chip">Slow: ${toNum(r.slowCount)}</span>
+            <span class="monitor-metric-chip">5xx: ${toNum(r.errorRate5xxPercent).toFixed(2)}%</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderRecent(rows) {
+      if (!Array.isArray(rows) || !rows.length) {
+        el.recentRequestsBody.innerHTML = '<div class="monitor-muted text-center py-3">Keine Daten</div>';
+        return;
+      }
+      el.recentRequestsBody.innerHTML = rows.slice(0, 40).map((r) => `
+        <div class="monitor-request-item">
+          <div class="d-flex flex-wrap justify-content-between gap-2">
+            <div><strong>${esc(new Date(r.at).toLocaleTimeString())}</strong></div>
+            <div class="monitor-metric-chip">${toNum(r.durationMs).toFixed(1)} ms</div>
+            <div class="monitor-metric-chip">Status ${toNum(r.statusCode)}</div>
+          </div>
+          <div class="monitor-request-path mt-1">${esc(r.method)} ${esc(r.path)}</div>
+        </div>
+      `).join('');
+    }
+
+    function applySnapshot(payload) {
+      const snapshot = payload?.snapshot || null;
+      if (!snapshot) return;
+
+      el.lastUpdated.textContent = new Date(snapshot.generatedAt).toLocaleString();
+      el.dbPing.textContent = payload.dbPingMs == null ? '-' : `${payload.dbPingMs} ms`;
+
+      el.kpiRequests.textContent = toNum(snapshot.http?.totalRequests);
+      el.kpiP95.textContent = `${toNum(snapshot.http?.p95ResponseMs).toFixed(1)} ms`;
+      el.kpi5xx.textContent = `${toNum(snapshot.http?.errorRate5xxPercent).toFixed(2)} %`;
+      el.kpiCpu.textContent = `${toNum(snapshot.process?.cpuPercent).toFixed(1)} %`;
+      el.kpiHeap.textContent = `${toNum(snapshot.process?.heapUsedPercent).toFixed(1)} %`;
+      el.kpiLag.textContent = `${toNum(snapshot.system?.eventLoopLagP95Ms).toFixed(1)} ms`;
+
+      el.metaPid.textContent = toNum(snapshot.process?.pid);
+      el.metaNode.textContent = snapshot.process?.nodeVersion || '-';
+      el.metaUptime.textContent = snapshot.process?.uptimeHuman || '-';
+      el.metaRss.textContent = `${toNum(snapshot.process?.rssMb).toFixed(1)} MB`;
+      el.metaHeap.textContent = `${toNum(snapshot.process?.heapUsedMb).toFixed(1)} / ${toNum(snapshot.process?.heapTotalMb).toFixed(1)} MB`;
+      el.metaLoad.textContent = `${toNum(snapshot.system?.load1).toFixed(2)} / ${toNum(snapshot.system?.load5).toFixed(2)} / ${toNum(snapshot.system?.load15).toFixed(2)}`;
+      el.metaHost.textContent = snapshot.system?.hostname || '-';
+
+      setHealthBadge(snapshot.health);
+      renderWarnings(snapshot.health);
+      renderSlowRoutes(snapshot.topSlowRoutes);
+      renderRecent(snapshot.recentRequests);
+    }
+
+    async function fetchSnapshot() {
+      try {
+        const response = await fetch('/admin/monitoring/api', {
+          headers: { 'Accept': 'application/json' },
+          credentials: 'same-origin'
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        if (data?.ok) applySnapshot(data);
+      } catch (err) {
+        console.error('[monitoring] refresh failed', err);
+      }
+    }
+
+    el.refreshNowBtn?.addEventListener('click', fetchSnapshot);
+    applySnapshot(boot);
+    setInterval(fetchSnapshot, 5000);
+  })();
+</script>

@@ -222,10 +222,16 @@
 }
 
 .package-description ul {
-  padding: 0 !important;
+  padding: 0 0 0 1.1rem !important;
   margin: 0 !important;
-  list-style: none !important;
+  list-style: disc !important;
   text-align: left !important;  /* statt center */
+}
+
+/* Checklisten (mit Symbol-Span) weiter ohne Bullets anzeigen */
+.package-description ul:has(li span) {
+  padding-left: 0 !important;
+  list-style: none !important;
 }
 
 .package-description li {
@@ -234,6 +240,11 @@
   line-height: 1.45;
   padding: 4px 0 !important;
   text-align: left !important; /* statt justify */
+}
+
+/* Normale Listen sollen runde Bullets sichtbar zeigen */
+.package-description ul:not(:has(li span)) li {
+  display: list-item;
 }
 
 .package-description li span {

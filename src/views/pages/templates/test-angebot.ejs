@@ -1,0 +1,2491 @@
+<%- include('../../partials/header') %>
+
+<link rel="stylesheet" href="/css/angebote.css">
+<style>
+
+.modal-backdrop {
+  display: none !important;
+}
+
+.custom-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 1050;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  backdrop-filter: blur(2px);
+}
+
+body.modal-open .custom-backdrop {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.modal.show {
+  z-index: 1060 !important;
+}
+
+
+
+.form-control:focus {
+    border-color: #c39052 !important;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(220, 220, 221, 0.25) !important;
+}
+
+.nav-link:focus{
+  color: #c39052 !important;
+}
+
+.nav-link{
+  color: #000;
+}
+
+.nav-link:hover {
+  color: #c39052 !important;
+}
+
+.btn-close{
+      --bs-btn-close-color: #fff !important; 
+}
+
+.registration-step-card {
+  border: 1px solid #c39052;
+  border-radius: 10px;
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+.registration-step-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 132px;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6c757d;
+  margin-bottom: 8px;
+  background: #eef1f4;
+  border-radius: 999px;
+}
+
+.registration-step1,
+.registration-step2,
+.registration-step3 {
+  transition: opacity 0.24s ease, transform 0.24s ease;
+}
+
+.registration-step2 {
+  margin: 0 auto;
+}
+
+.registration-step3 {
+  margin: 0 auto;
+}
+
+.commercial-sales-note a {
+  color: #c39052;
+  text-decoration: none;
+}
+
+.commercial-sales-note a:hover {
+  text-decoration: underline;
+}
+
+.uid-check-feedback {
+  min-height: 20px;
+}
+
+.registration-step1.private-step1-compact {
+  max-width: 400px;
+  margin: 0 auto;
+}
+
+.registration-step3 {
+  max-width: 820px;
+  margin: 0 auto;
+}
+
+.checkout-step-title {
+  font-size: 26px;
+  font-weight: 600;
+  margin-bottom: 25px;
+}
+
+.checkout-summary-box {
+  background: #f8f9fb;
+  border: 1px solid #e6e6e6;
+  border-radius: 6px;
+  padding: 18px 22px;
+  margin-bottom: 20px;
+}
+
+.checkout-price-box {
+  background: #fff;
+  border: 1px solid #eaeaea;
+  border-radius: 6px;
+  padding: 20px 25px;
+  font-size: 17px;
+}
+
+.checkout-coupon-row .form-control {
+  min-width: 0;
+  height: 46px;
+  border-radius: 4px;
+  font-size: 15px;
+}
+
+.checkout-coupon-row .btn {
+  height: 46px;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+  min-width: 200px;
+  font-weight: 600;
+}
+
+.registration-step3 .form-check {
+  background: #f8f9fb;
+  padding: 15px 18px;
+  border-radius: 4px;
+  border: 1px solid #e6e6e6;
+}
+
+.checkout-step-panel + .checkout-step-panel {
+  margin-top: 10px;
+}
+
+.checkout-final-summary {
+  background: #ffffff;
+}
+
+.checkout-final-summary .fw-semibold {
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.agb-box {
+  background: #f8f9fb;
+  border: 1px solid #e4e6ea;
+  border-radius: 4px;
+  padding: 18px 20px;
+}
+
+.checkout-agb-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  margin-bottom: 10px;
+  border: 1px solid #d8c39f;
+  border-radius: 4px;
+  background: #fff8ef;
+  color: #7a5a2b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.registration-privacy-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  margin-bottom: 10px;
+  border: 1px solid #d8c39f;
+  border-radius: 4px;
+  background: #fff8ef;
+  color: #7a5a2b;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.agb-label {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  cursor: pointer;
+  margin: 0;
+}
+
+.agb-label input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  accent-color: #c89b5b;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.agb-label a {
+  color: #c89b5b;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.agb-label a:hover {
+  text-decoration: underline;
+}
+
+.registration-step2 .form-check {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0;
+  margin-bottom: 1rem;
+}
+
+.registration-step2 .form-check .form-check-input {
+  float: none;
+  margin-left: 0;
+  margin-top: 0;
+  width: 22px;
+  height: 22px;
+  accent-color: #c89b5b;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.registration-step2 .form-check .form-check-label {
+  margin: 0;
+}
+
+.registration-step2 input[type="checkbox"][name="privacy_accepted"] {
+  width: 20px;
+  height: 20px;
+}
+
+.checkout-price-box hr {
+  margin: 18px 0;
+}
+
+.registration-step3 .checkout-to-confirm,
+.registration-step3 .checkout-back-to-review,
+.registration-step3 .proceed-to-payment {
+  height: 52px;
+  border-radius: 4px;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.checkout-coupon-apply {
+  background: #c39052;
+  border-color: #c39052;
+  color: #fff;
+}
+
+.checkout-coupon-apply:hover,
+.checkout-coupon-apply:focus {
+  background: #ad7a3d;
+  border-color: #ad7a3d;
+  color: #fff;
+}
+
+@media (max-width: 768px) {
+  .checkout-coupon-row {
+    flex-wrap: wrap;
+  }
+
+  .checkout-coupon-row .btn {
+    width: 100%;
+  }
+}
+
+.registration-step-leave {
+  opacity: 0;
+  transform: translateX(-18px) scale(0.995);
+}
+
+.registration-step-enter {
+  opacity: 0;
+  transform: translateX(18px) scale(0.995);
+}
+
+.registration-step-enter.registration-step-enter-active {
+  opacity: 1;
+  transform: translateX(0) scale(1);
+}
+
+.package-option-card.is-selected {
+  outline: 2px solid #c39052;
+  box-shadow: 0 0 0 0.25rem rgba(195, 144, 82, 0.2) !important;
+}
+
+.package-options-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 14px;
+  overflow: visible;
+  padding: 4px 2px 8px;
+  width: 100%;
+}
+
+.package-option-col {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: none;
+  transition: flex-basis 0.35s ease, max-width 0.35s ease, transform 0.25s ease, width 0.35s ease;
+}
+
+.package-option-card {
+  cursor: pointer;
+  border: 3px solid #c39052 !important;
+  border-radius: 12px;
+  transition: box-shadow 0.25s ease, transform 0.25s ease, outline-color 0.25s ease;
+}
+
+.package-option-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(195, 144, 82, 0.15);
+}
+
+.package-option-card .card-body {
+  padding: 18px 16px 16px;
+}
+
+.package-option-title {
+  text-align: center;
+  margin-bottom: 18px;
+}
+
+.package-option-divider {
+  width: 64px;
+  height: 1px;
+  background: #c39052;
+  border-radius: 2px;
+  margin: 0 auto 14px;
+}
+
+.package-runtime-divider {
+  width: 64px;
+  height: 2px;
+  background: #c39052;
+  border-radius: 2px;
+  margin: 10px auto 12px;
+}
+
+.package-card-bottom {
+  border-top: 1px solid #d8d8d8;
+  padding-top: 14px;
+}
+
+.package-runtime-text {
+  white-space: nowrap;
+}
+
+.package-option-card .package-description {
+  margin-top: 6px;
+}
+
+.package-option-card .form-label.fw-semibold {
+  display: block;
+  text-align: center;
+}
+
+.package-option-card .category-select-wrap {
+  margin-top: 40px;
+}
+
+#commercialForm .package-option-card .package-description li {
+  text-align: left !important;
+  font-size: 18px !important;
+  padding: 5px 0 !important;
+}
+
+.package-option-price {
+  text-align: center;
+  margin-top: 14px;
+  margin-bottom: 14px !important;
+}
+
+.auth-choice-card {
+  border: 1px solid #e6e6e6;
+  border-radius: 12px;
+  padding: 20px;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.auth-choice-card:hover {
+  border-color: #c39052;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 1400px) {
+  .auth-modal-dialog.auth-modal-wide {
+    max-width: calc(100vw - 24px);
+  }
+
+  .package-option-col {
+    flex: 1 1 0;
+  }
+}
+
+@media (max-width: 1100px) {
+  .package-options-row {
+    flex-wrap: wrap;
+  }
+
+  .package-option-col {
+    flex: 1 1 calc(50% - 14px);
+  }
+}
+
+@media (max-width: 768px) {
+  .package-options-row {
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .package-option-col {
+    flex: 1 1 100%;
+  }
+}
+
+.auth-modal-dialog {
+  width: calc(100vw - 32px);
+  max-width: min(860px, calc(100vw - 32px));
+  transition: max-width 0.3s ease, width 0.3s ease;
+}
+
+.auth-modal-dialog.auth-modal-wide {
+  max-width: min(1720px, calc(100vw - 32px));
+}
+
+.auth-modal-dialog.auth-modal-form {
+  max-width: min(1080px, calc(100vw - 32px));
+}
+
+#authModal {
+  overflow-anchor: none;
+}
+
+#authModal .modal-content {
+  border: 2px solid #c39052;
+  border-radius: 10px;
+  overflow: hidden;
+  overflow-anchor: none;
+}
+
+#authModal .modal-header {
+  min-height: 64px;
+  padding: 16px 22px;
+  border-top-left-radius: 10px;
+  border-top-right-radius: 10px;
+  background: #1A253C !important;
+}
+
+#authModal .modal-title {
+  font-size: 1.45rem;
+  font-weight: 700;
+}
+
+#authModal .modal-body {
+  overflow-anchor: none;
+  padding: 28px 22px 24px !important;
+}
+
+.commercial-booking-note {
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: #212529;
+  border: none;
+  border-radius: 10px;
+  padding: 12px 14px;
+  margin-bottom: 15px; 
+}
+
+.commercial-booking-sync-note {
+  font-size: 15px;
+  font-weight: 300;
+}
+
+</style>
+
+
+<% const isPrivateTypeRoute = requestedOfferType === 'private'; %>
+<% const isTypeRoute = requestedOfferType === 'private' || requestedOfferType === 'commercial'; %>
+<% if (isTypeRoute) { %>
+<style>
+  .abtrennung {
+    display: none !important;
+  }
+</style>
+<% } %>
+
+<% if (!isTypeRoute) { %>
+<section class="intro">
+  <div class="angebot-container">
+    <div class="content">
+      <img src="/assets/villa.png" alt="<%= t('offers.intro.image_alt', 'Visual') %>" class="intro-image">
+      <div class="text">
+        <h2 style="text-align: left;"><%= t('offers.intro.title', 'Erfolgreich verkaufen mit Herando') %></h2>
+        <ul>
+          <li><%= t('offers.intro.list1', 'Verkaufen Sie auf dem führenden Marktplatz für Premiumgüter') %></li>
+          <li><%= t('offers.intro.list2', 'Erreichen Sie zahlungskräftige Kaufkunden aus über 50 Ländern') %></li>
+          <li><%= t('offers.intro.list3', 'Profitieren Sie von innovativen und exklusiven Marketingsmaßnahmen') %></li>
+          <li><%= t('offers.intro.list4', 'Nutzen Sie unsere sichere, diskrete und transparente Zahlungsabwicklung - weltweit') %></li>
+          <li><%= t('offers.intro.list5', 'Vertrauen Sie auf unser erfahrenes Team, dass Sie bei jedem Schritt unterstützt') %></li>
+          <li style="text-align: left;"><%= t('offers.intro.list6', 'Inserieren Sie JETZT als Händler oder Privatperson für maximalen Verkaufserfolg!') %></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+<% } %>
+
+<div class="abtrennung"></div>
+
+
+<% if (!isTypeRoute) { %>
+<section class="pricingContainer">
+  <div class="container" style="margin-top: 40px; margin-bottom: 120px;">
+<h1 class="text-center" style="font-size: 24pt;"><%= t('offers.pricing.title', { fallback: 'Marketing-Pakete bei Herando' }) %></h1>
+<div class="text-center">
+  <span><%= t('offers.pricing.subtitle', { fallback: 'Mit Herando erfolgreich inserieren - privat und gewerblich' }) %></span>
+</div>
+
+    <div class="row justify-content-center text-center" style="gap: 60px; margin-top: 100px;">
+
+      <div class="col-md-4 col-lg-3">
+        <div style="
+          background: #ffffff;
+          padding: 80px;
+          width: 400px; 
+          height: 400px;
+          border-radius: 14px;
+          border: 1px solid #c39052;
+        ">
+          <h2 class="pricingTitle"><%= t('offers.package.private', { fallback: 'Privat' }) %></h2>
+
+          <img src="/assets/private.png"
+               style="width: 190px; height: auto; display: block; margin: 20px auto;">
+
+          <button class="buyButton btn btn-primary" 
+                  onclick="handleBuy('<%= privateDefaultId %>', 'private')">
+            <%= t('offers.pricing.button.buy', { fallback: 'Jetzt verkaufen' }) %>
+          </button>
+
+        </div>
+      </div>
+
+      <div class="col-md-4 col-lg-3">
+        <div style="
+          background: #ffffff;
+          padding: 80px;
+          width: 400px; 
+          height: 400px;
+          border-radius: 14px;
+          border: 1px solid #c39052;
+        ">
+          <h2 class="pricingTitle"><%= t('offers.package.commercial', { fallback: 'Gewerblich' }) %></h2>
+
+          <img src="/assets/commercial.png"
+               style="width: 190px; height: auto; display: block; margin: 20px auto;">
+
+          <button class="buyButton btn btn-primary"
+                  onclick="handleBuy('<%= commercialDefaultId %>', 'commercial')">
+            <%= t('offers.pricing.button.buy', { fallback: 'Jetzt verkaufen' }) %>
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+<% } %>
+
+<div class="abtrennung"></div>
+
+<section class="optimal">
+  <h2><%= t('offers.optimal.title', 'Die optimale Lösung für Ihre Premiumprodukte') %></h2><br>
+  <span>
+    <%= t('offers.optimal.text', 'Sie haben Interesse Ihre Premiumprodukte bei Herando erfolgsorientiert zu inserieren? Oder Sie begeistern sich als Kaufinteressent für unser exklusives Sortiment? Dann sind Sie bei Herando goldrichtig! Wir bieten Händlern, Maklern und Privatpersonen weltweit die optimale Lösung! Registrieren Sie sich und beginnen Sie Ihre persönliche Erfolgsgeschichte mit Herando.') %>
+  </span>
+</section>
+
+
+<div class="abtrennung"></div>
+
+<div class="carouselStepsContainer">
+<h2><%= t('offers.carousel.steps.title') %></h2>
+
+  <div id="carouselSteps" class="carousel slide" data-bs-ride="carousel">
+<div class="carousel-inner">
+  <!-- Schritt 1 -->
+  <div class="carousel-item active carouselStepsItem">
+    <span class="stepNumber">1.</span>
+    <div>
+      <h3><%= t('offers.carousel.steps.s1.title',{fallback:'Erstellen Sie Ihr Händlerkonto'}) %></h3>
+      <p><%= t('offers.carousel.steps.s1.text',{fallback:'Starten Sie noch heute erfolgreich auf Herando, indem Sie Ihr Händlerkonto anlegen. Nach sorgfältiger Prüfung Ihrer Angaben und Unterlagen aktivieren wir Ihr Konto – und Sie beginnen Ihre persönliche Erfolgsgeschichte!'}) %></p>
+    </div>
+  </div>
+
+  <!-- Schritt 2 -->
+  <div class="carousel-item carouselStepsItem">
+    <span class="stepNumber">2.</span>
+    <div>
+      <h3><%= t('offers.carousel.steps.s2.title',{fallback:'Inserieren Sie Ihre Produkte'}) %></h3>
+      <p><%= t('offers.carousel.steps.s2.text',{fallback:'Präsentieren Sie unkompliziert Ihre exklusiven Premiumprodukte bei Herando und profitieren Sie von Millionen potenzieller Kaufkunden – selbstverständlich auf Wunsch auch mit höchster Diskretion!'}) %></p>
+    </div>
+  </div>
+
+  <!-- Schritt 3 -->
+  <div class="carousel-item carouselStepsItem">
+    <span class="stepNumber">3.</span>
+    <div>
+      <h3><%= t('offers.carousel.steps.s3.title',{fallback:'Erfolgreich verkaufen'}) %></h3>
+      <p><%= t('offers.carousel.steps.s3.text',{fallback:'Verkaufen Sie weltweit – mit maximaler Sicherheit und einer transparenten Abwicklung. Unsere Plattform bietet Ihnen einen zuverlässigen Verkaufsprozess und Zugang zu einem internationalen Kundenklientel.'}) %></p>
+    </div>
+  </div>
+
+  <!-- Schritt 4 -->
+  <div class="carousel-item carouselStepsItem">
+    <span class="stepNumber">4.</span>
+    <div>
+      <h3><%= t('offers.carousel.steps.s4.title',{fallback:'Premium-Partner bei Herando werden!'}) %></h3>
+      <p><%= t('offers.carousel.steps.s4.text',{fallback:'Erweitern Sie Ihre Reichweite und gewinnen Sie neue Kunden durch unser leistungsstarkes Netzwerk. Nutzen Sie die Vorteile einer benutzerfreundlichen Plattform, die Ihnen effiziente Verkaufsprozesse und individuellen Support bietet – diskret und zuverlässig.'}) %></p>
+    </div>
+  </div>
+</div>
+
+
+    <button class="carousel-control-prev" type="button" data-bs-target="#carouselSteps" data-bs-slide="prev">
+      <span class="carousel-control-prev-icon"></span>
+      <span class="visually-hidden"><%= t('common.prev',{fallback:'Zurück'}) %></span>
+    </button>
+    <button class="carousel-control-next" type="button" data-bs-target="#carouselSteps" data-bs-slide="next">
+      <span class="carousel-control-next-icon"></span>
+      <span class="visually-hidden"><%= t('common.next',{fallback:'Weiter'}) %></span>
+    </button>
+  </div>
+
+  <div class="progressIndicator">
+    <div class="progressStep activeStep"></div>
+    <div class="progressStep"></div>
+    <div class="progressStep"></div>    
+    <div class="progressStep"></div>
+  </div>
+</div>
+
+<script>
+  // Fortschrittsanzeige aktualisieren
+  document.getElementById('carouselSteps')?.addEventListener('slid.bs.carousel', function (event) {
+    let index = event.to;
+    let progressSteps = document.querySelectorAll(".progressStep");
+    progressSteps.forEach((step, i) => step.classList.toggle("activeStep", i === index));
+  });
+</script>
+
+<div class="abtrennung"></div>
+
+<%- t('offers.vorteile.section') %>
+
+
+<div class="abtrennung"></div>
+
+<% if (!isTypeRoute) { %>
+<section class="pricingContainer">
+  <div class="container" style="margin-top: 40px; margin-bottom: 120px;">
+<h1 class="text-center" style="font-size: 24pt;"><%= t('offers.pricing.title', { fallback: 'Marketing-Pakete bei Herando' }) %></h1>
+<div class="text-center">
+    <span>
+      <%= t('offers.pricing.subtitle', { fallback: 'Mit Herando erfolgreich inserieren - privat und gewerblich' }) %>
+    </span>
+</div>
+
+    <div class="row justify-content-center text-center" style="gap: 60px; margin-top: 100px;">
+
+      <div class="col-md-4 col-lg-3">
+        <div style="
+          background: #ffffff;
+          padding: 80px;
+          width: 400px; 
+          height: 400px;
+          border-radius: 14px;
+          border: 1px solid #c39052;
+        ">
+          <h2 class="pricingTitle"><%= t('offers.package.private', { fallback: 'Privat' }) %></h2>
+
+          <img src="/assets/private.png"
+               style="width: 190px; height: auto; display: block; margin: 20px auto;">
+
+          <button class="buyButton btn btn-primary" 
+                  onclick="handleBuy('<%= privateDefaultId %>', 'private')">
+            <%= t('offers.pricing.button.buy', { fallback: 'Jetzt verkaufen' }) %>
+          </button>
+
+        </div>
+      </div>
+
+      <div class="col-md-4 col-lg-3">
+        <div style="
+          background: #ffffff;
+          padding: 80px;
+          width: 400px; 
+          height: 400px;
+          border-radius: 14px;
+          border: 1px solid #c39052;
+        ">
+          <h2 class="pricingTitle"><%= t('offers.package.commercial', { fallback: 'Gewerblich' }) %></h2>
+
+          <img src="/assets/commercial.png"
+               style="width: 190px; height: auto; display: block; margin: 20px auto;">
+
+          <button class="buyButton btn btn-primary"
+                  onclick="handleBuy('<%= commercialDefaultId %>', 'commercial')">
+            <%= t('offers.pricing.button.buy', { fallback: 'Jetzt verkaufen' }) %>
+          </button>
+
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+<% } %>
+
+
+
+
+<div class="<%= isTypeRoute ? 'container my-4' : 'modal fade' %>" id="authModal" tabindex="-1" aria-hidden="<%= isTypeRoute ? 'false' : 'true' %>">
+  <div class="modal-dialog auth-modal-dialog <%= isTypeRoute ? '' : 'modal-dialog-centered' %>">
+    <div class="modal-content shadow">
+      <!--<div class="modal-header bg-dark text-white">
+        <h5 class="modal-title"><%= t('offers.auth.modal.title', { fallback: 'Registrierung / Login' }) %></h5>
+        <% if (!isTypeRoute) { %>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+        <% } %>
+      </div>-->
+
+      <div class="modal-body p-4">
+        <!-- Tabs (intern, ausgeblendet) -->
+        <ul class="nav nav-tabs mb-3 d-none" id="authTabs" role="tablist">
+          <li class="nav-item" role="presentation">
+            <button class="nav-link active" id="login-tab" data-bs-toggle="tab" data-bs-target="#login" type="button">
+              <%= t('offers.auth.tab.login', { fallback: 'Login' }) %>
+            </button>
+          </li>
+          <li class="nav-item" role="presentation">
+            <button class="nav-link" id="register-tab" data-bs-toggle="tab" data-bs-target="#register" type="button">
+              <%= t('offers.auth.tab.register', { fallback: 'Registrieren' }) %>
+            </button>
+          </li>
+        </ul>
+
+        <div id="authEntryStep">
+          <div class="registration-step-card mb-3">
+            <span class="registration-step-badge">Start</span>
+            <h6 class="mb-2"><%= t('offers.auth.start.title', 'Wie möchten Sie fortfahren?') %></h6>
+            <p class="mb-0 text-muted"><%= t('offers.auth.start.subtitle', 'Wählen Sie Login oder neue Registrierung.') %></p>
+          </div>
+          <div class="row g-3">
+            <div class="col-md-6">
+              <button type="button" class="auth-choice-card w-100" id="chooseAuthLogin">
+                <h6 class="mb-1"><%= t('offers.auth.tab.login', { fallback: 'Login' }) %></h6>
+                <span class="text-muted"><%= t('offers.auth.start.loginHelp', 'Ich habe bereits ein Konto.') %></span>
+              </button>
+            </div>
+            <div class="col-md-6">
+              <button type="button" class="auth-choice-card w-100" id="chooseAuthRegister">
+                <h6 class="mb-1"><%= t('offers.auth.start.register', 'Neu registrieren') %></h6>
+                <span class="text-muted"><%= t('offers.auth.start.registerHelp', 'Ich möchte ein neues Konto erstellen.') %></span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="tab-content mt-3">
+          <!-- 🟩 LOGIN -->
+          <div class="tab-pane fade d-none" id="login">
+            <button type="button" class="btn btn-sm btn-outline-secondary mb-3" id="backToAuthChoiceFromLogin">
+              <%= t('common.back', 'Zurück') %>
+            </button>
+            <form id="loginForm" method="post" action="/auth/login" autocomplete="on">
+              <div class="mb-3">
+                <label class="form-label"><%= t('offers.auth.email', { fallback: 'E-Mail-Adresse' }) %></label>
+                <input type="email" class="form-control" name="email" required>
+              </div>
+              <div class="mb-3">
+                <label class="form-label"><%= t('offers.auth.password', { fallback: 'Passwort' }) %></label>
+                <input type="password" class="form-control" name="password" required>
+              </div>
+              <button type="submit" class="btn btn-primary w-100">
+                <%= t('offers.auth.login.button', { fallback: 'Einloggen' }) %>
+              </button>
+            </form>
+          </div>
+
+          <!-- 🟦 REGISTER -->
+          <div class="tab-pane fade d-none" id="register">
+            <!-- GEWERBLICH -->
+            <div id="commercialForm" class="d-none">
+              <form id="formCommercial" method="post" action="/auth/register" autocomplete="on" enctype="multipart/form-data">
+                <h5 class="mb-3 register-form-heading">
+                  <%= t('offers.auth.commercial.sell_title', { fallback: 'Als gewerblicher Anbieter verkaufen' }) %>
+                  <span id="commercialStep1TitleAddon"> - <%= t('offers.modal.package.selection.title', 'Paket und Kategorie auswählen') %></span>
+                </h5>
+                <input type="hidden" name="type" value="commercial">
+                <input type="hidden" name="packageId" class="selected-package-id" value="">
+
+                <div class="registration-step1">
+                  <div class="package-selection-card">
+                    <div class="package-options-row mt-1">
+                      <% (commercialPackages || []).forEach(function(pkg) { %>
+                        <div class="package-option-col">
+                          <div class="card shadow-sm h-100 border-0 package-option-card"
+                               data-package-card-type="commercial"
+                               data-package-card-id="<%= pkg.id %>"
+                               data-category-select-id="commercialCategory_<%= pkg.id %>">
+                            <div class="card-body d-flex flex-column">
+                                <h5 class="fw-bold package-option-title"><%= pkg.translated_name || pkg.name %></h5>
+                                <div class="package-option-divider"></div>
+                                <div class="package-description mb-3"><%- t('package.' + String(pkg.id || '').replace(/-/g, '_'), pkg.translated_description || pkg.description || '') %></div>
+                                <div class="package-card-bottom mt-auto">
+                                <p class="text-center fw-bold package-runtime-text" style="font-size: 14pt;">
+                                  <%= t('buyer.packages.runtime.commercial', { fallback: 'Laufzeit 30 Tage' }) %>
+                                </p>
+                                <p class="fw-semibold fs-5 package-option-price">
+                                  <%= Number(pkg.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) %>
+                                </p>
+                                <div class="mb-3 category-select-wrap">
+                                  <label for="commercialCategory_<%= pkg.id %>" class="form-label fw-semibold">
+                                    <%= t('buyer.packages.chooseCategory', { fallback: 'Kategorie wählen' }) %>
+                                  </label>
+                                  <select id="commercialCategory_<%= pkg.id %>" class="form-select package-category-select">
+                                    <option value="" selected>
+                                      <%= t('buyer.packages.chooseCategory.placeholder', { fallback: '– bitte wählen –' }) %>
+                                    </option>
+                                    <% categories.forEach(function(cat) { %>
+                                      <option value="<%= cat.id %>"><%= cat.name %></option>
+                                    <% }) %>
+                                  </select>
+                                </div>
+                                </div>
+                            </div>
+                          </div>
+                        </div>
+                      <% }) %>
+                    </div>
+                  </div>
+                  <div class="commercial-booking-note mt-3">
+                    <div class="commercial-booking-sync-note"><%= t('offers.commercial.note.sync_possible', { fallback: '*Datenabgleich möglich, abhängig vom verwendeten System auf Händlerseite.' }) %></div>
+                    <div class="mt-2"><%= t('offers.commercial.note.pricing_valid_from', { fallback: 'Diese Preise sind ab Januar 2025 gültig. Alle Preise verstehen sich ggf. zzgl. Mehrwertsteuer.' }) %></div>
+                    <div class="mt-1 commercial-sales-note"><%- t('offers.commercial.note.contact_sales', { fallback: 'Sie wollen mehr als 500 Angebote schalten oder weitere Leistungen zubuchen? Wenden Sie sich an unser Vertriebsteam für ein individuelles Angebot.' }) %></div>
+                  </div>
+                  <button type="button" class="btn btn-primary w-100 next-to-form" data-type="commercial">
+                    <%= t('common.next', { fallback: 'Weiter' }) %>
+                  </button>
+                </div>
+
+                <div class="registration-step2 d-none">
+
+                <!-- 👤 Anrede -->
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.gender', { fallback: 'Anrede *' }) %></label>
+                    <select name="gender" class="form-select" required>
+                      <option value=""><%= t('offers.auth.gender.choose', { fallback: 'Bitte wählen...' }) %></option>
+                      <option value="2"><%= t('offers.auth.gender.mr', { fallback: 'Herr' }) %></option>
+                      <option value="3"><%= t('offers.auth.gender.mrs', { fallback: 'Frau' }) %></option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 👥 Name -->
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.firstname', { fallback: 'Vorname *' }) %></label>
+                    <input type="text" name="firstname" class="form-control" required>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.lastname', { fallback: 'Nachname *' }) %></label>
+                    <input type="text" name="lastname" class="form-control" required>
+                  </div>
+                </div>
+
+                <!-- 🏢 Firma -->
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.company', { fallback: 'Firma *' }) %></label>
+                    <input type="text" name="company" class="form-control" required>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.vatid', { fallback: 'USt-ID' }) %></label>
+                    <input type="text" name="vatid" class="form-control">
+                    <button type="button" class="btn btn-outline-secondary btn-sm mt-2 uid-check-trigger">CHECK UID</button>
+                    <div class="small mt-2 uid-check-feedback" data-type="commercial"></div>
+                  </div>
+                </div>
+
+                <!-- 🏠 Adresse -->
+                <div class="row">
+                  <div class="col-md-8 mb-3">
+                    <label class="form-label"><%= t('offers.auth.street', { fallback: 'Straße *' }) %> *</label>
+                    <input type="text" name="street" class="form-control" required>
+                  </div>
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label"><%= t('offers.auth.housenumber', { fallback: 'Nr. *' }) %> *</label>
+                    <input type="text" name="housenumber" class="form-control" required>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label"><%= t('offers.auth.postcode', { fallback: 'PLZ' }) %> *</label>
+                    <input type="text" name="postcode" class="form-control" required>
+                  </div>
+                  <div class="col-md-8 mb-3">
+                    <label for="regCommercialCity" class="form-label">
+                      <%= t('offers.auth.city', { fallback: 'Ort' }) %> *
+                    </label>
+                    <input type="text" id="regCommercialCity" name="city" class="form-control" required>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-12 mb-3">
+                    <label for="regCommercialCountry" class="form-label">
+                      <%= t('offers.auth.country', { fallback: 'Land *' }) %>
+                    </label>
+                    <select id="regCommercialCountry" name="country_id" class="form-select" required>
+                      <option value="">
+                        <%= t('offers.modal.country.placeholder', { fallback: '– bitte wählen –' }) %>
+                      </option>
+                      <% countries.forEach(c => { %>
+                        <option value="<%= c.id %>"><%= c.name %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+                </div>
+
+                <div class="mb-3">
+                  <label class="form-label"><%= t('offers.auth.logo', 'Firmenlogo (optional)') %></label>
+                  <input type="file" id="commercialLogoInput" name="logo" class="form-control" accept="image/*">
+                  <div id="commercialLogoPreviewWrap" class="mt-2 d-none" style="position: relative; display: inline-block;">
+                    <button
+                      type="button"
+                      id="commercialLogoPreviewRemove"
+                      aria-label="<%= t('common.remove', 'Entfernen') %>"
+                      style="position: absolute; top: -10px; right: -10px; width: 28px; height: 28px; border: 0; border-radius: 50%; background: #dc3545; color: #fff; font-weight: 700; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 2;"
+                    >
+                      x
+                    </button>
+                    <img
+                      id="commercialLogoPreview"
+                      src=""
+                      alt="<%= t('offers.auth.logo.preview', 'Logo Vorschau') %>"
+                      style="max-width: 220px; max-height: 120px; border: 1px solid #ddd; border-radius: 8px; padding: 4px; background: #fff;"
+                    >
+                  </div>
+                </div>
+
+
+                <!-- ☎️ Kontakt -->
+                <fieldset class="border p-3 mb-3 rounded">
+                  <legend class="float-none w-auto px-2"><%= t('offers.auth.contact', { fallback: 'Kontakt' }) %></legend>
+
+                  <div class="row">
+                    <div class="col-md-3 mb-3">
+                      <label class="form-label"><%= t('offers.auth.phone.prefix', 'Landvorwahl *') %></label>
+                      <select name="phone_country_code" class="form-select" required>
+                        <option value=""><%= t('offers.auth.phone.prefix.choose', 'Bitte wählen...') %></option>
+                        <% countries.forEach(c => { %>
+                          <% const prefix = String(c.prefix || '').trim(); %>
+                          <% if (prefix) { %>
+                            <% const normalizedPrefix = prefix.startsWith('+') ? prefix : ('+' + prefix); %>
+                            <option value="<%= normalizedPrefix %>">
+                              <%= (c.code || c.name || '').toString().toUpperCase() %> (<%= normalizedPrefix %>)
+                            </option>
+                          <% } %>
+                        <% }) %>
+                      </select>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                      <label class="form-label"><%= t('offers.auth.phone', { fallback: 'Telefon *' }) %></label>
+                      <input type="text" name="phone" class="form-control" required>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                      <label class="form-label"><%= t('offers.auth.mobile', { fallback: 'Mobilfunk' }) %></label>
+                      <input type="text" name="mobile" class="form-control">
+                    </div>
+                    <div class="col-md-3 mb-3">
+                      <label class="form-label"><%= t('offers.auth.fax', { fallback: 'Fax' }) %></label>
+                      <input type="text" name="fax" class="form-control">
+                    </div>
+                  </div>
+
+                  <div class="row">
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label"><%= t('offers.auth.email', { fallback: 'E-Mail-Adresse *' }) %> *</label>
+                      <input type="email" name="email" class="form-control" required>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                      <label class="form-label"><%= t('offers.auth.website', { fallback: 'Webseite' }) %></label>
+                      <input type="text" name="website" class="form-control">
+                    </div>
+                  </div>
+
+                  <div class="mb-3">
+                    <label class="form-label"><%= t('offers.auth.imprint', 'Impressum (optional)') %></label>
+                    <textarea
+                      name="imprint"
+                      class="form-control"
+                      style="width: 500px; max-width: 100%; min-height: 300px; resize: vertical;"
+                      placeholder="<%= t('offers.auth.imprint.placeholder', 'Hier können Sie Ihr Impressum eintragen...') %>"
+                    ></textarea>
+                  </div>
+                </fieldset>
+
+                <!-- 🔐 Passwort -->
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.password', { fallback: 'Passwort *' }) %>*</label>
+                    <input type="password" name="password" class="form-control" required>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.password.repeat', { fallback: 'Passwort wiederholen *' }) %></label>
+                    <input type="password" name="password_repeat" class="form-control" required>
+                  </div>
+                </div>
+
+                <!-- ✅ Datenschutz -->
+                <div class="form-check mb-3" style="background-color: #eef7ff; min-height: 48px; height: auto; width: auto; padding: 10px;">
+                  <input type="checkbox" id="commercialPrivacyAccepted" name="privacy_accepted" required>
+                  <label class="form-check-label" for="commercialPrivacyAccepted">
+                    <%= t('offers.auth.privacy.prefix', { fallback: 'Ich habe die' }) %>
+                    <a href="/datenschutz" target="_blank"><%= t('offers.auth.privacy.link_text', { fallback: 'Datenschutzerklärung' }) %></a>
+                    <%= t('offers.auth.privacy.suffix', { fallback: 'gelesen und akzeptiere sie.' }) %>
+                  </label>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-4">
+                    <button type="button" class="btn btn-outline-secondary w-100 back-to-package" data-type="commercial">
+                      <%= t('common.prev', { fallback: 'Zurück' }) %>
+                    </button>
+                  </div>
+                  <div class="col-12 col-md-8">
+                    <button type="submit" class="btn btn-primary w-100">
+                      <%= t('offers.auth.register.button', { fallback: 'Registrieren und fortfahren' }) %>
+                    </button>
+                  </div>
+                </div>
+                </div>
+
+                <div class="registration-step3 d-none">
+                  <h4 class="checkout-step-title"><%= t('buyer.sold.modal.title', 'Bestellübersicht') %></h4>
+
+                  <div class="checkout-step-panel checkout-step-panel-review" data-type="commercial">
+                    <div class="checkout-summary-box">
+                      <div><%= t('buyer.sold.summary.marketing', 'Marketingpaket') %>: <strong class="checkout-package-name" data-type="commercial">-</strong></div>
+                      <div><%= t('buyer.sold.summary.category', 'Kategorie') %>: <strong class="checkout-category-name" data-type="commercial">-</strong></div>
+                    </div>
+                    <div class="small mt-2 checkout-vat-check-info" data-type="commercial"></div>
+
+                    <div class="d-flex gap-2 mt-3 checkout-coupon-row">
+                      <input type="text" class="form-control checkout-coupon-input flex-grow-1" data-type="commercial" placeholder="<%= t('buyer.sold.coupon.placeholder', 'Rabattcode') %>">
+                      <button type="button" class="btn btn-outline-primary checkout-coupon-apply" data-type="commercial"><%= t('buyer.sold.coupon.apply', 'Rabattcode einlösen') %></button>
+                      <button type="button" class="btn btn-outline-secondary checkout-coupon-cancel d-none" data-type="commercial"><%= t('buyer.sold.coupon.cancel', 'Rabattcode stornieren') %></button>
+                    </div>
+                    <div class="small mt-2 checkout-coupon-info" data-type="commercial"></div>
+
+                    <div class="checkout-price-box mt-3 checkout-price-box-target" data-type="commercial"></div>
+                    <button type="button" class="btn btn-dark w-100 mt-4 checkout-to-confirm" data-type="commercial"><%= t('buyer.sold.checkout', 'Zur Kasse gehen') %></button>
+                  </div>
+
+                  <div class="checkout-step-panel checkout-step-panel-confirm d-none" data-type="commercial">
+                    <div class="checkout-price-box checkout-final-summary" data-type="commercial"></div>
+
+                    <div class="agb-box mt-4">
+                      <label class="agb-label">
+                        <input class="checkout-paid-check" type="checkbox" id="commercialPaidCheck">
+                        <span>
+                          <%= t('buyer.sold.agb.text1', 'Ich habe die') %>
+                          <a href="/agb" target="_blank"><%= t('buyer.sold.agb.terms', 'Allgemeine Geschäftsbedingungen') %></a>
+                          <%= t('buyer.sold.agb.text2', 'und die') %>
+                          <a href="/datenschutz" target="_blank"><%= t('buyer.sold.agb.privacy', 'Datenschutzerklärung') %></a>
+                          <%= t('buyer.sold.agb.text3', 'gelesen und akzeptiere die hiermit.') %>
+                        </span>
+                      </label>
+                    </div>
+
+                    <button type="button" class="btn btn-light w-100 mt-3 checkout-back-to-review" data-type="commercial">← <%= t('common.prev', 'Zurück') %></button>
+                    <button type="button" class="btn btn-primary w-100 mt-3 proceed-to-payment" data-type="commercial"><%= t('buyer.sold.buy_now', 'Jetzt kaufen') %></button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+            <!-- PRIVAT -->
+            <div id="privateForm" class="d-none">
+              <form id="formPrivate" method="post" action="/auth/register" autocomplete="on" enctype="multipart/form-data">
+                <h5 class="mb-3 register-form-heading">Als privater Kunde verkaufen</h5>
+                <input type="hidden" name="type" value="private">
+                <input type="hidden" name="packageId" class="selected-package-id" value="">
+
+                <div class="registration-step1 private-step1-compact">
+                  <div class="registration-step-card">
+                    <h6 class="mb-2">Kategorie auswählen</h6>
+                    <div class="package-options-row mt-1">
+                      <% (privatePackages || []).forEach(function(pkg) { %>
+                        <div class="package-option-col">
+                          <div class="card shadow-sm h-100 border-0 package-option-card"
+                               data-package-card-type="private"
+                               data-package-card-id="<%= pkg.id %>"
+                               data-category-select-id="privateCategory_<%= pkg.id %>">
+                            <div class="card-body d-flex flex-column justify-content-between">
+                              <div>
+                                <h5 class="fw-bold package-option-title"><%= pkg.translated_name || pkg.name %></h5>
+                                <div class="package-option-divider"></div>
+                                <div class="package-description mb-3"><%- t('package.privat_90', pkg.translated_description || pkg.description || '') %></div>
+                                <div class="package-runtime-divider"></div>
+                                <p class="text-center fw-bold package-runtime-text" style="font-size: 14pt;">
+                                  <%= t('buyer.packages.runtime.private', { fallback: 'Laufzeit 30 Tage' }) %>
+                                </p>
+                                <p class="fw-semibold fs-5 package-option-price">
+                                  <%= Number(pkg.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) %>
+                                </p>
+                                <div class="mb-3 category-select-wrap">
+                                  <label for="privateCategory_<%= pkg.id %>" class="form-label fw-semibold">
+                                    <%= t('buyer.packages.chooseCategory', { fallback: 'Kategorie wählen' }) %>
+                                  </label>
+                                  <select id="privateCategory_<%= pkg.id %>" class="form-select package-category-select">
+                                    <option value="" selected>
+                                      <%= t('buyer.packages.chooseCategory.placeholder', { fallback: '– bitte wählen –' }) %>
+                                    </option>
+                                    <% categories.forEach(function(cat) { %>
+                                      <option value="<%= cat.id %>"><%= cat.name %></option>
+                                    <% }) %>
+                                  </select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      <% }) %>
+                    </div>
+                  </div>
+                  <button type="button" class="btn btn-primary w-100 next-to-form" data-type="private">
+                    <%= t('common.next', { fallback: 'Weiter' }) %>
+                  </button>
+                </div>
+
+                <div class="registration-step2 d-none">
+
+                <!-- 👤 Anrede -->
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.gender', { fallback: 'Anrede *' }) %></label>
+                    <select name="gender" class="form-select" required>
+                      <option value=""><%= t('offers.auth.gender.choose', { fallback: 'Bitte wählen...' }) %></option>
+                      <option value="2"><%= t('offers.auth.gender.mr', { fallback: 'Herr' }) %></option>
+                      <option value="3"><%= t('offers.auth.gender.mrs', { fallback: 'Frau' }) %></option>
+                    </select>
+                  </div>
+                </div>
+
+                <!-- 🧍 Vorname / Nachname -->
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.firstname', { fallback: 'Vorname *' }) %></label>
+                    <input type="text" name="firstname" class="form-control" required>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.lastname', { fallback: 'Nachname *' }) %></label>
+                    <input type="text" name="lastname" class="form-control" required>
+                  </div>
+                </div>
+
+                <!-- 🏠 Adresse -->
+                <div class="row">
+                  <div class="col-md-8 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.street', { fallback: 'Straße' }) %> *
+                    </label>
+                    <input type="text" name="street" class="form-control" required>
+                  </div>
+
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.housenumber', { fallback: 'Nr.' }) %> *
+                    </label>
+                    <input type="text" name="housenumber" class="form-control" required>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.postcode', { fallback: 'PLZ' }) %> *
+                    </label>
+                    <input type="text" name="postcode" class="form-control" required>
+                  </div>
+
+                  <div class="col-md-8 mb-3">
+                    <label for="regPrivateCity" class="form-label">
+                      <%= t('offers.auth.city', { fallback: 'Ort' }) %> *
+                    </label>
+                    <input type="text" id="regPrivateCity" name="city" class="form-control" required>
+                  </div>
+                </div>
+
+                <div class="row">
+                  <div class="col-12 mb-3">
+                    <label for="regPrivateCountry" class="form-label">
+                      <%= t('offers.auth.country', { fallback: 'Land *' }) %>
+                    </label>
+
+                    <select id="regPrivateCountry" name="country_id" class="form-select" required>
+                      <option value=""><%= t('offers.modal.country.placeholder',{fallback:'– bitte wählen –'}) %></option>
+                      <% countries.forEach(c => { %>
+                        <option value="<%= c.id %>"><%= c.name %></option>
+                      <% }) %>
+                    </select>
+                  </div>
+                </div>
+
+
+                <!-- ☎️ Kontakt -->
+                <div class="row">
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.phone.prefix', 'Landvorwahl') %> *
+                    </label>
+                    <select name="phone_country_code" class="form-select" required>
+                      <option value=""><%= t('offers.auth.phone.prefix.choose', 'Bitte wählen...') %></option>
+                      <% countries.forEach(c => { %>
+                        <% const prefix = String(c.prefix || '').trim(); %>
+                        <% if (prefix) { %>
+                          <% const normalizedPrefix = prefix.startsWith('+') ? prefix : ('+' + prefix); %>
+                          <option value="<%= normalizedPrefix %>">
+                            <%= (c.code || c.name || '').toString().toUpperCase() %> (<%= normalizedPrefix %>)
+                          </option>
+                        <% } %>
+                      <% }) %>
+                    </select>
+                  </div>
+
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.phone.optional', { fallback: 'Telefon' }) %> *
+                    </label>
+                    <input type="text" name="phone" class="form-control" required>
+                  </div>
+
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.mobile.optional', { fallback: 'Mobil' }) %>
+                    </label>
+                    <input type="text" name="mobile" class="form-control">
+                  </div>
+
+                  <div class="col-md-4 mb-3">
+                    <label class="form-label">
+                      <%= t('offers.auth.fax', { fallback: 'Fax' }) %>
+                    </label>
+                    <input type="text" name="fax" class="form-control">
+                  </div>
+                </div>
+
+                <!-- 📧 E-Mail & Passwort -->
+                <div class="mb-3">
+                  <label class="form-label"><%= t('offers.auth.email.short', { fallback: 'E-Mail *' }) %></label>
+                  <input type="email" name="email" class="form-control" required>
+                </div>
+
+                <div class="row">
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.password', { fallback: 'Passwort *' }) %> *</label>
+                    <input type="password" name="password" class="form-control" required>
+                  </div>
+                  <div class="col-md-6 mb-3">
+                    <label class="form-label"><%= t('offers.auth.password.repeat', { fallback: 'Passwort wiederholen *' }) %></label>
+                    <input type="password" name="password_repeat" class="form-control" required>
+                  </div>
+                </div>
+
+                <!-- 🔒 Datenschutz -->
+                <div class="registration-privacy-badge">Datenschutz</div>
+                <div class="form-check mb-4">
+                  <input type="checkbox" id="privatePrivacyAccepted" name="privacy_accepted" required>
+                  <label class="form-check-label" for="privatePrivacyAccepted">
+                    <%= t('offers.auth.privacy.prefix', { fallback: 'Ich habe die' }) %>
+                    <a href="/datenschutz" target="_blank"><%= t('offers.auth.privacy.link_text', { fallback: 'Datenschutzerklärung' }) %></a>
+                    <%= t('offers.auth.privacy.suffix', { fallback: 'gelesen und akzeptiere sie.' }) %>
+                  </label>
+                </div>
+
+                <div class="row g-2">
+                  <div class="col-12 col-md-4">
+                    <button type="button" class="btn btn-outline-secondary w-100 back-to-package" data-type="private">
+                      <%= t('common.prev', { fallback: 'Zurück' }) %>
+                    </button>
+                  </div>
+                  <div class="col-12 col-md-8">
+                    <button type="submit" class="btn btn-primary w-100">
+                      <%= t('offers.auth.register.button', { fallback: 'Registrieren und fortfahren' }) %>
+                    </button>
+                  </div>
+                </div>
+                </div>
+
+                <div class="registration-step3 d-none">
+                  <h4 class="checkout-step-title"><%= t('buyer.sold.modal.title', 'Bestellübersicht') %></h4>
+
+                  <div class="checkout-step-panel checkout-step-panel-review" data-type="private">
+                    <div class="checkout-summary-box">
+                      <div><%= t('buyer.sold.summary.marketing', 'Marketingpaket') %>: <strong class="checkout-package-name" data-type="private">-</strong></div>
+                      <div><%= t('buyer.sold.summary.category', 'Kategorie') %>: <strong class="checkout-category-name" data-type="private">-</strong></div>
+                    </div>
+
+                    <div class="d-flex gap-2 mt-3 checkout-coupon-row">
+                      <input type="text" class="form-control checkout-coupon-input flex-grow-1" data-type="private" placeholder="<%= t('buyer.sold.coupon.placeholder', 'Rabattcode') %>">
+                      <button type="button" class="btn btn-outline-primary checkout-coupon-apply" data-type="private"><%= t('buyer.sold.coupon.apply', 'Rabattcode einlösen') %></button>
+                      <button type="button" class="btn btn-outline-secondary checkout-coupon-cancel d-none" data-type="private"><%= t('buyer.sold.coupon.cancel', 'Rabattcode stornieren') %></button>
+                    </div>
+                    <div class="small mt-2 checkout-coupon-info" data-type="private"></div>
+
+                    <div class="checkout-price-box mt-3 checkout-price-box-target" data-type="private"></div>
+                    <button type="button" class="btn btn-dark w-100 mt-4 checkout-to-confirm" data-type="private"><%= t('buyer.sold.checkout', 'Zur Kasse gehen') %></button>
+                  </div>
+
+                  <div class="checkout-step-panel checkout-step-panel-confirm d-none" data-type="private">
+                    <div class="checkout-price-box checkout-final-summary" data-type="private"></div>
+
+                    <div class="agb-box mt-4">
+                      <span class="checkout-agb-badge">Sicherer Checkout</span>
+                      <label class="agb-label">
+                        <input class="checkout-paid-check" type="checkbox" id="privatePaidCheck">
+                        <span>
+                          <%= t('buyer.sold.agb.text1', 'Ich habe die') %>
+                          <a href="/agb" target="_blank"><%= t('buyer.sold.agb.terms', 'Allgemeine Geschäftsbedingungen') %></a>
+                          <%= t('buyer.sold.agb.text2', 'und die') %>
+                          <a href="/datenschutz" target="_blank"><%= t('buyer.sold.agb.privacy', 'Datenschutzerklärung') %></a>
+                          <%= t('buyer.sold.agb.text3', 'gelesen und akzeptiere die hiermit.') %>
+                        </span>
+                      </label>
+                    </div>
+
+                    <button type="button" class="btn btn-light w-100 mt-3 checkout-back-to-review" data-type="private">← <%= t('common.prev', 'Zurück') %></button>
+                    <button type="button" class="btn btn-primary w-100 mt-3 proceed-to-payment" data-type="private"><%= t('buyer.sold.buy_now', 'Jetzt kaufen') %></button>
+                  </div>
+                </div>
+              </form>
+            </div>
+
+          </div> <!-- /tab-content pane -->
+        </div> <!-- /tab-content -->
+      </div> <!-- /modal-body -->
+    </div>
+  </div>
+</div>
+
+
+<% 
+  const isLoggedIn = !!user && !!user.id;
+  const safeUserType = userType || (user && user.type) || '';
+  const hasPackage = !!userHasPackage;
+  const packageCatalogServer = {};
+  (packages || []).forEach(function(pkg) {
+    packageCatalogServer[String(pkg.id)] = {
+      name: (pkg.translated_name || pkg.name || ''),
+      price: Number(pkg.price || 0)
+    };
+  });
+  const packageCatalogJson = JSON.stringify(packageCatalogServer);
+%>
+
+<script id="testAngebotBootstrapData" type="application/json"><%- JSON.stringify({
+  isLoggedIn: isLoggedIn,
+  userType: safeUserType,
+  userHasPackage: hasPackage,
+  packageCatalog: JSON.parse(packageCatalogJson || '{}'),
+  requestedOfferType: requestedOfferType || ''
+}) %></script>
+
+<script>
+  const bootstrapDataEl = document.getElementById('testAngebotBootstrapData');
+  const bootstrapData = bootstrapDataEl ? JSON.parse(bootstrapDataEl.textContent || '{}') : {};
+  window.isLoggedIn = !!bootstrapData.isLoggedIn;
+  window.userType = bootstrapData.userType || '';
+  window.userHasPackage = !!bootstrapData.userHasPackage;
+  const requestedOfferType = bootstrapData.requestedOfferType || '';
+  const isPrivateTypeRoute = requestedOfferType === 'private';
+  const isTypeRoute = requestedOfferType === 'private' || requestedOfferType === 'commercial';
+  const offerRouteByType = {
+    private: '/angebot-private',
+    commercial: '/angebot-commercial'
+  };
+  const authModalEl = document.getElementById('authModal');
+  const authModalDialog = authModalEl ? authModalEl.querySelector('.modal-dialog') : null;
+  const authModalHeader = authModalEl ? authModalEl.querySelector('.modal-header') : null;
+  const authEntryStepEl = document.getElementById('authEntryStep');
+
+  let selectedPackage = null;
+  let selectedType = null;
+  let authChoiceContextType = null;
+  const selectedCategoryByType = { commercial: '', private: '' };
+  const selectedPackageByType = { commercial: '', private: '' };
+  const registrationCompletedByType = { commercial: false, private: false };
+  // Zahlungsflow aktiv: Stripe wird normal verwendet
+  const TEST_ANGEBOT_DISABLE_STRIPE = false;
+  const checkoutStateByType = {
+    commercial: { originalNet: 0, currentNet: 0, discountPercent: 0, discountAmount: 0, vatValidation: 'none', vatReason: 'none' },
+    private: { originalNet: 0, currentNet: 0, discountPercent: 0, discountAmount: 0, vatValidation: 'none', vatReason: 'none' }
+  };
+  const vatCheckStateByType = {
+    commercial: { checked: false, normalizedVatId: '', countryId: '', companyName: '', vatValidation: 'none', vatReason: 'none' },
+    private: { checked: false, normalizedVatId: '', countryId: '', vatValidation: 'none' }
+  };
+  const packageCatalog = bootstrapData.packageCatalog || {};
+
+  function normalizePackageNoteLineBreaks() {
+    const paragraphs = document.querySelectorAll('#commercialForm .package-description p, #privateForm .package-description p');
+    paragraphs.forEach((paragraph) => {
+      const html = String(paragraph.innerHTML || '');
+      if (!html || html.includes('<br') || !html.includes('(')) return;
+      paragraph.innerHTML = html.replace(/\s+\(/, '<br>(');
+    });
+  }
+
+  normalizePackageNoteLineBreaks();
+
+  function formatPriceEUR(value) {
+    return Number(value || 0).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+  }
+
+  function getRegisterForm(type) {
+    return type === 'commercial'
+      ? document.getElementById('formCommercial')
+      : document.getElementById('formPrivate');
+  }
+
+  function normalizeVatIdClient(vatid) {
+    return String(vatid || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  }
+
+  function getCommercialVatElements() {
+    const form = document.getElementById('formCommercial');
+    return {
+      form,
+      vatInput: form ? form.querySelector('input[name="vatid"]') : null,
+      companyInput: form ? form.querySelector('input[name="company"]') : null,
+      countrySelect: form ? form.querySelector('select[name="country_id"]') : null,
+      checkBtn: form ? form.querySelector('.uid-check-trigger') : null,
+      infoEl: form ? form.querySelector('.uid-check-feedback[data-type="commercial"]') : null
+    };
+  }
+
+  function renderCommercialVatInfo(message, tone) {
+    const { infoEl } = getCommercialVatElements();
+    if (!infoEl) return;
+    const toneClass = tone === 'success'
+      ? 'text-success'
+      : tone === 'danger'
+        ? 'text-danger'
+        : tone === 'warning'
+          ? 'text-warning'
+          : 'text-muted';
+    infoEl.innerHTML = message ? `<span class="${toneClass}">${message}</span>` : '';
+  }
+
+  async function performCommercialVatCheck(options = {}) {
+    const { silent = false, force = false } = options;
+    const { vatInput, companyInput, countrySelect, checkBtn } = getCommercialVatElements();
+    if (!vatInput || !countrySelect) return { success: false, skipped: true };
+
+    const vatid = String(vatInput.value || '').trim();
+    const countryId = String(countrySelect.value || '').trim();
+    const companyName = String(companyInput?.value || '').trim();
+    const normalizedVatId = normalizeVatIdClient(vatid);
+    const state = vatCheckStateByType.commercial;
+
+    if (!force && state.checked && state.normalizedVatId === normalizedVatId && state.countryId === countryId && state.companyName === companyName) {
+      return { success: true, cached: true, vatValidation: state.vatValidation };
+    }
+
+    if (!vatid) {
+      state.checked = true;
+      state.normalizedVatId = '';
+      state.countryId = countryId;
+      state.companyName = companyName;
+      state.vatValidation = 'none';
+      if (!silent) renderCommercialVatInfo('<%= t("offers.uid.empty_vatid", { fallback: "Keine USt-ID angegeben. MwSt wird berechnet." }) %>', 'muted');
+      console.log('[UID] Kein Wert für USt-ID eingegeben, setze vatValidation=none');
+      return { success: true, vatValidation: 'none', reason: 'empty' };
+    }
+
+    if (!countryId) {
+      state.checked = false;
+      if (!silent) renderCommercialVatInfo('<%= t("offers.uid.country_required", { fallback: "Bitte zuerst ein Land auswählen." }) %>', 'warning');
+      console.log('[UID] Land fehlt für UID-Prüfung');
+      return { success: false, vatValidation: 'invalid', reason: 'country-missing' };
+    }
+
+    if (checkBtn) checkBtn.disabled = true;
+    if (!silent) renderCommercialVatInfo('<%= t("offers.uid.checking", { fallback: "UID wird geprüft..." }) %>', 'muted');
+
+    try {
+      const res = await fetch('/auth/offers/check-vatid', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vatid, country_id: countryId, company: companyName })
+      });
+      const result = await res.json().catch(() => ({}));
+      if (!res.ok || !result.success) {
+        throw new Error(result.error || 'UID-Prüfung fehlgeschlagen');
+      }
+      console.log('[UID] CHECK UID API Ergebnis:', result);
+
+      state.checked = true;
+      state.normalizedVatId = String(result.normalizedVatId || normalizedVatId);
+      state.countryId = countryId;
+      state.companyName = companyName;
+      state.vatValidation = result.vatValidation || 'none';
+      state.vatReason = result.reason || 'none';
+      checkoutStateByType.commercial.vatValidation = state.vatValidation;
+      checkoutStateByType.commercial.vatReason = state.vatReason;
+
+      if (state.vatValidation === 'valid') {
+        renderCommercialVatInfo(
+          result.reason === 'local-fallback'
+            ? '<%= t("offers.uid.valid_local_fallback", { fallback: "UID-Prüfung erfolgreich (lokale Prüfung, VIES nicht erreichbar)." }) %>'
+            : '<%= t("offers.uid.valid", { fallback: "UID-Prüfung erfolgreich." }) %>',
+          'success'
+        );
+      } else if (state.vatValidation === 'none') {
+        renderCommercialVatInfo('<%= t("offers.uid.empty_vatid", { fallback: "Keine USt-ID angegeben. MwSt wird berechnet." }) %>', 'muted');
+      } else if (result.reason === 'vies-error') {
+        renderCommercialVatInfo('<%= t("offers.uid.vies_unavailable", { fallback: "UID-Prüfung über VIES aktuell gestört." }) %>', 'warning');
+      } else if (result.reason === 'format') {
+        renderCommercialVatInfo('<%= t("offers.uid.invalid_format", { fallback: "UID-Prüfung nicht erfolgreich: Ungültiges USt-ID-Format." }) %>', 'danger');
+      } else if (result.reason === 'tax-applies' && result.viesValid === false) {
+        renderCommercialVatInfo('<%= t("offers.uid.invalid_vies", { fallback: "UID-Prüfung nicht erfolgreich: VIES meldet die USt-ID als ungültig." }) %>', 'danger');
+      } else {
+        renderCommercialVatInfo('<%= t("offers.uid.invalid_vat_applies", { fallback: "UID-Prüfung nicht erfolgreich: MwSt wird berechnet." }) %>', 'danger');
+      }
+
+      return result;
+    } catch (err) {
+      state.checked = false;
+      renderCommercialVatInfo('<%= t("offers.uid.check_unavailable_retry", { fallback: "UID-Prüfung aktuell nicht verfügbar. Beim Fortfahren wird erneut geprüft." }) %>', 'warning');
+      console.error('[UID] CHECK UID Fehler:', err);
+      return { success: false, error: err.message || 'UID-Prüfung fehlgeschlagen' };
+    } finally {
+      if (checkBtn) checkBtn.disabled = false;
+    }
+  }
+
+  function getDocumentY(el) {
+    const rect = el.getBoundingClientRect();
+    const vv = window.visualViewport;
+    const vvOffsetY = vv ? vv.offsetTop : 0;
+    return window.scrollY + rect.top - vvOffsetY;
+  }
+
+  function keepFlowAnchored() {
+    if (!isTypeRoute) return;
+    const anchor = authModalHeader || authModalEl;
+    if (!anchor) return;
+    const scrollToAnchorTop = function(options) {
+      const behavior = options && options.behavior ? options.behavior : 'auto';
+      const y = getDocumentY(anchor);
+      const targetTop = Math.max(0, y - 4);
+      const currentTop = window.scrollY;
+      const delta = targetTop - currentTop;
+      const smoothUpThreshold = 12;
+      const chosenBehavior =
+        behavior === 'smooth' && delta < -smoothUpThreshold
+          ? 'smooth'
+          : 'auto';
+      window.scrollTo({ top: targetTop, behavior: chosenBehavior });
+    };
+    requestAnimationFrame(function() { scrollToAnchorTop({ behavior: 'smooth' }); });
+    window.setTimeout(function() { scrollToAnchorTop({ behavior: 'smooth' }); }, 0);
+    window.setTimeout(scrollToAnchorTop, 80);
+    window.setTimeout(scrollToAnchorTop, 220);
+    window.setTimeout(scrollToAnchorTop, 420);
+  }
+
+  function setAuthModalWide(isWide) {
+    if (!authModalDialog) return;
+    authModalDialog.classList.toggle('auth-modal-wide', !!isWide);
+  }
+
+  function setAuthModalForm(isForm) {
+    if (!authModalDialog) return;
+    authModalDialog.classList.toggle('auth-modal-form', !!isForm);
+  }
+
+
+  function activateAuthPane(paneId) {
+    ['login', 'register'].forEach(function(id) {
+      const pane = document.getElementById(id);
+      if (!pane) return;
+      const isActive = paneId === id;
+      pane.classList.toggle('d-none', !isActive);
+      pane.classList.toggle('show', isActive);
+      pane.classList.toggle('active', isActive);
+    });
+  }
+
+  function showAuthChoice() {
+    if (authEntryStepEl) authEntryStepEl.classList.remove('d-none');
+    activateAuthPane(null);
+    setAuthModalWide(false);
+    setAuthModalForm(false);
+    keepFlowAnchored();
+  }
+
+  function showLoginPane() {
+    if (authEntryStepEl) authEntryStepEl.classList.add('d-none');
+    activateAuthPane('login');
+    setAuthModalWide(false);
+    setAuthModalForm(false);
+    keepFlowAnchored();
+  }
+
+  function showRegisterPane(type, targetStep, resetFlow) {
+    const desiredStep = Number(targetStep || 1);
+    const shouldReset = resetFlow !== false;
+    if (authEntryStepEl) authEntryStepEl.classList.add('d-none');
+    activateAuthPane('register');
+    setAuthModalWide(type === 'commercial');
+    setAuthModalForm(false);
+    document.getElementById('commercialForm').classList.toggle('d-none', type !== 'commercial');
+    document.getElementById('privateForm').classList.toggle('d-none', type !== 'private');
+    if (shouldReset) {
+      resetRegisterFlow(type);
+    } else {
+      updatePackagePreview(type);
+      markSelectedPackageCard(type, selectedPackageByType[type] || null);
+      setRegisterStep(type, desiredStep);
+    }
+    keepFlowAnchored();
+  }
+
+  function setRegisterStep(type, step) {
+    const form = getRegisterForm(type);
+    if (!form) return;
+
+    const step1 = form.querySelector('.registration-step1');
+    const step2 = form.querySelector('.registration-step2');
+    const step3 = form.querySelector('.registration-step3');
+    const panels = [step1, step2, step3].filter(Boolean);
+    const nextPanel = panels[step - 1];
+    if (!nextPanel) return;
+    const currentPanel = panels.find(function(panel) { return !panel.classList.contains('d-none'); });
+
+    if (step === 1) {
+      setAuthModalWide(type === 'commercial');
+      setAuthModalForm(false);
+    } else {
+      setAuthModalWide(false);
+      setAuthModalForm(true);
+    }
+
+    const headingEl = form.querySelector('.register-form-heading');
+    if (headingEl) {
+      headingEl.classList.toggle('d-none', step === 3);
+    }
+
+    if (step === 3) {
+      setCheckoutPanel(type, 'review');
+      const paidCheck = form.querySelector('.checkout-paid-check');
+      if (paidCheck) paidCheck.checked = false;
+    }
+
+    const commercialStep1TitleAddon = document.getElementById('commercialStep1TitleAddon');
+    if (commercialStep1TitleAddon) {
+      commercialStep1TitleAddon.classList.toggle('d-none', !(type === 'commercial' && step === 1));
+    }
+
+    panels.forEach(function(panel, idx) {
+      const active = idx === (step - 1);
+      panel.querySelectorAll('select, input, button, textarea').forEach(function(el) {
+        el.disabled = !active;
+      });
+    });
+
+    if (!currentPanel || currentPanel === nextPanel || currentPanel.classList.contains('d-none')) {
+      nextPanel.classList.remove('d-none');
+      keepFlowAnchored();
+      return;
+    }
+
+    currentPanel.classList.add('registration-step-leave');
+
+    window.setTimeout(function() {
+      currentPanel.classList.add('d-none');
+      currentPanel.classList.remove('registration-step-leave');
+
+      nextPanel.classList.remove('d-none');
+      nextPanel.classList.add('registration-step-enter');
+
+      requestAnimationFrame(function() {
+        nextPanel.classList.add('registration-step-enter-active');
+      });
+
+      window.setTimeout(function() {
+        nextPanel.classList.remove('registration-step-enter');
+        nextPanel.classList.remove('registration-step-enter-active');
+        keepFlowAnchored();
+      }, 240);
+    }, 180);
+  }
+
+  function updatePackagePreview(type) {
+    const form = getRegisterForm(type);
+    const pkgId = selectedPackageByType[type] || '';
+    form?.querySelectorAll('.selected-package-id').forEach(input => { input.value = pkgId; });
+  }
+
+  function markSelectedPackageCard(type, packageId) {
+    document.querySelectorAll('.package-option-card[data-package-card-type="' + type + '"]').forEach(function(card) {
+      const isSelected = String(card.dataset.packageCardId) === String(packageId || '');
+      card.classList.toggle('is-selected', isSelected);
+    });
+  }
+
+  function getSelectedCategoryLabel(type) {
+    const pkgId = selectedPackageByType[type];
+    const select = document.getElementById(type + 'Category_' + pkgId);
+    if (!select) return '-';
+    const idx = select.selectedIndex;
+    return idx >= 0 ? String(select.options[idx].textContent || '-').trim() : '-';
+  }
+
+  function setCheckoutPanel(type, panel) {
+    const review = document.querySelector('.checkout-step-panel-review[data-type="' + type + '"]');
+    const confirm = document.querySelector('.checkout-step-panel-confirm[data-type="' + type + '"]');
+    if (!review || !confirm) return;
+    const showConfirm = panel === 'confirm';
+    review.classList.toggle('d-none', showConfirm);
+    confirm.classList.toggle('d-none', !showConfirm);
+  }
+
+  function renderCheckoutStep(type) {
+    const pkgId = selectedPackageByType[type];
+    const pkg = packageCatalog[String(pkgId)] || {};
+    const state = checkoutStateByType[type];
+    if (!state.originalNet) {
+      state.originalNet = Number(pkg.price || 0);
+      state.currentNet = Number(pkg.price || 0);
+      state.discountPercent = 0;
+      state.discountAmount = 0;
+    }
+
+    const reverseCharge =
+      type === 'commercial' && state.vatValidation === 'valid';
+    const taxRate = reverseCharge ? 0 : 0.21;
+    const tax = state.currentNet * taxRate;
+    const gross = state.currentNet + tax;
+
+    const packageNameEl = document.querySelector('.checkout-package-name[data-type="' + type + '"]');
+    const categoryNameEl = document.querySelector('.checkout-category-name[data-type="' + type + '"]');
+    const priceBox = document.querySelector('.checkout-price-box-target[data-type="' + type + '"]');
+    const finalSummaryBox = document.querySelector('.checkout-final-summary[data-type="' + type + '"]');
+    const couponInfo = document.querySelector('.checkout-coupon-info[data-type="' + type + '"]');
+    const cancelBtn = document.querySelector('.checkout-coupon-cancel[data-type="' + type + '"]');
+    const vatCheckInfo = document.querySelector('.checkout-vat-check-info[data-type="' + type + '"]');
+    const categoryName = getSelectedCategoryLabel(type);
+
+    if (packageNameEl) packageNameEl.textContent = pkg.name || '-';
+    if (categoryNameEl) categoryNameEl.textContent = categoryName;
+
+    let priceHtml = '';
+    if (priceBox) {
+      let discountHtml = '';
+      if (state.discountPercent > 0) {
+        discountHtml = `
+          <div class="d-flex justify-content-between text-danger">
+            <span>${'<%= t("offers.checkout.discount_percent", { fallback: "Rabatt ({percent}%)" }) %>'.replace('{percent}', state.discountPercent)}</span>
+            <strong>- ${formatPriceEUR(state.discountAmount)}</strong>
+          </div>
+          <div class="d-flex justify-content-between">
+            <span><%= t("offers.checkout.subtotal_new", { fallback: "Neue Zwischensumme" }) %></span>
+            <strong>${formatPriceEUR(state.currentNet)}</strong>
+          </div>
+        `;
+      }
+
+      priceHtml = `
+        <div class="d-flex justify-content-between">
+          <span><%= t("offers.checkout.subtotal", { fallback: "Zwischensumme" }) %></span>
+          <strong>${formatPriceEUR(state.originalNet)}</strong>
+        </div>
+        ${discountHtml}
+        <div class="d-flex justify-content-between">
+          <span>${reverseCharge ? '<%= t("offers.checkout.tax.reverse_charge", { fallback: "MwSt (Reverse Charge, 0%)" }) %>' : '<%= t("offers.checkout.tax.digital_21", { fallback: "Digitale USt (21%)" }) %>'}</span>
+          <strong>${formatPriceEUR(tax)}</strong>
+        </div>
+        <hr>
+        <div class="d-flex justify-content-between fs-5">
+          <strong>${reverseCharge ? '<%= t("offers.checkout.total.reverse_charge", { fallback: "Gesamt (netto, Reverse Charge)" }) %>' : '<%= t("offers.checkout.total.including_tax", { fallback: "Gesamt inkl. Steuer" }) %>'}</strong>
+          <strong>${formatPriceEUR(gross)}</strong>
+        </div>
+      `;
+      priceBox.innerHTML = priceHtml;
+    }
+
+    if (finalSummaryBox) {
+      finalSummaryBox.innerHTML = `
+        <div class="fw-semibold mb-1"><%= t("buyer.sold.summary.marketing", "Marketingpaket") %></div>
+        <div><strong>${pkg.name || '-'}</strong></div>
+        <div class="text-muted"><%= t("buyer.sold.summary.category", "Kategorie") %>: <strong>${categoryName}</strong></div>
+        <hr>
+        ${priceHtml}
+      `;
+    }
+
+    if (couponInfo && !couponInfo.textContent.trim()) couponInfo.innerHTML = '';
+    if (cancelBtn) cancelBtn.classList.toggle('d-none', !(state.discountPercent > 0));
+    if (vatCheckInfo) {
+      if (type !== 'commercial' || state.vatValidation === 'none') {
+        vatCheckInfo.innerHTML = '';
+      } else if (state.vatValidation === 'valid') {
+        if (state.vatReason === 'local-fallback') {
+          vatCheckInfo.innerHTML = '<span class="text-success"><%= t("offers.checkout.vat_info_valid_local_reverse_charge", { fallback: "UID lokal bestätigt (VIES war nicht erreichbar). Reverse Charge (0% MwSt) möglich." }) %></span>';
+        } else {
+          vatCheckInfo.innerHTML = '<span class="text-success"><%= t("offers.checkout.vat_info_valid_reverse_charge", { fallback: "UID-Prüfung erfolgreich: Reverse Charge (0% MwSt) möglich." }) %></span>';
+        }
+      } else if (state.vatReason === 'vies-error') {
+        vatCheckInfo.innerHTML = '<span class="text-warning"><%= t("offers.checkout.vat_info_vies_temporarily_unavailable", { fallback: "VIES ist aktuell vorübergehend nicht erreichbar. Bitte später erneut CHECK UID ausführen." }) %></span>';
+      } else {
+        vatCheckInfo.innerHTML = '<span class="text-danger"><%= t("offers.uid.invalid_vat_applies", { fallback: "UID-Prüfung nicht erfolgreich: MwSt wird berechnet." }) %></span>';
+      }
+    }
+  }
+
+  function resetRegisterFlow(type) {
+    const form = getRegisterForm(type);
+    if (!form) return;
+    setRegisterStep(type, 1);
+    updatePackagePreview(type);
+    registrationCompletedByType[type] = false;
+    selectedPackageByType[type] = '';
+    selectedCategoryByType[type] = '';
+    checkoutStateByType[type] = { originalNet: 0, currentNet: 0, discountPercent: 0, discountAmount: 0, vatValidation: 'none', vatReason: 'none' };
+    const paidCheck = form.querySelector('.checkout-paid-check');
+    if (paidCheck) paidCheck.checked = false;
+    const couponInput = form.querySelector('.checkout-coupon-input');
+    if (couponInput) couponInput.value = '';
+    const couponInfo = form.querySelector('.checkout-coupon-info');
+    if (couponInfo) couponInfo.innerHTML = '';
+    setCheckoutPanel(type, 'review');
+    selectedPackage = null;
+    markSelectedPackageCard(type, null);
+  }
+
+  // ─── Kaufen-Button ────────────────────────────────────────────
+  function handleBuy(packageId, type) {
+    const targetRoute = offerRouteByType[type] || '/angebote';
+    if (!requestedOfferType || requestedOfferType !== type) {
+      window.location.href = targetRoute;
+      return;
+    }
+
+    selectedPackage = packageId;
+    selectedType = type;
+    console.log('🟢 Paket gewählt:', packageId, 'Typ:', type);
+    console.log('👤 Loginstatus:', window.isLoggedIn, '| Typ:', window.userType, '| Paketstatus:', window.userHasPackage);
+
+    if (window.isLoggedIn) {
+      // ✅ Richtiger Typ + Paket aktiv → direkt weiter
+      if (window.userType === type && window.userHasPackage) {
+        console.log('✅ Richtiger Typ + aktives Paket → Weiterleitung');
+        window.location.href = `/buyer/sold?packageId=${packageId}&type=${type}`;
+        return;
+      }
+
+      // ⚠️ Eingeloggt, aber anderer Typ → Logout und Modal öffnen
+      if (window.userType !== type) {
+        console.log('⚠️ Anderer Pakettyp → automatischer Logout + Registrierung neu starten');
+        fetch('/auth/logout', { method: 'GET' })
+          .then(() => openRegistrationModal(type))
+          .catch(() => openRegistrationModal(type));
+        return;
+      }
+
+      // 💡 Eingeloggt, aber kein aktives Paket → darf kaufen
+      if (!window.userHasPackage) {
+        console.log('💡 Kein aktives Paket → Weiterleitung erlaubt');
+        window.location.href = `/buyer/sold?packageId=${packageId}&type=${type}`;
+        return;
+      }
+    }
+
+    // ❌ Nicht eingeloggt → Registrierung öffnen
+    console.log('🔒 Nicht eingeloggt → Registrierung öffnen');
+    openRegistrationModal(type);
+  }
+
+  // ─── Modal öffnen ─────────────────────────────────────────────
+  function openRegistrationModal(type) {
+    console.log('📦 Öffne Modal für Typ:', type);
+    if (!authModalEl) return console.error('❌ authModal nicht gefunden!');
+    selectedType = type;
+    authChoiceContextType = null;
+    showRegisterPane(type, 1, true);
+
+    if (isTypeRoute) return;
+    // Modal anzeigen
+    const modal = bootstrap.Modal.getOrCreateInstance(authModalEl);
+    modal.show();
+  }
+
+  // ─── Login-Handler ───────────────────────────────────────────
+  document.getElementById('loginForm')?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target).entries());
+
+    const res = await fetch('/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+
+    if (res.ok) {
+      console.log('✅ Login erfolgreich');
+      const category = encodeURIComponent(selectedCategoryByType[selectedType] || '');
+      window.location.href = `/buyer/sold?packageId=${selectedPackage}&type=${selectedType}&category_id=${category}`;
+    } else {
+      alert('<%= t("offers.auth.login.failed", "Login fehlgeschlagen.") %>');
+    }
+  });
+
+  // ─── Registrierung (beide Typen) ──────────────────────────────
+  async function handleRegister(formEl, type) {
+    if (registrationCompletedByType[type]) {
+      renderCheckoutStep(type);
+      setRegisterStep(type, 3);
+      return;
+    }
+
+    const formData = new FormData(formEl);
+    const packageId = selectedPackageByType[type] || '';
+    const categoryId = selectedCategoryByType[type] || '';
+    const phonePrefix = String(formData.get('phone_country_code') || '').trim();
+    const phoneValue = String(formData.get('phone') || '').trim();
+    formData.set('type', type);
+    formData.set('packageId', packageId);
+    formData.set('category_id', categoryId);
+
+    if (!packageId) {
+      alert('<%= t("offers.modal.package.required", "Bitte wählen Sie zuerst ein Paket aus.") %>');
+      setRegisterStep(type, 1);
+      return;
+    }
+
+    if (!categoryId) {
+      alert('<%= t("offers.modal.category.required", "Bitte wählen Sie zuerst eine Kategorie aus.") %>');
+      setRegisterStep(type, 1);
+      return;
+    }
+
+    if (type === 'commercial' || type === 'private') {
+      if (!phonePrefix) {
+        alert('<%= t("offers.auth.phone.prefix.required", "Bitte wählen Sie eine Landvorwahl aus.") %>');
+        return;
+      }
+      if (phoneValue) {
+        formData.set('phone', `${phonePrefix} ${phoneValue}`.trim());
+      }
+    }
+    formData.delete('phone_country_code');
+
+    selectedCategoryByType[type] = categoryId;
+
+    if (type === 'commercial') {
+      const vatState = vatCheckStateByType.commercial;
+      const normalizedCurrentVat = normalizeVatIdClient(formData.get('vatid'));
+      const countryIdCurrent = String(formData.get('country_id') || '').trim();
+      const companyCurrent = String(formData.get('company') || '').trim();
+      const needsAutoCheck = !vatState.checked
+        || vatState.normalizedVatId !== normalizedCurrentVat
+        || vatState.countryId !== countryIdCurrent
+        || vatState.companyName !== companyCurrent;
+      if (needsAutoCheck) {
+        await performCommercialVatCheck({ silent: false, force: true });
+      }
+    }
+
+    try {
+      const res = await fetch('/auth/oofers/regsiter-and-pay', {
+        method: 'POST',
+        body: formData
+      });
+      const result = await res.json().catch(() => ({}));
+
+      if (res.ok && result.success) {
+        registrationCompletedByType[type] = true;
+        checkoutStateByType[type] = {
+          originalNet: Number((packageCatalog[String(packageId)] || {}).price || 0),
+          currentNet: Number((packageCatalog[String(packageId)] || {}).price || 0),
+          discountPercent: 0,
+          discountAmount: 0,
+          vatValidation: type === 'commercial' ? (result.vatValidation || 'none') : 'none',
+          vatReason: type === 'commercial' ? (result.reason || 'none') : 'none'
+        };
+        renderCheckoutStep(type);
+        setRegisterStep(type, 3);
+        return;
+      }
+      else {
+              alert('<%= t("offers.auth.register.failed", "Registrierung fehlgeschlagen: ") %>' + (result.error || '<%= t("offers.auth.unknown_error", "Unbekannter Fehler.") %>'));
+            }
+          } catch (err) {
+            alert('<%= t("offers.auth.server_error", "Serverfehler bei Registrierung: ") %>' + err.message);
+          }
+        }
+
+  document.getElementById('formCommercial')?.addEventListener('submit', e => {
+    e.preventDefault();
+    handleRegister(e.target, 'commercial');
+  });
+
+  document.getElementById('formPrivate')?.addEventListener('submit', e => {
+    e.preventDefault();
+    handleRegister(e.target, 'private');
+  });
+
+  (() => {
+    const { form, vatInput, companyInput, countrySelect, checkBtn } = getCommercialVatElements();
+    if (!form || !vatInput || !countrySelect || !checkBtn) return;
+
+    checkBtn.addEventListener('click', () => {
+      performCommercialVatCheck({ silent: false, force: true });
+    });
+
+    const markVatCheckDirty = () => {
+      vatCheckStateByType.commercial.checked = false;
+      vatCheckStateByType.commercial.companyName = String(companyInput?.value || '').trim();
+      checkoutStateByType.commercial.vatValidation = 'none';
+      checkoutStateByType.commercial.vatReason = 'none';
+      if (String(vatInput.value || '').trim()) {
+        renderCommercialVatInfo('<%= t("offers.uid.prompt_check_or_continue", { fallback: "Bitte CHECK UID ausführen oder einfach fortfahren (Auto-Check)." }) %>', 'muted');
+      } else {
+        renderCommercialVatInfo('', 'muted');
+      }
+    };
+
+    vatInput.addEventListener('input', markVatCheckDirty);
+    companyInput?.addEventListener('input', markVatCheckDirty);
+    countrySelect.addEventListener('change', markVatCheckDirty);
+  })();
+
+  document.querySelectorAll('.next-to-form').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      if (!selectedPackageByType[type]) {
+        alert('<%= t("offers.modal.package.required", "Bitte wählen Sie zuerst ein Paket aus.") %>');
+        return;
+      }
+      if (!selectedCategoryByType[type]) {
+        alert('<%= t("offers.modal.category.required", "Bitte wählen Sie zuerst eine Kategorie aus.") %>');
+        return;
+      }
+      authChoiceContextType = type;
+      showAuthChoice();
+    });
+  });
+
+  document.querySelectorAll('.back-to-package').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      setRegisterStep(type, 1);
+    });
+  });
+
+  document.querySelectorAll('.back-to-form').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      setRegisterStep(type, 2);
+    });
+  });
+
+  document.querySelectorAll('.checkout-to-confirm').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      setCheckoutPanel(type, 'confirm');
+      keepFlowAnchored();
+    });
+  });
+
+  document.querySelectorAll('.checkout-back-to-review').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const type = btn.dataset.type;
+      setCheckoutPanel(type, 'review');
+      keepFlowAnchored();
+    });
+  });
+
+  document.querySelectorAll('.package-option-card').forEach(function(card) {
+    card.addEventListener('click', function(event) {
+      if (event.target.closest('select')) return;
+
+      const type = card.dataset.packageCardType;
+      const packageId = card.dataset.packageCardId;
+      const categorySelect = document.getElementById(card.dataset.categorySelectId || '');
+      const categoryValue = categorySelect ? categorySelect.value : '';
+
+      selectedPackage = packageId;
+      selectedType = type;
+      selectedPackageByType[type] = packageId;
+      selectedCategoryByType[type] = categoryValue || '';
+      checkoutStateByType[type] = {
+        originalNet: Number((packageCatalog[String(packageId)] || {}).price || 0),
+        currentNet: Number((packageCatalog[String(packageId)] || {}).price || 0),
+        discountPercent: 0,
+        discountAmount: 0,
+        vatValidation: 'none',
+        vatReason: 'none'
+      };
+
+      const form = getRegisterForm(type);
+      form?.querySelectorAll('.selected-package-id').forEach(function(input) {
+        input.value = packageId;
+      });
+
+      markSelectedPackageCard(type, packageId);
+      keepFlowAnchored();
+    });
+  });
+
+  document.querySelectorAll('.package-category-select').forEach(function(selectEl) {
+    selectEl.addEventListener('change', function() {
+      const card = selectEl.closest('.package-option-card');
+      if (!card) return;
+      const type = card.dataset.packageCardType;
+      const packageId = card.dataset.packageCardId;
+      selectedPackageByType[type] = packageId;
+      selectedCategoryByType[type] = selectEl.value || '';
+      checkoutStateByType[type] = {
+        originalNet: Number((packageCatalog[String(packageId)] || {}).price || 0),
+        currentNet: Number((packageCatalog[String(packageId)] || {}).price || 0),
+        discountPercent: 0,
+        discountAmount: 0,
+        vatValidation: 'none',
+        vatReason: 'none'
+      };
+      selectedPackage = packageId;
+      selectedType = type;
+      markSelectedPackageCard(type, packageId);
+      keepFlowAnchored();
+    });
+  });
+
+  document.querySelectorAll('.checkout-coupon-apply').forEach(function(btn) {
+    btn.addEventListener('click', async function() {
+      const type = btn.dataset.type;
+      const state = checkoutStateByType[type];
+      const input = document.querySelector('.checkout-coupon-input[data-type="' + type + '"]');
+      const info = document.querySelector('.checkout-coupon-info[data-type="' + type + '"]');
+      const code = String(input?.value || '').trim().toUpperCase();
+      const packageId = selectedPackageByType[type];
+      if (!code || !packageId) return;
+
+      try {
+        const res = await fetch('/buyer/apply-coupon', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: new URLSearchParams({ code, packageId })
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!data.ok) {
+          if (info) info.innerHTML = '<span class="text-danger">Ungültiger Rabattcode</span>';
+          return;
+        }
+        state.discountPercent = Number(data.percent || 0);
+        state.currentNet = Number(data.newNet || state.originalNet);
+        state.discountAmount = Math.max(0, state.originalNet - state.currentNet);
+        if (info) info.innerHTML = '<span class="text-success">Rabattcode erfolgreich angewendet</span>';
+        renderCheckoutStep(type);
+      } catch (err) {
+        if (info) info.innerHTML = '<span class="text-danger">Rabattcode konnte nicht geprüft werden</span>';
+      }
+    });
+  });
+
+  document.querySelectorAll('.checkout-coupon-cancel').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const type = btn.dataset.type;
+      const state = checkoutStateByType[type];
+      state.currentNet = state.originalNet;
+      state.discountPercent = 0;
+      state.discountAmount = 0;
+      const input = document.querySelector('.checkout-coupon-input[data-type="' + type + '"]');
+      const info = document.querySelector('.checkout-coupon-info[data-type="' + type + '"]');
+      if (input) input.value = '';
+      if (info) info.innerHTML = '';
+      renderCheckoutStep(type);
+    });
+  });
+
+  document.querySelectorAll('.proceed-to-payment').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      const type = btn.dataset.type;
+      const paidCheck = document.getElementById(type + 'PaidCheck');
+      if (!paidCheck || !paidCheck.checked) {
+        alert('<%= t("buyer.sold.agb.required", "Bitte bestätigen Sie die AGB und Datenschutzerklärung.") %>');
+        return;
+      }
+
+      const packageId = selectedPackageByType[type];
+      const categoryId = selectedCategoryByType[type];
+      if (!packageId || !categoryId) {
+        alert('Bitte wählen Sie Paket und Kategorie erneut aus.');
+        setRegisterStep(type, 1);
+        return;
+      }
+
+      const state = checkoutStateByType[type];
+      const submitForm = document.createElement('form');
+      submitForm.method = 'POST';
+      submitForm.action = '/buyer/checkout';
+
+      const fields = {
+        packageId,
+        type,
+        category_id: categoryId,
+        checkout_source: 'angebote',
+        test_angebot_disable_stripe: TEST_ANGEBOT_DISABLE_STRIPE ? '1' : '0',
+        netPriceOverride: String(Number(state.currentNet || state.originalNet || 0).toFixed(2)),
+        discountPercent: String(state.discountPercent || 0),
+        discountAmount: String(Number(state.discountAmount || 0).toFixed(2))
+      };
+
+      Object.entries(fields).forEach(function(entry) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = entry[0];
+        input.value = entry[1];
+        submitForm.appendChild(input);
+      });
+
+      document.body.appendChild(submitForm);
+      submitForm.submit();
+    });
+  });
+
+  document.getElementById('chooseAuthLogin')?.addEventListener('click', function() {
+    showLoginPane();
+  });
+
+  document.getElementById('chooseAuthRegister')?.addEventListener('click', function() {
+    const targetType = authChoiceContextType || selectedType || 'commercial';
+    showRegisterPane(targetType, 2, false);
+  });
+
+  document.getElementById('backToAuthChoiceFromLogin')?.addEventListener('click', function() {
+    showAuthChoice();
+  });
+
+  document.getElementById('backToAuthChoiceFromRegister')?.addEventListener('click', function() {
+    showAuthChoice();
+  });
+
+  authModalEl?.addEventListener('hidden.bs.modal', function() {
+    authChoiceContextType = null;
+    showAuthChoice();
+  });
+
+  if (isTypeRoute) {
+    const firstMainSection = document.querySelector('.intro, .optimal, .carouselStepsContainer, .pricingContainer');
+    if (authModalEl && firstMainSection && firstMainSection.parentNode) {
+      firstMainSection.parentNode.insertBefore(authModalEl, firstMainSection);
+    }
+    openRegistrationModal(requestedOfferType);
+    window.scrollTo({ top: 0, behavior: 'auto' });
+    keepFlowAnchored();
+  }
+
+  const commercialLogoInput = document.getElementById('commercialLogoInput');
+  const commercialLogoPreviewWrap = document.getElementById('commercialLogoPreviewWrap');
+  const commercialLogoPreview = document.getElementById('commercialLogoPreview');
+  const commercialLogoPreviewRemove = document.getElementById('commercialLogoPreviewRemove');
+  let currentCommercialLogoObjectUrl = '';
+
+  commercialLogoInput?.addEventListener('change', function() {
+    const file = commercialLogoInput.files && commercialLogoInput.files[0];
+    if (!file) {
+      if (commercialLogoPreview) commercialLogoPreview.src = '';
+      commercialLogoPreviewWrap?.classList.add('d-none');
+      return;
+    }
+
+    if (currentCommercialLogoObjectUrl) {
+      URL.revokeObjectURL(currentCommercialLogoObjectUrl);
+      currentCommercialLogoObjectUrl = '';
+    }
+    if (commercialLogoPreview) {
+      currentCommercialLogoObjectUrl = URL.createObjectURL(file);
+      commercialLogoPreview.src = currentCommercialLogoObjectUrl;
+    }
+    commercialLogoPreviewWrap?.classList.remove('d-none');
+  });
+
+  commercialLogoPreviewRemove?.addEventListener('click', function() {
+    if (currentCommercialLogoObjectUrl) {
+      URL.revokeObjectURL(currentCommercialLogoObjectUrl);
+      currentCommercialLogoObjectUrl = '';
+    }
+    if (commercialLogoInput) commercialLogoInput.value = '';
+    if (commercialLogoPreview) commercialLogoPreview.src = '';
+    commercialLogoPreviewWrap?.classList.add('d-none');
+  });
+</script>
+
+
+
+
+
+
+
+<div class="modal fade" id="buyModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><%= t('offers.modal.title',{fallback:'Paket buchen'}) %></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="<%= t('common.close',{fallback:'Schließen'}) %>"></button>
+      </div>
+      <form id="buyForm" action="/angebote/buchen" method="post">
+        <div class="modal-body">
+          <div class="container-fluid">
+            <div class="row">
+              <!-- linke Spalte -->
+              <div class="col-md-6">
+                <input type="hidden" name="package_id" id="modalPackageId">
+                <div class="mb-3">
+                  <label class="form-label"><%= t('offers.modal.pkg',{fallback:'Paket'}) %></label>
+                  <input type="text" class="form-control" id="modalPackageName" readonly>
+                </div>
+                <div class="mb-3">
+                  <label for="category" class="form-label"><%= t('offers.modal.category',{fallback:'Kategorie'}) %></label>
+                  <select id="category" name="category_id" class="form-select" required>
+                    <option value=""><%= t('offers.modal.category.placeholder',{fallback:'– bitte wählen –'}) %></option>
+                    <% categories.forEach(cat => { %>
+                      <option value="<%= cat.id %>"><%= cat.name %></option>
+                    <% }) %>
+                  </select>
+                </div>
+                <div class="mb-3">
+                  <label for="buyModalCountry" class="form-label"><%= t('offers.modal.country',{fallback:'Land'}) %></label>
+                  <select id="buyModalCountry" name="country_id" class="form-select" required>
+                    <option value=""><%= t('offers.modal.country.placeholder',{fallback:'– bitte wählen –'}) %></option>
+                    <% countries.forEach(c => { %>
+                      <option value="<%= c.id %>"><%= c.name %></option>
+                    <% }) %>
+                  </select>
+                </div>
+              
+                <div class="mb-3">
+                  <label for="firstname" class="form-label"><%= t('offers.modal.firstname',{fallback:'Vorname'}) %></label>
+                  <input type="text" id="firstname" name="firstname" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                  <label for="lastname" class="form-label"><%= t('offers.modal.lastname',{fallback:'Nachname'}) %></label>
+                  <input type="text" id="lastname" name="lastname" class="form-control" required>
+                </div>
+              </div>
+              <!-- rechte Spalte -->
+              <div class="col-md-6">
+                <div class="mb-3">
+                  <label for="company" class="form-label"><%= t('offers.modal.company',{fallback:'Firma'}) %></label>
+                  <input type="text" id="company" name="company" class="form-control">
+                </div>
+                <div class="mb-3">
+                  <label for="vatid" class="form-label"><%= t('offers.modal.vatid',{fallback:'USt-ID'}) %></label>
+                  <input type="text" id="vatid" name="vatid" class="form-control">
+                </div>
+                <div class="mb-3">
+                  <label for="street" class="form-label"><%= t('offers.modal.street',{fallback:'Straße'}) %> *</label>
+                  <input type="text" id="street" name="street" class="form-control" required>
+                </div>
+                <div class="mb-3">
+                  <label for="housenumber" class="form-label"><%= t('offers.modal.housenumber',{fallback:'Hausnummer'}) %> *</label>
+                  <input type="text" id="housenumber" name="housenumber" class="form-control" required>
+                </div>
+                <div class="row">
+                  <div class="col-6 mb-3">
+                    <label for="postcode" class="form-label"><%= t('offers.modal.postcode',{fallback:'PLZ'}) %> *</label>
+                    <input type="text" id="postcode" name="postcode" class="form-control" required>
+                  </div>
+                  <div class="col-6 mb-3">
+                    <label for="buyModalCity" class="form-label"><%= t('offers.modal.city',{fallback:'Stadt'}) %> *</label>
+                    <input type="text" id="buyModalCity" name="city" class="form-control" required>
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="phone" class="form-label"><%= t('offers.modal.phone',{fallback:'Telefon'}) %></label>
+                  <input type="tel" id="phone" name="phone" class="form-control">
+                </div>
+                <div class="mb-3">
+                  <label for="email" class="form-label"><%= t('offers.modal.email',{fallback:'E-Mail'}) %> *</label>
+                  <input type="email" id="email" name="email" class="form-control" required>
+                </div>
+              </div>
+            </div> 
+          </div> 
+        </div> 
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><%= t('common.cancel',{fallback:'Abbrechen'}) %></button>
+          <button type="submit" class="btn btn-primary"><%= t('common.book',{fallback:'Buchen'}) %></button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+
+<%- include('../../partials/footer') %>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const modal = document.getElementById('buyModal');
+  modal.addEventListener('show.bs.modal', event => {
+    const button = event.relatedTarget;
+    document.getElementById('modalPackageId').value = button.getAttribute('data-pkg-id');
+    document.getElementById('modalPackageName').value = button.getAttribute('data-pkg-name');
+  });
+});
+</script>
+
+
+<script>
+  const wrapperMenu = document.querySelector('.wrapper-menu');
+  const navbarCollapse = document.querySelector('#navbarNav');
+  wrapperMenu?.addEventListener('click', function () {
+    wrapperMenu.classList.toggle('open');
+    navbarCollapse?.classList.toggle('show');
+  });
+
+  // Modal füllen
+  document.getElementById('buyModal')?.addEventListener('show.bs.modal', event => {
+    const btn = event.relatedTarget;
+    document.getElementById('modalPackageId').value   = btn.dataset.pkgId;
+    document.getElementById('modalPackageName').value = btn.dataset.pkgName;
+  });
+</script>
+
+
+
+</body>
+</html>

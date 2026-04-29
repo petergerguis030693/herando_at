@@ -141,10 +141,11 @@
 
       <div class="brands-grid">
         <% brands.forEach(brand => { %>
+          <% const logoSlug = String(brand.seoname || '').split('/').filter(Boolean).pop() || ''; %>
           <div class="brand-card">
             <a href="/<%= route %>/<%= encodeURIComponent(brand.seoname) %>" rel="noopener">
               <img 
-                src="https://herando.com/images/cms/brands/<%= brand.seoname %>.jpg" 
+                src="/images/cms/brands/<%= encodeURIComponent(logoSlug) %>.jpg" 
                 loading="lazy"
                 alt="<%= brand.name %>">
               <div class="legend"><%= brand.name %></div>
@@ -173,3 +174,6 @@
 </div>
 
 <%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

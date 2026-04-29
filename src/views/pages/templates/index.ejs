@@ -18,6 +18,24 @@
   box-shadow:none !important;
 }
 
+/* Startseite: Kartenlinks in Top-Angeboten immer ohne Browser-Linkstyle */
+.information a{
+  text-decoration: none !important;
+  color: inherit !important;
+}
+
+.text-decoration-none{
+  color: black; 
+}
+
+.herando-box.herando-light a {
+  text-decoration: none !important;
+  color: #000 !important;
+}
+
+.herando-box.herando-light a:hover{
+  color: #c39052 !important;
+}
 
 </style>
 
@@ -79,15 +97,21 @@
 
       </div>
 
-      <!-- Rechte Seite (Bild) -->
-      <div class="col-lg-6 p-0" style="height:550px;">
-        <img src="/assets/immo.jpg"
-             alt="<%= t('index.top_offer.image_alt','Top-Angebote bei Herando') %>"
-             class="img-fluid w-100 h-100"
-             style="object-fit:cover;"
-             loading="lazy"
-             decoding="async"
-             fetchpriority="low">
+      <!-- Rechte Seite (Bild) — WebP optional; JPEG-Fallback -->
+      <div class="col-lg-6 p-0 herando-sell-image-col" style="height:550px;">
+        <picture>
+          <source type="image/webp" srcset="/assets/immo.webp" sizes="(max-width: 992px) 100vw, 50vw">
+          <img src="/assets/immo.jpg"
+               alt="<%= t('index.top_offer.image_alt','Top-Angebote bei Herando') %>"
+               class="img-fluid w-100 h-100 herando-sell-image"
+               style="object-fit:cover;"
+               loading="lazy"
+               decoding="async"
+               fetchpriority="low"
+               sizes="(max-width: 992px) 100vw, 50vw"
+               width="869"
+               height="488">
+        </picture>
       </div>
 
     </div>

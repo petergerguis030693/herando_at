@@ -178,6 +178,8 @@ input[type=number] {
   width: 100%;
   height: auto;
   display: block;
+  /* Gleiche Fläche wie die WebP-Dateien (1534×383), verhindert CLS vor Decode */
+  aspect-ratio: 1534 / 383;
 }
 
 .heIght {
@@ -2415,7 +2417,15 @@ body.cookie-open {
 
 #cookie-accept {
   background: #c99b5d;
-  color: #fff;
+  color: black; 
+  border: none;
+}
+
+#cookie-accept:hover,
+#cookie-accept:focus,
+#cookie-accept:focus-visible {
+  background: #c99b5d;
+  color: black; 
   border: none;
 }
 

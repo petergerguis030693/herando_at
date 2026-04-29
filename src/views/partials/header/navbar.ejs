@@ -51,7 +51,7 @@ const entityHref = (route, suffix = "") => {
   <div class="container d-flex justify-content-between align-items-center">
 
     <a class="navbar-brand" href="/">
-      <img src="/assets/herando-weblogo.svg" alt="Herando">
+      <img src="/assets/herando-weblogo.svg" alt="Herando" width="180" height="46" decoding="async">
     </a>
 
     <div class="search-leiste d-none d-xl-block position-relative" style="flex:1;max-width:760px;margin:0 16px;">
@@ -97,35 +97,26 @@ const entityHref = (route, suffix = "") => {
               data-bs-toggle="collapse"
               data-bs-target="#mobileSearch"
               aria-expanded="false"
-              aria-controls="mobileSearch">
+              aria-controls="mobileSearch"
+              aria-label="<%= t('header.search.open_mobile', 'Suche öffnen') %>">
         <i class="bi bi-search fs-5"></i>
       </button>
 
       <%- include('language-mobile') %>
       <%- include('user-menu-mobile', { user }) %>
 
-      <div class="wrapper-menu" id="hamburger" aria-controls="navbarNav" aria-expanded="false">
+      <button class="wrapper-menu" id="hamburger" type="button" aria-controls="mobileMenu" aria-expanded="false" aria-label="<%= t('mobile.open_menu', 'Menü öffnen') %>">
         <div class="line-menu half start"></div>
         <div class="line-menu"></div>
         <div class="line-menu half end"></div>
-      </div>
+      </button>
     </div>
 
   </div>
 
   <div class="collapse d-xl-none" id="mobileSearch">
     <div class="container py-2">
-      <form action="/search" method="get" class="d-flex w-100 mx-auto">
-        <div class="input-group">
-          <span class="input-group-text bg-white border-end-0"><i class="bi bi-search text-secondary"></i></span>
-          <input type="text" name="q" class="form-control border-start-0"
-                 placeholder="<%= t('header.search.placeholder') %>"
-                 aria-label="<%= t('header.search.aria_label') %>">
-          <button class="btn btn-primary" type="submit">
-            <i class="bi bi-arrow-right-circle"></i>
-          </button>
-        </div>
-      </form>
+      <%- include('search-mobile') %>
     </div>
   </div>
 
@@ -149,7 +140,8 @@ const entityHref = (route, suffix = "") => {
         <a class="nav-link dropdown-toggle-split fontSize"
            href="#"
            id="dropdown-<%= cat.route %>"
-           role="button">
+           role="button"
+           aria-label="<%= t('header.toggle_menu', 'Kategorie-Menü öffnen') %>: <%= t('category.' + cat.route, cat.name) %>">
             <i class="bi bi-chevron-down"></i>
         </a>
 
@@ -166,7 +158,7 @@ const entityHref = (route, suffix = "") => {
   <% }) %>
 
   <li class="nav-item position-static meNU">
-    <a class="nav-link text-uppercase" href="https://www.herando.com/de/investment">
+    <a class="nav-link text-uppercase" href="https://www.herando-invest.de">
       <%= t('category.investment', 'Investment').toUpperCase() %>
     </a>
   </li>
@@ -184,10 +176,14 @@ const entityHref = (route, suffix = "") => {
   <div class="mobile-menu-header">
     
     <a class="navbar-brand mobile-logo-link" href="/">
-      <img src="/assets/herando-weblogo.svg" alt="Herando Logo">
+      <img src="/assets/herando-weblogo.svg" alt="Herando Logo" width="180" height="46" decoding="async">
     </a>
 
-    <button id="closeMobileMenuBtn" class="close-menu-btn">
+    <button
+      id="closeMobileMenuBtn"
+      class="close-menu-btn"
+      type="button"
+      aria-label="<%= t('mobile.close_menu', 'Menü schließen') %>">
       <i class="bi bi-x-lg"></i>
     </button>
   </div>
@@ -207,10 +203,13 @@ const entityHref = (route, suffix = "") => {
           </a>
 
           <% if (menu) { %>
-            <button class="btn btn-sm p-0 border-0 mobile-toggle-btn" 
-                    data-bs-toggle="collapse" 
-                    data-bs-target="#mobile-<%= cat.route %>" 
-                    aria-expanded="false">
+            <button class="btn btn-sm p-0 border-0 mobile-toggle-btn"
+                    type="button"
+                    data-bs-toggle="collapse"
+                    data-bs-target="#mobile-<%= cat.route %>"
+                    aria-controls="mobile-<%= cat.route %>"
+                    aria-expanded="false"
+                    aria-label="<%= t('mobile.toggle_category_menu', 'Untermenü öffnen/schließen') %>: <%= t('category.' + cat.route, cat.name) %>">
                 <i class="bi bi-chevron-down"></i>
             </button>
           <% } %>
@@ -385,7 +384,7 @@ const entityHref = (route, suffix = "") => {
 
     <li class="mobile-item">
       <div class="d-flex justify-content-between align-items-center mobile-link-header">
-        <a href="<%= localizedPath ? localizedPath('/investment', currentLang) : '/investment' %>" class="w-100">
+        <a href="https://www.herando-invest.de" class="w-100">
           <%= t('category.investment', 'Investment') %>
         </a>
       </div>
@@ -411,7 +410,7 @@ const entityHref = (route, suffix = "") => {
         <i class="bi bi-twitter-x"></i>
       </a>
 
-      <a href="https://www.youtube.com/herando" target="_blank" class="mobile-social-icon" aria-label="Herando auf YouTube">
+      <a href="https://www.youtube.com/@herandoaktiengesellschaft8220" target="_blank" rel="noopener noreferrer" class="mobile-social-icon" aria-label="Herando auf YouTube">
         <i class="bi bi-youtube"></i>
       </a>
       
@@ -471,12 +470,14 @@ document.addEventListener("DOMContentLoaded", () => {
     mobileMenu.classList.remove("show");
     backdrop.classList.remove("show");
     hamburger.classList.remove("open");
+    hamburger.setAttribute("aria-expanded", "false");
   }
 
   hamburger.addEventListener("click", () => {
     hamburger.classList.toggle("open");
     mobileMenu.classList.toggle("show");
     backdrop.classList.toggle("show");
+    hamburger.setAttribute("aria-expanded", mobileMenu.classList.contains("show") ? "true" : "false");
   });
 
   backdrop.addEventListener("click", closeMobile);

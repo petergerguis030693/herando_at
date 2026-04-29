@@ -157,6 +157,30 @@
         </div>
       </div>
 
+      <!-- Passwort (optional beim Bearbeiten) -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Passwort vergeben</legend>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="new_password" class="form-label">Neues Passwort</label>
+            <input type="password" id="new_password" name="new_password"
+                   class="form-control form-control-sm"
+                   autocomplete="new-password"
+                   placeholder="mind. 8 Zeichen">
+          </div>
+          <div class="col-md-6">
+            <label for="new_password_repeat" class="form-label">Passwort wiederholen</label>
+            <input type="password" id="new_password_repeat" name="new_password_repeat"
+                   class="form-control form-control-sm"
+                   autocomplete="new-password"
+                   placeholder="Passwort wiederholen">
+          </div>
+        </div>
+        <small class="text-muted d-block mt-2">
+          Leer lassen, wenn das bestehende Passwort unverändert bleiben soll.
+        </small>
+      </fieldset>
+
       <!-- Sichtbarkeit -->
       <fieldset class="border rounded p-3 mb-4">
         <legend class="w-auto px-2">Im Inserat anzeigen</legend>

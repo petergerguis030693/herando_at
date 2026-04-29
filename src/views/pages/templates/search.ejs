@@ -1,7 +1,7 @@
 <%- include('../../partials/header') %>
 
   <link rel="stylesheet" href="/css/product.css">
-  <link rel="stylesheet" href="/css/footer.css">
+  <link rel="stylesheet" href="/css/footer.min.css">
 </div>
 
 <section class="productWrapper container mb-5">
@@ -16,10 +16,13 @@
           <div class="imageBild">
             <a href="/<%= item.route %>/<%= item.id %>/<%= encodeURIComponent(item.title) %>">
             <div class="bild">
-              <img 
-                src="/images/<%= item.route %>/<%= item.id %>/<%= pic %>" 
-                alt="<%= item.title %>" 
+              <img
+                src="/images/<%= item.route %>/<%= item.id %>/<%= pic %>"
+                alt="<%= item.title %>"
+                width="580"
+                height="440"
                 loading="lazy"
+                decoding="async"
               >
             </div>
           </div>
@@ -78,3 +81,5 @@
 
   <!-- Footer -->
 <%- include('../../partials/footer') %>
+</body>
+</html>

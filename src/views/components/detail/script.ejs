@@ -21,55 +21,81 @@
       const detailCol = document.querySelector('.product-single-container .row > .col-md-5');
       if (detailCol) detailCol.style.marginTop = '30px';
     }
-  });
-</script>
 
+    const form = document.getElementById('sellerContactForm');
+    if (!form || form.dataset.herandoContactBound === '1') return;
+    form.dataset.herandoContactBound = '1';
 
+    const MSG_PHONE = <%- JSON.stringify(t('product.contact.phone_need_country', 'Bitte wählen Sie für Ihre Telefonnummer ein Land (Vorwahl) aus.')) %>;
+    const MSG_OK = <%- JSON.stringify(t('common.message_sent', 'Danke! Ihre Anfrage wurde gesendet.')) %>;
+    const MSG_ERR = <%- JSON.stringify(t('common.error_send', 'Fehler beim Senden. Bitte später erneut versuchen.')) %>;
+    const MSG_GENERIC = <%- JSON.stringify(t('common.error_generic', 'Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.')) %>;
 
-<!-- ==== SCRIPT ==== -->
-<script>
-const sellerContactForm = document.getElementById("sellerContactForm");
-if (sellerContactForm) sellerContactForm.addEventListener("submit", async function (e) {
-    e.preventDefault();
+    form.addEventListener('submit', async function (e) {
+      e.preventDefault();
+      if (form.dataset.herandoContactSubmitting === '1') return;
+      form.dataset.herandoContactSubmitting = '1';
 
-    // Daten sammeln
-    const payload = {
-        firstName: document.getElementById("modalFirstName").value,
-        lastName:  document.getElementById("modalLastName").value,
-        email:     document.getElementById("modalEmail").value,
-        phone: document.getElementById("modalPhoneCode").value + " " + document.getElementById("modalPhone").value,
-        message:   document.getElementById("modalMessage").value,
-        hp_field:  document.getElementById("hp_field").value, // Honeypot
-        listingUrl: document.getElementById("listingUrl").value,
-    };
+      const codeEl = document.getElementById('modalPhoneCode');
+      const numEl = document.getElementById('modalPhone');
+      const code = (codeEl && codeEl.value || '').trim();
+      const num = (numEl && numEl.value || '').replace(/\s+/g, ' ').trim();
+      if (num !== '' && code === '') {
+        alert(MSG_PHONE);
+        codeEl && codeEl.focus();
+        form.dataset.herandoContactSubmitting = '0';
+        return;
+      }
 
-    try {
-        // Anfrage senden
-        const res = await fetch("/send-contact", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
+      const phoneHidden = document.getElementById('modalPhoneFull');
+      const fullPhone = (phoneHidden && phoneHidden.value && phoneHidden.value.trim())
+        ? phoneHidden.value.trim()
+        : ((code && num) ? (code + ' ' + num).trim() : (code || num));
+
+      const firstEl = document.getElementById('modalFirstName');
+      const lastEl = document.getElementById('modalLastName');
+      const emailEl = document.getElementById('modalEmail');
+      const msgEl = document.getElementById('modalMessage');
+      const hpEl = document.getElementById('hp_field');
+      const urlEl = document.getElementById('listingUrl');
+
+      const params = new URLSearchParams();
+      params.set('firstName', firstEl ? firstEl.value : '');
+      params.set('lastName', lastEl ? lastEl.value : '');
+      params.set('email', emailEl ? emailEl.value : '');
+      params.set('phone', fullPhone);
+      params.set('message', msgEl ? msgEl.value : '');
+      params.set('hp_field', hpEl ? hpEl.value : '');
+      params.set('listingUrl', urlEl ? urlEl.value : '');
+
+      const action = (form.getAttribute('action') || '/send-contact').trim() || '/send-contact';
+
+      try {
+        const res = await fetch(action, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: params.toString()
         });
-
-        const result = await res.json();
-
-        if (result.success) {
-            // Modal schließen
-            const modalEl = document.getElementById("contactModal");
-            const bsModal = bootstrap.Modal.getInstance(modalEl);
-            bsModal.hide();
-
-            alert('<%= t("common.message_sent", "Ihre Nachricht wurde gesendet!") %>');
-            e.target.reset();
+        const data = await res.json().catch(function () { return {}; });
+        if (res.ok && data.success) {
+          alert(MSG_OK);
+          form.reset();
+          const modalEl = document.getElementById('contactModal');
+          if (modalEl && window.bootstrap) {
+            const modal = bootstrap.Modal.getInstance(modalEl) || new bootstrap.Modal(modalEl);
+            modal.hide();
+          }
         } else {
-          alert(result.error || '<%= t("common.error_send", "Fehler beim Senden.") %>');
+          alert(data.error || MSG_ERR);
         }
-
-    } catch (err) {
-        console.error("Kontaktformular Fehler:", err);
-        alert('<%= t("common.error_generic", "Es ist ein Fehler aufgetreten. Bitte versuchen Sie es später erneut.") %>');
-    }
-});
+      } catch (err) {
+        console.error('Kontaktformular Fehler:', err);
+        alert(MSG_GENERIC);
+      } finally {
+        form.dataset.herandoContactSubmitting = '0';
+      }
+    });
+  });
 </script>
 
 
@@ -287,148 +313,20 @@ document.addEventListener("DOMContentLoaded", function () {
     magnify('mainImage', 1.3); // Zoom-Faktor nach Belieben anpassen
   });
 
-  // Beispiel changeImage-Funktion, um Hauptbild zu tauschen
+  // Legacy-Helfer: immer die zentrale Wechsel-Logik verwenden
   function changeImage(thumb) {
-    const main = document.getElementById('mainImage');
-    if (!main || !thumb) return;
-    main.src = thumb.src;
-    // Hintergrund der Lupe frisch setzen
-    const event = new Event('mouseenter');
-    main.dispatchEvent(event);
-  }
-</script>
-
-<script>
-(function(){
-  // 1) Bild-URLs sammeln
-  const pics = Array.from(
-    document.querySelectorAll('.product-single-thumbnails img')
-  ).map(img => img.src);
-
-  // Fallback: Hauptbild, falls keine Thumbnails
-  const mainImg = document.getElementById('mainImage');
-  if (!pics.length && mainImg) {
-    pics.push(mainImg.src);
-  }
-
-  let currentIndex = 0;
-  const overlay  = document.getElementById('lightboxOverlay');
-  const imgEl    = document.getElementById('lightboxImage');
-  const btnPrev  = document.getElementById('lightboxPrev');
-  const btnNext  = document.getElementById('lightboxNext');
-  const btnClose = document.getElementById('lightboxClose');
-  if (!overlay || !imgEl || !btnPrev || !btnNext || !btnClose || !pics.length) return;
-
-  function showLightbox(idx) {
-    currentIndex = idx;
-    imgEl.src = pics[currentIndex];
-    overlay.style.display = 'flex';
-  }
-  function hideLightbox()    { overlay.style.display = 'none'; }
-  function showPrev()        { showLightbox((currentIndex - 1 + pics.length) % pics.length); }
-  function showNext()        { showLightbox((currentIndex + 1) % pics.length); }
-
-  // 2) Klick auf Hauptbild: öffne an der aktuell angezeigten Stelle
-  if (mainImg) {
-    mainImg.style.cursor = 'zoom-in';
-    mainImg.addEventListener('click', () => {
-      const idx = pics.findIndex(src => src === mainImg.src);
-      showLightbox(idx >= 0 ? idx : 0);
-    });
-  }
-
-  // 3) Overlay-Klick schließt, Pfeile und X wie gehabt
-  overlay.addEventListener('click', e => e.target === overlay && hideLightbox());
-  btnPrev.addEventListener('click', e => { e.stopPropagation(); showPrev(); });
-  btnNext.addEventListener('click', e => { e.stopPropagation(); showNext(); });
-  btnClose.addEventListener('click', hideLightbox);
-
-  // 4) Tastatur-Navigation
-  document.addEventListener('keydown', e => {
-    if (overlay.style.display === 'flex') {
-      if (e.key === 'Escape') hideLightbox();
-      if (e.key === 'ArrowLeft') showPrev();
-      if (e.key === 'ArrowRight') showNext();
+    if (!thumb) return;
+    if (typeof window.changeImage === 'function') {
+      window.changeImage(thumb);
+      return;
     }
-  });
-})();
+    const main = document.getElementById('mainImage');
+    if (!main) return;
+    main.src = thumb.src;
+  }
 </script>
 
-<script>
-document.addEventListener("DOMContentLoaded", () => {
-  const mainImg   = document.getElementById("mainImage");
-  const thumbsCtn = document.querySelector(".product-single-thumbnails");
-  const thumbs    = Array.from(thumbsCtn.querySelectorAll("img"));
-  const prevBtn   = document.getElementById("prevThumb");
-  const nextBtn   = document.getElementById("nextThumb");
-  let currentIdx  = 0;
-
-  // 1) Scrollbar per JS ausblenden
-  thumbsCtn.style.overflowX = "auto";
-  thumbsCtn.style.overflowY = "hidden";
-  thumbsCtn.style.scrollbarWidth = "none";        // Firefox
-  thumbsCtn.style.msOverflowStyle = "none";        // IE 10+
-  // Webkit:
-  const style = document.createElement("style");
-  style.textContent = `
-    .product-single-thumbnails::-webkit-scrollbar { display: none; }
-  `;
-  document.head.appendChild(style);
-
-  // 2) Highlight-Funktion
-  function highlightActive() {
-    thumbs.forEach((thumb, i) => {
-      if (i === currentIdx) {
-        thumb.style.borderRadius = "4px";
-        thumb.style.opacity      = "0.8";
-        thumb.style.transform    = "scale(1.05)";
-        thumb.style.transition   = "transform .2s, opacity .2s";
-      } else {
-        thumb.style.border       =
-        thumb.style.borderRadius =
-        thumb.style.opacity      =
-        thumb.style.transform    =
-        thumb.style.transition   = "";
-      }
-    });
-  }
-
-  // 3) Pfeil-Buttons aktiv/deaktiv
-  function updateButtons() {
-    prevBtn.disabled = currentIdx === 0;
-    nextBtn.disabled = currentIdx === thumbs.length - 1;
-  }
-
-  // 4) Thumbnail-Anzeige + zentrieren
-  function showThumbnail(i) {
-    if (i < 0 || i >= thumbs.length) return;
-    currentIdx = i;
-    // Hauptbild tauschen
-    changeImage(thumbs[i]);   
-    const thumb = thumbs[i];
-    const offset = thumb.offsetLeft - (thumbsCtn.clientWidth - thumb.clientWidth) / 2;
-    thumbsCtn.scrollTo({ left: offset, behavior: "smooth" });
-    highlightActive();
-    updateButtons();
-  }
-
-  // 5) Event-Listener
-  thumbs.forEach((thumb, i) => {
-    thumb.style.cursor = "pointer";
-    thumb.addEventListener("click", () => showThumbnail(i));
-  });
-  prevBtn.addEventListener("click", () => showThumbnail(currentIdx - 1));
-  nextBtn.addEventListener("click", () => showThumbnail(currentIdx + 1));
-
-  // 6) Initialisierung
-  // Finde den Index des Main-Bildes
-let startIndex = thumbs.findIndex(t => t.src === mainImg.src);
-if (startIndex < 0) startIndex = 0;
-
-// Starte mit dem richtigen Bild
-showThumbnail(startIndex);
-});
-</script>
+<!-- Lightbox/Thumbnail-Controller lives in detail.ejs to avoid double bindings -->
 
 <script>
   document.addEventListener('DOMContentLoaded', () => {
@@ -654,6 +552,35 @@ const caseMaterialMap = {
   255: '<%= t("watch.case.other",       "Sonstige") %>'
 };
 
+const strapMaterialMap = {
+  1:   '<%= t("watch.strap.crocodile",  "Krokodilleder") %>',
+  2:   '<%= t("watch.strap.leather",    "Leder") %>',
+  3:   '<%= t("watch.strap.steel",      "Stahl") %>',
+  4:   '<%= t("watch.strap.rubber",     "Kautschuk") %>',
+  5:   '<%= t("watch.strap.yellow_gold","Gelbgold") %>',
+  6:   '<%= t("watch.strap.rose_gold",  "Roségold") %>',
+  7:   '<%= t("watch.strap.white_gold", "Weißgold") %>',
+  8:   '<%= t("watch.strap.gold_steel", "Gold/Stahl") %>',
+  9:   '<%= t("watch.strap.platinum",   "Platin") %>',
+  10:  '<%= t("watch.strap.textile",    "Textil") %>',
+  11:  '<%= t("watch.strap.red_gold",   "Rotgold") %>',
+  12:  '<%= t("watch.strap.titanium",   "Titan") %>',
+  13:  '<%= t("watch.strap.plastic",    "Kunststoff") %>',
+  14:  '<%= t("watch.strap.diamonds",   "Diamanten") %>',
+  15:  '<%= t("watch.strap.aluminium",  "Aluminium") %>',
+  16:  '<%= t("watch.strap.silver",     "Silber") %>',
+  17:  '<%= t("watch.strap.pvd",        "PVD-beschichtet") %>',
+  18:  '<%= t("watch.strap.snake",      "Schlangenleder") %>',
+  19:  '<%= t("watch.strap.ceramic",    "Keramik") %>',
+  20:  '<%= t("watch.strap.lizard",     "Eidechsenleder") %>',
+  21:  '<%= t("watch.strap.shark",      "Haifischleder") %>',
+  22:  '<%= t("watch.strap.cow",        "Rindsleder") %>',
+  23:  '<%= t("watch.strap.satin",      "Satin") %>',
+  24:  '<%= t("watch.strap.silicone",   "Silikon") %>',
+  25:  '<%= t("watch.strap.ostrich",    "Straußenleder") %>',
+  255: '<%= t("watch.strap.other",      "Sonstige") %>'
+};
+
 const colorMap = {
   1:   '<%= t("color.black",            "Schwarz") %>',
   2:   '<%= t("color.white",            "Weiß") %>',
@@ -728,7 +655,7 @@ const colorMap = {
     iconCol('droplet',          LW.waterproof || 'Wasserdicht', W.waterproof ? (W.waterproof + ' ATM') : ''),
     iconCol('box',              LW.case       || 'Gehäuse',     mapValue(W.case_material, caseMaterialMap)),
     iconCol('palette',          LW.dial       || 'Zifferblatt', mapValue(W.dial_color, colorMap)),
-    iconCol('brush',            LW.strap      || 'Armband',     [mapValue(W.strap_material, caseMaterialMap), mapValue(W.strap_color, colorMap)].filter(Boolean).join(', ')),
+    iconCol('brush',            LW.strap      || 'Armband',     [mapValue(W.strap_material, strapMaterialMap), mapValue(W.strap_color, colorMap)].filter(Boolean).join(', ')),
     iconCol('archive',          LW.box        || 'Box',         yesNo(W.hasBox)),
     iconCol('file-earmark-text',LW.papers     || 'Papiere',     yesNo(W.hasPapers)),
     iconCol('shield-check',     LW.warranty   || 'Garantie',    yesNo(W.warranty)),

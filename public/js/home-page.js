@@ -1,0 +1,1916 @@
+(function () {
+  const bootEl = document.getElementById('herando-home-bootstrap');
+  if (!bootEl) {
+    console.warn('[herando] herando-home-bootstrap missing');
+    return;
+  }
+  const boot = JSON.parse(bootEl.textContent);
+  const activeCurrency = String(boot.currency || "EUR").toUpperCase();
+  /** Listing-Thumb (_smallx2): intrinsische Maße für CLS (src/lib/listing-image-variants.js) */
+  const LISTING_IMG_W = 580;
+  const LISTING_IMG_H = 440;
+
+  function listingImgAttrsUrl(it) {
+    if (!it || !it.imageSrcset) return '';
+    const sizes = it.imageSizes || '(max-width: 768px) 100vw, 480px';
+    return ` srcset="${it.imageSrcset}" sizes="${sizes}"`;
+  }
+
+  function formatPriceWithActiveCurrency(amount, fallbackLocale) {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value <= 0) return null;
+    const locale = fallbackLocale || window.HERANDO_LOCALE || "en-US";
+    try {
+      return new Intl.NumberFormat(locale, {
+        style: "currency",
+        currency: activeCurrency,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+      }).format(value);
+    } catch (_) {
+      return `${value.toLocaleString("en-US")} ${activeCurrency}`;
+    }
+  }
+
+window.HERANDO_ENTITY_ROUTE_MAP = boot.entityRouteMap;
+  window.HERANDO_HOME_ENTITY_ORDER = boot.homeEntityOrder;
+
+  window.herandoEntityUrl = function herandoEntityUrl(route, suffix) {
+    const input = String(route || '').toLowerCase();
+    const canonical = (input === 'autos' || input === 'auto') ? 'cars' : input;
+    const publicRoute = (window.HERANDO_ENTITY_ROUTE_MAP && window.HERANDO_ENTITY_ROUTE_MAP[canonical]) || canonical;
+    const s = String(suffix || '');
+    if (!s) return '/' + publicRoute;
+    if (s.startsWith('?')) return '/' + publicRoute + s;
+    return '/' + publicRoute + '/' + s.replace(/^\/+/, '');
+  };
+
+window.__herandoFetchCache = window.__herandoFetchCache || new Map();
+  window.herandoFetchJsonCached = function herandoFetchJsonCached(url, fallback) {
+    const key = String(url || '').trim();
+    if (!key) return Promise.resolve(fallback);
+    const cache = window.__herandoFetchCache;
+    if (cache.has(key)) return cache.get(key);
+    const req = fetch(key, { credentials: 'same-origin' })
+      .then((res) => (res.ok ? res.json() : fallback))
+      .catch(() => fallback);
+    cache.set(key, req);
+    return req;
+  };
+
+window.herandoSetSectionVisibility = function herandoSetSectionVisibility(id, visible) {
+    const section = document.getElementById(id);
+    if (!section) return;
+    if (visible) {
+      section.style.removeProperty("display");
+      return;
+    }
+    section.style.setProperty("display", "none", "important");
+  };
+
+(function () {
+    function applyA11yToSlideButtons(root) {
+      const scope = root || document;
+      scope.querySelectorAll('button[data-slide]').forEach((btn) => {
+        const idx = Number(btn.getAttribute('data-slide') || 0) + 1;
+        btn.type = 'button';
+        if (!btn.getAttribute('aria-label')) {
+          btn.setAttribute('aria-label', `Gehe zu Slide ${idx}`);
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      applyA11yToSlideButtons(document);
+
+      const observer = new MutationObserver((mutations) => {
+        for (const mutation of mutations) {
+          mutation.addedNodes.forEach((node) => {
+            if (!(node instanceof Element)) return;
+            if (node.matches && node.matches('button[data-slide]')) {
+              applyA11yToSlideButtons(node.parentElement || document);
+            } else if (node.querySelector) {
+              applyA11yToSlideButtons(node);
+            }
+          });
+        }
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+    });
+  })();
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  const LABEL_POPULAR = boot.strings.labelPopular;
+  const ERR_LOADING_OFFERS = boot.strings.errLoadingOffers;
+  const categories = boot.categories;
+  const ui = boot.ui;
+
+  function t(key, fallback = '') {
+    return ui[key] ?? fallback ?? key;
+  }
+
+  /* ==========================================================
+     🔥 renderKurzinfos – komplett NEU OPTIMIERT
+     ========================================================== */
+  function renderKurzinfos(entRoute, it) {
+    let html = `<div class="cartype-box">
+                  <p class="cartype-box" style="font-size:12pt; margin-top:8px;">`;
+
+    /* =======================
+       🚗 CARS
+       ======================= */
+    if (entRoute === "cars") {
+
+      const cartypeLabels = {
+        1: t("car.transmission.manual", "Schaltgetriebe"),
+        2: t("car.transmission.automatic", "Automatik"),
+        3: t("car.transmission.automatic", "Automatik"),
+        6: t("car.transmission.automatic", "Automatik"),
+        255: t("car.transmission.manual", "Schaltgetriebe")
+      };
+
+      const fuelLabels = {
+        1: t("car.fuel.petrol", "Benzin"),
+        2: t("car.fuel.diesel", "Diesel"),
+        3: t("car.fuel.electric", "Elektro"),
+        4: t("car.fuel.hybrid", "Hybrid")
+      };
+
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      const cartypeName = cartypeLabels[gearboxValue] || null;
+      const fuelName = fuelLabels[it.fuel] || null;
+
+      if (cartypeName)
+        html += `<span class="info-item"><i class="bi bi-gear-fill"></i> ${cartypeName}</span>`;
+
+      if (it.mileage)
+        html += `<span class="info-item"><i class="bi bi-speedometer2"></i> ${new Intl.NumberFormat("de-DE").format(it.mileage)} km</span>`;
+
+      if (fuelName)
+        html += `<span class="info-item"><i class="bi bi-fuel-pump"></i> ${fuelName}</span><br>`;
+
+      if (it.firstregistration) {
+        const month = it.firstregistration_month ? String(it.firstregistration_month).padStart(2,"0") : "01";
+        const fr = `${month}/${it.firstregistration}`;
+        html += `<span class="info-item"><i class="bi bi-calendar-event"></i> ${fr}</span>`;
+      }
+    }
+
+    /* =======================
+       ⌚ WATCHES
+       ======================= */
+    if (entRoute === "watches") {
+      const watchTypeLabels = {
+        1: t("watch.type.armband", "Armbanduhr"),
+        2: t("watch.type.pocket", "Taschenuhr"),
+        3: t("watch.type.smart", "Smartwatch")
+      };
+
+      const genderLabels = {
+        1: t("watch.gender.men", "Herren"),
+        2: t("watch.gender.women", "Damen"),
+        3: t("watch.gender.unisex", "Unisex")
+      };
+
+      const movementLabels = {
+        1: t("watch.movement.automatic", "Automatik"),
+        2: t("watch.movement.manual", "Handaufzug"),
+        3: t("watch.movement.quartz", "Quarz")
+      };
+
+      const caseMaterialLabels = {
+        1: t("watch.case.steel", "Edelstahl"),
+        2: t("watch.case.gold", "Gold"),
+        3: t("watch.case.titanium", "Titan"),
+        4: t("watch.case.ceramic", "Keramik")
+      };
+
+      if (watchTypeLabels[it.watchtype])
+        html += `<span class="info-item"><i class="bi bi-watch"></i> ${watchTypeLabels[it.watchtype]}</span>`;
+
+      if (genderLabels[it.gender])
+        html += `<span class="info-item"><i class="bi bi-gender-ambiguous"></i> ${genderLabels[it.gender]}</span>`;
+
+      if (movementLabels[it.movement])
+        html += `<span class="info-item"><i class="bi bi-cpu"></i> ${movementLabels[it.movement]}</span><br>`;
+
+      if (caseMaterialLabels[it.case_material])
+        html += `<span class="info-item"><i class="bi bi-box"></i> ${caseMaterialLabels[it.case_material]}</span>`;
+    }
+
+    /* =======================
+       🏠 PROPERTIES
+       ======================= */
+    if (entRoute === "properties") {
+      const propertyTypeLabels = {
+        10: t("property.type.finca", "Finca"),
+        5: t("property.type.penthouse", "Penthouse"),
+        11: t("property.type.island", "Privatinsel"),
+        6: t("property.type.villa", "Villa/Haus"),
+        8: t("property.type.maisonette", "Maisonette"),
+        4: t("property.type.apartment", "Wohnung"),
+        12: t("property.type.castle", "Schloss/Herrenhaus"),
+        255: t("property.type.other", "Sonstige")
+      };
+
+      const investmentTypeLabels = {
+        1: t("investment.type.residential", "Wohnen"),
+        2: t("investment.type.commercial", "Gewerbe"),
+        3: t("investment.type.hotel", "Hotel"),
+        4: t("investment.type.care", "Pflegeimmobilie"),
+        5: t("investment.type.gastro", "Gastronomie"),
+        6: t("investment.type.other", "Sonstiges"),
+        9: t("investment.type.land", "Grundstück")
+      };
+
+      if (propertyTypeLabels[it.propertytype])
+        html += `<span class="info-item"><i class="bi bi-building"></i> ${propertyTypeLabels[it.propertytype]}</span>`;
+      else if (investmentTypeLabels[it.investmenttype])
+        html += `<span class="info-item"><i class="bi bi-cash-coin"></i> ${investmentTypeLabels[it.investmenttype]}</span>`;
+
+      if (it.bedrooms)
+        html += `<span class="info-item"><i class="bi bi-door-closed"></i> ${it.bedrooms} Zi</span>`;
+
+      if (it.bathrooms)
+        html += `<span class="info-item"><i class="bi bi-droplet"></i> ${it.bathrooms} Bad</span>`;
+
+      if (it.livingarea)
+        html += `<span class="info-item"><i class="bi bi-aspect-ratio"></i> ${new Intl.NumberFormat("de-DE").format(it.livingarea)} m²</span>`;
+    }
+
+    /* =======================
+       ⛵ YACHTS
+       ======================= */
+    if (entRoute === "yachts") {
+
+      const yachtTypeLabels = {
+        1: t("yacht.type.motor", "Motoryacht"),
+        2: t("yacht.type.sailing", "Segelyacht"),
+        3: t("yacht.type.catamaran", "Katamaran")
+      };
+
+      if (yachtTypeLabels[it.yachttype])
+        html += `<span class="info-item"><i class="bi bi-water"></i> ${yachtTypeLabels[it.yachttype]}</span>`;
+
+      if (it.length)
+        html += `<span class="info-item"><i class="bi bi-arrows-expand"></i> ${it.length} m</span>`;
+
+      if (it.beam)
+        html += `<span class="info-item"><i class="bi bi-arrows-angle-expand"></i> ${it.beam} m ${t("label.width","Breite")}</span>`;
+
+      if (it.draft)
+        html += `<span class="info-item"><i class="bi bi-arrow-down"></i> ${it.draft} m ${t("label.draft","Tiefgang")}</span>`;
+
+      if (it.berths)
+        html += `<span class="info-item"><i class="bi bi-person"></i> ${it.berths} ${t("label.berths","Kojen")}</span>`;
+
+      if (it.year)
+        html += `<span class="info-item"><i class="bi bi-calendar-event"></i> ${t("label.year_built","Baujahr")} ${it.year}</span>`;
+    }
+
+    html += `</p></div>`;
+    return html;
+  }
+
+  /* ===================================
+     🔄 Carousel Loader (bleibt gleich)
+     =================================== */
+  const DEFAULT_HOME_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const configuredHomeOrder = Array.isArray(window.HERANDO_HOME_ENTITY_ORDER)
+    ? window.HERANDO_HOME_ENTITY_ORDER.map((route) => String(route || '').toLowerCase())
+    : [];
+  const categoriesByRoute = new Map(
+    categories.map((cat) => [String(cat.route || '').toLowerCase(), cat])
+  );
+  const orderedRoutes = configuredHomeOrder
+    .filter((route) => DEFAULT_HOME_ROUTES.includes(route) && categoriesByRoute.has(route))
+    .filter((route, idx, arr) => arr.indexOf(route) === idx);
+  DEFAULT_HOME_ROUTES.forEach((route) => {
+    if (categoriesByRoute.has(route) && !orderedRoutes.includes(route)) {
+      orderedRoutes.push(route);
+    }
+  });
+  const orderedCategories = orderedRoutes
+    .map((route) => categoriesByRoute.get(route))
+    .filter(Boolean);
+
+  if (!orderedCategories.length) {
+    window.herandoSetSectionVisibility("myUniqueProducts", false);
+    return;
+  }
+
+  Promise.all(
+    orderedCategories.map(cat =>
+      window.herandoFetchJsonCached(`/api/catalog_ads/${cat.id}`, [])
+    )
+  )
+  .then(resultsPerCategory => {
+    const fullSetCount = Math.min(...resultsPerCategory.map((arr) => Array.isArray(arr) ? arr.length : 0));
+    if (!Number.isFinite(fullSetCount) || fullSetCount <= 0) {
+      window.herandoSetSectionVisibility("myUniqueProducts", false);
+      return;
+    }
+    window.herandoSetSectionVisibility("myUniqueProducts", true);
+
+    const slidesContainer = document.querySelector("#myUniqueProducts .my-carousel-slides");
+    const dotsContainer   = document.querySelector("#myUniqueProducts .my-carousel-nav-dots");
+    const prevBtn         = document.querySelector("#myUniqueProducts .my-carousel-prev");
+    const nextBtn         = document.querySelector("#myUniqueProducts .my-carousel-next");
+    if (!slidesContainer || !dotsContainer || !prevBtn || !nextBtn) return;
+
+    const slideCount = fullSetCount;
+
+    Array.from({ length: slideCount }).forEach((_, slideIdx) => {
+
+      let slideHTML = `<div class="my-carousel-slide" data-slide-index="${slideIdx}">`;
+
+      orderedCategories.forEach((cat, catIdx) => {
+        const item = resultsPerCategory[catIdx][slideIdx];
+
+        const slug = (item.title || "")
+          .toLowerCase()
+          .replace(/\s+/g, "-")
+          .replace(/[^\w-]/g, "");
+
+        const formattedPrice = (!item.price || Number(item.price) === 0)
+          ? t("label.price_on_request","Preis auf Anfrage")
+          : (item.priceConverted
+              ? item.priceConverted
+              : formatPriceWithActiveCurrency(item.price, "en-US"));
+
+        const shortTitle = item.title.length > 30 
+          ? item.title.slice(0, 30) + "..."
+          : item.title;
+
+        slideHTML += `
+          <div class="card-peter">
+            <div class="image-bild">
+              <div class="bild background">
+                <a href="${window.herandoEntityUrl(cat.route, '/' + item.reference + '/' + slug)}" aria-label="Inserat">
+                  <img src="${item.imageUrl}"${listingImgAttrsUrl(item)} alt="${item.title}" width="360" height="250" loading="lazy" decoding="async">
+              </div>
+              <!--<div class="height"><p>${LABEL_POPULAR}</p></div>-->
+            </div>
+            <div class="information background">
+              <div class="my-prod-info">
+                <h6><b>${shortTitle}</b></h6>
+                ${renderKurzinfos(cat.route, item)}
+                <p class="my-price">${formattedPrice}</p>
+              </div>
+              </a>
+            </div>
+          </div>`;
+      });
+
+      slideHTML += `</div>`;
+
+      slidesContainer.insertAdjacentHTML("beforeend", slideHTML);
+
+      const dot = document.createElement("button");
+      dot.dataset.slide = slideIdx;
+      if (slideIdx === 0) dot.classList.add("active");
+      dotsContainer.appendChild(dot);
+    });
+
+    dotsContainer.querySelectorAll("button").forEach(dot => {
+      dot.addEventListener("click", function () {
+        const idx = +this.dataset.slide;
+        slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
+        dotsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        this.classList.add("active");
+      });
+    });
+
+    prevBtn?.addEventListener("click", () => {
+      const active = dotsContainer.querySelector("button.active");
+      if (!active) return;
+      let idx = +active.dataset.slide;
+      idx = idx > 0 ? idx - 1 : slideCount - 1;
+      slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
+      dotsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      dotsContainer.querySelector(`button[data-slide="${idx}"]`).classList.add("active");
+    });
+
+    nextBtn?.addEventListener("click", () => {
+      const active = dotsContainer.querySelector("button.active");
+      if (!active) return;
+      let idx = +active.dataset.slide;
+      idx = (idx + 1) % slideCount;
+      slidesContainer.style.transform = `translateX(-${idx * 100}%)`;
+      dotsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      dotsContainer.querySelector(`button[data-slide="${idx}"]`).classList.add("active");
+    });
+  })
+  .catch(err => {
+    console.error("Fehler beim Laden der Inserate:", err);
+    window.herandoSetSectionVisibility("myUniqueProducts", false);
+  });
+
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  const ui = boot.ui;
+  function t(key, fallback=''){ return ui[key] ?? fallback; }
+  const categories = boot.categories;
+
+  const DEFAULT_HOME_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const configuredHomeOrder = Array.isArray(window.HERANDO_HOME_ENTITY_ORDER)
+    ? window.HERANDO_HOME_ENTITY_ORDER.map((route) => String(route || '').toLowerCase())
+    : [];
+  const categoriesByRoute = new Map(
+    categories.map((cat) => [String(cat.route || '').toLowerCase(), cat])
+  );
+  const orderedRoutes = configuredHomeOrder
+    .filter((route) => DEFAULT_HOME_ROUTES.includes(route) && categoriesByRoute.has(route))
+    .filter((route, idx, arr) => arr.indexOf(route) === idx);
+  DEFAULT_HOME_ROUTES.forEach((route) => {
+    if (categoriesByRoute.has(route) && !orderedRoutes.includes(route)) {
+      orderedRoutes.push(route);
+    }
+  });
+  const orderedCategories = orderedRoutes
+    .map((route) => categoriesByRoute.get(route))
+    .filter(Boolean);
+
+  const tabletWrapper = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-slides");
+  const tabletDots    = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-nav-dots");
+  const tPrev         = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-prev");
+  const tNext         = document.querySelector("#myUniqueProducts-tablet .tablet-carousel-next");
+  const tabletSurface = document.querySelector("#myUniqueProducts-tablet .tablet-carousel");
+
+  if (!tabletWrapper || !tabletDots || !tPrev || !tNext) {
+    console.warn("Tablet-Carousel DOM-Struktur nicht gefunden");
+    return;
+  }
+
+  if (!orderedCategories.length) {
+    window.herandoSetSectionVisibility("myUniqueProducts-tablet", false);
+    return;
+  }
+
+  // Alle API-Kategorien laden
+  Promise.all(
+    orderedCategories.map(c =>
+      window.herandoFetchJsonCached(`/api/catalog_ads/${c.id}`, [])
+        .then(arr => arr.map(x => ({ ...x, route: c.route }))) // Route fixen
+    )
+  )
+  .then(results => {
+    const fullSetCount = Math.min(...results.map((arr) => Array.isArray(arr) ? arr.length : 0));
+    if (!Number.isFinite(fullSetCount) || fullSetCount <= 0) {
+      window.herandoSetSectionVisibility("myUniqueProducts-tablet", false);
+      return;
+    }
+    window.herandoSetSectionVisibility("myUniqueProducts-tablet", true);
+
+    // 1) Ergebnisse gesammelt nach Route
+    const perRoute = {};
+    results.forEach((arr, i) => {
+      const route = orderedCategories[i].route;
+      perRoute[route] = (arr || []).slice(0, fullSetCount);
+    });
+
+    // 2) Arrays in ORDER-Reihenfolge aufbauen
+    const orderedArrays = orderedRoutes.map(route => perRoute[route] || []);
+
+    // 3) Interleaving pro Index: C1,W1,P1,Y1,C2,W2,P2,Y2,...
+    const flat = [];
+    for (let i = 0; i < fullSetCount; i++) {
+      for (let rIndex = 0; rIndex < orderedRoutes.length; rIndex++) {
+        const item = orderedArrays[rIndex][i];
+        flat.push(item);
+      }
+    }
+
+    // 4) Jetzt in 2er-Slides schneiden
+    const tabletSlides = [];
+    const itemsPerSlide = 2;
+    for (let i = 0; i < flat.length; i += itemsPerSlide) {
+      tabletSlides.push(flat.slice(i, i + itemsPerSlide));
+    }
+
+    if (!tabletSlides.length) return;
+
+    // 5) Rendern aller Slides
+    tabletSlides.forEach((group, idx) => {
+      let html = `<div class="tablet-carousel-slide" data-slide="${idx}">`;
+
+      group.forEach(item => {
+        const slug = (item.title || '')
+          .toLowerCase()
+          .replace(/\s+/g,'-')
+          .replace(/[^\w-]/g,'');
+
+        const price = (item.price && Number(item.price) > 0)
+          ? formatPriceWithActiveCurrency(item.price, "en-US")
+          : t('label.price_on_request','Preis auf Anfrage');
+
+        html += `
+          <div class="card-peter">
+            <div class="image-bild">
+              <a href="${window.herandoEntityUrl(item.route, '/' + item.reference + '/' + slug)}" aria-label="Inserat">
+                <img src="${item.imageUrl}"${listingImgAttrsUrl(item)} alt="${item.title || ''}" width="800" height="400" loading="lazy" decoding="async">
+              </a>
+            </div>
+            <div class="information background">
+              <div class="my-prod-info">
+                <h6><b>${item.title || ''}</b></h6>
+                <p class="my-price">${price}</p>
+              </div>
+            </div>
+          </div>`;
+      });
+
+      html += `</div>`;
+      tabletWrapper.insertAdjacentHTML("beforeend", html);
+
+      const dot = document.createElement("button");
+      dot.dataset.slide = idx;
+      if (idx === 0) dot.classList.add("active");
+      tabletDots.appendChild(dot);
+    });
+
+    // 6) Navigation
+    function goTo(idx) {
+      tabletWrapper.style.transform = `translateX(-${idx * 100}%)`;
+      tabletDots.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      const dot = tabletDots.querySelector(`[data-slide="${idx}"]`);
+      if (dot) dot.classList.add("active");
+    }
+
+    tabletDots.querySelectorAll("button").forEach(dot => {
+      dot.addEventListener("click", () => {
+        const idx = +dot.dataset.slide;
+        goTo(idx);
+      });
+    });
+
+    tPrev.addEventListener("click", () => {
+      const active = tabletDots.querySelector("button.active");
+      let idx = active ? +active.dataset.slide : 0;
+      idx = idx > 0 ? idx - 1 : tabletSlides.length - 1;
+      goTo(idx);
+    });
+
+    tNext.addEventListener("click", () => {
+      const active = tabletDots.querySelector("button.active");
+      let idx = active ? +active.dataset.slide : 0;
+      idx = (idx + 1) % tabletSlides.length;
+      goTo(idx);
+    });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let touchActive = false;
+    const swipeTarget = tabletSurface || tabletWrapper;
+    swipeTarget.addEventListener("touchstart", (e) => {
+      const t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      touchStartX = t.clientX;
+      touchStartY = t.clientY;
+      touchActive = true;
+    }, { passive: true });
+
+    swipeTarget.addEventListener("touchend", (e) => {
+      if (!touchActive) return;
+      touchActive = false;
+      const t = e.changedTouches && e.changedTouches[0];
+      if (!t) return;
+      const dx = t.clientX - touchStartX;
+      const dy = t.clientY - touchStartY;
+      if (Math.abs(dx) < 40) return;
+      if (Math.abs(dx) <= Math.abs(dy)) return;
+      if (dx > 0) tPrev.click();
+      else tNext.click();
+    }, { passive: true });
+
+    swipeTarget.addEventListener("touchcancel", () => {
+      touchActive = false;
+    }, { passive: true });
+
+    goTo(0);
+
+    window.addEventListener("resize", () => {
+      const active = tabletDots.querySelector("button.active");
+      const idx = active ? +active.dataset.slide : 0;
+      goTo(idx);
+    });
+
+  })
+  .catch(err => {
+    console.error("Tablet-Carousel Fehler:", err);
+    window.herandoSetSectionVisibility("myUniqueProducts-tablet", false);
+  });
+
+});
+
+// Datenquelle (Beispiel wie im Screenshot – einfach erweitern)
+  const BRAND_ITEMS = [
+    { label:'Rolex',          route:'watches', slug:'rolex' },
+    { label:'Patek Philippe', route:'watches', slug:'patek-philippe' },
+    { label:'Breitling',      route:'watches', slug:'breitling' },
+    { label:'Porsche',        route:'cars', slug:'porsche' },
+    { label:'Lamborghini',    route:'cars', slug:'lamborghini' },
+    { label:'Ferrari',        route:'cars', slug:'ferrari' },
+    { label:'Mercedes-Benz',  route:'cars', slug:'mercedes-benz' },
+    { label:'Dominator',      route:'yachts', slug:'dominator' },
+    { label:'Sanlorenzo',     route:'yachts', slug:'sanlorenzo' },
+    { label:'Sunseeker',      route:'yachts', slug:'sunseeker' },
+
+  ];
+
+  // Utility: in Chunks zu je 10 aufteilen (2 Reihen × 5 Spalten auf Desktop)
+  function chunk(arr, size=10){
+    const out=[]; for(let i=0;i<arr.length;i+=size) out.push(arr.slice(i,i+size)); return out;
+  }
+
+  // Carousel initialisieren
+  (function initBrandsCarousel(){
+    const section = document.getElementById('popularBrands');
+    if (!section) return;
+
+    const slidesWrap = section.querySelector('.bcar-slides');
+    const dotsWrap   = section.querySelector('.bcar-dots');
+    const prevBtn    = section.querySelector('.bcar-prev');
+    const nextBtn    = section.querySelector('.bcar-next');
+    if (!slidesWrap || !dotsWrap) return;
+
+    // Slides bauen
+    const groups = chunk(BRAND_ITEMS, 10);
+    groups.forEach((group, idx) => {
+      const slide = document.createElement('div');
+      slide.className = 'bcar-slide';
+      slide.innerHTML = `
+        <div class="bcar-grid">
+          ${group.map(b => `
+            <a class="bcar-chip" href="${window.herandoEntityUrl(b.route, '/' + b.slug)}">${b.label}</a>
+          `).join('')}
+        </div>`;
+      slidesWrap.appendChild(slide);
+
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.dataset.slide = idx;
+      if (idx===0) dot.classList.add('active');
+      dotsWrap.appendChild(dot);
+    });
+
+    const total = groups.length || 1;
+    const setIndex = (i) => {
+      const idx = ((i % total) + total) % total;              // safe modulo
+      slidesWrap.style.transform = `translateX(-${idx*100}%)`;
+      dotsWrap.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      const active = dotsWrap.querySelector(`button[data-slide="${idx}"]`);
+      if (active) active.classList.add('active');
+      current = idx;
+    };
+
+    // Navigation
+    let current = 0;
+    if (prevBtn) prevBtn.addEventListener('click', ()=> setIndex(current-1));
+    if (nextBtn) nextBtn.addEventListener('click', ()=> setIndex(current+1));
+    dotsWrap.addEventListener('click', (e)=>{
+      const target = e.target instanceof Element ? e.target : null;
+      const btn = target ? target.closest('button[data-slide]') : null;
+      if (!btn) return;
+      setIndex(parseInt(btn.dataset.slide,10) || 0);
+    });
+
+    // optional: Auto-Slide mit Pause bei Hover/Touch
+    let timer=null;
+    const start=()=> { if (!timer) timer=setInterval(()=> setIndex(current+1), 6000); };
+    const stop =()=> { if (timer){ clearInterval(timer); timer=null; } };
+    if ('matchMedia' in window && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      if ('IntersectionObserver' in window) {
+        const io2 = new IntersectionObserver((e)=> e.forEach(x=> x.isIntersecting ? start() : stop()), { threshold:0.2 });
+        io2.observe(section);
+      } else { start(); }
+      section.addEventListener('mouseenter', stop);
+      section.addEventListener('mouseleave', start);
+      section.addEventListener('touchstart', ()=>{ stop(); setTimeout(start,3000); }, { passive:true });
+    }
+  })();
+
+// === Funktion zur Slug-Erzeugung aus dem Titel ===
+function makeSlug(str) {
+  return String(str)
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // --- Übersetzungsstrings aus Backend ---
+  const ui = boot.ui;
+  function t(key, fallback = '') {
+    return ui[key] ?? fallback ?? key;
+  }
+  // --- Labels ---
+  const LABEL_POPULAR = boot.strings.labelPopular;
+  const ERR_LOADING_OFFERS = boot.strings.errLoadingOffers;
+  const LABEL_PRICE_REQUEST = t('label.price_on_request', 'Preis auf Anfrage');
+  const categories = boot.categories;
+  const DEFAULT_HOME_ROUTES = ["cars", "watches", "properties", "yachts"];
+  const configuredHomeOrder = Array.isArray(window.HERANDO_HOME_ENTITY_ORDER)
+    ? window.HERANDO_HOME_ENTITY_ORDER.map((route) => String(route || '').toLowerCase())
+    : [];
+  const categoriesByRoute = new Map(
+    categories.map((cat) => [String(cat.route || '').toLowerCase(), cat])
+  );
+  const orderedRoutes = configuredHomeOrder
+    .filter((route) => DEFAULT_HOME_ROUTES.includes(route) && categoriesByRoute.has(route))
+    .filter((route, idx, arr) => arr.indexOf(route) === idx);
+  DEFAULT_HOME_ROUTES.forEach((route) => {
+    if (categoriesByRoute.has(route) && !orderedRoutes.includes(route)) {
+      orderedRoutes.push(route);
+    }
+  });
+  const orderedCategories = orderedRoutes
+    .map((route) => categoriesByRoute.get(route))
+    .filter(Boolean);
+
+  const mobileSlidesContainer = document.querySelector("#myUniqueProducts-mobile .mobile-carousel-slides");
+  const prevBtnMobile         = document.querySelector("#myUniqueProducts-mobile .mobile-carousel-prev");
+  const nextBtnMobile         = document.querySelector("#myUniqueProducts-mobile .mobile-carousel-next");
+  const mobileViewport        = document.querySelector("#myUniqueProducts-mobile .mobile-carousel");
+
+  // === Mehrsprachige Kurzinfos ===
+  function renderKurzinfos(entRoute, it, t) {
+    if (typeof t !== 'function') {
+      console.warn('t() nicht übergeben, Fallback aktiv');
+      t = (k, fallback = '') => fallback || k;
+    }
+
+    let html = `<div class="cartype-box"><p class="cartype-box" style="font-size: 12pt; margin-top: 8px;">`;
+
+    // 🏎️ Cars
+    if (entRoute === 'cars') {
+      const cartypeLabels = {
+        1: t('car.transmission.manual', 'Schaltgetriebe'),
+        2: t('car.transmission.automatic', 'Automatik'),
+        3: t('car.transmission.automatic', 'Automatik'),
+        6: t('car.transmission.automatic', 'Automatik'),
+        255: t('car.transmission.manual', 'Schaltgetriebe')
+      };
+      const fuelLabels = {
+        1: t('car.fuel.petrol', 'Benzin'),
+        2: t('car.fuel.diesel', 'Diesel'),
+        3: t('car.fuel.electric', 'Elektro'),
+        4: t('car.fuel.hybrid', 'Hybrid')
+      };
+
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      if (cartypeLabels[gearboxValue]) html += `<span class="info-item"><i class="bi bi-gear-fill"></i> ${cartypeLabels[gearboxValue]}</span>`;
+      if (it.mileage) html += `<span class="info-item"><i class="bi bi-speedometer2"></i> ${new Intl.NumberFormat('de-DE').format(it.mileage)} km</span>`;
+      if (fuelLabels[it.fuel]) html += `<span class="info-item"><i class="bi bi-fuel-pump"></i> ${fuelLabels[it.fuel]}</span>`;
+      if (it.firstregistration)
+        html += `<span class="info-item"><i class="bi bi-calendar-event"></i> ${(it.firstregistration_month || '01')}/${it.firstregistration}</span>`;
+    }
+
+    // ⌚ Watches
+    if (entRoute === 'watches') {
+      const watchTypeLabels = {
+        1: t('watch.type.armband', 'Armbanduhr'),
+        2: t('watch.type.pocket', 'Taschenuhr'),
+        3: t('watch.type.smart', 'Smartwatch')
+      };
+      if (watchTypeLabels[it.watchtype]) html += `<span class="info-item"><i class="bi bi-watch"></i> ${watchTypeLabels[it.watchtype]}</span>`;
+      if (it.movement) html += `<span class="info-item"><i class="bi bi-cpu"></i> ${it.movement}</span>`;
+      if (it.case_material) html += `<span class="info-item"><i class="bi bi-box"></i> ${it.case_material}</span>`;
+    }
+
+    // 🏠 Properties
+    if (entRoute === 'properties') {
+      const propertyTypeLabels = {
+        10: t('property.type.finca', 'Finca'),
+        5: t('property.type.penthouse', 'Penthouse'),
+        11: t('property.type.island', 'Privatinsel'),
+        6: t('property.type.villa', 'Villa/Haus'),
+        8: t('property.type.maisonette', 'Maisonette'),
+        4: t('property.type.apartment', 'Wohnung'),
+        12: t('property.type.castle', 'Schloss'),
+        255: t('property.type.other', 'Sonstige')
+      };
+
+      if (propertyTypeLabels[it.propertytype])
+        html += `<span class="info-item"><i class="bi bi-building"></i> ${propertyTypeLabels[it.propertytype]}</span>`;
+      if (it.bedrooms)
+        html += `<span class="info-item"><i class="bi bi-door-closed"></i> ${it.bedrooms} ${t('label.rooms', 'Zi')}</span>`;
+      if (it.livingarea)
+        html += `<span class="info-item"><i class="bi bi-aspect-ratio"></i> ${it.livingarea} m²</span>`;
+    }
+
+    // ⛵ Yachts
+    if (entRoute === 'yachts') {
+      const yachtTypeLabels = {
+        1: t('yacht.type.motor', 'Motoryacht'),
+        2: t('yacht.type.sailing', 'Segelyacht'),
+        3: t('yacht.type.catamaran', 'Katamaran')
+      };
+      if (yachtTypeLabels[it.yachttype])
+        html += `<span class="info-item"><i class="bi bi-water"></i> ${yachtTypeLabels[it.yachttype]}</span>`;
+      if (it.length)
+        html += `<span class="info-item"><i class="bi bi-rulers"></i> ${it.length} m</span>`;
+      if (it.berths)
+        html += `<span class="info-item"><i class="bi bi-person"></i> ${it.berths} ${t('label.berths', 'Kojen')}</span>`;
+    }
+
+    html += `</p></div>`;
+    return html;
+  }
+
+// === Inserate laden (mobile) ===
+if (!orderedCategories.length) {
+  window.herandoSetSectionVisibility("myUniqueProducts-mobile", false);
+  return;
+}
+
+Promise.all(
+  orderedCategories.map(cat =>
+    window.herandoFetchJsonCached(`/api/catalog_ads/${cat.id}`, [])
+  )
+)
+.then(resultsPerCategory => {
+  const fullSetCount = Math.min(...resultsPerCategory.map((arr) => Array.isArray(arr) ? arr.length : 0));
+  if (!Number.isFinite(fullSetCount) || fullSetCount <= 0) {
+    window.herandoSetSectionVisibility("myUniqueProducts-mobile", false);
+    return;
+  }
+  window.herandoSetSectionVisibility("myUniqueProducts-mobile", true);
+
+  const slideParts = [];
+  for (let i = 0; i < fullSetCount; i++) {
+    for (let catIdx = 0; catIdx < orderedCategories.length; catIdx++) {
+      const cat = orderedCategories[catIdx];
+      const item = resultsPerCategory[catIdx][i];
+
+      const slug = (item.title || "")
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/[^\w-]/g, "");
+
+      // 💰 Preislogik mit Fallback + Logs
+      const formattedPrice = (!item.price || Number(item.price) === 0)
+        ? t('label.price_on_request', 'Preis auf Anfrage')
+        : (item.priceConverted
+            ? item.priceConverted
+            : formatPriceWithActiveCurrency(item.price, "en-US"));
+
+      if (window.app && window.app.debug) console.log(`💰 [Mobile] ${item.title} → ${formattedPrice}`);
+
+      const shortTitle = (item.title && item.title.length > 30)
+        ? item.title.slice(0, 30) + "..."
+        : item.title;
+
+      slideParts.push(`
+        <div class="mobile-carousel-slide">
+          <div class="offer-card ${cat.route}">
+            <div class="bild">
+              <a href="${window.herandoEntityUrl(cat.route, '/' + item.reference + '/' + slug)}" aria-label="Inserat">
+                <img src="${item.imageUrl}"${listingImgAttrsUrl(item)} alt="${item.title}" width="${LISTING_IMG_W}" height="${LISTING_IMG_H}" loading="lazy" decoding="async">
+              </a>
+            </div>
+            <div class="information">
+              <h5>${shortTitle}</h5>
+              ${renderKurzinfos(cat.route, item, t)} <!-- ✅ Übergabe von t -->
+              <p class="my-price">${formattedPrice}</p>
+            </div>
+          </div>
+        </div>
+      `);
+    }
+  }
+  mobileSlidesContainer.innerHTML = slideParts.join("");
+})
+.catch(err => {
+  console.error("Fehler beim Laden der Inserate (Mobile):", err);
+  window.herandoSetSectionVisibility("myUniqueProducts-mobile", false);
+});
+
+
+  let currentIndex = 0;
+  function updateSlidePosition() {
+    mobileSlidesContainer.style.transform = `translate3d(-${currentIndex * 100}%, 0, 0)`;
+  }
+
+  prevBtnMobile.addEventListener("click", () => {
+    if (!mobileSlidesContainer.children.length) return;
+    currentIndex = currentIndex > 0 ? currentIndex - 1 : mobileSlidesContainer.children.length - 1;
+    updateSlidePosition();
+  });
+
+  nextBtnMobile.addEventListener("click", () => {
+    if (!mobileSlidesContainer.children.length) return;
+    currentIndex = (currentIndex + 1) % mobileSlidesContainer.children.length;
+    updateSlidePosition();
+  });
+
+  // === Swipe-Gesten ===
+  let startX = 0;
+  let startY = 0;
+  let touchActive = false;
+  const mobileSwipeTarget = mobileViewport || mobileSlidesContainer;
+  mobileSwipeTarget.addEventListener("touchstart", e => {
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    startX = t.clientX;
+    startY = t.clientY;
+    touchActive = true;
+  }, { passive: true });
+  mobileSwipeTarget.addEventListener("touchend", e => {
+    if (!touchActive) return;
+    touchActive = false;
+    if (!mobileSlidesContainer.children.length) return;
+    const t = e.changedTouches && e.changedTouches[0];
+    if (!t) return;
+    const dx = t.clientX - startX;
+    const dy = t.clientY - startY;
+    if (Math.abs(dx) < 40) return;
+    if (Math.abs(dx) <= Math.abs(dy)) return;
+    if (dx > 0) prevBtnMobile.click();
+    else nextBtnMobile.click();
+  }, { passive: true });
+  mobileSwipeTarget.addEventListener("touchcancel", () => {
+    touchActive = false;
+  }, { passive: true });
+
+  updateSlidePosition();
+  window.addEventListener("resize", () => updateSlidePosition());
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+  const entieties = boot.entieties;
+  const ui = boot.ui;
+
+  // === Übersetzungsfunktion (nur für Texte, keine Logikänderung!) ===
+  function t(key, fallback) {
+    return ui[key] ?? fallback;
+  }
+
+  // === Kurzinfos Renderer ===
+  function renderKurzinfos(entRoute, it) {
+    let html = `<div class="cartype-box"><p class="cartype-box" style="font-size:12pt; margin-top:5px;">`;
+
+    // 🚗 Autos
+    if (entRoute === 'cars') {
+      const cartypeLabels = {
+        1: t("car.transmission.manual", "Schaltgetriebe"),
+        2: t("car.transmission.automatic", "Automatik"),
+        3: t("car.transmission.automatic", "Automatik"),
+        6: t("car.transmission.automatic", "Automatik"),
+        255: t("car.transmission.manual", "Schaltgetriebe")
+      };
+      const fuelLabels = {
+        1: t("car.fuel.petrol", "Benzin"),
+        2: t("car.fuel.diesel", "Diesel"),
+        3: t("car.fuel.electric", "Elektro"),
+        4: t("car.fuel.hybrid", "Hybrid")
+      };
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      const cartypeName = cartypeLabels[gearboxValue] || null;
+      const fuelName = fuelLabels[it.fuel] || null;
+
+      let firstReg = null;
+      if (it.firstregistration) {
+        const month = it.firstregistration_month ? String(it.firstregistration_month).padStart(2,'0') : '01';
+        firstReg = month + '/' + it.firstregistration;
+      }
+
+      if (cartypeName) html += `<span class="info-item"><i class="bi bi-gear-fill"></i> ${cartypeName}</span>`;
+      if (it.mileage) html += `<span class="info-item"><i class="bi bi-speedometer2"></i> ${new Intl.NumberFormat('de-DE').format(it.mileage)} km</span>`;
+      if (fuelName) html += `<span class="info-item"><i class="bi bi-fuel-pump"></i> ${fuelName}</span>`;
+      if (firstReg) html += `<span class="info-item"><i class="bi bi-calendar-event"></i> ${t("label.first_registration", "Erstzulassung")} ${firstReg}</span>`;
+    }
+
+    // ⌚ Uhren
+    if (entRoute === 'watches') {
+      const watchTypeLabels = {
+        1: t("watch.type.armband", "Armbanduhr"),
+        2: t("watch.type.pocket", "Taschenuhr"),
+        3: t("watch.type.smart", "Smartwatch")
+      };
+      const genderLabels = {
+        1: t("watch.gender.men", "Herren"),
+        2: t("watch.gender.women", "Damen"),
+        3: t("watch.gender.unisex", "Unisex")
+      };
+      const movementLabels = {
+        1: t("watch.movement.automatic", "Automatik"),
+        2: t("watch.movement.manual", "Handaufzug"),
+        3: t("watch.movement.quartz", "Quarz")
+      };
+      const caseMaterialLabels = {
+        1: t("watch.material.steel", "Edelstahl"),
+        2: t("watch.material.gold", "Gold"),
+        3: t("watch.material.titanium", "Titan"),
+        4: t("watch.material.ceramic", "Keramik")
+      };
+
+      if (watchTypeLabels[it.watchtype]) html += `<span class="info-item"><i class="bi bi-watch"></i> ${watchTypeLabels[it.watchtype]}</span>`;
+      if (movementLabels[it.movement]) html += `<span class="info-item"><i class="bi bi-cpu"></i> ${movementLabels[it.movement]}</span>`;
+      if (caseMaterialLabels[it.case_material]) html += `<span class="info-item"><i class="bi bi-box"></i> ${caseMaterialLabels[it.case_material]}</span>`;
+    }
+
+    // 🏠 Immobilien
+    if (entRoute === 'properties') {
+      const propertyTypeLabels = {
+        10: t("property.type.finca", "Finca"),
+        5: t("property.type.penthouse", "Penthouse"),
+        11: t("property.type.private_island", "Privatinsel"),
+        6: t("property.type.villa", "Villa/Haus"),
+        8: t("property.type.maisonette", "Maisonette"),
+        4: t("property.type.apartment", "Wohnung"),
+        12: t("property.type.castle", "Schloss/Herrenhaus"),
+        255: t("property.type.other", "Sonstige")
+      };
+      const investmentTypeLabels = {
+        1: t("investment.type.residential", "Wohnen"),
+        2: t("investment.type.commercial", "Gewerbe"),
+        3: t("investment.type.hotel", "Hotel"),
+        4: t("investment.type.care_property", "Pflegeimmobilie"),
+        5: t("investment.type.gastro", "Gastronomie"),
+        6: t("investment.type.other", "Sonstiges"),
+        9: t("investment.type.land", "Grundstück")
+      };
+      const ptKey = Number(it.propertytype);
+      const itKey = Number(it.investmenttype);
+
+      if (propertyTypeLabels[ptKey]) html += `<span class="info-item"><i class="bi bi-building"></i> ${propertyTypeLabels[ptKey]}</span>`;
+      else if (investmentTypeLabels[itKey]) html += `<span class="info-item"><i class="bi bi-cash-coin"></i> ${investmentTypeLabels[itKey]}</span>`;
+
+      if (it.bedrooms) html += `<span class="info-item"><i class="bi bi-door-closed"></i> ${it.bedrooms} ${t("label.rooms", "Zimmer")}</span>`;
+      if (it.livingarea) html += `<span class="info-item"><i class="bi bi-aspect-ratio"></i> ${new Intl.NumberFormat('de-DE').format(it.livingarea)} m²</span>`;
+    }
+
+    // ⛵ Yachten
+    if (entRoute === 'yachts') {
+      const yachtTypeLabels = {
+        1: t("yacht.type.motor", "Motoryacht"),
+        2: t("yacht.type.sailing", "Segelyacht"),
+        3: t("yacht.type.catamaran", "Katamaran")
+      };
+      if (yachtTypeLabels[it.yachttype]) html += `<span class="info-item"><i class="bi bi-water"></i> ${yachtTypeLabels[it.yachttype]}</span>`;
+      if (it.length) html += `<span class="info-item"><i class="bi bi-rulers"></i> ${it.length} m</span>`;
+      if (it.berths) html += `<span class="info-item"><i class="bi bi-person"></i> ${it.berths} ${t("label.berths", "Kojen")}</span>`;
+      if (it.year) html += `<span class="info-item"><i class="bi bi-calendar-event"></i> ${t("label.year_built", "Baujahr")} ${it.year}</span>`;
+    }
+
+    html += `</p></div>`;
+    return html;
+  }
+
+  // === Mobile Carousel ===
+  entieties.forEach(ent => {
+    const sectionId = `mobile-carousel-${ent.id}`;
+    const section = document.getElementById(sectionId);
+    if (!section) return;
+
+    const slides = section.querySelector(".mobile-carousel-slides");
+    const prev   = section.querySelector(".mobile-carousel-prev");
+    const next   = section.querySelector(".mobile-carousel-next");
+    const viewport = section.querySelector(".mobile-carousel");
+
+window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
+  .then(items => {
+    if (!Array.isArray(items) || items.length === 0) {
+      section.style.display = "none";
+      return;
+    }
+    section.style.display = "";
+    const slidesHtmlParts = [];
+    items.forEach((it, idx) => {
+      // 💰 Preislogik mit Fallback + Währungskennung
+      const price = (!it.price || Number(it.price) === 0)
+        ? t('label.price_on_request', 'Preis auf Anfrage')
+        : (it.priceConverted
+            ? it.priceConverted
+            : formatPriceWithActiveCurrency(it.price, "en-US"));
+
+      if (window.app && window.app.debug) console.log(`💰 [Advert-Inserat] ${it.title} → ${price}`);
+
+      const title = it.title || "";
+      const shortTitle = title.length > 30 ? title.slice(0, 30) + "..." : title;
+
+      slidesHtmlParts.push(`
+        <div class="mobile-carousel-slide" data-slide="${idx}">
+          <div class="offer-card ${ent.route}">
+            <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + it.slug)}" aria-label="Inserat">
+            <div class="bild">
+              <img src="${it.imageUrl}"${listingImgAttrsUrl(it)} alt="${title}" width="${LISTING_IMG_W}" height="${LISTING_IMG_H}" loading="lazy" decoding="async">
+            </div>
+            </a>
+            <div class="info" style="padding:12px;">
+              <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + it.slug)}" aria-label="Inserat"
+                 style="font-size:14pt; font-weight:bold; text-decoration:none; color:inherit; display:block; margin-bottom:6px;">
+                ${shortTitle}
+              </a>
+              ${renderKurzinfos(ent.route, it, t)} <!-- ✅ Übersetzung & Zusatzinfos -->
+              <p style="font-size:14pt; font-weight:bold; margin:0;">${price}</p>
+            </div>
+          </div>
+        </div>`);
+    });
+    slides.innerHTML = slidesHtmlParts.join("");
+
+        let current = 0;
+        const slideCount = items.length;
+        function goTo(i) {
+          if (!slideCount) return;
+          if (i < 0) i = slideCount - 1;
+          if (i >= slideCount) i = 0;
+          current = i;
+          slides.style.transform = `translate3d(-${i * 100}%, 0, 0)`;
+        }
+
+        prev.addEventListener("click", () => goTo(current - 1));
+        next.addEventListener("click", () => goTo(current + 1));
+
+        let startX = 0;
+        let startY = 0;
+        let touchActive = false;
+        const swipeSurface = viewport || slides;
+        swipeSurface.addEventListener("touchstart", e => {
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          startX = t.clientX;
+          startY = t.clientY;
+          touchActive = true;
+        }, { passive: true });
+        swipeSurface.addEventListener("touchend", e => {
+          if (!touchActive) return;
+          touchActive = false;
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          const dx = t.clientX - startX;
+          const dy = t.clientY - startY;
+          if (Math.abs(dx) < 40) return;
+          if (Math.abs(dx) <= Math.abs(dy)) return;
+          if (dx > 0) goTo(current - 1);
+          else goTo(current + 1);
+        }, { passive: true });
+        swipeSurface.addEventListener("touchcancel", () => {
+          touchActive = false;
+        }, { passive: true });
+
+        requestAnimationFrame(() => {
+          goTo(0);
+        });
+        window.addEventListener("resize", () => {
+          requestAnimationFrame(() => goTo(current));
+        });
+      });
+  });
+});
+
+document.addEventListener("DOMContentLoaded", () => {
+
+  function isTablet() {
+    return window.innerWidth <= 1199 && window.innerWidth >= 767;
+  }
+  if (!isTablet()) return;
+
+  const entieties = boot.entieties;
+  const ui = boot.ui;
+
+  function t(key, fallback) {
+    return ui[key] ?? fallback;
+  }
+
+  /* ===============================
+      Kurzinfos (Tablet Version)
+  =============================== */
+  function renderKurzinfos(entRoute, it) {
+    let html = `<div class="cartype-box"><p style="font-size:11pt; margin-top:5px;">`;
+
+    if (entRoute === "cars") {
+      if (it.mileage)
+        html += `<span class="info-item"><i class="bi bi-speedometer2"></i> ${new Intl.NumberFormat("de-DE").format(it.mileage)} km</span>`;
+      if (it.fuel)
+        html += `<span class="info-item"><i class="bi bi-fuel-pump"></i> ${it.fuel}</span>`;
+    }
+
+    if (entRoute === "watches") {
+      if (it.watchtype)
+        html += `<span class="info-item"><i class="bi bi-watch"></i> Type ${it.watchtype}</span>`;
+    }
+
+    if (entRoute === "properties") {
+      if (it.livingarea)
+        html += `<span class="info-item"><i class="bi bi-aspect-ratio"></i> ${it.livingarea} m²</span>`;
+    }
+
+    if (entRoute === "yachts") {
+      if (it.length)
+        html += `<span class="info-item"><i class="bi bi-rulers"></i> ${it.length} m</span>`;
+    }
+
+    html += `</p></div>`;
+    return html;
+  }
+
+  /* ===============================
+          TABLET CAROUSEL
+     2 Inserate = 1 Slide
+  =============================== */
+  entieties.forEach(ent => {
+
+    const section = document.getElementById(`tablet-carousel-${ent.id}`);
+    if (!section) return;
+
+    const slides = section.querySelector(".tablet-carousel-slides");
+    const prevBtn = section.querySelector(".tablet-carousel-prev");
+    const nextBtn = section.querySelector(".tablet-carousel-next");
+    const swipeSurface = section.querySelector(".tablet-carousel-track") || section.querySelector(".tablet-carousel") || slides;
+
+    window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
+      .then(items => {
+        if (!Array.isArray(items) || items.length === 0) {
+          section.style.display = "none";
+          return;
+        }
+        section.style.display = "";
+
+        const groups = [];
+        const itemsPerSlide = 2;
+        for (let i = 0; i < items.length; i += itemsPerSlide) {
+          groups.push(items.slice(i, i + itemsPerSlide));
+        }
+        if (!groups.length) return;
+
+        groups.forEach((group, sIdx) => {
+          let html = `<div class="tablet-carousel-slide" data-slide="${sIdx}">`;
+
+          group.forEach(it => {
+            const title = it.title || "";
+            const shortTitle = title.length > 28 ? title.slice(0, 28) + "..." : title;
+
+            const price = (!it.price || Number(it.price) === 0)
+              ? t("label.price_on_request", "Preis auf Anfrage")
+              : (it.priceConverted ?? formatPriceWithActiveCurrency(it.price, "en-US"));
+
+            html += `
+              <div class="offer-card ${ent.route}">
+                <div class="bild">
+                  <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + it.slug)}" aria-label="Inserat">
+                    <img src="${it.imageUrl}"${listingImgAttrsUrl(it)} alt="${title}" width="${LISTING_IMG_W}" height="${LISTING_IMG_H}" loading="lazy" decoding="async">
+                  </a>
+                </div>
+
+                <div class="info" style="padding:10px;">
+                  <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + makeSlug(it.title))}" aria-label="Inserat"
+                     style="font-size:13pt; font-weight:600; text-decoration:none; color:inherit; display:block; margin-bottom:6px;">
+                      ${shortTitle}
+                  </a>
+
+                  ${renderKurzinfos(ent.route, it)}
+
+                  <p style="font-size:13pt; font-weight:bold; margin:0;">${price}</p>
+                </div>
+              </div>
+            `;
+          });
+
+          html += `</div>`;
+          slides.insertAdjacentHTML("beforeend", html);
+        });
+
+        let currentSlide = 0;
+
+        function goToSlide(i) {
+          if (i < 0) i = groups.length - 1;
+          if (i >= groups.length) i = 0;
+          currentSlide = i;
+          slides.style.transform = `translateX(-${i * 100}%)`;
+        }
+
+        prevBtn.addEventListener("click", () => goToSlide(currentSlide - 1));
+        nextBtn.addEventListener("click", () => goToSlide(currentSlide + 1));
+
+        let touchStartX = 0;
+        let touchStartY = 0;
+        let touchActive = false;
+        swipeSurface.addEventListener("touchstart", (e) => {
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          touchStartX = t.clientX;
+          touchStartY = t.clientY;
+          touchActive = true;
+        }, { passive: true });
+
+        swipeSurface.addEventListener("touchend", (e) => {
+          if (!touchActive) return;
+          touchActive = false;
+          const t = e.changedTouches && e.changedTouches[0];
+          if (!t) return;
+          const dx = t.clientX - touchStartX;
+          const dy = t.clientY - touchStartY;
+          if (Math.abs(dx) < 40) return;
+          if (Math.abs(dx) <= Math.abs(dy)) return;
+          if (dx > 0) goToSlide(currentSlide - 1);
+          else goToSlide(currentSlide + 1);
+        }, { passive: true });
+        swipeSurface.addEventListener("touchcancel", () => {
+          touchActive = false;
+        }, { passive: true });
+
+        goToSlide(0);
+
+        window.addEventListener("resize", () => {
+          goToSlide(currentSlide);
+        });
+      });
+  });
+});
+
+// Zählt die Zahlen sanft hoch, sobald die Kacheln sichtbar sind.
+  (function () {
+    const formatSpaces = n => n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '\u00A0'); // 12 345 678
+    const els = document.querySelectorAll('.herando-stats .stat-value');
+    if (!('IntersectionObserver' in window)) {
+      // Fallback: nur hübsch formatieren
+      els.forEach(el => { el.textContent = formatSpaces(el.textContent.replace(/\D/g,'')); });
+      return;
+    }
+    const animate = el => {
+      const target = parseInt(el.getAttribute('data-target'), 10);
+      if (!target || isNaN(target)) return;
+      const dur = 1200 + Math.min(1800, target / 4); // etwas länger bei großen Zahlen
+      const start = performance.now();
+      const tick = now => {
+        const p = Math.min(1, (now - start) / dur);
+        const eased = 1 - Math.pow(1 - p, 3); // easeOutCubic
+        const val = Math.round(target * eased);
+        el.textContent = formatSpaces(val);
+        if (p < 1) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    };
+    const io = new IntersectionObserver((entries, obs) => {
+      entries.forEach(e => {
+        if (e.isIntersecting) {
+          animate(e.target);
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.35 });
+    els.forEach(el => io.observe(el));
+  })();
+
+document.addEventListener("DOMContentLoaded", () => {
+function makeSlug(str) {
+  return String(str)
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, '')  // é → e
+    .replace(/[^a-z0-9]+/g, "-")                      // nur a-z0-9-
+    .replace(/-+/g, "-")                              // doppelte -
+    .replace(/^-|-$/g, "");                           // Trim
+}
+
+  // --- Übersetzungen aus EJS ---
+  const ui = boot.ui;
+  function t(key, fallback = '') {
+    return ui[key] ?? fallback ?? key;
+  }
+  const ERR_LOADING_CAROUSEL = boot.strings.errLoadingCarousel;
+  const LABEL_PRICE_REQUEST = t('label.price_on_request', 'Preis auf Anfrage');
+  const entieties = boot.entieties;
+
+  // === Info-Block je nach Entity (Icons & Labels) ===
+  function renderKurzinfos(entRoute, it, t) {
+    if (typeof t !== 'function') {
+      console.warn('t() wurde nicht übergeben, Fallback aktiviert!');
+      t = (k, fallback = '') => fallback || k;
+    }
+
+    let html = `<div class="cartype-box"><p class="cartype-box" style="font-size:12pt; margin-top:5px;">`;
+
+    // 🚗 Autos
+    if (entRoute === 'cars') {
+      const cartypeLabels = {
+        1: t('car.transmission.manual', 'Schaltgetriebe'),
+        2: t('car.transmission.automatic', 'Automatik'),
+        3: t('car.transmission.automatic', 'Automatik'),
+        6: t('car.transmission.automatic', 'Automatik'),
+        255: t('car.transmission.manual', 'Schaltgetriebe')
+      };
+      const fuelLabels = {
+        1: t('car.fuel.petrol', 'Benzin'),
+        2: t('car.fuel.diesel', 'Diesel'),
+        3: t('car.fuel.electric', 'Elektro'),
+        4: t('car.fuel.hybrid', 'Hybrid')
+      };
+
+      const gearboxValue = it.gearbox ?? it.transmission ?? null;
+      const cartypeName = cartypeLabels[gearboxValue] || null;
+      const fuelName = fuelLabels[it.fuel] || null;
+      let firstReg = null;
+
+      if (it.firstregistration) {
+        const month = it.firstregistration_month ? String(it.firstregistration_month).padStart(2,'0') : '01';
+        firstReg = month + '/' + it.firstregistration;
+      }
+
+      if (cartypeName) html += `<span class="info-item"><i class="bi bi-gear-fill"></i> ${cartypeName}</span>`;
+      if (it.mileage) html += `<span class="info-item"><i class="bi bi-speedometer2"></i> ${new Intl.NumberFormat('de-DE').format(it.mileage)} km</span>`;
+      if (fuelName) html += `<span class="info-item"><i class="bi bi-fuel-pump"></i> ${fuelName}</span>`;
+      if (firstReg) html += `<span class="info-item"><i class="bi bi-calendar-event"></i> ${t('label.first_registration', 'Erstzulassung')} ${firstReg}</span>`;
+    }
+
+    // ⌚ Uhren
+    if (entRoute === 'watches') {
+      const watchTypeLabels = {
+        1: t('watch.type.armband', 'Armbanduhr'),
+        2: t('watch.type.pocket', 'Taschenuhr'),
+        3: t('watch.type.smart', 'Smartwatch')
+      };
+      const movementLabels = {
+        1: t('watch.movement.automatic', 'Automatik'),
+        2: t('watch.movement.manual', 'Handaufzug'),
+        3: t('watch.movement.quartz', 'Quarz')
+      };
+      const caseMaterialLabels = {
+        1: t('watch.case.steel', 'Edelstahl'),
+        2: t('watch.case.gold', 'Gold'),
+        3: t('watch.case.titanium', 'Titan'),
+        4: t('watch.case.ceramic', 'Keramik')
+      };
+
+      if (watchTypeLabels[it.watchtype]) html += `<span class="info-item"><i class="bi bi-watch"></i> ${watchTypeLabels[it.watchtype]}</span>`;
+      if (movementLabels[it.movement]) html += `<span class="info-item"><i class="bi bi-cpu"></i> ${movementLabels[it.movement]}</span>`;
+      if (caseMaterialLabels[it.case_material]) html += `<span class="info-item"><i class="bi bi-box"></i> ${caseMaterialLabels[it.case_material]}</span>`;
+    }
+
+    // 🏠 Immobilien
+    if (entRoute === 'properties') {
+      const propertyTypeLabels = {
+        10: t('property.type.finca', 'Finca'),
+        5: t('property.type.penthouse', 'Penthouse'),
+        11: t('property.type.island', 'Privatinsel'),
+        6: t('property.type.villa', 'Villa/Haus'),
+        8: t('property.type.maisonette', 'Maisonette'),
+        4: t('property.type.apartment', 'Wohnung'),
+        12: t('property.type.castle', 'Schloss/Herrenhaus'),
+        255: t('property.type.other', 'Sonstige')
+      };
+      const investmentTypeLabels = {
+        1: t('investment.type.residential', 'Wohnen'),
+        2: t('investment.type.commercial', 'Gewerbe'),
+        3: t('investment.type.hotel', 'Hotel'),
+        4: t('investment.type.care', 'Pflegeimmobilie'),
+        5: t('investment.type.gastro', 'Gastronomie'),
+        6: t('investment.type.other', 'Sonstiges'),
+        9: t('investment.type.land', 'Grundstück')
+      };
+
+      const ptKey = Number(it.propertytype);
+      const itKey = Number(it.investmenttype);
+
+      if (propertyTypeLabels[ptKey])
+        html += `<span class="info-item"><i class="bi bi-building"></i> ${propertyTypeLabels[ptKey]}</span>`;
+      else if (investmentTypeLabels[itKey])
+        html += `<span class="info-item"><i class="bi bi-cash-coin"></i> ${investmentTypeLabels[itKey]}</span>`;
+
+      if (it.bedrooms) html += `<span class="info-item"><i class="bi bi-door-closed"></i> ${it.bedrooms} ${t('label.rooms', 'Zimmer')}</span>`;
+      if (it.livingarea) html += `<span class="info-item"><i class="bi bi-aspect-ratio"></i> ${new Intl.NumberFormat('de-DE').format(it.livingarea)} m²</span>`;
+    }
+
+    // ⛵ Yachten
+    if (entRoute === 'yachts') {
+      const yachtTypeLabels = {
+        1: t('yacht.type.motor', 'Motoryacht'),
+        2: t('yacht.type.sailing', 'Segelyacht'),
+        3: t('yacht.type.catamaran', 'Katamaran')
+      };
+
+      if (yachtTypeLabels[it.yachttype]) html += `<span class="info-item"><i class="bi bi-water"></i> ${yachtTypeLabels[it.yachttype]}</span>`;
+      if (it.length) html += `<span class="info-item"><i class="bi bi-rulers"></i> ${it.length} m</span>`;
+      if (it.berths) html += `<span class="info-item"><i class="bi bi-person"></i> ${it.berths} ${t('label.berths', 'Kojen')}</span>`;
+      if (it.year) html += `<span class="info-item"><i class="bi bi-calendar-event"></i> ${t('label.year_built', 'Baujahr')} ${it.year}</span>`;
+    }
+
+    html += `</p></div>`;
+    return html;
+  }
+
+  // === Carousel-Logik ===
+  entieties.forEach(ent => {
+    const sectionId = `carousel-${ent.id}`;
+    const carouselSection = document.getElementById(sectionId);
+    if (!carouselSection) return;
+
+    const slides = carouselSection.querySelector(".my-carousel-slides");
+    const dots = carouselSection.querySelector(".my-carousel-nav-dots");
+    const prevBtn = carouselSection.querySelector(".my-carousel-prev");
+    const nextBtn = carouselSection.querySelector(".my-carousel-next");
+    if (!slides || !dots) return;
+
+    window.herandoFetchJsonCached(`/api/advert_inserat/${ent.id}`, [])
+      .then(items => {
+        if (!Array.isArray(items) || items.length === 0) {
+          carouselSection.style.display = "none";
+          return;
+        }
+        carouselSection.style.display = "";
+        const groups = [];
+        for (let i = 0; i < items.length; i += 4) groups.push(items.slice(i, i + 4));
+
+        groups.forEach((group, idx) => {
+          let html = `<div class="my-carousel-slide" data-slide="${idx}">`;
+
+          group.forEach(it => {
+            // 💰 Preislogik mit Fallback und Logs
+            const price = (!it.price || Number(it.price) === 0)
+              ? t('label.price_on_request', 'Preis auf Anfrage')
+              : (it.priceConverted
+                  ? it.priceConverted
+                  : formatPriceWithActiveCurrency(it.price, "en-US"));
+
+            if (window.app && window.app.debug) console.log(`💰 [Carousel] ${it.title} → ${price}`);
+
+            html += `
+              <div class="card-peter">
+              <a href="${window.herandoEntityUrl(ent.route, '/' + it.reference + '/' + makeSlug(it.title))}" aria-label="Inserat" style="flex:1; text-decoration:none; color:inherit;">
+                  <div class="bild"><img src="${it.imageUrl}"${listingImgAttrsUrl(it)} alt="${it.title}" width="${LISTING_IMG_W}" height="${LISTING_IMG_H}" loading="lazy" decoding="async"></div>
+                  <div class="info" style="width: 330px;">
+                    <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:12px; margin-top:8px;">
+                      ${(() => {
+                        const title = it.title || "";
+                        const line1 = title.length > 30 ? title.slice(0, 30) + "..." : title;
+                        return `<span style="font-size:14pt; font-weight:bold; display:block;">${line1}</span>`;
+                      })()}
+                    </div>
+                    ${renderKurzinfos(ent.route, it, t)} <!-- ✅ Übergabe von t -->
+                    <p style="font-size:14pt; font-weight:bold; margin-top:8px;">${price}</p>
+                  </div>
+                </a>
+              </div>`;
+          });
+
+          html += `</div>`;
+          slides.innerHTML += html;
+
+          const dot = document.createElement("button");
+          dot.dataset.slide = idx;
+          if (idx === 0) dot.classList.add("active");
+          dots.appendChild(dot);
+        });
+
+        // --- Navigation ---
+        if (!groups.length) return;
+
+        dots.querySelectorAll("button").forEach(dot => {
+          dot.addEventListener("click", () => {
+            const idx = +dot.dataset.slide;
+            slides.style.transform = `translateX(-${idx * 100}%)`;
+            dots.querySelectorAll("button").forEach(b => b.classList.remove('active'));
+            dot.classList.add('active');
+          });
+        });
+
+        if (prevBtn) prevBtn.addEventListener("click", () => {
+          const active = dots.querySelector("button.active");
+          let i = active ? +active.dataset.slide : 0;
+          i = i > 0 ? i - 1 : groups.length - 1;
+          slides.style.transform = `translateX(-${i * 100}%)`;
+          dots.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+          const target = dots.querySelector(`button[data-slide="${i}"]`);
+          if (target) target.classList.add("active");
+        });
+
+        if (nextBtn) nextBtn.addEventListener("click", () => {
+          const active = dots.querySelector("button.active");
+          let i = active ? +active.dataset.slide : 0;
+          i = (i + 1) % groups.length;
+          slides.style.transform = `translateX(-${i * 100}%)`;
+          dots.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+          const target = dots.querySelector(`button[data-slide="${i}"]`);
+          if (target) target.classList.add("active");
+        });
+      })
+      .catch(err => {
+        console.error(`Fehler im Carousel ${ent.id}:`, err);
+        slides.innerHTML = `<p class="text-center text-danger">${ERR_LOADING_CAROUSEL}</p>`;
+      });
+
+  }
+);
+});
+
+window.HERANDO_LANG = boot.lang;
+  window.HERANDO_LOCALE_MAP = {de:'de-DE',en:'en-US',fr:'fr-FR',it:'it-IT',tr:'tr-TR',ja:'ja-JP',cs:'cs-CZ',ru:'ru-RU',es:'es-ES',nl:'nl-NL',pl:'pl-PL'};
+  window.HERANDO_LOCALE = window.HERANDO_LOCALE_MAP[window.HERANDO_LANG] || 'en-US';
+
+window.app = window.app || {};
+  if (!('lang' in app)) app.lang = boot.lang;
+  if (typeof app.t !== 'function') app.t = (k, fallback) => fallback || k; // simple no-op translator
+  if (typeof app.debug !== 'boolean') app.debug = false;
+
+(function () {
+  try {
+    const ui = boot.ui;
+    function t(key, fallback) {
+      return ui[key] ?? fallback;
+    }
+    const section = document.getElementById("recentlyViewedSection");
+    if (!section) return;
+
+    let items = [];
+    try { items = JSON.parse(localStorage.getItem("recentlyViewed")) || []; } catch {}
+    items = (Array.isArray(items) ? items : []).filter(
+      (it) => it && (String(it.url || '').trim() || String(it.imageUrl || '').trim())
+    );
+    if (!Array.isArray(items) || items.length === 0) {
+      section.style.display = "none";
+      if (window.app && window.app.debug) console.log("[RV] no items in localStorage");
+      return;
+    }
+    section.style.display = "";
+
+    const langRaw = (document.documentElement.getAttribute("lang") || "").toLowerCase();
+    const lang = (langRaw.split("-")[0] || "de");
+    const LOCALE = {
+      de:"de-DE", en:"en-US", fr:"fr-FR", it:"it-IT", es:"es-ES",
+      nl:"nl-NL", tr:"tr-TR", cs:"cs-CZ", ru:"ru-RU", ja:"ja-JP", pl:"pl-PL"
+    }[lang] || "de-DE";
+
+    const detectEntitie = (it) => {
+      if (it.entitieId) return Number(it.entitieId);
+      const s = ((it.imageUrl || it.url || "") + "").toLowerCase();
+      if (s.includes("/cars/") || s.includes("/auto") || s.includes("/autos/")) return 1; // Autos
+      if (
+        s.includes("/watches/") ||
+        s.includes("/uhr") ||
+        s.includes("/relojes/") ||
+        s.includes("/montres/") ||
+        s.includes("/orologi/") ||
+        s.includes("/saatler/")
+      ) return 2; // Uhren
+      if (
+        s.includes("/yachts/") ||
+        s.includes("/boot") ||
+        s.includes("/yacht") ||
+        s.includes("/boote/") ||
+        s.includes("/barcos/") ||
+        s.includes("/bateaux/") ||
+        s.includes("/barche/") ||
+        s.includes("/tekneler/")
+      ) return 3; // Yachten/Boote
+      if (
+        s.includes("/properties/") ||
+        s.includes("/immobil") ||
+        s.includes("/propiedades/") ||
+        s.includes("/proprietes/") ||
+        s.includes("/immobili/") ||
+        s.includes("/emlak/")
+      ) return 4; // Immobilien
+      return 1; // Fallback
+    };
+
+    const idFromPath = (s) => {
+      const m = String(s || "").toLowerCase().match(/\/([^/?#]+)\/(\d+)\b/);
+      if (!m) return null;
+      const route = m[1];
+      const known = new Set([
+        'cars', 'autos', 'auto',
+        'watches', 'uhren', 'relojes', 'montres', 'orologi', 'saatler',
+        'yachts', 'yacht', 'boote', 'yachten', 'barcos', 'bateaux', 'barche', 'tekneler',
+        'properties', 'immobilien', 'immobilie', 'propiedades', 'proprietes', 'immobili', 'emlak'
+      ]);
+      if (!known.has(route)) return null;
+      return Number(m[2]);
+    };
+
+    // robuster Key
+    const advKey = (it) => {
+      const cands = [
+        it.reference,
+        idFromPath(it.imageUrl),
+        idFromPath(it.url),
+        it.advert_id,
+        it.id
+      ]
+      .map(v => Number(v))
+      .filter(n => Number.isFinite(n) && n >= 100); 
+      return cands[0] ?? null;
+    };
+
+    const byEnt = new Map();
+    for (const it of items) {
+      const ent = detectEntitie(it);
+      const key = advKey(it);
+      if (!key) continue;
+      if (!byEnt.has(ent)) byEnt.set(ent, new Set());
+      byEnt.get(ent).add(key);
+    }
+
+    const maps = new Map();
+    const tasks = [];
+    byEnt.forEach((idSet, ent) => {
+      const ids = Array.from(idSet);
+      if (!ids.length) return;
+      if (window.app && window.app.debug) console.log("[RV] fetch translations", { entitieId: ent, ids, lang });
+      const url = `/api/listing_tr_map?entitieId=${ent}&ids=${ids.join(",")}&lang=${encodeURIComponent(lang)}`;
+      tasks.push(
+        window.herandoFetchJsonCached(url, null)
+          .then(j => { if (j && j.titles) maps.set(ent, j.titles); })
+          .catch(e => console.warn("[RV] tr fetch failed", ent, e))
+      );
+    });
+
+    Promise.all(tasks).then(() => {
+      items = items.map(it => {
+        const ent = detectEntitie(it);
+        const key = advKey(it);
+        const m = maps.get(ent);
+        const tr = m && key ? m[key] : null;
+        return (tr && tr.title) ? { ...it, title: tr.title } : it;
+      });
+
+      const slidesContainer = section.querySelector(".my-carousel-slides");
+      const dotsContainer   = section.querySelector(".my-carousel-nav-dots");
+      const prevBtn         = section.querySelector(".my-carousel-prev");
+      const nextBtn         = section.querySelector(".my-carousel-next");
+
+      slidesContainer.innerHTML = "";
+      dotsContainer.innerHTML = "";
+
+      const groups = [];
+      for (let i = 0; i < items.length; i += 4) groups.push(items.slice(i, i + 4));
+
+      groups.forEach((group, idx) => {
+        let html = `<div class="my-carousel-slide" data-slide="${idx}">`;
+        group.forEach(it => {
+          const price = (it.price != null && it.price !== "" && !isNaN(it.price))
+            ? formatPriceWithActiveCurrency(it.price, LOCALE)
+            : "–";
+          html += `
+            <div class="card-peter background">
+              <div class="bild background">
+                <a href="${it.url}" aria-label="Inserat"><img src="${(it.imageUrl && String(it.imageUrl).trim()) || '/assets/herando-weblogo.png'}"${listingImgAttrsUrl(it)} alt="${(it.title||"")}" width="${LISTING_IMG_W}" height="${LISTING_IMG_H}" loading="lazy" decoding="async"></a>
+              </div>
+              <div class="information background">
+                <h5 style="margin-top:10px">
+                  <a href="${it.url}" class="split-title">${it.title || ""}</a>
+                </h5>
+                <p class="my-price">
+                  ${
+                    (!it.price || it.price === 0 || it.price === "0")
+                      ? t('label.price_on_request', 'Preis auf Anfrage')
+                      : new Intl.NumberFormat(LOCALE, {
+                          style: 'currency',
+                          currency: activeCurrency,
+                          minimumFractionDigits: 2
+                        }).format(it.price)
+                  }
+                </p>
+              </div>
+            </div>`;
+        });
+        html += `</div>`;
+        slidesContainer.insertAdjacentHTML("beforeend", html);
+
+        const dot = document.createElement("button");
+        dot.dataset.slide = idx;
+        if (idx === 0) dot.classList.add("active");
+        dotsContainer.appendChild(dot);
+      });
+
+      function go(i) {
+        slidesContainer.style.transform = `translateX(-${i * 100}%)`;
+        dotsContainer.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+        const btn = dotsContainer.querySelector(`button[data-slide="${i}"]`);
+        if (btn) btn.classList.add("active");
+      }
+      dotsContainer.querySelectorAll("button").forEach(dot => {
+        dot.addEventListener("click", () => go(+dot.dataset.slide));
+      });
+      if (prevBtn) prevBtn.addEventListener("click", () => {
+        const active = dotsContainer.querySelector("button.active");
+        const i = active ? +active.dataset.slide : 0;
+        go((i - 1 + groups.length) % groups.length);
+      });
+      if (nextBtn) nextBtn.addEventListener("click", () => {
+        const active = dotsContainer.querySelector("button.active");
+        const i = active ? +active.dataset.slide : 0;
+        go((i + 1) % groups.length);
+      });
+
+      if (window.app && window.app.debug) console.log("[RV] rendered", { count: items.length, slides: groups.length, lang, trMaps: maps.size });
+    });
+  } catch (err) {
+    console.warn("[RV] crashed:", err);
+  }
+})();
+
+(function () {
+  var cfgLang = (window.HERANDO_LANG || "").trim();
+  var docLang = (document.documentElement.lang || "").trim();
+  var navLang = (navigator.language || "").trim();
+
+  var lang = (cfgLang || docLang || navLang || "de").toLowerCase();
+  if (lang.includes("-")) lang = lang.split("-")[0];
+
+  if (window.fetch && window.fetch.__xLangPatched) return;
+
+  var nativeFetch = window.fetch;
+
+  function cloneHeaders(hdrs) {
+    var out = new Headers();
+    if (!hdrs) return out;
+    try {
+      if (hdrs instanceof Headers) hdrs.forEach((v, k) => out.append(k, v));
+      else if (Array.isArray(hdrs)) hdrs.forEach(p => p && p[0] != null && out.append(String(p[0]), p[1] != null ? String(p[1]) : ""));
+      else if (typeof hdrs === "object") Object.keys(hdrs).forEach(k => hdrs[k] != null && out.append(k, String(hdrs[k])));
+    } catch {}
+    return out;
+  }
+
+  function ensureLangHeader(headers) {
+    if (!headers.get("X-Lang")) headers.set("X-Lang", lang);
+  }
+
+  window.fetch = function (input, init) {
+    init = init || {};
+
+    if (input instanceof Request) {
+      var merged = cloneHeaders(input.headers);
+      var extra  = cloneHeaders(init.headers);
+      extra.forEach((v, k) => merged.set(k, v));
+      ensureLangHeader(merged);
+
+      var reqInit = Object.assign({}, init, {
+        method: init.method || input.method,
+        headers: merged,
+        body: ("body" in init) ? init.body :
+              (input.method && !/^(GET|HEAD)$/i.test(input.method) ? input.clone().body : undefined),
+        signal: init.signal || input.signal,
+        mode: init.mode || input.mode,
+        credentials: init.credentials || input.credentials,
+        cache: init.cache || input.cache,
+        redirect: init.redirect || input.redirect,
+        referrer: init.referrer || input.referrer,
+        referrerPolicy: init.referrerPolicy || input.referrerPolicy,
+        integrity: init.integrity || input.integrity,
+        keepalive: init.keepalive || input.keepalive
+      });
+      return nativeFetch(new Request(input.url, reqInit));
+    }
+
+    var headers = cloneHeaders(init.headers);
+    ensureLangHeader(headers);
+    return nativeFetch(input, Object.assign({}, init, { headers }));
+  };
+
+  window.fetch.__xLangPatched = true;
+})();
+
+function applySplitTitles(root = document) {
+    root.querySelectorAll('.split-title').forEach(el => {
+      if (el.dataset.splitApplied === '1') return;
+
+      const nTop = parseInt(el.dataset.split, 10) || 3;   
+      const nBottomMax = 5;                               
+
+      const text = (el.textContent || '').trim().replace(/\s+/g, ' ');
+      const words = text.split(' ');
+
+      if (words.length <= nTop) {
+        el.innerHTML = `<span class="t-top">${text}</span>`;
+      } else {
+        const top = words.slice(0, nTop).join(' ');
+        let bottomWords = words.slice(nTop, nTop + nBottomMax);
+        let bottom = bottomWords.join(' ');
+
+        if (words.length > nTop + nBottomMax) {
+          bottom += ' …';
+        }
+
+        el.innerHTML = `
+          <span class="t-top">${top}</span>
+          <span class="t-bottom">${bottom}</span>
+        `;
+      }
+
+      el.dataset.splitApplied = '1';
+    });
+  }
+
+document.addEventListener("DOMContentLoaded", () => {
+  const carousels = document.querySelectorAll(".my-prod-section, #myUniqueProducts");
+
+  carousels.forEach(carousel => {
+    carousel.addEventListener("mouseenter", () => {
+      carousel.classList.add("is-active");
+    });
+
+    carousel.addEventListener("mouseleave", () => {
+      carousel.classList.remove("is-active");
+    });
+  });
+});
+})();

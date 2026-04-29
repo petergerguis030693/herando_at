@@ -70,6 +70,31 @@
     font-size: 16px;
   }
 
+  /* Goldener Herando-Rahmen fuer Paketkarten */
+  .buyer-package-card {
+    border: 3px solid #c8a24e !important;
+    border-radius: 12px;
+  }
+
+  .buyer-gold-divider {
+    width: 100px;
+    height: 1px;
+    background: #c8a24e;
+    margin: 10px auto;
+  }
+
+  .buyer-package-content {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .buyer-package-meta {
+    margin-top: auto;
+    border-top: 1px solid #d8d8d8;
+    padding-top: 14px;
+  }
+
   /* ===== Checkout Modal ===== */
 
 .checkout-modal {
@@ -326,6 +351,7 @@
   // Arrays absichern + Duplikate entfernen
   const _private = Array.isArray(privatePackages) ? [...new Set(privatePackages)] : [];
   const _light   = Array.isArray(commercialPackages?.LIGHT)   ? [...new Set(commercialPackages.LIGHT)]   : [];
+  const _medium  = Array.isArray(commercialPackages?.MEDIUM)  ? [...new Set(commercialPackages.MEDIUM)]  : [];
   const _pro     = Array.isArray(commercialPackages?.PRO)     ? [...new Set(commercialPackages.PRO)]     : [];
   const _prem    = Array.isArray(commercialPackages?.PREMIUM) ? [...new Set(commercialPackages.PREMIUM)] : [];
   const _tEntity = (routeOrName) => {
@@ -342,7 +368,7 @@
 
 <section style="text-align: left; margin-bottom: 25px; font-size: 15pt;">
 
-  <% if (_private.length === 0 && _light.length === 0 && _pro.length === 0 && _prem.length === 0) { %>
+  <% if (_private.length === 0 && _light.length === 0 && _medium.length === 0 && _pro.length === 0 && _prem.length === 0) { %>
 
     <p class="text-muted"><%- t('buyer.marketing.none') %></p>
 
@@ -359,6 +385,13 @@
       <p class="text-muted">
         <%- t('buyer.marketing.light') %>
         <strong><%= _fmtEntities(_light) %></strong>
+      </p>
+    <% } %>
+
+    <% if (_medium.length > 0) { %>
+      <p class="text-muted">
+        <%- t('buyer.marketing.medium', 'Aktives Marketing-Paket Medium in:') %>
+        <strong><%= _fmtEntities(_medium) %></strong>
       </p>
     <% } %>
 
@@ -415,30 +448,31 @@
     <% if (packages && packages.length > 0) { %>
       <% packages.forEach(pkg => { %>
         <div class="col-md-4 mb-4">
-          <div class="card shadow-sm h-100 border-0">
+          <div class="card shadow-sm h-100 border-0 buyer-package-card">
             <div class="card-body d-flex flex-column justify-content-between">
-              <div>
+              <div class="buyer-package-content">
                 <h4 class="fw-bold mb-3">
                   <%= pkg.translated_name || pkg.name %>
                 </h4>
+                <div class="buyer-gold-divider"></div>
 
-                  <div class="package-description"><%- pkg.translated_description %></div>
+                  <div class="package-description"><%- pkg.translated_description || pkg.description || '' %></div>
                   
+                <div class="buyer-package-meta">
+                  <% if (registrationType === 'commercial') { %>
+                    <p class="text-center fw-bold mb-2" style="font-size: 16pt;">
+                      <%= t('buyer.packages.runtime.commercial') %>
+                    </p>
+                  <% } else if (registrationType === 'private') { %>
+                    <p class="text-center fw-bold mb-2" style="font-size: 16pt;">
+                      <%= t('buyer.packages.runtime.private') %>
+                    </p>
+                  <% } %>
 
-
-                <% if (registrationType === 'commercial') { %>
-                  <p class="text-center fw-bold" style="font-size: 16pt;">
-                    <%= t('buyer.packages.runtime.commercial') %>
+                  <p class="fw-semibold fs-5 mb-0">
+                    <%= Number(pkg.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) %>
                   </p>
-                <% } else if (registrationType === 'private') { %>
-                  <p class="text-center fw-bold" style="font-size: 16pt;">
-                    <%= t('buyer.packages.runtime.private') %>
-                  </p>
-                <% } %>
-
-                <p class="fw-semibold fs-5">
-                  <%= Number(pkg.price).toLocaleString('de-DE', { style: 'currency', currency: 'EUR' }) %>
-                </p>
+                </div>
               </div>
 
 
@@ -586,6 +620,13 @@
 <script>
 document.addEventListener('DOMContentLoaded', () => {
   const faqItems = document.querySelectorAll('.faq-item');
+
+  const packageDescriptionNodes = document.querySelectorAll('.package-description p, .package-description li, .package-description div, .package-description span');
+  packageDescriptionNodes.forEach((node) => {
+    const html = String(node.innerHTML || '');
+    if (!html || html.includes('<br') || !html.includes('Optionale Zubuchung möglich (')) return;
+    node.innerHTML = html.replace('Optionale Zubuchung möglich (', 'Optionale Zubuchung möglich <br>(');
+  });
 
   faqItems.forEach(item => {
     const button = item.querySelector('.faq-question');
@@ -794,3 +835,6 @@ confirmBuyModal.addEventListener('hidden.bs.modal', () => {
 
 
 <%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

@@ -26,6 +26,11 @@
     scroll-snap-type: x proximity;
     overscroll-behavior-x: contain;
     touch-action: pan-x;
+    scrollbar-width: none;
+}
+
+.product-single-thumbnails::-webkit-scrollbar {
+    display: none;
 }
 
 .product-single-thumbnails img {
@@ -40,6 +45,11 @@
 
 .product-single-thumbnails img:hover {
     border: 1px solid #b6864b;
+}
+
+.product-single-thumbnails img.is-active {
+    border: 2px solid #b6864b;
+    opacity: 1;
 }
 
 .product-single-title {
@@ -133,14 +143,7 @@
         scroll-snap-align: start;
     }
 
-    /* Native Scrollbar dezent/ausblenden (Touch bleibt aktiv) */
-    .product-single-thumbnails::-webkit-scrollbar {
-        display: none;
-    }
-
-    .product-single-thumbnails {
-        scrollbar-width: none;
-    }
+    /* Native Scrollbar bleibt auch mobil ausgeblendet */
 }
 
 

@@ -127,6 +127,16 @@ textarea {
   color: #0f172a !important;
 }
 
+/* Aktionen (Reset/Anzeigen/Weitere Filter/Sortieren) immer rechts ausrichten */
+.fi.fi-actions {
+  grid-column: 1 / -1;
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 12px;
+}
+
 
 
 </style>
@@ -395,7 +405,7 @@ textarea {
 
   <!-- Yacht Type -->
   <div class="fi">
-    <label class="fi-label"><%= t('filter.yacht.type') %></label>
+    <label class="fi-label"><%= t('yachts.type', 'Bootstyp') %></label>
     <div class="fi-select">
       <select name="yachttype" id="fYachtType">
         <option value=""><%= t('common.any') %></option>

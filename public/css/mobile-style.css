@@ -1,0 +1,50 @@
+/**
+ * Startseite: nur Layout/Overrides für schmale Viewports.
+ * Eingebunden via styles.ejs wenn isHomePage — link-Tag mit media="(max-width: 991px)".
+ */
+
+@media (max-width: 500px) {
+  /* Marketing-Doppelbox (unique-products): feste 320px-Höhe bricht auf schmalen Screens Text ab */
+  .herando-section--marketing .herando-box {
+    height: auto;
+    min-height: 0;
+    max-width: 100%;
+  }
+
+  .herando-section--marketing .herando-grid {
+    gap: 1rem;
+  }
+
+  /* Sell-CTA: Bild oben, Text unten (index: zweite .herando-section mit Bootstrap-Row) */
+  .herando-section {
+    display: block;
+  }
+
+  .herando-section .row {
+    flex-direction: column;
+  }
+
+  .herando-section .row > .col-lg-6:first-child {
+    order: 2;
+  }
+
+  .herando-section .row > .col-lg-6:last-child {
+    order: 1;
+  }
+
+  .herando-section .row > .col-lg-6 {
+    width: 100%;
+  }
+
+  /* Sell-CTA-Bildspalte: Platz über Seitenverhältnis reservieren (nicht height:auto auf dem img) */
+  .herando-section .row > .col-lg-6.herando-sell-image-col {
+    height: auto !important;
+    aspect-ratio: 869 / 488;
+  }
+
+  .herando-section .row > .col-lg-6.herando-sell-image-col .herando-sell-image {
+    height: 100% !important;
+    width: 100% !important;
+    object-fit: cover;
+  }
+}

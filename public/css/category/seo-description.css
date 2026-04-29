@@ -1,11 +1,19 @@
 /* /public/css/category/seo-description.css */
 
 .entity-description {
-  background: #fafafa;
   padding: 20px;
   border-radius: 8px;
-  border: 1px solid #e6e6e6;
   color: #1d2a44;
   font-size: 15pt;
   line-height: 1.6;
+}
+
+.entity-description h1,
+.entity-description h2,
+.entity-description h3 {
+  color: #b6864b;
+}
+
+.entity-description a{
+  color: #b6864b !important;
 }

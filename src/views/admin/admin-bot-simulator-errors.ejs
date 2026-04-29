@@ -1,0 +1,89 @@
+<%- include('../partials/header-admin') %>
+
+<script>
+  document.body.classList.add('admin-page');
+</script>
+
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0"><i class="bi bi-bug me-2"></i>Fehlermeldung Identifizieren</h5>
+    <div class="d-flex gap-2">
+      <button id="btnRefreshErrors" class="btn btn-sm btn-outline-primary">Aktualisieren</button>
+      <button id="btnCloseErrors" class="btn btn-sm btn-outline-secondary">Schließen</button>
+    </div>
+  </div>
+
+  <div id="errorsError" class="alert alert-danger d-none py-2 mb-3"></div>
+  <div class="small text-muted mb-2">Zeigt alle Runner-Fälle, die nicht `200` oder `301` sind, inklusive Grund.</div>
+
+  <div class="table-responsive">
+    <table class="table table-sm table-striped align-middle">
+      <thead>
+        <tr>
+          <th>Zeit</th>
+          <th>Session</th>
+          <th>URL</th>
+          <th>Status</th>
+          <th>Grund</th>
+        </tr>
+      </thead>
+      <tbody id="errorsTable">
+        <tr><td colspan="5" class="text-muted">Lade Fehlerberichte...</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+  const errorEl = document.getElementById('errorsError');
+  const tableEl = document.getElementById('errorsTable');
+
+  function showError(msg) {
+    errorEl.textContent = msg || 'Fehler beim Laden.';
+    errorEl.classList.remove('d-none');
+  }
+  function clearError() {
+    errorEl.textContent = '';
+    errorEl.classList.add('d-none');
+  }
+
+  function esc(v) {
+    return String(v == null ? '' : v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#039;');
+  }
+
+  async function refreshErrors() {
+    try {
+      clearError();
+      const r = await fetch('/admin/bot-simulator/runner/errors.json');
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data.ok) throw new Error(data.message || `${r.status} ${r.statusText}`);
+      const rows = Array.isArray(data.errors) ? data.errors : [];
+      if (!rows.length) {
+        tableEl.innerHTML = '<tr><td colspan="5" class="text-muted">Keine Fehlerfälle vorhanden.</td></tr>';
+        return;
+      }
+      tableEl.innerHTML = rows.map((row) => `
+        <tr>
+          <td>${esc(row.at || '-')}</td>
+          <td>${esc(row.sessionId || '-')}</td>
+          <td style="max-width:560px;word-break:break-all">${esc(row.url || '-')}</td>
+          <td>${esc(row.statusCode || '-')} ${esc(row.statusText || '')}</td>
+          <td>${esc(row.reason || '-')}</td>
+        </tr>
+      `).join('');
+    } catch (err) {
+      showError(err.message || 'Fehler beim Laden der Fehlerberichte.');
+    }
+  }
+
+  document.getElementById('btnRefreshErrors')?.addEventListener('click', refreshErrors);
+  document.getElementById('btnCloseErrors')?.addEventListener('click', () => window.close());
+
+  refreshErrors();
+  setInterval(refreshErrors, 3500);
+</script>

@@ -1,0 +1,101 @@
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('../sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+      <div>
+        <h1 class="mb-1">Cloudflare Tools</h1>
+        <p class="text-muted mb-0">
+          Development Mode und Cache direkt pro Zone steuern.
+        </p>
+      </div>
+    </div>
+
+    <% if (flashSuccess) { %>
+      <div class="alert alert-success"><%= flashSuccess %></div>
+    <% } %>
+
+    <% if (flashError) { %>
+      <div class="alert alert-danger"><%= flashError %></div>
+    <% } %>
+
+    <% if (!configured) { %>
+      <div class="alert alert-warning">
+        <strong>Konfiguration fehlt:</strong><br>
+        Bitte in der <code>.env</code> setzen:<br>
+        <code>CLOUDFLARE_API_TOKEN=...</code><br>
+        <code>CLOUDFLARE_ZONES=herando.com:ZONE_ID,herando.de:ZONE_ID,herando.be:ZONE_ID</code>
+      </div>
+    <% } %>
+
+    <div class="card">
+      <div class="card-header">Zonen</div>
+      <div class="card-body p-0">
+        <% if (!zones || !zones.length) { %>
+          <p class="text-muted p-3 mb-0">
+            Keine Zonen konfiguriert. Bitte <code>CLOUDFLARE_ZONES</code> in der <code>.env</code> eintragen.
+          </p>
+        <% } else { %>
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr>
+                  <th>Zone</th>
+                  <th>Zone ID</th>
+                  <th>Development Mode</th>
+                  <th>Aktionen</th>
+                </tr>
+              </thead>
+              <tbody>
+                <% zones.forEach((zone) => { %>
+                  <tr>
+                    <td><strong><%= zone.name %></strong></td>
+                    <td><code><%= zone.zoneId %></code></td>
+                    <td>
+                      <% if (zone.devMode === 'on') { %>
+                        <span class="badge bg-success">on</span>
+                      <% } else if (zone.devMode === 'off') { %>
+                        <span class="badge bg-secondary">off</span>
+                      <% } else { %>
+                        <span class="badge bg-warning text-dark">unknown</span>
+                      <% } %>
+                      <% if (zone.error) { %>
+                        <div class="small text-danger mt-1"><%= zone.error %></div>
+                      <% } %>
+                    </td>
+                    <td>
+                      <div class="d-flex gap-2 flex-wrap">
+                        <form method="POST" action="/admin/cloudflare/dev-mode">
+                          <input type="hidden" name="zoneId" value="<%= zone.zoneId %>">
+                          <input type="hidden" name="value" value="on">
+                          <button class="btn btn-sm btn-outline-success">Dev Mode ON</button>
+                        </form>
+
+                        <form method="POST" action="/admin/cloudflare/dev-mode">
+                          <input type="hidden" name="zoneId" value="<%= zone.zoneId %>">
+                          <input type="hidden" name="value" value="off">
+                          <button class="btn btn-sm btn-outline-secondary">Dev Mode OFF</button>
+                        </form>
+
+                        <form
+                          method="POST"
+                          action="/admin/cloudflare/purge-cache"
+                          onsubmit="return confirm('Wirklich den kompletten Cache für diese Zone leeren?')"
+                        >
+                          <input type="hidden" name="zoneId" value="<%= zone.zoneId %>">
+                          <button class="btn btn-sm btn-outline-danger">Cache Purge</button>
+                        </form>
+                      </div>
+                    </td>
+                  </tr>
+                <% }) %>
+              </tbody>
+            </table>
+          </div>
+        <% } %>
+      </div>
+    </div>
+  </div>
+</div>

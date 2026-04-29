@@ -1,0 +1,3314 @@
+     <%- include('../../partials/header') %>
+<%
+  const _langRaw = (typeof lang !== 'undefined' && lang) ? String(lang) : 'de';
+  const _lang = _langRaw.includes('-') ? _langRaw.split('-')[0] : _langRaw;
+  const _localeMap = {
+    de:'de-DE', en:'en-US', fr:'fr-FR', it:'it-IT', tr:'tr-TR', ja:'ja-JP',
+    cs:'cs-CZ', ru:'ru-RU', es:'es-ES', nl:'nl-NL', pl:'pl-PL'
+  };
+  const _locale = _localeMap[_lang] || 'de-DE';
+  const _roleNum = Number(
+    (typeof role !== 'undefined' ? role : (typeof user !== 'undefined' && user ? user.role : 0)) || 0
+  );
+  const _brandModelRequiredAttr = [7, 8, 9].includes(_roleNum) ? '' : 'required';
+%>
+               <link rel="stylesheet" href="/css/buyer.css">
+               <style>
+                  /* ========== EDIT LISTING: aligned to NEW LISTING layout ========== */
+                  .listing-box {
+                    border: 1px solid #dedede !important;
+                    padding: 30px !important;
+                  }
+
+                  .listing-legend {
+                    font-size: 1.2rem;
+                    padding: 0 8px;
+                  }
+
+                  .listing-label {
+                    font-size: 0.95rem;
+                  }
+
+                  .listing-row {
+                    margin-left: 0 !important;
+                    margin-right: 0 !important;
+                  }
+
+                  .note-hint {
+                    font-size: 0.85rem;
+                    color: #6c757d;
+                  }
+
+                  .nav-link {
+                    color: #111;
+                  }
+
+                  .nav-link:hover {
+                    color: #111;
+                  }
+
+                  .bi-house-door-fill,
+                  .bi-gem {
+                    color: #c39052 !important;
+                  }
+
+                  @media (max-width: 768px) {
+                    .listing-label {
+                      text-align: left !important;
+                      margin-bottom: 5px;
+                    }
+
+                    fieldset.listing-box {
+                      padding: 20px !important;
+                    }
+
+                    .note-hint {
+                      margin-left: 0 !important;
+                    }
+
+                    .listing-price-controls {
+                      flex-direction: column;
+                      align-items: stretch;
+                    }
+
+                    .listing-price-input-wrap,
+                    .listing-currency-wrap,
+                    .listing-month-select {
+                      width: 100% !important;
+                      flex: 1 1 auto;
+                    }
+
+                    .listing-split-select {
+                      flex-direction: column;
+                      gap: 0.5rem;
+                    }
+
+                    .listing-split-select .me-2 {
+                      margin-right: 0 !important;
+                    }
+
+                    .listing-alert {
+                      min-width: 0 !important;
+                      width: min(92vw, 520px);
+                    }
+                  }
+
+                  .form-control:focus {
+                    color: var(--bs-body-color);
+                    border-color: #c99b5d;
+                    outline: 0;
+                    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+                  }
+
+                  .form-check-input:checked {
+                    background-color: #c99b5d;
+                    border-color: #c99b5d;
+                  }
+
+                  .form-check-input:focus {
+                    border-color: #c99b5d;
+                    outline: 0;
+                    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+                  }
+
+                  .form-select:focus {
+                    border-color: #c99b5d;
+                    outline: 0;
+                    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+                  }
+
+                  .form-check-label {
+                    margin-left: 5px;
+                  }
+
+                  .listing-price-controls {
+                    display: flex;
+                    align-items: center;
+                    gap: 1rem;
+                    flex-wrap: wrap;
+                  }
+
+                  .listing-price-input-wrap {
+                    width: 220px;
+                    max-width: 100%;
+                    flex: 0 0 220px;
+                  }
+
+                  .listing-currency-wrap {
+                    width: 120px;
+                    max-width: 100%;
+                    flex: 0 0 120px;
+                  }
+
+                  .listing-month-select {
+                    width: 150px;
+                  }
+
+                  /* Yacht speed fields: same behavior as new-listing */
+                  .yacht-speed-wrap {
+                    overflow-x: auto;
+                  }
+
+                  .yacht-speed-grid {
+                    display: grid;
+                    grid-template-columns: repeat(4, minmax(165px, 1fr));
+                    gap: 0.5rem;
+                    min-width: 700px;
+                  }
+
+                  .yacht-speed-label {
+                    min-height: 3.25rem;
+                    margin-bottom: 0.35rem;
+                    display: flex;
+                    align-items: flex-end;
+                  }
+
+                  @media (max-width: 1100px) {
+                    .yacht-speed-wrap {
+                      overflow-x: visible;
+                    }
+
+                    .yacht-speed-grid {
+                      grid-template-columns: repeat(2, minmax(0, 1fr));
+                      min-width: 0;
+                    }
+                  }
+               </style>
+<body>
+
+
+  <!-- Flash-Messages -->
+  <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle listing-alert"
+         role="alert" style="z-index:1050;min-width:300px;">
+      <%= errorMessage %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<%= t('edit_listing.alert.close','Schließen') %>"></button>
+    </div>
+  <% } %>
+  <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle listing-alert"
+         role="alert" style="z-index:1050;min-width:300px;">
+      <%= successMessage %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<%= t('edit_listing.alert.close','Schließen') %>"></button>
+    </div>
+  <% } %>
+
+  <!-- Shell mit Sidebar -->
+  <div class="account-shell d-flex gap-3">
+     <%- include('../../partials/asside') %>
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="m-0"><%= t('edit_listing.title','Inserat bearbeiten') %>: <%= ent.name %></h4>
+      </div>
+
+
+
+      <!-- === Formular ===================================================== -->
+<form id="edit-listing-form" action="/buyer/edit-listing/<%= item.id %>" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="ent_id" value="<%= ent.id %>">
+
+<fieldset class="mb-4 p-4 border bg-white rounded shadow-sm listing-box">
+  <legend class="fw-semibold px-2 listing-legend"><%= t('edit_listing.section.base','Basisdaten') %></legend>
+
+  <!-- Titel -->
+<div class="row mb-4">
+  <div class="col-md-7">
+
+    <label for="name" class="form-label fw-semibold">
+      <%= t('edit_listing.label.title','Überschrift Ihrer Anzeige') %> *
+    </label>
+
+    <input 
+      id="name" 
+      name="name" 
+      type="text" 
+      class="form-control" 
+      required 
+      value="<%= item.name || '' %>">
+
+  </div>
+</div>
+
+
+  <!-- Kaufpreis -->
+  <div class="row mb-4 align-items-center">
+
+    <label for="priceFormatted" class="col-md-3 col-form-label fw-semibold listing-label">
+      * <%= t('edit_listing.label.price','Kaufpreis') %>
+    </label>
+
+    <div class="col-md-7 listing-price-controls">
+
+      <!-- Preisfeld -->
+      <div class="listing-price-input-wrap">
+        <input 
+          id="priceFormatted"
+          type="text"
+          class="form-control"
+          inputmode="numeric"
+          placeholder=""
+          value="<%= item.price && item.price > 0 
+            ? new Intl.NumberFormat(_locale).format(item.price) 
+            : '' %>">
+
+        <input 
+          type="hidden"
+          id="price"
+          name="price"
+          value="<%= item.price || '' %>">
+      </div>
+
+      <!-- Toggle -->
+      <div class="form-check form-switch m-0 d-flex align-items-center">
+        <input 
+          class="form-check-input" 
+          type="checkbox" 
+          id="priceOnRequest" 
+          onchange="togglePriceState()"
+          <%= item.price === 0 ? 'checked' : '' %>>
+        <label class="form-check-label fw-semibold ms-2" for="priceOnRequest">
+          <%= t('edit_listing.price.on_request','auf Anfrage') %>
+        </label>
+      </div>
+
+      <!-- Währung -->
+      <div class="listing-currency-wrap">
+        <select id="currency" name="currency" class="form-select">
+          <% [
+            'EUR','USD','CHF','GBP','AED','AUD','CAD','CZK','DKK','HKD','HUF',
+            'JPY','PLN','SEK'
+          ].forEach(curr => { %>
+            <option value="<%= curr %>" <%= item.currency === curr ? 'selected' : '' %>>
+              <%= curr %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <% if (user && user.registration_type === 'commercial') { %>
+        <!-- MwSt -->
+        <div class="form-check d-flex align-items-center gap-2 m-0">
+          <input type="hidden" name="vat" value="0">
+          <input 
+            id="vat" 
+            name="vat" 
+            type="checkbox" 
+            class="form-check-input" 
+            value="1" 
+            <%= item.vat == 1 ? 'checked' : '' %>>
+          <label for="vat" class="form-check-label fw-semibold mb-0">
+            <%= t('edit_listing.vat.deductible','MwSt. ausweisbar') %>
+          </label>
+        </div>
+      <% } %>
+
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-7">
+      <p class="form-text">
+        <%= t('edit_listing.price.hint','Wenn kein Preis angegeben wird, erscheint „Preis auf Anfrage“.') %>
+      </p>
+    </div>
+  </div>
+</fieldset>
+
+
+<script>
+let lastPriceValue = '';
+const LOCALE = <%- JSON.stringify(_locale) %>;
+
+function togglePriceState() {
+  const checkbox   = document.getElementById('priceOnRequest');
+  const priceInput = document.getElementById('priceFormatted');
+  const hidden     = document.getElementById('price');
+
+  if (checkbox.checked) {
+    // 🔥 alten Wert merken
+    lastPriceValue = hidden.value;
+
+    priceInput.value = '';
+    priceInput.disabled = true;
+    hidden.value = 0;
+
+  } else {
+    priceInput.disabled = false;
+
+    // 🔥 alten Wert zurücksetzen
+    if (lastPriceValue) {
+      hidden.value = lastPriceValue;
+      priceInput.value = new Intl.NumberFormat(LOCALE)
+        .format(lastPriceValue);
+    }
+  }
+}
+</script>
+
+
+
+
+
+        <!-- ========== ENTITÄT-SPEZIFISCHE FELDER ========== -->
+        <% /* ---------- IMMOBILIEN ---------- */ %>
+<% if (ent.route === 'properties') { %>
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.properties.legend.details','Immobilien-Details') %></legend>
+
+  <!-- Baujahr, Bauphase, Objektzustand -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label for="year" class="form-label"><%= t('edit_listing.properties.year','Baujahr') %></label>
+      <input
+        id="year"
+        name="year"
+        type="number"
+        class="form-control"
+        min="1800"
+        max="<%= new Date().getFullYear() %>"
+        value="<%= item.year || '' %>"
+      >
+    </div>
+
+    <% if (extras.stage) { %>
+      <div class="col-md-4">
+        <label for="stage" class="form-label"><%= t('edit_listing.properties.stage','Bauphase') %></label>
+        <select id="stage" name="stage" class="form-select">
+          <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+          <% extras.stage.forEach(o => { %>
+            <option value="<%= o.value %>" <%= item.stage == o.value ? 'selected' : '' %>><%= t('attribute.properties.stage.' + o.value, o.label) %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+
+    <% if (extras.quality) { %>
+      <div class="col-md-4">
+        <label for="quality" class="form-label"><%= t('edit_listing.properties.quality','Objektzustand') %></label>
+        <select id="quality" name="quality" class="form-select">
+          <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+          <% extras.quality.forEach(o => { %>
+            <option value="<%= o.value %>" <%= item.quality == o.value ? 'selected' : '' %>><%= t('attribute.properties.quality.' + o.value, o.label) %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Immobilienart, Rendite-Immobilien, Denkmalschutz -->
+  <div class="row g-3 mb-3 align-items-end">
+<% if (extras.propertytype) { %>
+  <div class="col-md-4" id="wrapPropertyType">
+    <label for="propertytype" class="form-label"><%= t('edit_listing.properties.type','Immobilienart') %></label>
+    <select id="propertytype" name="propertytype" class="form-select">
+      <option value="">---</option>
+      <% extras.propertytype.forEach(o => { %>
+        <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+        <% if (rawLabel !== 'grundstück/fläche') { %>
+          <option value="<%= o.value %>" <%= item.propertytype == o.value ? 'selected' : '' %>>
+            <%= t('attribute.properties.propertytype.' + o.value, o.label) %>
+          </option>
+        <% } %>
+      <% }) %>
+    </select>
+  </div>
+<% } %>
+
+<% if (extras.investmenttype) { %>
+  <div class="col-md-4" id="wrapInvestmentType">
+    <label for="investmenttype" class="form-label"><%= t('edit_listing.properties.investment','Rendite-Immobilien') %></label>
+    <select id="investmenttype" name="investmenttype" class="form-select">
+      <option value="">---</option>
+      <% extras.investmenttype.forEach(o => { %>
+        <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+        <% if (rawLabel !== 'grundstück/fläche') { %>
+          <option value="<%= o.value %>" <%= item.investmenttype == o.value ? 'selected' : '' %>>
+            <%= t('attribute.properties.investmenttype.' + o.value, o.label) %>
+          </option>
+        <% } %>
+      <% }) %>
+    </select>
+  </div>
+<% } %>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const propertySelect   = document.getElementById('propertytype');
+  const investmentSelect = document.getElementById('investmenttype');
+
+  function updateState() {
+
+    if (propertySelect.value) {
+      // Rendite deaktivieren + NULL setzen
+      investmentSelect.value = '';
+      investmentSelect.disabled = true;
+      investmentSelect.classList.add('opacity-50');
+    } else {
+      investmentSelect.disabled = false;
+      investmentSelect.classList.remove('opacity-50');
+    }
+
+    if (investmentSelect.value) {
+      // Immobilienart deaktivieren + NULL setzen
+      propertySelect.value = '';
+      propertySelect.disabled = true;
+      propertySelect.classList.add('opacity-50');
+    } else {
+      propertySelect.disabled = false;
+      propertySelect.classList.remove('opacity-50');
+    }
+  }
+
+  propertySelect.addEventListener('change', updateState);
+  investmentSelect.addEventListener('change', updateState);
+
+  updateState(); // Edit-Fall
+});
+</script>
+
+
+
+
+    <div class="col-md-4">
+      <div class="form-check mt-2">
+        <input
+          id="monument_protection"
+          name="monument_protection"
+          type="checkbox"
+          class="form-check-input"
+          value="1"
+          <%= item.monument_protection == 1 ? 'checked' : '' %>
+        >
+        <label for="monument_protection" class="form-check-label"><%= t('edit_listing.properties.monument','Denkmalschutz') %></label>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- Heizung, Energieträger, Energieausweis -->
+  <div class="row g-3 mb-3">
+    <% if (extras.heating) { %>
+      <div class="col-md-4">
+        <label for="heating" class="form-label"><%= t('edit_listing.properties.heating','Heizung') %></label>
+        <select id="heating" name="heating" class="form-select">
+          <option value="">---</option>
+          <% extras.heating.forEach(o => { %>
+            <option value="<%= o.value %>" <%= item.heating == o.value ? 'selected' : '' %>><%= t('attribute.properties.heating.' + o.value, o.label) %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+
+    <% if (extras.energysource) { %>
+      <div class="col-md-4">
+        <label for="energysource" class="form-label"><%= t('edit_listing.properties.energysource','Energieträger') %></label>
+        <select id="energysource" name="energysource" class="form-select">
+          <option value="">---</option>
+          <% extras.energysource.forEach(o => { %>
+            <option value="<%= o.value %>" <%= item.energysource == o.value ? 'selected' : '' %>><%= t('attribute.properties.energysource.' + o.value, o.label) %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+
+    <% if (extras.energypass) { %>
+      <div class="col-md-4">
+        <label for="energypass" class="form-label"><%= t('edit_listing.properties.energypass','Energieausweis') %></label>
+        <select id="energypass" name="energypass" class="form-select">
+          <option value="">---</option>
+          <% extras.energypass.forEach(o => { %>
+            <option value="<%= o.value %>" <%= item.energypass == o.value ? 'selected' : '' %>><%= t('attribute.properties.energypass.' + o.value, o.label) %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+  </div>
+
+  <!-- Ausweistyp, Kennwert -->
+  <div class="row g-3">
+    <% if (extras.energypass_type) { %>
+      <div class="col-md-4">
+        <label for="energypass_type" class="form-label"><%= t('edit_listing.properties.energypass_type','Ausweistyp') %></label>
+        <select id="energypass_type" name="energypass_type" class="form-select">
+          <option value="">---</option>
+          <% extras.energypass_type.forEach(o => { %>
+            <option value="<%= o.value %>" <%= item.energypass_type == o.value ? 'selected' : '' %>><%= t('attribute.properties.energypass_type.' + o.value, o.label) %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+
+    <div class="col-md-4">
+      <label for="energypass_value" class="form-label"><%= t('edit_listing.properties.energypass_value','Kennwert (kWh/m²·a)') %></label>
+      <input
+        id="energypass_value"
+        name="energypass_value"
+        type="number"
+        class="form-control"
+        value="<%= item.energypass_value || '' %>"
+      >
+    </div>
+  </div>
+</fieldset>
+
+
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.properties.section.details','Details') %></legend>
+  <div class="row g-3">
+
+    <!-- Grundstücksfläche -->
+    <div class="col-md-4">
+      <label for="landarea" class="form-label"><%= t('edit_listing.properties.landarea','Grundstücksfläche (m²)') %></label>
+      <input
+        id="landarea"
+        name="landarea"
+        type="number"
+        class="form-control"
+        value="<%= item.landarea || '' %>"
+      >
+    </div>
+
+    <!-- Wohnfläche -->
+    <div class="col-md-4">
+      <label for="livingarea" class="form-label"><%= t('edit_listing.properties.livingarea','Wohnfläche (m²)') %></label>
+      <input
+        id="livingarea"
+        name="livingarea"
+        type="number"
+        class="form-control"
+        value="<%= item.livingarea || '' %>"
+      >
+    </div>
+
+    <!-- Etagen -->
+    <div class="col-md-4">
+      <label for="floors" class="form-label"><%= t('edit_listing.properties.floors','Etagen') %></label>
+      <input
+        id="floors"
+        name="floors"
+        type="number"
+        class="form-control"
+        value="<%= item.floors || '' %>"
+      >
+    </div>
+
+    <!-- Zimmer -->
+    <div class="col-md-4">
+      <label for="bedrooms" class="form-label"><%= t('edit_listing.properties.bedrooms','Zimmer') %></label>
+      <input
+        id="bedrooms"
+        name="bedrooms"
+        type="number"
+        class="form-control"
+        value="<%= item.bedrooms || '' %>"
+      >
+    </div>
+
+    <!-- Badezimmer -->
+    <div class="col-md-4">
+      <label for="bathrooms" class="form-label"><%= t('edit_listing.properties.bathrooms','Badezimmer') %></label>
+      <input
+        id="bathrooms"
+        name="bathrooms"
+        type="number"
+        class="form-control"
+        value="<%= item.bathrooms || '' %>"
+      >
+    </div>
+
+    <!-- Ausstattung -->
+    <% if (extras.furnishing) { %>
+      <div class="col-md-4">
+        <label for="furnishing" class="form-label"><%= t('edit_listing.properties.furnishing','Ausstattung') %></label>
+        <select id="furnishing" name="furnishing" class="form-select">
+          <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+          <% extras.furnishing.forEach(o => { %>
+            <option value="<%= o.value %>" <%= item.furnishing == o.value ? 'selected' : '' %>><%= t('attribute.properties.furnishing.' + o.value, o.label) %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+
+  </div>
+</fieldset>
+
+
+
+<% } %>
+
+<% if (ent.route === 'cars') { %>
+
+<%
+  // Deutsche Labels für Checkbox-Felder (bereinigt & optimiert)
+  const featureLabels = {
+
+    // 🛡️ SICHERHEIT
+    abs: 'ABS (Antiblockiersystem)',
+    esp: 'ESP (Elektronisches Stabilitätsprogramm)',
+    asr: 'ASR (Antriebsschlupfregelung)',
+    isofix: 'Isofix',
+
+    // 💡 LICHT & SICHT
+    xenon: 'Xenon-Scheinwerfer',
+    bixenon: 'Bi-Xenon-Scheinwerfer',
+    led: 'LED-Scheinwerfer',
+    laser: 'Laserlicht',
+    foglamp: 'Nebelscheinwerfer',
+    daytime_lights: 'Tagfahrlicht',
+    adaptive_lights: 'Kurvenlicht',
+    glare_free: 'Blendfreies Fernlicht',
+    highbeam_assistant: 'Fernlichtassistent',
+    headlight_washer: 'Scheinwerferreinigungsanlage',
+    light_sensor: 'Lichtsensor',
+    rain_sensor: 'Regensensor',
+    head_up_display: 'Head-Up-Display',
+    xenon_headlights: 'Xenon-Scheinwerfer',
+    bixenon_headlights: 'Bi-Xenon-Scheinwerfer',
+    led_headlights: 'LED-Scheinwerfer',
+    laser_light: 'Laserlicht',
+    fog_lights: 'Nebelscheinwerfer',
+    daytime_running_lights: 'Tagfahrlicht',
+    curve_light: 'Kurvenlicht',
+    glare_free_high_beam: 'Blendfreies Fernlicht',
+    high_beam_assist: 'Fernlichtassistent',
+    headlight_cleaning: 'Scheinwerferreinigungsanlage',
+    light_sensor: 'Lichtsensor',
+    rain_sensor: 'Regensensor',
+    head_up_display: 'Head-Up-Display',
+
+    // 🔐 DIEBSTAHL- & EINBRUCHSCHUTZ
+    immobilizer: 'Wegfahrsperre',
+    alarm_system: 'Alarmanlage',
+    wheel_lock: 'Felgenschloss',
+    central_locking: 'Zentralverriegelung',
+    keyless_entry: 'Keyless Entry / Keyless Go',
+
+    // 🛋️ KOMFORT
+    stand_heating: 'Standheizung',
+    seat_heating: 'Sitzheizung',
+    seat_ventilation: 'Sitzbelüftung',
+    electric_windows: 'Elektrische Fensterheber',
+    electric_seat_adjustment: 'Elektrische Sitzverstellung',
+    electric_side_mirrors: 'Elektrische Außenspiegel',
+    electric_tailgate: 'Elektrische Heckklappe',
+    power_steering: 'Servolenkung',
+    cruise_control: 'Tempomat',
+    adaptive_cruise_control: 'Abstandsregeltempomat',
+    emergency_brake_assist: 'Notbremsassistent',
+    blind_spot_assist: 'Toter-Winkel-Assistent',
+    lane_keep_assist: 'Spurhalteassistent',
+    traffic_signs: 'Verkehrszeichenerkennung',
+    fatigue: 'Müdigkeitserkennung',
+    nightvision: 'Nachtsicht',
+    emergency_call: 'Notrufsystem',
+    speed_limiter: 'Geschwindigkeitsbegrenzer',
+    distance_warning: 'Abstandswarner',
+    start_stop_system: 'Start-Stopp-System',
+    heated_windscreen: 'Beheizbare Frontscheibe',
+    heated_windshield: 'Beheizbare Frontscheibe',
+    heated_steering: 'Beheizbares Lenkrad',
+    heated_steering_wheel: 'Beheizbares Lenkrad',
+    dimming_mirror: 'Abblendbarer Innenspiegel',
+    armrest: 'Armlehne',
+    lumbar_support: 'Lordosenstütze',
+    massage_seats: 'Massagesitze',
+    folding_passenger_seat: 'Umklappbarer Beifahrersitz',
+    ambient_lighting: 'Ambientebeleuchtung',
+    leather_steering_wheel: 'Lederlenkrad',
+    climatisation: 'Klimaanlage / Klimaautomatik',
+
+    // 🅿️ EINPARKHILFE
+    parking_sensors_rear: t('buyer.car.feature.parking_sensors_rear', 'Parken hinten'),
+    parking_sensors_front: t('buyer.car.feature.parking_sensors_front', 'Parken vorne'),
+    rear_camera: t('buyer.car.feature.rear_camera', 'Rückfahrkamera'),
+    self_parking: t('buyer.car.feature.self_parking', 'Selbstparkend'),
+    parking_rear: t('buyer.car.feature.parking_sensors_rear', 'Parken hinten'),
+    parking_front: t('buyer.car.feature.parking_sensors_front', 'Parken vorne'),
+    parking_camera: t('buyer.car.feature.rear_camera', 'Rückfahrkamera'),
+    parking_self: t('buyer.car.feature.self_parking', 'Selbstparkend'),
+
+    // 🎵 INFOTAINMENT
+// Infotainment
+    radio: 'Radio',
+    dab_radio: 'DAB-Radio',
+    cd_player: 'CD-Player',
+    sound_system: 'Soundsystem',
+    streaming: 'Musik-Streaming',
+
+    bluetooth: 'Bluetooth',
+    apple_carplay: 'Apple CarPlay',
+    android_auto: 'Android Auto',
+    wifi_hotspot: 'WLAN-Hotspot',
+    mp3_interface: 'MP3-Schnittstelle',
+
+    navigation_system: 'Navigationssystem',
+    tv: 'TV-Funktion',
+    touchscreen: 'Touchscreen',
+    voice_control: 'Sprachsteuerung',
+
+
+    // 🚗 FAHRZEUG & EXTRAS
+    sports_package: 'Sportpaket',
+    sports_suspension: 'Sportfahrwerk',
+    sports_seats: 'Sportsitze',
+    alloy_wheels: 'Alufelgen',
+    trailer_coupling: 'Anhängerkupplung',
+    roof_rack: 'Dachgepäckträger',
+    skibag: 'Skisack',
+    sunroof: 'Schiebedach',
+    panoramic_roof: 'Panoramadach',
+    tinted_windows: 'Getönte Scheiben',
+    summer_tires: 'Sommerreifen',
+    winter_tires: 'Winterreifen',
+    all_season_tires: 'Ganzjahresreifen',
+    tire_pressure_monitoring: 'Reifendruckkontrolle',
+    winter_package: 'Winterpaket',
+    smokers_package: 'Raucherpaket',
+    air_suspension: 'Luftfederung'
+  };
+
+  // 🧩 Fallback – falls ein Label fehlt, automatisch formatieren
+  function germanFallbackLabel(key) {
+    return key.replace(/_/g, ' ')
+              .replace(/\b\w/g, m => m.toUpperCase());
+  }
+
+  function labelOf(key) {
+    const fallback = featureLabels[key] || germanFallbackLabel(key);
+    return t(`edit_listing.cars.feature.${key}`, fallback);
+  }
+%>
+
+
+
+<fieldset class="mb-4 p-3 border rounded bg-white">
+  <legend><%= t('edit_listing.cars.section.model','Modellangaben') %></legend>
+
+  <div class="row g-3 align-items-center mb-3">
+
+    <!-- Marke -->
+    <div class="col-md-4">
+      <label class="form-label">* <%= t('edit_listing.cars.brand','Marke') %></label>
+      <select id="brandSelect" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
+        <option value="" disabled <%= !item.brand_id ? 'selected' : '' %>><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% filters.brands.forEach(b => { %>
+          <option value="<%= b.id %>" <%= item.brand_id === b.id ? 'selected' : '' %>><%= b.name %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Modell -->
+    <div class="col-md-4">
+      <label class="form-label">* <%= t('edit_listing.cars.model','Modell') %></label>
+      <select id="modelSelect" name="model_id" class="form-select" <%= _brandModelRequiredAttr %>>
+        <option value=""><%= t('edit_listing.cars.model.choose_brand_first','Bitte zuerst Marke wählen …') %></option>
+      </select>
+    </div>
+
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const brandSelect = document.getElementById('brandSelect');
+  const modelSelect = document.getElementById('modelSelect');
+
+  async function loadModels(brandId, selectedId) {
+    modelSelect.innerHTML = `<option>${<%- JSON.stringify(t('edit_listing.cars.model.loading','Lade Modelle...')) %>}</option>`;
+    modelSelect.disabled = true;
+
+    const res = await fetch(`/buyer/api/models/${brandId}`);
+    const json = await res.json();
+
+    const models = Array.isArray(json) ? json : json.models; // 🔥 WICHTIG
+
+    modelSelect.innerHTML = `<option value="">${<%- JSON.stringify(t('edit_listing.select.choose','Bitte wählen …')) %>}</option>`;
+    modelSelect.disabled = false;
+
+    models.forEach(m => {
+      const opt = document.createElement('option');
+      opt.value = m.id;
+      opt.textContent = m.name;
+
+      if (String(m.id) === String(selectedId)) {
+        opt.selected = true;
+      }
+
+      modelSelect.appendChild(opt);
+    });
+  }
+
+  const currentBrandId = "<%= item.brand_id %>";
+  const currentModelId = "<%= item.model_id %>";
+
+  if (currentBrandId) {
+    await loadModels(currentBrandId, currentModelId);
+  }
+
+  brandSelect.addEventListener('change', async function () {
+    await loadModels(this.value, null);
+  });
+});
+</script>
+
+
+</fieldset>
+
+
+
+
+<fieldset>
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.cars.section.details','Auto-Details') %></legend>
+
+  <div class="row g-3 mb-3">
+    <!-- 🏗️ Baujahr -->
+    <div class="col-md-2">
+      <label class="form-label"><%= t('edit_listing.cars.year','Baujahr') %></label>
+      <select name="year" class="form-select">
+        <option value="">---</option>
+        <% for (let y = new Date().getFullYear(); y >= 1900; y--) { %>
+          <option value="<%= y %>" <%= y == item.year ? 'selected' : '' %>><%= y %></option>
+        <% } %>
+      </select>
+    </div>
+
+    <!-- 🚗 Erstzulassung -->
+    <div class="col-md-4">
+      <label class="form-label d-block"><%= t('edit_listing.cars.first_registration','Erstzulassung') %></label>
+      <div class="d-flex listing-split-select">
+        <% const months = [
+          t('edit_listing.month.1','Januar'),
+          t('edit_listing.month.2','Februar'),
+          t('edit_listing.month.3','März'),
+          t('edit_listing.month.4','April'),
+          t('edit_listing.month.5','Mai'),
+          t('edit_listing.month.6','Juni'),
+          t('edit_listing.month.7','Juli'),
+          t('edit_listing.month.8','August'),
+          t('edit_listing.month.9','September'),
+          t('edit_listing.month.10','Oktober'),
+          t('edit_listing.month.11','November'),
+          t('edit_listing.month.12','Dezember')
+        ]; %>
+
+        <select name="firstregistration_month" class="form-select me-2 listing-month-select">
+          <option value=""><%= t('edit_listing.cars.month','Monat') %></option>
+          <% months.forEach((m, i) => { %>
+            <option value="<%= i + 1 %>" <%= (i + 1) == item.firstregistration_month ? 'selected' : '' %>><%= m %></option>
+          <% }) %>
+        </select>
+
+        <select name="firstregistration" class="form-select flex-grow-1">
+          <option value=""><%= t('edit_listing.cars.year_label','Jahr') %></option>
+          <% for (let y = new Date().getFullYear(); y >= 1900; y--) { %>
+            <option value="<%= y %>" <%= y == item.firstregistration ? 'selected' : '' %>><%= y %></option>
+          <% } %>
+        </select>
+      </div> 
+    </div>
+
+    <!-- 🔧 Nächste HU -->
+    <div class="col-md-4">
+      <label class="form-label d-block"><%= t('edit_listing.cars.next_inspection','Nächste HU') %></label>
+      <div class="d-flex listing-split-select">
+        <select name="maininspection_month" class="form-select me-2 listing-month-select">
+          <option value=""><%= t('edit_listing.cars.month','Monat') %></option>
+          <% months.forEach((m, i) => { %>
+            <option value="<%= i + 1 %>" <%= (i + 1) == item.maininspection_month ? 'selected' : '' %>><%= m %></option>
+          <% }) %>
+        </select>
+
+        <select name="maininspection" class="form-select flex-grow-1">
+          <option value=""><%= t('edit_listing.cars.year_label','Jahr') %></option>
+          <% for (let y = new Date().getFullYear() + 5; y >= 1900; y--) { %>
+            <option value="<%= y %>" <%= y == item.maininspection ? 'selected' : '' %>><%= y %></option>
+          <% } %>
+        </select>
+      </div>
+    </div>
+
+    <!-- ⚙️ Zustand -->
+    <div class="col-md-2">
+      <label for="shape" class="form-label"><%= t('edit_listing.cars.condition','Zustand') %></label>
+      <select id="shape" name="shape" class="form-select">
+        <option value="">---</option>
+        <% extras.shape.forEach(o => { %>
+          <option 
+            value="<%= o.value %>" 
+            <%= String(o.value) === String(item.shape) ? 'selected' : '' %>>
+            <%= t('filters.cars.shape.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+
+  <!-- Karosserieform / Farbe / Metallic -->
+  <div class="row g-3 mb-3 align-items-center">
+    <div class="col-md-4">
+      <label for="cartype" class="form-label">* <%= t('edit_listing.cars.body_type','Karosserieform') %></label>
+      <select id="cartype" name="cartype" class="form-select" >
+        <option value="">---</option>
+        <% extras.cartype.forEach(o => { %>
+          <option value="<%= o.value %>" <%= o.value == item.cartype ? 'selected' : '' %>><%= t('attribute.cars.cartype.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="color" class="form-label"><%= t('edit_listing.cars.color','Farbe') %></label>
+      <select id="color" name="color" class="form-select">
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% const colors = [
+          [9, t('edit_listing.cars.color.9','Beige')],[10, t('edit_listing.cars.color.10','Braun')],[14, t('edit_listing.cars.color.14','Bronze')],[18, t('edit_listing.cars.color.18','Champagnerfarben')],[23, t('edit_listing.cars.color.23','Cremefarben')],
+          [17, t('edit_listing.cars.color.17','Bordeaux')],[11, t('edit_listing.cars.color.11','Gelb')],[24, t('edit_listing.cars.color.24','Gold/Stahl')],[12, t('edit_listing.cars.color.12','Gold')],[8, t('edit_listing.cars.color.8','Grün')],[4, t('edit_listing.cars.color.4','Grau')],
+          [5, t('edit_listing.cars.color.5','Blau')],[3, t('edit_listing.cars.color.3','Rot')],[13, t('edit_listing.cars.color.13','Violett')],[7, t('edit_listing.cars.color.7','Orange')],[1, t('edit_listing.cars.color.1','Schwarz')],[6, t('edit_listing.cars.color.6','Silber')],[2, t('edit_listing.cars.color.2','Weiß')],
+          [16, t('edit_listing.cars.color.16','Transparent')],[15, t('edit_listing.cars.color.15','Perlweiß')],[19, t('edit_listing.cars.color.19','Pink')],[20, t('edit_listing.cars.color.20','Rosé')],[21, t('edit_listing.cars.color.21','Stahlfarben')],
+          [22, t('edit_listing.cars.color.22','Perlmutt')],[255, t('edit_listing.cars.color.255','Sonstige')]
+        ]; %>
+        <% colors.forEach(([val, label]) => { %>
+          <option value="<%= val %>" <%= val == item.color ? 'selected' : '' %>><%= label %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check" style="margin-top: 3.5rem;">
+        <input 
+          id="metallic" 
+          name="metallic" 
+          type="checkbox" 
+          class="form-check-input me-2" 
+          value="1"
+          style="width:18px; height:18px;"
+          <%= item.metallic == 1 ? 'checked' : '' %>>
+        <label for="metallic" class="form-check-label mb-0"><%= t('edit_listing.cars.metallic','Metallic') %></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Innenausstattung / Innenfarbe / Langzeitmiete -->
+  <div class="row g-3 mb-3 align-items-center">
+    <div class="col-md-4">
+      <label for="interior" class="form-label"><%= t('edit_listing.cars.interior','Innenausstattung') %></label>
+      <select id="interior" name="interior" class="form-select">
+        <option value="">---</option>
+        <% extras.interior.forEach(o => { %>
+          <option value="<%= o.value %>" <%= o.value == item.interior ? 'selected' : '' %>><%= t('attribute.cars.interior.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="interior_color" class="form-label"><%= t('edit_listing.cars.interior_color','Innenfarbe') %></label>
+      <select id="interior_color" name="interior_color" class="form-select">
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% colors.forEach(([val, label]) => { %>
+          <option value="<%= val %>" <%= val == item.interior_color ? 'selected' : '' %>><%= label %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <% if (user.registration_type === 'commercial') { %>
+      <div class="bg-danger bg-opacity-10 p-3 rounded mt-4 d-flex align-items-center">
+        <input 
+          id="longterm_rental" 
+          name="longterm_rental" 
+          type="checkbox" 
+          class="form-check-input me-2" 
+          value="1"
+          style="width:18px; height:18px;"
+          <%= item.longterm_rental == 1 ? 'checked' : '' %>>
+        <label for="longterm_rental" class="form-check-label mb-0"><%= t('edit_listing.cars.longterm_rental','Langzeitmiete') %></label>
+      </div>
+      <% } %>
+    </div>
+  </div>
+
+  <!-- Kraftstoff / Getriebe / Antrieb -->
+  <div class="row g-3 mb-3 align-items-center">
+    <div class="col-md-4">
+      <label for="fuel" class="form-label"><%= t('edit_listing.cars.fuel','Kraftstoff') %></label>
+      <select id="fuel" name="fuel" class="form-select" required>
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% extras.fuel.forEach(o => { %>
+          <option value="<%= o.value %>" <%= o.value == item.fuel ? 'selected' : '' %>><%= t('attribute.cars.fuel.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="gearbox" class="form-label"><%= t('edit_listing.cars.gearbox','Getriebe') %></label>
+      <select id="gearbox" name="gearbox" class="form-select" required>
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% extras.gearbox.forEach(o => { %>
+          <option value="<%= o.value %>" <%= o.value == item.gearbox ? 'selected' : '' %>><%= t('attribute.cars.gearbox.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="drivetrain" class="form-label"><%= t('edit_listing.cars.drivetrain','Antrieb') %></label>
+      <select id="drivetrain" name="drivetrain" class="form-select" >
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% extras.drivetrain.forEach(o => { %>
+          <option value="<%= o.value %>" <%= o.value == item.drivetrain ? 'selected' : '' %>><%= t('attribute.cars.drivetrain.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+
+    <!-- Farbe -->
+<% if (extras.color && extras.color.length) { %>
+  <div class="row mb-3">
+    <label for="color" class="col-sm-3 col-form-label text-end"><%= t('edit_listing.cars.color','Farbe') %></label>
+    <div class="col-sm-4">
+      <select id="color" name="color" class="form-select">
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% extras.color.forEach(o => { %>
+          <option 
+            value="<%= o.value %>" 
+            <%= String(o.value) === String(item.color) ? 'selected' : '' %>>
+            <%= t('attribute.cars.color.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+<% } %>
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.cars.section.tech','Technische Daten') %></legend>
+
+  <!-- Motor + Kilometer -->
+  <div class="row g-3 mb-3">
+<div class="col-md-4">
+  <label for="engine" class="form-label"><%= t('edit_listing.cars.engine','Motor') %></label>
+  <select id="engine" name="engine" class="form-select">
+    <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+    <% if (extras.engine && extras.engine.length) { %>
+      <% extras.engine.forEach(o => { %>
+        <option 
+          value="<%= o.value %>" 
+          data-sort-key="<%= t('attribute.cars.engine.' + o.value, o.label) %>"
+          <%= o.selected ? 'selected' : '' %>>
+          <%= t('attribute.cars.engine.' + o.value, o.label) %>
+        </option>
+      <% }) %>
+    <% } else { %>
+      <option disabled><%= t('edit_listing.cars.engine.none','Keine Motoroptionen gefunden') %></option>
+    <% } %>
+  </select>
+</div>
+
+<script>
+setTimeout(() => {
+  const engineSelect = document.getElementById('engine');
+  if (engineSelect) {
+    engineSelect.value = '<%= item.engine || "" %>';
+  }
+}, 500);
+</script>
+
+
+
+
+    <div class="col-md-4">
+      <label for="mileage" class="form-label"><%= t('edit_listing.cars.mileage','Kilometerstand (km)') %></label>
+      <input id="mileage"
+             name="mileage"
+             type="number"
+             class="form-control"
+             value="<%= item.mileage || '' %>">
+    </div>
+
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+  <!-- Hubraum / Leistung -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label for="capacity" class="form-label"><%= t('edit_listing.cars.capacity','Hubraum (cm³)') %></label>
+      <input id="capacity"
+             name="capacity"
+             type="number"
+             class="form-control"
+             value="<%= item.capacity || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="power_kw" class="form-label"><%= t('edit_listing.cars.power_kw','Leistung (kW)') %></label>
+      <input id="power_kw"
+             name="power"
+             type="number"
+             class="form-control"
+             value="<%= item.power || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="power_ps" class="form-label"><%= t('edit_listing.cars.power_ps','Leistung (PS)') %></label>
+      <input id="power_ps"
+             name="horsepower"
+             type="number"
+             class="form-control"
+             value="<%= item.horsepower || '' %>">
+    </div>
+  </div>
+
+  <!-- PS <-> kW Umrechnung -->
+  <script>
+  document.addEventListener('DOMContentLoaded', () => {
+    const kwInput = document.getElementById('power_kw');
+    const psInput = document.getElementById('power_ps');
+    if (!kwInput || !psInput) return;
+
+    const KW_TO_PS = 1.36;
+    let lock = false;
+
+    const toNum = (v) => {
+      if (v === '' || v === null || v === undefined) return NaN;
+      const n = parseFloat(String(v).replace(',', '.'));
+      return Number.isFinite(n) ? n : NaN;
+    };
+
+    kwInput.addEventListener('input', () => {
+      if (lock) return;
+      lock = true;
+      const kw = toNum(kwInput.value);
+      psInput.value = isNaN(kw) ? '' : Math.round(kw * KW_TO_PS);
+      lock = false;
+    });
+
+    psInput.addEventListener('input', () => {
+      if (lock) return;
+      lock = true;
+      const ps = toNum(psInput.value);
+      kwInput.value = isNaN(ps) ? '' : Math.round(ps / KW_TO_PS);
+      lock = false;
+    });
+  });
+  </script>
+
+  <!-- Fahrerseite -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label for="driving_side" class="form-label"><%= t('edit_listing.cars.driving_side','Fahrerseite') %></label>
+      <select id="driving_side" name="driving_side" class="form-select">
+        <option value="LHD" <%= item.driving_side === 'LHD' ? 'selected' : '' %>><%= t('edit_listing.cars.driving_side.lhd','Linkslenker (LHD)') %></option>
+        <option value="RHD" <%= item.driving_side === 'RHD' ? 'selected' : '' %>><%= t('edit_listing.cars.driving_side.rhd','Rechtslenker (RHD)') %></option>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+
+
+
+<!-- ─── Verbrauch ─── -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.cars.section.consumption','Verbrauch') %></legend>
+
+  <!-- Treibstoff & CO₂ -->
+  <div class="row g-3 align-items-center mb-3">
+
+    <div class="col-md-4">
+      <label for="co2" class="form-label"><%= t('edit_listing.cars.co2','CO₂ Emissionen komb. (g/km)') %></label>
+      <input id="co2"
+             name="emission_co2"
+             type="number"
+             class="form-control"
+             value="<%= item.emission_co2 || '' %>">
+    </div>
+
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+  <!-- Verbrauch innerorts / außerorts / kombiniert -->
+  <div class="row g-3 align-items-center mb-3">
+    <div class="col-md-4">
+      <label for="consumption_city" class="form-label"><%= t('edit_listing.cars.consumption_city','innerorts (l/100 km)') %></label>
+      <input id="consumption_city"
+             name="consumption_city"
+             type="number"
+             step="0.1"
+             class="form-control"
+             value="<%= item.consumption_city || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="consumption_country" class="form-label"><%= t('edit_listing.cars.consumption_country','außerorts (l/100 km)') %></label>
+      <input id="consumption_country"
+             name="consumption_country"
+             type="number"
+             step="0.1"
+             class="form-control"
+             value="<%= item.consumption_country || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="consumption_combined" class="form-label"><%= t('edit_listing.cars.consumption_combined','kombiniert (l/100 km)') %></label>
+      <input id="consumption_combined"
+             name="consumption_combined"
+             type="number"
+             step="0.1"
+             class="form-control"
+             value="<%= item.consumption_combined || '' %>">
+    </div>
+  </div>
+
+  <!-- Schadstoffklasse, Umweltplakette, Energieeffizienzklasse -->
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label for="emission_class" class="form-label"><%= t('edit_listing.cars.emission_class','Energieeffizienzklasse') %></label>
+      <select id="emission_class" name="emission_class" class="form-select">
+        <option value="">---</option>
+        <% extras.emission_class.forEach(o => { %>
+          <option 
+            value="<%= o.value %>" 
+            <%= String(o.value) === String(item.emission_class || '') ? 'selected' : '' %>>
+            <%= t('attribute.cars.emission_class.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="environmental_badge" class="form-label"><%= t('edit_listing.cars.environmental_badge','Umweltplakette') %></label>
+      <select id="environmental_badge" name="environmental_badge" class="form-select">
+        <option value="">---</option>
+        <% extras.environmental_badge.forEach(o => { %>
+          <option 
+            value="<%= o.value %>" 
+            <%= String(o.value) === String(item.environmental_badge || '') ? 'selected' : '' %>>
+            <%= t('filters.cars.environmental_badge.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="pollution_class" class="form-label"><%= t('edit_listing.cars.pollution_class','Schadstoffklasse') %></label>
+      <select id="pollution_class" name="pollution_class" class="form-select">
+        <option value="">---</option>
+        <% extras.pollution_class.forEach(o => { %>
+          <option 
+            value="<%= o.value %>" 
+            <%= String(o.value) === String(item.pollution_class || '') ? 'selected' : '' %>>
+            <%= t('attribute.cars.pollution_class.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  // Sortiere Umweltplakette numerisch
+  const select = document.getElementById("environmental_badge");
+  if (!select) return;
+
+  const firstOption = select.querySelector('option[value=""]');
+  const options = Array.from(select.options).filter(o => o.value !== "");
+
+  options.sort((a, b) => a.text.localeCompare(b.text, 'de', { numeric: true }));
+  select.innerHTML = "";
+  select.appendChild(firstOption);
+  options.forEach(o => select.appendChild(o));
+
+  // Falls im Datensatz bereits ein Wert gespeichert ist, diesen wieder aktivieren
+  select.value = "<%= item.environmental_badge || '' %>";
+});
+</script>
+
+
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.cars.section.safety','Sicherheit') %></legend>
+
+  <!-- Airbags -->
+  <div class="row g-3 align-items-center mb-3">
+    <div class="col-md-4">
+      <label for="airbags" class="form-label"><%= t('edit_listing.cars.airbags','Airbags') %></label>
+      <select id="airbags" name="airbags" class="form-select">
+        <option value="">---</option>
+        <% if (extras.airbags && extras.airbags.length > 0) { %>
+          <% extras.airbags.forEach(o => { %>
+            <option 
+              value="<%= o.value %>" 
+              <%= String(o.value) === String(item.airbags || '') ? 'selected' : '' %>>
+              <%= t('attribute.cars.airbags.' + o.value, o.label) %>
+            </option>
+          <% }) %>
+        <% } else { %>
+          <option disabled><%= t('edit_listing.select.none','Keine Optionen gefunden') %></option>
+        <% } %>
+      </select>
+    </div>
+    <div class="col-md-4 d-none d-md-block"></div>
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+  <!-- Isofix + Fahrassistenzsysteme -->
+  <% if (checkboxGroups.Fahrassistenzsysteme) { %>
+    <div class="row g-3 mb-3">
+      <div class="col-md-4">
+        <div class="form-check">
+        <input type="hidden" name="isofix" value="0">
+        <input 
+          id="isofix"
+          name="isofix"
+          type="checkbox"
+          class="form-check-input"
+          value="1"
+          <%= ['1', 1, true, 'true', 'on'].includes(item.isofix) ? 'checked' : '' %>>
+        <label for="isofix" class="form-check-label">
+          <%= t('edit_listing.cars.isofix','Isofix (Kindersitzbefestigung)') %>
+        </label>
+      </div>
+      </div>
+      <% checkboxGroups.Fahrassistenzsysteme.forEach(field => { %>
+        <div class="col-md-4">
+          <!-- Hidden-Input, damit bei deaktivierter Checkbox ein "0" gesendet wird -->
+          <input type="hidden" name="<%= field.name %>" value="0">
+          <div class="form-check">
+            <input 
+              class="form-check-input" 
+              type="checkbox" 
+              id="<%= field.name %>" 
+              name="<%= field.name %>" 
+              value="1" 
+              <%= field.checked %>>
+            <label class="form-check-label" for="<%= field.name %>">
+              <%= labelOf(field.name) %>
+            </label>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+
+  <!-- Basis-Sicherheit (ABS / ESP / ASR) -->
+  <% if (checkboxGroups.Sicherheit) { %>
+    <div class="row g-3 mb-1">
+      <% checkboxGroups.Sicherheit.forEach(field => { %>
+        <div class="col-md-4">
+          <input type="hidden" name="<%= field.name %>" value="0">
+          <div class="form-check">
+            <input
+              class="form-check-input"
+              type="checkbox"
+              id="<%= field.name %>"
+              name="<%= field.name %>"
+              value="1"
+              <%= field.checked %>>
+            <label class="form-check-label" for="<%= field.name %>">
+              <%= labelOf(field.name) %>
+            </label>
+          </div>
+        </div>
+      <% }) %>
+    </div>
+  <% } %>
+
+</fieldset>
+
+
+<% Object.entries(checkboxGroups).forEach(([legend, keys]) => { %>
+  <% if (legend === 'Assistenzsysteme' || legend === 'Fahrassistenzsysteme' || legend === 'Sicherheit') return; %>
+  <%
+    const legendKeyOverrides = {
+      'Fahrzeug': 'buyer.listing.car.features.Fahrzeug_Extras',
+      'Reifen & Pakete': 'buyer.listing.car.features.Extras'
+    };
+    const legendKey = legendKeyOverrides[legend] || ('buyer.listing.car.features.' + legend);
+    const legendTitle = t(legendKey, legend);
+  %>
+  <fieldset class="border rounded p-4 mb-4">
+    <legend class="fs-5 mb-3"><%= legendTitle %></legend>
+
+    <% if (legend === 'Infotainment') { %>
+      <div class="row g-4">
+
+        <!-- 🟩 Block 1 -->
+        <div class="col-md-4 px-4">
+          <% ["tuner_radio","mp3interface","soundsystem","radio_dab","cdplayer"].forEach(field => { %>
+            <div class="form-check mb-3">
+              <input type="hidden" name="<%= field %>" value="0">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="<%= field %>" 
+                name="<%= field %>" 
+                value="1"
+                <%= ['1', 1, true, 'true', 'on'].includes(item[field]) ? 'checked' : '' %>>
+              <label class="form-check-label" for="<%= field %>"><%= labelOf(field) %></label>
+            </div>
+          <% }) %>
+        </div>
+
+        <!-- 🟥 Block 2 -->
+        <div class="col-md-4 px-4">
+          <% ["bluetooth","apple_car_play","android_auto","wifi_hotspot","music_streaming"].forEach(field => { %>
+            <div class="form-check mb-3">
+              <input type="hidden" name="<%= field %>" value="0">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="<%= field %>" 
+                name="<%= field %>" 
+                value="1"
+                <%= ['1', 1, true, 'true', 'on'].includes(item[field]) ? 'checked' : '' %>>
+              <label class="form-check-label" for="<%= field %>"><%= labelOf(field) %></label>
+            </div>
+          <% }) %>
+        </div>
+
+        <!-- 🟨 Block 3 -->
+        <div class="col-md-4 px-4">
+          <% ["navigation","tv","touchscreen","voice_control"].forEach(field => { %>
+            <div class="form-check mb-3">
+              <input type="hidden" name="<%= field %>" value="0">
+              <input 
+                class="form-check-input" 
+                type="checkbox" 
+                id="<%= field %>" 
+                name="<%= field %>" 
+                value="1"
+                <%= ['1', 1, true, 'true', 'on'].includes(item[field]) ? 'checked' : '' %>>
+              <label class="form-check-label" for="<%= field %>"><%= labelOf(field) %></label>
+            </div>
+          <% }) %>
+        </div>
+      </div>
+
+    <% } else { %>
+      <!-- 🔸 Standardgruppen -->
+      <div class="row g-3">
+        <% if (legend === 'Komfort') { %>
+          <div class="col-12">
+            <label for="climatisation" class="form-label"><%= t('edit_listing.cars.climatisation','Klimaanlage') %></label>
+            <select id="climatisation" name="climatisation" class="form-select" style="max-width: 420px;">
+              <option value="">---</option>
+              <% if (extras.climatisation && extras.climatisation.length > 0) { %>
+                <% extras.climatisation
+                  .sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
+                  .forEach(o => { %>
+                    <option 
+                      value="<%= o.value %>" 
+                      <%= String(o.value) === String(item.climatisation || '') ? 'selected' : '' %>>
+                      <%= t('attribute.cars.climatisation.' + o.value, o.label) %>
+                    </option>
+                <% }) %>
+              <% } %>
+            </select>
+          </div>
+        <% } %>
+
+        <% keys.forEach(field => { %>
+          <div class="col-md-4">
+            <input type="hidden" name="<%= field.name %>" value="0">
+            <div class="form-check">
+              <input 
+                class="form-check-input"
+                type="checkbox"
+                id="<%= field.name %>"
+                name="<%= field.name %>"
+                value="1"
+                <%= field.checked %>>
+              <label class="form-check-label" for="<%= field.name %>">
+                <%= labelOf(field.name) %>
+              </label>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </fieldset>
+<% }) %>
+
+
+  </fieldset>
+<% } %> 
+
+        <% /* ---------- UHREN ---------- */ %>
+
+<% if (ent.route === 'watches') { %>
+
+  <!-- ─── Allgemeine  ─── -->
+<fieldset class="border rounded p-4 mb-4 bg-white">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.watches.section.base','Basisdaten') %></legend>
+
+  <div class="row g-3 align-items-center mb-3">
+
+    <!-- Marke -->
+    <div class="col-md-4">
+      <label for="brand_id" class="form-label">* <%= t('edit_listing.watches.brand','Marke') %></label>
+      <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
+        <option value="" disabled <%= !item.brand_id ? 'selected' : '' %>><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% if (filters.brands && filters.brands.length) { %>
+          <% filters.brands.forEach(b => { %>
+            <option 
+              value="<%= b.id %>" 
+              <%= String(item.brand_id) === String(b.id) ? 'selected' : '' %>>
+              <%= b.name %>
+            </option>
+          <% }) %>
+        <% } else { %>
+          <option value=""><%= t('edit_listing.watches.brands.none','Keine Marken verfügbar') %></option>
+        <% } %>
+      </select>
+    </div>
+
+    <!-- Modell -->
+    <div class="col-md-4">
+      <label for="model_id" class="form-label">* <%= t('edit_listing.watches.model','Modell') %></label>
+      <select id="model_id" name="model_id" class="form-select" <%= _brandModelRequiredAttr %>>
+        <% if (filters.models && filters.models.length && item.brand_id) { %>
+          <% filters.models
+              .filter(m => String(m.brand_id) === String(item.brand_id))
+              .forEach(m => { %>
+                <option 
+                  value="<%= m.id %>" 
+                  <%= String(item.model_id) === String(m.id) ? 'selected' : '' %>>
+                  <%= m.name %>
+                </option>
+          <% }) %>
+        <% } else { %>
+          <option value=""><%= t('edit_listing.watches.model.choose_brand_first','Bitte zuerst Marke wählen …') %></option>
+        <% } %>
+      </select>
+    </div>
+
+    <!-- Referenznummer -->
+    <div class="col-md-4">
+      <label for="reference" class="form-label"><%= t('edit_listing.watches.reference','Referenznummer') %></label>
+      <input 
+        id="reference"
+        name="reference"
+        type="text"
+        class="form-control"
+        placeholder="<%= t('edit_listing.watches.reference.placeholder','z. B. 126710BLRO') %>"
+        value="<%= item.reference || '' %>">
+    </div>
+
+  </div>
+</fieldset>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const brandSelect = document.getElementById('brand_id');
+  const modelSelect = document.getElementById('model_id');
+  const currentModelId = "<%= item.model_id || '' %>";
+
+  async function loadModels(brandId) {
+    if (!brandId) {
+      modelSelect.disabled = true;
+      modelSelect.innerHTML = `<option value="">${<%- JSON.stringify(t('edit_listing.watches.model.choose_brand_first','Bitte zuerst Marke wählen …')) %>}</option>`;
+      return;
+    }
+
+    modelSelect.disabled = true;
+    modelSelect.innerHTML = `<option>${<%- JSON.stringify(t('edit_listing.watches.model.loading','Lade Modelle...')) %>}</option>`;
+
+    try {
+      const res = await fetch(`/buyer/api/models/${brandId}`);
+      const payload = await res.json();
+      const models = Array.isArray(payload)
+        ? payload
+        : (Array.isArray(payload?.models) ? payload.models : []);
+
+      console.log("📦 Modelle geladen (Frontend):", models);
+
+      if (!res.ok || models.length === 0) {
+        modelSelect.innerHTML = `<option>${<%- JSON.stringify(t('edit_listing.watches.model.none','Keine Modelle gefunden')) %>}</option>`;
+        modelSelect.disabled = true;
+        return;
+      }
+
+      modelSelect.disabled = false;
+      modelSelect.innerHTML = `<option value="">${<%- JSON.stringify(t('edit_listing.select.choose','Bitte wählen …')) %>}</option>`;
+
+      models.forEach(m => {
+        const selected = String(m.id) === String(currentModelId) ? 'selected' : '';
+        modelSelect.innerHTML += `<option value="${m.id}" ${selected}>${m.name}</option>`;
+      });
+
+    } catch (err) {
+      console.error("❌ Fehler beim Laden der Modelle:", err);
+      modelSelect.innerHTML = `<option>${<%- JSON.stringify(t('edit_listing.watches.model.error','Fehler beim Laden')) %>}</option>`;
+      modelSelect.disabled = false;
+    }
+  }
+
+  // Nur nachladen, wenn serverseitig noch keine Model-Optionen vorhanden sind
+  const hasInitialModels = modelSelect.options.length > 0 && Array.from(modelSelect.options).some(o => o.value);
+  if (brandSelect.value && !hasInitialModels) {
+    await loadModels(brandSelect.value);
+  }
+
+  // Beim Wechsel der Marke Modelle neu laden
+  brandSelect.addEventListener("change", () => loadModels(brandSelect.value));
+});
+</script>
+
+
+
+
+
+<fieldset class="border rounded p-4 mb-4 bg-white">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.watches.section.details','Details') %></legend>
+
+  <div class="row g-3 align-items-center">
+
+    <!-- Uhrentyp -->
+    <div class="col-md-4">
+      <label for="watchtype" class="form-label">* <%= t('edit_listing.watches.type','Uhrentyp') %></label>
+      <select name="watchtype" id="watchtype" class="form-select" required>
+        <option value="" disabled <%= !item.watchtype ? 'selected' : '' %>><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <option value="1" <%= item.watchtype == 1 ? 'selected' : '' %>><%= t('edit_listing.watches.type.wristwatch','Armbanduhr') %></option>
+        <option value="2" <%= item.watchtype == 2 ? 'selected' : '' %>><%= t('edit_listing.watches.type.pocket','Taschenuhr') %></option>
+        <option value="3" <%= item.watchtype == 3 ? 'selected' : '' %>><%= t('edit_listing.watches.type.table','Tischuhr') %></option>
+        <option value="4" <%= item.watchtype == 4 ? 'selected' : '' %>><%= t('category.watches.antique','Antike Uhr') %></option>
+        <option value="5" <%= item.watchtype == 5 ? 'selected' : '' %>><%= t('category.watches.standuhr','Standuhr') %></option>
+        <option value="6" <%= item.watchtype == 6 ? 'selected' : '' %>><%= t('category.watches.wanduhr', 'Wanduhr') %></option>
+        <option value="255" <%= item.watchtype == 255 ? 'selected' : '' %>><%= t('edit_listing.watches.type.other','Sonstige Uhr') %></option>
+      </select>
+    </div>
+
+    <!-- Uhrenglas -->
+    <div class="col-md-4">
+      <label for="crystal" class="form-label"><%= t('edit_listing.watches.crystal','Uhrenglas') %></label>
+      <select id="crystal" name="crystal" class="form-select">
+        <option value="">---</option>
+        <% (extras.crystal || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= String(item.crystal) === String(o.value) ? 'selected' : '' %>>
+            <%= t('attribute.watch.crystal.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Durchmesser -->
+    <div class="col-md-4">
+      <label for="diameter" class="form-label"><%= t('edit_listing.watches.diameter','Durchmesser (mm)') %></label>
+      <input id="diameter" name="diameter" type="number" class="form-control" value="<%= item.diameter || '' %>">
+    </div>
+
+    <!-- Höhe -->
+    <div class="col-md-4">
+      <label for="height" class="form-label"><%= t('edit_listing.watches.height','Höhe (mm)') %></label>
+      <input id="height" name="height" type="number" class="form-control" value="<%= item.height || '' %>">
+    </div>
+
+    <!-- Geschlecht -->
+    <div class="col-md-4">
+      <label for="gender" class="form-label"><%= t('edit_listing.watches.gender','Geschlecht') %></label>
+      <select id="gender" name="gender" class="form-select">
+        <option value="" <%= !item.gender ? 'selected' : '' %>>---</option>
+        <option value="2" <%= item.gender == 2 ? 'selected' : '' %>><%= t('watch.gender.men','Herren/Unisex') %></option>
+        <option value="3" <%= item.gender == 3 ? 'selected' : '' %>><%= t('watch.gender.women','Damen') %></option>
+      </select>
+    </div>
+
+    <!-- Wasserdicht -->
+    <div class="col-md-4">
+      <label for="feature_waterresistant" class="form-label"><%= t('edit_listing.watches.waterresistant','Wasserdicht') %></label>
+      <select id="feature_waterresistant" name="feature_waterresistant" class="form-select">
+        <option value="0" <%= item.feature_waterresistant == 0 ? 'selected' : '' %>><%= t('edit_listing.watches.waterresistant.0','Nicht wasserdicht') %></option>
+        <option value="1" <%= item.feature_waterresistant == 1 ? 'selected' : '' %>><%= t('edit_listing.watches.waterresistant.1','Spritzwassergeschützt') %></option>
+        <option value="2" <%= item.feature_waterresistant == 2 ? 'selected' : '' %>><%= t('edit_listing.watches.waterresistant.2','Wasserdicht bis 30m') %></option>
+        <option value="3" <%= item.feature_waterresistant == 3 ? 'selected' : '' %>><%= t('edit_listing.watches.waterresistant.3','Wasserdicht bis 50m') %></option>
+        <option value="4" <%= item.feature_waterresistant == 4 ? 'selected' : '' %>><%= t('edit_listing.watches.waterresistant.4','Wasserdicht bis 100m') %></option>
+        <option value="5" <%= item.feature_waterresistant == 5 ? 'selected' : '' %>><%= t('edit_listing.watches.waterresistant.5','Wasserdicht bis 200m') %></option>
+        <option value="6" <%= item.feature_waterresistant == 6 ? 'selected' : '' %>><%= t('edit_listing.watches.waterresistant.6','Tauchergeeignet (professionell)') %></option>
+      </select>
+    </div>
+
+
+    <!-- Baujahr -->
+    <div class="col-md-4">
+      <label for="year" class="form-label"><%= t('edit_listing.watches.year','Baujahr') %></label>
+      <select id="year" name="year" class="form-select">
+        <option value="">---</option>
+        <% 
+          const currentYear = new Date().getFullYear();
+          for (let y = currentYear; y >= 1900; y--) { 
+        %>
+          <option value="<%= y %>" <%= String(item.year) === String(y) ? 'selected' : '' %>><%= y %></option>
+        <% } %>
+      </select>
+    </div>
+
+    <!-- Zustand -->
+<div class="col-md-4">
+  <label for="used" class="form-label"><%= t('edit_listing.watches.condition','Zustand') %></label>
+  <select id="used" name="used" class="form-select" required>
+    <option value="">---</option>
+    <option value="0" <%= item.used == 0 ? 'selected' : '' %>><%= t('edit_listing.watches.condition.0','Ungetragen') %></option>
+    <option value="1" <%= item.used == 1 ? 'selected' : '' %>><%= t('edit_listing.watches.condition.1','Sehr Gut') %></option>
+    <option value="2" <%= item.used == 2 ? 'selected' : '' %>><%= t('edit_listing.watches.condition.2','Gut') %></option>
+    <option value="3" <%= item.used == 3 ? 'selected' : '' %>><%= t('edit_listing.watches.condition.3','Gebraucht') %></option>
+    <option value="4" <%= item.used == 4 ? 'selected' : '' %>><%= t('edit_listing.watches.condition.4','Mangelhaft') %></option>
+  </select>
+</div>
+
+
+    <!-- Platzhalter für saubere 3-Spalten-Optik -->
+    <div class="col-md-4 d-none d-md-block"></div>
+
+  </div>
+</fieldset>
+
+
+
+<fieldset class="border rounded p-4 mb-4 bg-white">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.watches.section.material_color','Material &amp; Farbe') %></legend>
+
+  <div class="row g-3 align-items-center">
+    <!-- Gehäusematerial -->
+    <div class="col-md-4">
+      <label for="case_material" class="form-label"><%= t('edit_listing.watches.case_material','Gehäusematerial') %></label>
+      <select id="case_material" name="case_material" class="form-select">
+        <option value="">---</option>
+        <% (extras.case_material || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= String(item.case_material) === String(o.value) ? 'selected' : '' %>>
+            <%= t('watches.case_material.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Material des Armbandes -->
+    <div class="col-md-4">
+      <label for="strap_material" class="form-label"><%= t('edit_listing.watches.strap_material','Material des Armbandes') %></label>
+      <select id="strap_material" name="strap_material" class="form-select">
+        <option value="">---</option>
+        <% (extras.strap_material || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= String(item.strap_material) === String(o.value) ? 'selected' : '' %>>
+            <%= t('watches.option.strap_material.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Farbe des Armbandes -->
+    <div class="col-md-4">
+      <label for="strap_color" class="form-label"><%= t('edit_listing.watches.strap_color','Farbe des Armbandes') %></label>
+      <select id="strap_color" name="strap_color" class="form-select">
+        <option value="0">---</option>
+        <% const strapColors = [
+          { id: 24, name: t('edit_listing.watches.color.24','Gold/Stahl') }, { id: 9, name: t('edit_listing.watches.color.9','Beige') }, { id: 5, name: t('edit_listing.watches.color.5','Blau') },
+          { id: 17, name: t('edit_listing.watches.color.17','Bordeaux') }, { id: 10, name: t('edit_listing.watches.color.10','Braun') }, { id: 14, name: t('edit_listing.watches.color.14','Bronze') },
+          { id: 18, name: t('edit_listing.watches.color.18','Champagnerfarben') }, { id: 23, name: t('edit_listing.watches.color.23','Cremefarben') },
+          { id: 11, name: t('edit_listing.watches.color.11','Gelb') }, { id: 12, name: t('edit_listing.watches.color.12','Gold') }, { id: 4, name: t('edit_listing.watches.color.4','Grau') },
+          { id: 8, name: t('edit_listing.watches.color.8','Grün') }, { id: 7, name: t('edit_listing.watches.color.7','Orange') }, { id: 22, name: t('edit_listing.watches.color.22','Perlmutt') },
+          { id: 15, name: t('edit_listing.watches.color.15','Perlweiß') }, { id: 19, name: t('edit_listing.watches.color.19','Pink') }, { id: 20, name: t('edit_listing.watches.color.20','Rosé') },
+          { id: 3, name: t('edit_listing.watches.color.3','Rot') }, { id: 1, name: t('edit_listing.watches.color.1','Schwarz') }, { id: 6, name: t('edit_listing.watches.color.6','Silber') },
+          { id: 255, name: t('edit_listing.watches.color.255','Sonstige') }, { id: 21, name: t('edit_listing.watches.color.21','Stahlfarben') },
+          { id: 16, name: t('edit_listing.watches.color.16','Transparent') }, { id: 13, name: t('edit_listing.watches.color.13','Violett') }, { id: 2, name: t('edit_listing.watches.color.2','Weiß') }
+        ]; %>
+        <% strapColors.forEach(c => { %>
+          <option value="<%= c.id %>" <%= String(item.strap_color) === String(c.id) ? 'selected' : '' %>>
+            <%= c.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Material Schließe -->
+    <div class="col-md-4">
+      <label for="clasp_material" class="form-label"><%= t('edit_listing.watches.clasp_material','Material Schließe') %></label>
+      <select id="clasp_material" name="clasp_material" class="form-select">
+        <% const claspMaterials = [
+          { id: 0, name: t('edit_listing.watches.material.0','---') }, { id: 12, name: t('edit_listing.watches.material.12','Aluminium') }, { id: 15, name: t('edit_listing.watches.material.15','Bronze') },
+          { id: 16, name: t('edit_listing.watches.material.16','Carbon') }, { id: 4, name: t('edit_listing.watches.material.4','Gelbgold') }, { id: 8, name: t('edit_listing.watches.material.8','Gold/Stahl') },
+          { id: 9, name: t('edit_listing.watches.material.9','Keramik') }, { id: 14, name: t('edit_listing.watches.material.14','Kunststoff') }, { id: 13, name: t('edit_listing.watches.material.13','PVD-beschichtet') },
+          { id: 10, name: t('edit_listing.watches.material.10','Palladium') }, { id: 5, name: t('edit_listing.watches.material.5','Platin') }, { id: 1, name: t('edit_listing.watches.material.1','Roségold') },
+          { id: 6, name: t('edit_listing.watches.material.6','Rotgold') }, { id: 11, name: t('edit_listing.watches.material.11','Silber') }, { id: 2, name: t('edit_listing.watches.material.2','Stahl') },
+          { id: 17, name: t('edit_listing.watches.material.17','Tantal') }, { id: 7, name: t('edit_listing.watches.material.7','Titan') }, { id: 3, name: t('edit_listing.watches.material.3','Weißgold') },
+          { id: 18, name: t('edit_listing.watches.material.18','Wolfram') }, { id: 255, name: t('edit_listing.watches.material.255','Sonstige') }
+        ]; %>
+        <% claspMaterials.forEach(m => { %>
+          <option value="<%= m.id %>" <%= String(item.clasp_material) === String(m.id) ? 'selected' : '' %>>
+            <%= m.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Schließe -->
+    <div class="col-md-4">
+      <label for="clasp_type" class="form-label"><%= t('edit_listing.watches.clasp_type','Schließe') %></label>
+      <select id="clasp_type" name="clasp_type" class="form-select">
+        <% const claspTypes = [
+          { id: 0, name: t('edit_listing.watches.clasp_type.0','---') },
+          { id: 1, name: t('edit_listing.watches.clasp_type.1','Dornschließe') },
+          { id: 2, name: t('edit_listing.watches.clasp_type.2','Faltschließe') },
+          { id: 3, name: t('edit_listing.watches.clasp_type.3','Doppelfaltschließe') },
+          { id: 4, name: t('edit_listing.watches.clasp_type.4','Faltschließe, verdeckt') },
+          { id: 5, name: t('edit_listing.watches.clasp_type.5','Schmuckschließe') }
+        ]; %>
+        <% claspTypes.forEach(c => { %>
+          <option value="<%= c.id %>" <%= String(item.clasp_type) === String(c.id) ? 'selected' : '' %>>
+            <%= c.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Material Lünette -->
+    <div class="col-md-4">
+      <label for="bezel_material" class="form-label"><%= t('edit_listing.watches.bezel_material','Material Lünette') %></label>
+      <select id="bezel_material" name="bezel_material" class="form-select">
+        <% claspMaterials.forEach(m => { %>
+          <option value="<%= m.id %>" <%= String(item.bezel_material) === String(m.id) ? 'selected' : '' %>>
+            <%= m.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Farbe Zifferblatt -->
+    <div class="col-md-4">
+      <label for="dial_color" class="form-label"><%= t('edit_listing.watches.dial_color','Farbe des Zifferblattes') %></label>
+      <select id="dial_color" name="dial_color" class="form-select">
+        <% strapColors.forEach(c => { %>
+          <option value="<%= c.id %>" <%= String(item.dial_color) === String(c.id) ? 'selected' : '' %>>
+            <%= c.name %>
+          </option>
+        <% }) %>
+        <% if (!strapColors.some(c => String(c.id) === '25')) { %>
+          <option value="25" <%= String(item.dial_color) === '25' ? 'selected' : '' %>>
+            <%= t('watches.dial_color.25', 'Skelettiert') %>
+          </option>
+        <% } %>
+      </select>
+    </div>
+
+    <!-- Form des Zifferblattes -->
+    <div class="col-md-4">
+      <label for="dial_shape" class="form-label"><%= t('edit_listing.watches.dial_shape','Form des Zifferblattes') %></label>
+      <select id="dial_shape" name="dial_shape" class="form-select">
+        <option value="">---</option>
+        <% (extras.dial_shape || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= String(item.dial_shape) === String(o.value) ? 'selected' : '' %>>
+            <%= t('watches.dial_shape.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Zahlen Zifferblatt -->
+    <div class="col-md-4">
+      <label for="dial_numbers" class="form-label"><%= t('edit_listing.watches.dial_numbers','Zahlen Zifferblatt') %></label>
+      <select id="dial_numbers" name="dial_numbers" class="form-select">
+        <option value="">---</option>
+        <% (extras.dial_numbers || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= String(item.dial_numbers) === String(o.value) ? 'selected' : '' %>>
+            <%= t('watches.dial_numbers.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+
+
+<fieldset class="border rounded p-4 mb-4 bg-white">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.watches.section.movement','Kaliber / Werk') %></legend>
+
+  <div class="row g-3">
+    <!-- Aufzug -->
+<div class="col-md-4">
+  <label for="movement" class="form-label"><%= t('edit_listing.watches.movement','Aufzug') %></label>
+  <select id="movement" name="movement" class="form-select">
+    <option value="">---</option>
+    <option value="1" <%= String(item.movement) === '1' ? 'selected' : '' %>><%= t('edit_listing.watches.movement.1','Automatik') %></option>
+    <option value="2" <%= String(item.movement) === '2' ? 'selected' : '' %>><%= t('edit_listing.watches.movement.2','Handaufzug') %></option>
+    <option value="3" <%= String(item.movement) === '3' ? 'selected' : '' %>><%= t('edit_listing.watches.movement.3','Quarz') %></option>
+  </select>
+</div>
+
+
+    <!-- Gangreserve -->
+    <div class="col-md-4">
+      <label for="power_reserve" class="form-label"><%= t('edit_listing.watches.power_reserve','Gangreserve (h)') %></label>
+      <input 
+        id="power_reserve"
+        name="power_reserve"
+        type="number"
+        class="form-control"
+        min="0"
+        value="<%= item.power_reserve || '' %>"
+      >
+    </div>
+
+    <!-- Steine -->
+    <div class="col-md-4">
+      <label for="jewels_number" class="form-label"><%= t('edit_listing.watches.jewels','Steine') %></label>
+      <input 
+        id="jewels_number"
+        name="jewels_number"
+        type="number"
+        class="form-control"
+        min="0"
+        value="<%= item.jewels_number ?? '' %>"
+      >
+    </div>
+
+    <!-- Schwingung -->
+    <div class="col-md-4">
+      <label for="frequency" class="form-label"><%= t('edit_listing.watches.frequency','Schwingung (Hz)') %></label>
+      <input 
+        id="frequency"
+        name="frequency"
+        type="number"
+        class="form-control"
+        min="0"
+        value="<%= item.frequency || '' %>"
+      >
+    </div>
+
+    <!-- Layout-Platzhalter -->
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+  <div class="row g-3 align-items-center mt-3">
+    <!-- Kaliber/Werk -->
+    <div class="col-md-6">
+      <label for="caliber" class="form-label"><%= t('edit_listing.watches.caliber','Kaliber / Werk') %></label>
+      <input 
+        id="caliber"
+        name="caliber"
+        type="text"
+        class="form-control"
+        value="<%= item.caliber || '' %>"
+      >
+    </div>
+
+    <!-- Basiskaliber -->
+    <div class="col-md-6">
+      <label for="movement_caliber" class="form-label"><%= t('edit_listing.watches.base_caliber','Basiskaliber') %></label>
+      <input 
+        id="movement_caliber"
+        name="movement_caliber"
+        type="text"
+        class="form-control"
+        value="<%= item.movement_caliber || '' %>"
+      >
+    </div>
+  </div>
+</fieldset>
+
+
+<!-- ─── Lieferumfang ─── -->
+<fieldset class="border rounded p-4 mb-4 bg-white">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.watches.section.scope','Lieferumfang') %></legend>
+  <div class="row g-3">
+    <!-- Echtheits-Zertifikat -->
+    <div class="col-md-4">
+      <div class="form-check">
+        <input 
+          class="form-check-input" 
+          type="checkbox" 
+          id="auth_certificate" 
+          name="auth_certificate" 
+          value="1"
+          <%= item.authenticity_papers == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="auth_certificate"><%= t('edit_listing.watches.scope.certificate','Echtheits-Zertifikat') %></label>
+      </div>
+    </div>
+
+    <!-- Box -->
+    <div class="col-md-4">
+      <div class="form-check">
+        <input 
+          class="form-check-input" 
+          type="checkbox" 
+          id="box" 
+          name="box" 
+          value="1"
+          <%= item.authenticity_box == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="box"><%= t('edit_listing.watches.scope.box','Box') %></label>
+      </div>
+    </div>
+
+    <!-- Echtheits-Garantie -->
+    <div class="col-md-4">
+      <div class="form-check">
+        <input 
+          class="form-check-input" 
+          type="checkbox" 
+          id="auth_guarantee" 
+          name="auth_guarantee" 
+          value="1"
+          <%= item.authenticity_warranty == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="auth_guarantee"><%= t('edit_listing.watches.scope.guarantee','Echtheits-Garantie') %></label>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
+
+
+<!-- ─── Funktionen ─── -->
+<fieldset class="border rounded p-4 mb-4 bg-white">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.watches.section.functions','Funktionen') %></legend>
+  <div class="row g-3">
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="alarm" name="alarm" value="1"
+               <%= item.function_alarm == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="alarm"><%= t('edit_listing.watches.function.alarm','Wecker') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="chronograph" name="chronograph" value="1"
+               <%= item.function_chronograph == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="chronograph"><%= t('edit_listing.watches.function.chronograph','Chronograph') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="date" name="date" value="1"
+               <%= item.function_date == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="date"><%= t('edit_listing.watches.function.date','Datum') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="weekday_display" name="weekday_display" value="1"
+               <%= item.function_day == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="weekday_display"><%= t('edit_listing.watches.function.weekday','Wochentagsanzeige') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="month_display" name="month_display" value="1"
+               <%= item.function_month == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="month_display"><%= t('edit_listing.watches.function.month','Monatsanzeige') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="annual_calendar" name="annual_calendar" value="1"
+               <%= item.function_year == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="annual_calendar"><%= t('edit_listing.watches.function.year','Jahreskalender') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="four_year_calendar" name="four_year_calendar" value="1"
+               <%= item.function_4year == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="four_year_calendar"><%= t('edit_listing.watches.function.4year','Vierjahreskalender') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="gmt" name="gmt" value="1"
+               <%= item.function_gmt == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="gmt"><%= t('edit_listing.watches.function.gmt','GMT / Zweite Zeitzone') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="equation_of_time" name="equation_of_time" value="1"
+               <%= item.function_timeequation == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="equation_of_time"><%= t('edit_listing.watches.function.time_equation','Zeitgleichung') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="minute_repeater" name="minute_repeater" value="1"
+               <%= item.function_minuterepeater == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="minute_repeater"><%= t('edit_listing.watches.function.minute_repeater','Minutenrepetition') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="repetition" name="repetition" value="1"
+               <%= item.function_repetition == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="repetition"><%= t('edit_listing.watches.function.repetition','Repetition') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="jumping_hour" name="jumping_hour" value="1"
+               <%= item.function_jumping_hour == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="jumping_hour"><%= t('edit_listing.watches.function.jumping_hour','Springende Stunde') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="split_chrono" name="split_chrono" value="1"
+               <%= item.function_double_chronograph == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="split_chrono"><%= t('edit_listing.watches.function.split_chrono','Doppelchronograph') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="panorama_date" name="panorama_date" value="1"
+               <%= item.function_panorama == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="panorama_date"><%= t('edit_listing.watches.function.panorama_date','Panoramadatum') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="moon_phase" name="moon_phase" value="1"
+               <%= item.function_moonphase == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="moon_phase"><%= t('edit_listing.watches.function.moon_phase','Mondphase') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="calendar" name="calendar" value="1"
+               <%= item.function_calendar == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="calendar"><%= t('edit_listing.watches.function.calendar','Kalender') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="small_seconds" name="small_seconds" value="1"
+               <%= item.function_smallseconds == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="small_seconds"><%= t('edit_listing.watches.function.small_seconds','Kleine Sekunde') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="central_seconds" name="central_seconds" value="1"
+               <%= item.function_centralseconds == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="central_seconds"><%= t('edit_listing.watches.function.central_seconds','Zentralsekunde') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="tachymeter" name="tachymeter" value="1"
+               <%= item.function_tachymeter == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="tachymeter"><%= t('edit_listing.watches.function.tachymeter','Tachymeter') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="flyback" name="flyback" value="1"
+               <%= item.function_flyback == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="flyback"><%= t('edit_listing.watches.function.flyback','Flyback-Funktion') %></label>
+      </div>
+    </div>
+
+    <div class="col-md-4">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="striking_mechanism" name="striking_mechanism" value="1"
+               <%= item.function_striking_mechanism == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="striking_mechanism"><%= t('edit_listing.watches.function.striking_mechanism','Schlagwerk') %></label>
+      </div>
+    </div>
+  </div>
+</fieldset>
+
+
+<!-- ─── Sonstiges ─── -->
+<fieldset class="border rounded p-4 mb-4 bg-white">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.watches.section.other','Sonstiges') %></legend>
+  <div class="row row-cols-3 g-3">
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="chronometer" name="chronometer" value="1"
+               <%= item.feature_chronometer == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="chronometer"><%= t('edit_listing.watches.feature.chronometer','Chronometer') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="master_chronometer" name="master_chronometer" value="1"
+               <%= item.feature_master_chronometer == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="master_chronometer"><%= t('edit_listing.watches.feature.master_chronometer','Master Chronometer') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="tourbillon" name="tourbillon" value="1"
+               <%= item.feature_tourbillon == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="tourbillon"><%= t('edit_listing.watches.feature.tourbillon','Tourbillon') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="helium_valve" name="helium_valve" value="1"
+               <%= item.feature_heliumvalve == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="helium_valve"><%= t('edit_listing.watches.feature.helium_valve','Heliumventil') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="power_reserve_indicator" name="power_reserve_indicator" value="1"
+               <%= item.feature_powerreserve == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="power_reserve_indicator"><%= t('edit_listing.watches.feature.power_reserve','Gangreserveanzeige') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="rotating_bezel" name="rotating_bezel" value="1"
+               <%= item.feature_rotatingbezel == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="rotating_bezel"><%= t('edit_listing.watches.feature.rotating_bezel','Drehbare Lünette') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="diamond_bezel" name="diamond_bezel" value="1"
+               <%= item.feature_diamondsbezel == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="diamond_bezel"><%= t('edit_listing.watches.feature.diamond_bezel','Diamantlünette') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="luminous_hands" name="luminous_hands" value="1"
+               <%= item.feature_luminescenthands == 1 ? 'checked' : '' %>>
+        <label class="form-check-label" for="luminous_hands"><%= t('edit_listing.watches.feature.luminous_hands','Leuchtzeiger') %></label>
+      </div>
+    </div>
+
+    <div class="col">
+      <div class="form-check">
+        <input class="form-check-input" type="checkbox" id="luminous_indices" name="luminous_indices" value="1"
+               <%= (item.feature_luminescentnumerals == 1 || item.feature_luminous_indexes == 1) ? 'checked' : '' %>>
+        <label class="form-check-label" for="luminous_indices"><%= t('edit_listing.watches.feature.luminous_indices','Leuchtindizes') %></label>
+      </div>
+    </div>
+
+  </div>
+</fieldset>
+
+
+
+
+
+        <% } else if (ent.route === 'yachts') { %>
+  <!-- Allgemeine Angaben -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.yachts.section.base','Basisdaten') %></legend>
+  <div class="row g-3 align-items-center">
+
+    <!-- Marke -->
+    <div class="col-md-4">
+      <label for="brand_id" class="form-label">* <%= t('edit_listing.yachts.brand','Marke') %></label>
+      <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
+        <option value="" disabled selected><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% (filters.brands || []).forEach(b => { %>
+          <option value="<%= b.id %>" <%= item.brand_id == b.id ? 'selected' : '' %>><%= b.name %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Modell -->
+    <div class="col-md-4">
+      <label for="model" class="form-label"><%= t('edit_listing.yachts.model','Modell') %></label>
+      <input
+        id="model"
+        name="model"
+        type="text"
+        class="form-control"
+        value="<%= item.model || '' %>"
+      >
+    </div>
+
+      <%
+        // Lokale Erzeugung eines Jahresarrays (z. B. 1980–2025)
+        const currentYear = new Date().getFullYear();
+        const years = [];
+        for (let y = currentYear; y >= 1980; y--) years.push(y);
+      %>
+
+      <div class="col-md-4">
+        <label for="year" class="form-label"><%= t('edit_listing.yachts.year','Baujahr') %></label>
+        <select id="year" name="year" class="form-select">
+          <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+          <% years.forEach(y => { %>
+            <option value="<%= y %>" <%= item.year == y ? 'selected' : '' %>><%= y %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <div class="col-md-4">
+        <label for="splashdown" class="form-label"><%= t('edit_listing.yachts.splashdown','Erstwasserung') %></label>
+        <select id="splashdown" name="splashdown" class="form-select">
+          <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+          <% years.forEach(y => { %>
+            <option value="<%= y %>" <%= item.splashdown == y ? 'selected' : '' %>><%= y %></option>
+          <% }) %>
+        </select>
+      </div>
+
+    <!-- Zustand -->
+ <div class="col-md-4">
+  <label for="used" class="form-label"><%= t('edit_listing.yachts.condition','Zustand') %></label>
+  <select id="used" name="used" class="form-select">
+    <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+    <option value="1" <%= Number(item.used) === 1 ? 'selected' : '' %>><%= t('edit_listing.yachts.condition.1','Wie neu') %></option>
+    <option value="2" <%= Number(item.used) === 2 ? 'selected' : '' %>><%= t('edit_listing.yachts.condition.2','Sehr gut') %></option>
+    <option value="3" <%= Number(item.used) === 3 ? 'selected' : '' %>><%= t('edit_listing.yachts.condition.3','Gut') %></option>
+    <option value="4" <%= Number(item.used) === 4 ? 'selected' : '' %>><%= t('edit_listing.yachts.condition.4','Charter') %></option>
+  </select>
+</div>
+
+
+
+    <!-- Bootstyp -->
+    <div class="col-md-4">
+      <label for="yachttype" class="form-label"><%= t('edit_listing.yachts.type','Bootstyp') %></label>
+      <select id="yachttype" name="yachttype" class="form-select">
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% (extras.yachttype || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= item.yachttype == o.value ? 'selected' : '' %>><%= t('attribute.yachts.yachttype.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Schiffsrumpf -->
+    <div class="col-md-4">
+      <label for="hull" class="form-label"><%= t('edit_listing.yachts.hull','Schiffsrumpf') %></label>
+      <select id="hull" name="hull" class="form-select">
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% (extras.hull || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= item.hull == o.value ? 'selected' : '' %>><%= t('attribute.yachts.hull.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+  </div>
+</fieldset>
+
+
+  <!-- Abmessungen -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.yachts.section.dimensions','Abmessungen') %></legend>
+  <div class="row g-3 align-items-center">
+
+    <div class="col-md-4">
+      <label for="length" class="form-label"><%= t('edit_listing.yachts.length','Länge (m)') %></label>
+      <input id="length" name="length" type="number" step="0.1" class="form-control"
+             value="<%= item.length || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="beam" class="form-label"><%= t('edit_listing.yachts.beam','Breite (m)') %></label>
+      <input id="beam" name="beam" type="number" step="0.1" class="form-control"
+             value="<%= item.beam || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="draft" class="form-label"><%= t('edit_listing.yachts.draft','Tiefgang (m)') %></label>
+      <input id="draft" name="draft" type="number" step="0.1" class="form-control"
+             value="<%= item.draft || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="displacement" class="form-label"><%= t('edit_listing.yachts.displacement','Wasserverdrängung (t)') %></label>
+      <input id="displacement" name="displacement" type="number" step="0.1" class="form-control"
+             value="<%= item.displacement || '' %>">
+    </div>
+
+  </div>
+</fieldset>
+
+
+<!-- Sonstiges -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.yachts.section.other','Sonstiges') %></legend>
+  <div class="row g-3 align-items-center">
+
+    <div class="col-md-4">
+      <label for="crew" class="form-label"><%= t('edit_listing.yachts.cabins','Anzahl Kabinen') %></label>
+      <input id="crew" name="crew" type="number" class="form-control" value="<%= item.crew || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="berth_count" class="form-label"><%= t('edit_listing.yachts.berths','Anzahl Betten') %></label>
+      <input id="berth_count" name="berth_count" type="number" class="form-control"
+             value="<%= item.berths || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="hull_number" class="form-label"><%= t('edit_listing.yachts.hull_number','Schiffsnummer') %></label>
+      <input id="hull_number" name="hull_number" type="text" class="form-control" value="<%= item.external || '' %>" readonly>
+    </div>
+
+
+    <div class="col-md-4">
+      <label for="naval_architect" class="form-label"><%= t('edit_listing.yachts.naval_architect','Schiffsingenieur / Konstrukteur') %></label>
+      <input id="naval_architect" name="naval_architect" type="text" class="form-control"
+             value="<%= item.naval_architect || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="interior_designer" class="form-label"><%= t('edit_listing.yachts.interior_designer','Innenarchitekt') %></label>
+      <input id="interior_designer" name="interior_designer" type="text" class="form-control"
+             value="<%= item.interior_designer || '' %>">
+    </div>
+
+  </div>
+</fieldset>
+
+<!-- Technische Daten -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('edit_listing.yachts.section.tech','Technische Daten') %></legend>
+  <div class="row g-3 align-items-center">
+
+    <div class="col-md-4">
+      <label for="category" class="form-label"><%= t('edit_listing.yachts.category','Kategorie') %></label>
+      <select id="category" name="category" class="form-select">
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% (extras.category || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= item.category == o.value ? 'selected' : '' %>><%= t('attribute.yachts.category.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="engines" class="form-label"><%= t('edit_listing.yachts.engines','Anzahl Motoren') %></label>
+      <input id="engines" name="engines" type="number" class="form-control"
+             value="<%= item.engines || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="engine_hours" class="form-label"><%= t('edit_listing.yachts.engine_hours','Betriebsstunden (h)') %></label>
+      <input id="engine_hours" name="engine_hours" type="number" class="form-control"
+             value="<%= item.engine_hours || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="power" class="form-label"><%= t('edit_listing.yachts.power_kw','Leistung (kW)') %></label>
+      <input id="power" name="power" type="number" step="0.1" class="form-control"
+             value="<%= item.power || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="horsepower" class="form-label"><%= t('edit_listing.yachts.power_ps','Leistung (PS)') %></label>
+      <input id="horsepower" name="horsepower" type="number" class="form-control"
+             value="<%= item.horsepower || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="fuel" class="form-label"><%= t('edit_listing.yachts.fuel','Treibstoff') %></label>
+      <select id="fuel" name="fuel" class="form-select">
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% (extras.fuel || []).forEach(o => { %>
+          <option value="<%= o.value %>" <%= item.fuel == o.value ? 'selected' : '' %>><%= t('attribute.yachts.fuel.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="fuel_tankage" class="form-label"><%= t('edit_listing.yachts.fuel_tankage','Tankinhalt (l)') %></label>
+      <input id="fuel_tankage" name="fuel_tankage" type="number" class="form-control"
+             value="<%= item.fuel_tankage || '' %>">
+    </div>
+
+    <div class="col-md-4">
+      <label for="water_tankage" class="form-label"><%= t('edit_listing.yachts.water_tankage','Wassertank (l)') %></label>
+      <input id="water_tankage" name="water_tankage" type="number" class="form-control"
+             value="<%= item.water_tankage || '' %>">
+    </div>
+
+    <!-- Geschwindigkeiten -->
+    <div class="col-12 yacht-speed-wrap">
+      <div class="yacht-speed-grid">
+        <div>
+          <label for="cruising_speed_kn" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.cruising_speed_kn','Reisegeschwindigkeit (kn)') %></label>
+          <input id="cruising_speed_kn" name="cruising_speed_kn" type="number" step="0.1" class="form-control"
+                 value="<%= item.cruising_speed_kn || '' %>">
+        </div>
+        <div>
+          <label for="cruising_speed" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.cruising_speed','Reisegeschwindigkeit (km/h)') %></label>
+          <input id="cruising_speed" name="cruising_speed" type="number" step="1" class="form-control"
+                 value="<%= item.cruising_speed || '' %>">
+        </div>
+        <div>
+          <label for="max_speed_kn" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.max_speed_kn','Max. Geschwindigkeit (kn)') %></label>
+          <input id="max_speed_kn" name="max_speed_kn" type="number" step="0.1" class="form-control"
+                 value="<%= item.max_speed_kn || '' %>">
+        </div>
+        <div>
+          <label for="max_speed" class="form-label yacht-speed-label"><%= t('edit_listing.yachts.max_speed','Max. Geschwindigkeit (km/h)') %></label>
+          <input id="max_speed" name="max_speed" type="number" step="1" class="form-control"
+                 value="<%= item.max_speed || '' %>">
+        </div>
+      </div>
+    </div>
+
+  </div>
+</fieldset>
+
+
+<% } %>
+
+        <% /* ---------- LIFESTYLES ---------- */ %>
+      <%  if (ent.route === 'lifestyles') { %>
+<fieldset class="mb-4 p-3 border bg-white rounded">
+  <legend class="fw-semibold px-2"><%= t('buyer.listing.lifestyle.title') %></legend>
+
+  <!-- Kategorie -->
+  <div class="row mb-3">
+    <label for="brand_id" class="col-sm-3 col-form-label text-end">
+      <%= t('buyer.listing.lifestyle.category') %>
+    </label>
+    <div class="col-sm-4">
+      <select id="brand_id" name="brand_id" class="form-select" required>
+        <option value="" disabled><%= t('global.choose') %></option>
+        <% filters.lifestyleTypes.forEach(c => { %>
+          <option value="<%= c.id %>"
+            <%= String(item.brand_id) === String(c.id) ? 'selected' : '' %>>
+            <%= c.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+
+  <!-- Unterkategorie -->
+  <div class="row mb-3" id="subcategory-row">
+    <label for="model_id" class="col-sm-3 col-form-label text-end">
+      <%= t('buyer.listing.lifestyle.subcategory') %>
+    </label>
+    <div class="col-sm-4">
+      <select id="model_id" name="model_id" class="form-select">
+        <option value="" disabled><%= t('global.choose') %></option>
+        <% filters.lifestyleSubcategories.forEach(sc => { %>
+          <option value="<%= sc.id %>"
+                  data-parent="<%= sc.parentId %>"
+                  <%= String(item.model_id) === String(sc.id) ? 'selected' : '' %>>
+            <%= sc.name %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const cat = document.getElementById("brand_id");
+  const subRow = document.getElementById("subcategory-row");
+  const sub = document.getElementById("model_id");
+
+  function filterSubs(pid) {
+    Array.from(sub.options).forEach(o => {
+      if (!o.dataset.parent) return;
+      o.hidden = o.dataset.parent !== pid;
+    });
+  }
+
+  // 🔥 Beim Laden (EDIT!)
+  if (cat.value) {
+    sub.disabled = false;
+    subRow.classList.remove("d-none");
+    filterSubs(cat.value);
+  } else {
+    subRow.classList.add("d-none");
+    sub.disabled = true;
+  }
+
+  // 🔁 Bei Änderung
+  cat.addEventListener("change", () => {
+    const pid = cat.value;
+
+    if (!pid) {
+      subRow.classList.add("d-none");
+      sub.disabled = true;
+      sub.value = "";
+      return;
+    }
+
+    sub.disabled = false;
+    subRow.classList.remove("d-none");
+    filterSubs(pid);
+    sub.value = "";
+  });
+});
+</script>
+
+
+      <% } %>
+
+<!-- Beschreibung & Media -->
+<fieldset class="mb-4 p-3 border bg-white rounded">
+  <legend><%= t('edit_listing.media.legend','Beschreibung & Media') %></legend>
+
+  <!-- Beschreibung -->
+  <div class="mb-3">
+    <textarea 
+      id="description" 
+      name="description" 
+      rows="6" 
+      class="form-control"
+    ><%= item.description || '' %></textarea>
+  </div>
+
+  <!-- Video -->
+  <div class="mb-3">
+    <label for="video" class="form-label"><%= t('edit_listing.media.video','Link zum Video (YouTube, Vimeo …)') %></label>
+    <input 
+      id="video" 
+      name="video" 
+      type="url" 
+      class="form-control" 
+      placeholder="https://"
+      value="<%= item.video || '' %>">
+  </div>
+
+<label for="mainpicture-upload" class="form-label"><%= t('edit_listing.media.mainpicture','Titelbild ändern') %></label>
+
+<div id="mainpicture-preview" class="d-flex flex-wrap gap-3 mb-2">
+  <%
+    const extractImageFilename = (input) => {
+      const fromString = (raw) => {
+        let s = String(raw || '').trim();
+        if (!s) return '';
+
+        const imageMatch = s.match(/s:\d+:"image";s:\d+:"([^"]+)"/);
+        if (imageMatch && imageMatch[1]) {
+          return fromString(imageMatch[1]);
+        }
+
+        const serializedStringMatch = s.match(/^s:\d+:"([^"]+)";$/);
+        if (serializedStringMatch && serializedStringMatch[1]) {
+          return fromString(serializedStringMatch[1]);
+        }
+
+        if (s.startsWith('{') || s.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(s);
+            return extractImageFilename(parsed);
+          } catch {}
+        }
+
+        if (s.includes(',')) {
+          const first = s.split(',').map(v => v.trim()).find(Boolean);
+          if (first) s = first;
+        }
+
+        s = s.split('?')[0].split('#')[0];
+        return s.split('/').pop().trim();
+      };
+
+      if (!input) return '';
+      if (Array.isArray(input)) return extractImageFilename(input[0]);
+      if (typeof input === 'object') {
+        return extractImageFilename(input.image || input.path || input.url || '');
+      }
+      return fromString(input);
+    };
+
+    const fileName = extractImageFilename(item.mainpicture);
+
+    const imgPath = fileName
+      ? `/images/${ent.route}/${item.id}/${encodeURIComponent(fileName)}`
+      : null;
+  %>
+
+  <div class="image-box position-relative border rounded overflow-hidden shadow-sm bg-light"
+       style="width:220px; height:160px;">
+
+    <img 
+      id="mainPreview"
+      src="<%= imgPath || '/assets/herando-weblogo.png' %>" 
+      class="img-fluid w-100 h-100 object-fit-cover">
+
+  </div>
+</div>
+
+<% if (typeof canPickMainFromGallery !== 'undefined' && canPickMainFromGallery && Array.isArray(gallery) && gallery.length > 0) { %>
+  <div class="mb-3" id="mainpicture-gallery-picker">
+    <div class="form-label fw-semibold"><%= t('edit_listing.media.mainpicture_from_gallery','Titelbild aus vorhandener Galerie') %></div>
+    <div class="d-flex flex-wrap gap-2 align-items-start" role="list">
+      <% gallery.forEach((img) => {
+          const gfn = extractImageFilename(img);
+          if (!gfn) return;
+          const thumbPath = `/images/${ent.route}/${item.id}/${encodeURIComponent(gfn)}`;
+          const isMain = fileName === gfn;
+      %>
+        <button type="button"
+                class="btn btn-light p-0 border rounded overflow-hidden <%= isMain ? 'border-warning border-2' : '' %>"
+                style="width:96px;height:72px;"
+                data-filename="<%= gfn %>"
+                title="<%= t('edit_listing.media.set_as_main','Als Titelbild setzen') %>">
+          <img src="<%= thumbPath %>" alt="" class="w-100 h-100" style="object-fit:cover;">
+        </button>
+      <% }); %>
+    </div>
+    <small class="text-muted d-block mt-1"><%= t('edit_listing.media.mainpicture_from_gallery_hint','Auf ein Bild klicken – die Auswahl wird sofort gespeichert.') %></small>
+  </div>
+  <script>
+  (function () {
+    var root = document.getElementById('mainpicture-gallery-picker');
+    if (!root) return;
+    var preview = document.getElementById('mainPreview');
+    var basePath = '/images/<%= ent.route %>/<%= item.id %>/';
+    var failMsg = <%- JSON.stringify(t('edit_listing.media.upload_failed','Speichern fehlgeschlagen')) %>;
+    root.querySelectorAll('button[data-filename]').forEach(function (btn) {
+      btn.addEventListener('click', async function () {
+        var filename = btn.getAttribute('data-filename');
+        if (!filename) return;
+        try {
+          var res = await fetch('/buyer/api/listing/<%= item.id %>/mainpicture/from-gallery', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+            body: JSON.stringify({ filename: filename })
+          });
+          var data = await res.json();
+          if (!data.success) {
+            alert(failMsg + (data.error ? ': ' + data.error : ''));
+            return;
+          }
+          var finalName = data.mainpicture || filename;
+          if (preview) preview.src = basePath + encodeURIComponent(finalName);
+          root.querySelectorAll('button[data-filename]').forEach(function (b) {
+            b.classList.remove('border-warning', 'border-2');
+            b.classList.add('border');
+          });
+          btn.classList.remove('border');
+          btn.classList.add('border-warning', 'border-2');
+        } catch (e) {
+          alert(failMsg);
+        }
+      });
+    });
+  })();
+  </script>
+<% } %>
+
+<input type="file" id="mainpicture-upload" class="form-control" accept="image/*"><br>
+
+<span><%= t('edit_listing.media.mainpicture.note','* Bitte laden Sie hier ausschließlich ein neues Titelbild hoch, falls nötig') %></span>
+
+
+<script>
+const input  = document.getElementById('mainpicture-upload');
+const preview = document.getElementById('mainPreview');
+
+input?.addEventListener('change', async function () {
+  const file = this.files[0];
+  if (!file) return;
+
+  // ✅ Vorschau sofort anzeigen
+  const reader = new FileReader();
+  reader.onload = e => preview.src = e.target.result;
+  reader.readAsDataURL(file);
+
+  // ✅ Upload
+  const formData = new FormData();
+  formData.append('mainpicture', file);
+
+  const res = await fetch('/buyer/api/listing/<%= item.id %>/mainpicture/update', {
+    method: 'POST',
+    body: formData
+  });
+
+  const data = await res.json();
+
+  if (!data.success) {
+    const baseMsg = <%- JSON.stringify(t('edit_listing.media.upload_failed','Upload fehlgeschlagen')) %>;
+    alert(`${baseMsg}${data.error ? `: ${data.error}` : ''}`);
+  }
+});
+</script>
+
+
+
+<!-- Bilder -->
+<div class="mb-3">
+  <label for="pictures" class="form-label"><%= t('edit_listing.media.upload_images','Bilder hochladen') %></label>
+  <input 
+    id="pictures" 
+    name="pictures" 
+    type="file" 
+    class="form-control" 
+    multiple 
+    accept="image/*" 
+    onchange="handleFiles(event)">
+</div>
+
+
+
+<!-- Vorschau -->
+<div id="gallery-preview" class="d-flex flex-wrap gap-3 mb-2">
+
+  <% if (Array.isArray(gallery) && gallery.length > 0) { %>
+    <% gallery.forEach((img, i) => { 
+        const fileName = extractImageFilename(img);
+        if (!fileName) return;
+        const imgPath = `/images/${ent.route}/${item.id}/${encodeURIComponent(fileName)}`;
+    %>
+
+      <div class="image-box position-relative border rounded overflow-hidden shadow-sm bg-light" 
+           style="width:220px; height:160px;">
+
+        <img 
+          src="<%= imgPath %>" 
+          alt="<%= t('edit_listing.media.image_alt','Bild') %> <%= i + 1 %>" 
+          class="img-fluid w-100 h-100 object-fit-cover">
+
+        <!-- Löschen -->
+        <button 
+          type="button" 
+          class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 px-2 py-0 fw-bold"
+          onclick='removeImage(this, <%- JSON.stringify(fileName) %>)'>×</button>
+
+      </div>
+
+    <% }) %>
+
+  <% } else { %>
+    <p class="text-muted"><%= t('edit_listing.media.none','Keine Bilder vorhanden.') %></p>
+  <% } %>
+
+</div>
+
+<small class="text-muted">
+  <%= t('edit_listing.media.tip','Tipp: Ziehen Sie Bilder in der gewünschten Reihenfolge hoch; mit „×“ können Sie einzelne entfernen.') %>
+</small>
+
+<script>
+/* ---------------------------------------------------
+   📌 FORM REFERENZ – SEHR WICHTIG
+--------------------------------------------------- */
+const form = document.getElementById('edit-listing-form');
+console.log("📌 Erkanntes FORM:", form);
+const removedOldImages = new Set();
+
+function syncRemovedImagesField() {
+  if (!form) return;
+  let hidden = document.getElementById('removedImagesJson');
+  if (!hidden) {
+    hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.id = 'removedImagesJson';
+    hidden.name = 'removedImagesJson';
+    form.appendChild(hidden);
+  }
+  hidden.value = JSON.stringify(Array.from(removedOldImages));
+}
+
+
+/* ---------------------------------------------------
+   🔥 ALTE BILDER ENTFERNEN
+--------------------------------------------------- */
+function removeImage(btn, filename) {
+  console.log("🗑️ [OLD] Entferne altes Bild:", filename);
+
+  const wrapper = btn.closest('.image-box');
+  if (wrapper) {
+    wrapper.remove();
+    console.log("🧱 [OLD] DOM entfernt.");
+  } else {
+    console.warn("⚠️ [OLD] Wrapper nicht gefunden!");
+  }
+
+  // Hidden Input für Backend (+ Debug)
+  const removed = document.createElement('input');
+  removed.type = 'hidden';
+  removed.name = 'removedImages[]';
+  removed.value = filename;
+
+  form.appendChild(removed);
+  removedOldImages.add(String(filename || ''));
+  syncRemovedImagesField();
+
+  console.log("📩 [OLD] Hidden Input hinzugefügt:", removed);
+  console.log("📩 [OLD] JSON Entfernt-Liste:", Array.from(removedOldImages));
+  console.log("📦 [OLD] Form Inputs total:", form.elements.length);
+}
+
+
+/* ---------------------------------------------------
+   🔥 NEUE BILDER HANDLING (DataTransfer)
+--------------------------------------------------- */
+const dt = new DataTransfer();
+console.log("📌 DataTransfer initialisiert:", dt);
+
+function handleFiles(event) {
+  const input = event.target;
+  console.log("📥 Neue Dateien erkannt:", input.files.length);
+
+  for (const file of input.files) {
+    dt.items.add(file);
+    console.log("➕ [NEW] Datei hinzugefügt:", file.name);
+  }
+
+  input.files = dt.files;
+  console.log("🧾 [NEW] Gesamte Dateien im dt:", dt.files.length);
+
+  renderNewPreviews();
+}
+
+
+/* ---------------------------------------------------
+   🔥 Neue Bilder rendern
+--------------------------------------------------- */
+function renderNewPreviews() {
+  const preview = document.getElementById('gallery-preview');
+  if (!preview) return;
+
+  // nur NEUE Bilder entfernen
+  const newImages = preview.querySelectorAll('.new-image');
+  newImages.forEach(e => e.remove());
+  console.log(`🧹 [NEW] Alte Previews entfernt (${newImages.length})`);
+
+  Array.from(dt.files).forEach((file, index) => {
+    if (!file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+
+    reader.onload = e => {
+      const wrap = document.createElement('div');
+      wrap.className = 'new-image position-relative border rounded overflow-hidden bg-light';
+      wrap.style.width = '220px';
+      wrap.style.height = '160px';
+
+      wrap.innerHTML = `
+        <img src="${e.target.result}" class="img-fluid w-100 h-100 object-fit-cover">
+        <button 
+          type="button"
+          class="btn btn-sm btn-danger position-absolute top-0 end-0 m-1 px-2 py-0 fw-bold"
+          onclick="removeNewFile(${index})">×</button>
+      `;
+
+      preview.appendChild(wrap);
+      console.log("🖼️ [NEW] Preview gerendert:", file.name);
+    };
+
+    reader.readAsDataURL(file);
+  });
+
+  console.log("🎨 [NEW] Render abgeschlossen.");
+}
+
+
+/* ---------------------------------------------------
+   🔥 Neues Bild löschen
+--------------------------------------------------- */
+function removeNewFile(index) {
+  console.log("🧹 [NEW] Entferne neues Bild index:", index);
+
+  const nextDT = new DataTransfer();
+
+  Array.from(dt.files).forEach((file, i) => {
+    if (i !== index) {
+      nextDT.items.add(file);
+      console.log("➡️ [NEW] Datei bleibt:", file.name);
+    } else {
+      console.log("❌ [NEW] Datei gelöscht:", file.name);
+    }
+  });
+
+  // dt aktualisieren
+  dt.items.clear();
+  for (const file of nextDT.files) dt.items.add(file);
+
+  // Input aktualisieren
+  document.getElementById('pictures').files = dt.files;
+
+  console.log("📦 [NEW] Dateien nach Löschen:", dt.files.length);
+
+  renderNewPreviews();
+}
+
+
+/* ---------------------------------------------------
+   🔥 CKEditor
+--------------------------------------------------- */
+document.addEventListener('DOMContentLoaded', () => {
+  const el = document.querySelector('#description');
+  if (el && window.ClassicEditor) {
+    ClassicEditor.create(el, {
+      toolbar: ['heading','|','bold','italic','bulletedList','numberedList']
+    })
+      .then(editor => {
+        console.log("✏️ CKEditor geladen");
+      })
+      .catch(err => console.error(err));
+  }
+});
+</script>
+
+
+
+
+
+<!-- Standort -->
+<fieldset class="mb-4 p-3 border bg-white rounded shadow-sm">
+  <legend><%= t('edit_listing.location.legend','Standort') %></legend>
+  <%
+    const countryRows = Array.isArray(filters.countries) ? filters.countries : [];
+    const selectedCountryRaw = (item && item.country_id != null) ? String(item.country_id) : '';
+    const selectedCountryRow = countryRows.find((c) => String(c.id) === selectedCountryRaw);
+    const selectedParentRaw = selectedCountryRow && selectedCountryRow.parent_id != null
+      ? String(selectedCountryRow.parent_id)
+      : selectedCountryRaw;
+    const countryName = (row) => t(
+      'country.' + row.id,
+      row.name || row.de || row.en || row.code || String(row.id)
+    );
+    const parentCountries = countryRows
+      .filter((c) => c.parent_id == null)
+      .sort((a, b) => countryName(a).localeCompare(countryName(b), 'de', { sensitivity: 'base' }));
+    const countryTreeData = countryRows.map((c) => ({
+      id: Number(c.id),
+      parentId: c.parent_id == null ? null : Number(c.parent_id),
+      label: countryName(c)
+    }));
+  %>
+
+  <!-- Land -->
+  <div class="row mb-3 align-items-center">
+    <label for="country_parent_id" class="col-sm-3 col-form-label text-end fw-semibold"><%= t('edit_listing.location.country','Land') %></label>
+    <div class="col-sm-4">
+      <select id="country_parent_id" class="form-select" required>
+        <option value="" disabled <%= !selectedParentRaw ? 'selected' : '' %>><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+        <% parentCountries.forEach((c) => { %>
+          <option 
+            value="<%= c.id %>" 
+            <%= (String(selectedParentRaw) === String(c.id)) ? 'selected' : '' %>>
+            <%= countryName(c) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+
+  <!-- Bundesland / Region -->
+  <div class="row mb-3 align-items-center" id="region_row" style="display:none;">
+    <label for="region_id" class="col-sm-3 col-form-label text-end fw-semibold"><%= t('filter.region', 'Bundesland / Region') %></label>
+    <div class="col-sm-4">
+      <select
+        id="region_id"
+        class="form-select"
+        data-any-label="<%= t('edit_listing.select.choose','Bitte wählen …') %>"
+        data-choose-country-label="<%= t('edit_listing.location.select_country_first', 'Bitte zuerst Land wählen') %>"
+        disabled>
+        <option value=""><%= t('edit_listing.select.choose','Bitte wählen …') %></option>
+      </select>
+    </div>
+  </div>
+  <input type="hidden" id="country_id" name="country_id" value="<%= selectedCountryRaw %>">
+  <script type="application/json" id="country_tree_data_edit_listing"><%- JSON.stringify(countryTreeData) %></script>
+
+  <!-- Stadt -->
+  <div class="row mb-3 align-items-center">
+    <label for="city" class="col-sm-3 col-form-label text-end fw-semibold"><%= t('edit_listing.location.city','Stadt') %></label>
+    <div class="col-sm-4">
+      <input 
+        id="city" 
+        name="city" 
+        type="text" 
+        class="form-control" 
+        value="<%= item.city || '' %>" 
+        required>
+    </div>
+  </div>
+</fieldset>
+
+<script>
+  (function () {
+    const countrySelect = document.getElementById('country_parent_id');
+    const regionRow = document.getElementById('region_row');
+    const regionSelect = document.getElementById('region_id');
+    const hiddenCountry = document.getElementById('country_id');
+    const treeNode = document.getElementById('country_tree_data_edit_listing');
+    if (!countrySelect || !regionRow || !regionSelect || !hiddenCountry || !treeNode) return;
+
+    let countryTree = [];
+    try {
+      countryTree = JSON.parse(treeNode.textContent || '[]');
+    } catch (_) {
+      countryTree = [];
+    }
+
+    const asId = (value) => {
+      const parsed = Number.parseInt(String(value || ''), 10);
+      return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : '';
+    };
+
+    const byId = new Map();
+    const byParentId = new Map();
+    countryTree.forEach((entry) => {
+      const id = asId(entry?.id);
+      if (!id) return;
+      const parentId = entry?.parentId == null ? '' : asId(entry.parentId);
+      const label = String(entry?.label || id);
+      const row = { id, parentId, label };
+      byId.set(id, row);
+      if (!parentId) return;
+      if (!byParentId.has(parentId)) byParentId.set(parentId, []);
+      byParentId.get(parentId).push(row);
+    });
+
+    const anyLabel = String(regionSelect.dataset.anyLabel || '');
+    const chooseCountryLabel = String(regionSelect.dataset.chooseCountryLabel || anyLabel);
+
+    function hasCountryOption(id) {
+      return Array.from(countrySelect.options).some((opt) => String(opt.value) === String(id));
+    }
+
+    function renderRegions(parentId, selectedRegionId) {
+      const regions = parentId
+        ? (byParentId.get(parentId) || [])
+            .slice()
+            .sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
+        : [];
+
+      if (!regions.length) {
+        regionRow.style.display = 'none';
+        regionSelect.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = chooseCountryLabel;
+        regionSelect.appendChild(placeholder);
+        regionSelect.disabled = true;
+        regionSelect.value = '';
+        return;
+      }
+
+      regionRow.style.display = '';
+      regionSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = anyLabel;
+      regionSelect.appendChild(placeholder);
+
+      regions.forEach((region) => {
+        const option = document.createElement('option');
+        option.value = region.id;
+        option.textContent = region.label;
+        regionSelect.appendChild(option);
+      });
+
+      regionSelect.disabled = false;
+      if (selectedRegionId && regions.some((region) => region.id === selectedRegionId)) {
+        regionSelect.value = selectedRegionId;
+      } else {
+        regionSelect.value = '';
+      }
+    }
+
+    function syncHiddenCountry() {
+      const selectedRegion = asId(regionSelect.value);
+      const selectedCountry = asId(countrySelect.value);
+      hiddenCountry.value = selectedRegion || selectedCountry || '';
+    }
+
+    function initializeCountryRegionSelection() {
+      const selectedCountry = asId(hiddenCountry.value);
+      const selectedRow = selectedCountry ? byId.get(selectedCountry) : null;
+      const parentId = selectedRow && selectedRow.parentId ? selectedRow.parentId : selectedCountry;
+
+      if (parentId && hasCountryOption(parentId)) {
+        countrySelect.value = parentId;
+      } else {
+        countrySelect.value = '';
+      }
+
+      const selectedRegionId = selectedRow && selectedRow.parentId ? selectedCountry : '';
+      renderRegions(asId(countrySelect.value), selectedRegionId);
+      syncHiddenCountry();
+    }
+
+    countrySelect.addEventListener('change', () => {
+      renderRegions(asId(countrySelect.value), '');
+      syncHiddenCountry();
+    });
+    regionSelect.addEventListener('change', syncHiddenCountry);
+
+    initializeCountryRegionSelection();
+  })();
+</script>
+
+
+<!-- ⭐ BEARBEITEN BUTTON – RICHTIGER PLATZ -->
+<div class="text-center mb-5">
+  <button type="submit" class="btn btn-light px-5">
+    <i class="bi bi-save me-2"></i><%= t('edit_listing.save','Speichern') %>
+  </button>
+</div>
+
+</form>
+</main>
+</div>
+
+
+<!-- SCRIPTS -->
+<script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+<script>
+const formattedInput = document.getElementById('priceFormatted');
+const hiddenInput    = document.getElementById('price');
+
+function formatNumberDE(value) {
+  const num = value.replace(/\D/g, '');
+  return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+}
+
+formattedInput.addEventListener('input', function () {
+  const cursorPos = this.selectionStart;
+
+  // reine Zahl holen
+  const raw = this.value.replace(/\D/g, '');
+
+  // sichtbar formatieren
+  this.value = formatNumberDE(raw);
+
+  // echten Wert setzen
+  hiddenInput.value = raw;
+
+  // Cursor korrigieren
+  this.setSelectionRange(cursorPos, cursorPos);
+});
+</script>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const formattedInput = document.getElementById('priceFormatted');
+  const hiddenInput    = document.getElementById('price');
+
+  if (hiddenInput.value) {
+    formattedInput.value = new Intl.NumberFormat(<%- JSON.stringify(_locale) %>)
+      .format(hiddenInput.value);
+  }
+});
+</script>

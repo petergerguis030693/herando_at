@@ -3,7 +3,7 @@
     <%- include('../sidebar', { active: active, role: role  }) %>
   </aside>
   <main class="flex-fill container py-4">
-    <h1>Postings verwalten</h1>
+    <h1>Postings verwalten <span class="text-muted fs-5 fw-normal">(<%= postings.length %>)</span></h1>
     <% if (messages.success) { %>
       <div class="alert alert-success"><%= messages.success %></div>
     <% } %>
@@ -13,10 +13,12 @@
     <table class="table table-striped">
       <thead>
         <tr>
+          <th class="text-muted">ID</th>
           <th>Titel</th>
           <th>Kategorie</th>
           <th>Autor</th>
           <th>Ort</th>
+          <th>Veröffentlichung</th>
           <th>Erstellt</th>
           <th>Aktionen</th>
         </tr>
@@ -24,10 +26,18 @@
       <tbody>
         <% postings.forEach(post => { %>
           <tr>
+            <td class="text-muted"><%= post.id %></td>
             <td><%= post.title %></td>
             <td><%= post.category %></td>
             <td><%= post.author %></td>
             <td><%= post.location || '-' %></td>
+            <td>
+              <% if (post.published_at) { %>
+                <%= new Date(post.published_at).toLocaleString() %>
+              <% } else { %>
+                <span class="text-muted">Entwurf</span>
+              <% } %>
+            </td>
             <td><%= new Date(post.created).toLocaleDateString() %></td>
             <td>
               <a href="/admin/postings/<%= post.slug %>/edit" class="btn btn-sm btn-outline-secondary me-1">

@@ -27,11 +27,106 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const geoip = require('geoip-lite');
+const { enqueueListingVisit } = require('../../service/listing-visit-buffer');
+const { buildListingImageResponsive } = require('../../lib/responsive-listing-images');
+const { buildPostingCoverResponsive } = require('../../lib/responsive-posting-cover');
+const { buildResponsiveHeroAttrs } = require('../../lib/responsive-hero-images');
 const DISABLE_PAYMENT = process.env.DISABLE_PAYMENT === 'true';
+const PAGE_CACHE_TTL_MS = Number(process.env.PAGE_CACHE_TTL_MS || 15000);
+const PAGE_CACHE_MAX_ENTRIES = Number(process.env.PAGE_CACHE_MAX_ENTRIES || 300);
+const pageHtmlCache = new Map();
+const TABLE_COLUMNS_CACHE_TTL_MS = Number(process.env.TABLE_COLUMNS_CACHE_TTL_MS || 10 * 60 * 1000);
+const FOOTER_CACHE_TTL_MS = Number(process.env.FOOTER_CACHE_TTL_MS || 5 * 60 * 1000);
+const tableColumnsCache = new Map();
+const footerColumnsCache = new Map();
+
+function isPageCacheEligible(req, res) {
+  return req.method === 'GET' && !res.locals.user;
+}
+
+function buildPageCacheKey(req, res, scope) {
+  const host = String(req.get('host') || '').toLowerCase();
+  const lang = String(res.locals.lang || 'de').toLowerCase();
+  const currency = String(res.locals.currency || req.session?.currency || 'EUR').toUpperCase();
+  const url = String(req.originalUrl || req.url || '');
+  return `${scope}|${host}|${lang}|${currency}|${url}`;
+}
+
+function getCachedPageHtml(cacheKey) {
+  const hit = pageHtmlCache.get(cacheKey);
+  if (!hit) return null;
+  if (Date.now() > hit.expiresAt) {
+    pageHtmlCache.delete(cacheKey);
+    return null;
+  }
+  return hit.html;
+}
+
+function setCachedPageHtml(cacheKey, html) {
+  if (typeof html !== 'string' || !html.length) return;
+  pageHtmlCache.set(cacheKey, {
+    html,
+    expiresAt: Date.now() + PAGE_CACHE_TTL_MS
+  });
+  while (pageHtmlCache.size > PAGE_CACHE_MAX_ENTRIES) {
+    const oldestKey = pageHtmlCache.keys().next().value;
+    if (!oldestKey) break;
+    pageHtmlCache.delete(oldestKey);
+  }
+}
+
+async function getCachedTableColumns(tableSql) {
+  const hit = tableColumnsCache.get(tableSql);
+  if (hit && Date.now() <= hit.expiresAt) {
+    return hit.columns;
+  }
+
+  const [columns] = await db.query(`SHOW COLUMNS FROM ${tableSql}`);
+  const columnNames = columns.map((c) => c.Field);
+  tableColumnsCache.set(tableSql, {
+    columns: columnNames,
+    expiresAt: Date.now() + TABLE_COLUMNS_CACHE_TTL_MS
+  });
+  return columnNames;
+}
+
+async function getCachedFooterColumns() {
+  const cacheKey = 'footer-columns-links';
+  const hit = footerColumnsCache.get(cacheKey);
+  if (hit && Date.now() <= hit.expiresAt) {
+    return hit.value;
+  }
+
+  const [cols] = await db.query(
+    `SELECT id,title,sort_order FROM footer_columns ORDER BY sort_order,title`
+  );
+  const [links] = await db.query(`
+    SELECT column_id,link_text,link_url,is_phone,phone_number
+    FROM footer_links
+    ORDER BY column_id,sort_order
+  `);
+
+  const footerColumns = cols.map((c) => ({ id: c.id, title: c.title, phone: null, links: [] }));
+  for (const l of links) {
+    const col = footerColumns.find((c) => c.id === l.column_id);
+    if (!col) continue;
+    if (l.is_phone) col.phone = l.phone_number;
+    else col.links.push({ text: l.link_text, url: l.link_url });
+  }
+
+  footerColumnsCache.set(cacheKey, {
+    value: footerColumns,
+    expiresAt: Date.now() + FOOTER_CACHE_TTL_MS
+  });
+
+  return footerColumns;
+}
 
 const imagesBase = path.resolve('/', 'media', 'herando', 'images');
+const VISIT_TRACKING_ENABLED = String(process.env.VISIT_TRACKING_ENABLED || 'false').trim().toLowerCase() === 'true';
 
 let ensureListingVisitUniquesTablePromise = null;
+let ensureListingPerformanceIndexesPromise = null;
 
 async function ensureListingVisitUniquesTable() {
   if (!ensureListingVisitUniquesTablePromise) {
@@ -52,6 +147,74 @@ async function ensureListingVisitUniquesTable() {
   }
   return ensureListingVisitUniquesTablePromise;
 }
+
+async function ensureIndexIfMissing(tableName, indexName, columnsSql) {
+  const [tableRows] = await db.query(
+    `SELECT COUNT(*) AS c
+       FROM information_schema.tables
+      WHERE table_schema = DATABASE()
+        AND table_name = ?`,
+    [tableName]
+  );
+  if (Number(tableRows?.[0]?.c || 0) === 0) return;
+
+  const expectedColumns = String(columnsSql)
+    .split(',')
+    .map((col) => col.trim())
+    .filter(Boolean);
+  if (!expectedColumns.length) return;
+
+  const [columnRows] = await db.query(
+    `SELECT column_name
+       FROM information_schema.columns
+      WHERE table_schema = DATABASE()
+        AND table_name = ?`,
+    [tableName]
+  );
+  const existingCols = new Set((columnRows || []).map((row) => String(row.column_name || '').trim().toLowerCase()));
+  const hasAllColumns = expectedColumns.every((col) => existingCols.has(col.toLowerCase()));
+  if (!hasAllColumns) return;
+
+  const [rows] = await db.query(
+    `SELECT COUNT(*) AS c
+       FROM information_schema.statistics
+      WHERE table_schema = DATABASE()
+        AND table_name = ?
+        AND index_name = ?`,
+    [tableName, indexName]
+  );
+  if (Number(rows?.[0]?.c || 0) > 0) return;
+  await db.query(`ALTER TABLE ${db.escapeId(tableName)} ADD INDEX ${db.escapeId(indexName)} (${columnsSql})`);
+}
+
+async function ensureListingPerformanceIndexes() {
+  if (!ensureListingPerformanceIndexesPromise) {
+    ensureListingPerformanceIndexesPromise = (async () => {
+      const listingTables = ['cars', 'watches', 'yachts', 'properties', 'lifestyles', 'investments'];
+
+      for (const tableName of listingTables) {
+        await ensureIndexIfMissing(
+          tableName,
+          'idx_user_status_visible_created',
+          'user_id, status, visible, created'
+        );
+        await ensureIndexIfMissing(
+          tableName,
+          'idx_status_visible_id',
+          'status, visible, id'
+        );
+      }
+    })().catch((err) => {
+      ensureListingPerformanceIndexesPromise = null;
+      throw err;
+    });
+  }
+  return ensureListingPerformanceIndexesPromise;
+}
+
+ensureListingPerformanceIndexes().catch((err) => {
+  console.error('Listing performance indexes init failed:', err?.message || err);
+});
 
 function getRequestClientIp(req) {
   const forwarded = String(req.headers['x-forwarded-for'] || '').split(',')[0].trim();
@@ -80,6 +243,8 @@ async function incrementListingVisitOncePerIpPerDay({
   colSet,
   tableSql
 }) {
+  if (!VISIT_TRACKING_ENABLED) return false;
+
   const viewerUserId = Number(req.session?.userId) || null;
   const ownerId = Number(ownerUserId) || null;
   const isOwnerView = viewerUserId && ownerId && viewerUserId === ownerId;
@@ -88,38 +253,19 @@ async function incrementListingVisitOncePerIpPerDay({
   await ensureListingVisitUniquesTable();
 
   const identityHash = buildVisitIdentityHash(req);
-  const [guardInsert] = await db.query(
-    `INSERT IGNORE INTO listing_visit_uniques (entity, advert_id, visited, identity_hash)
-     VALUES (?, ?, CURDATE(), ?)`,
-    [entityRoute, Number(listingId), identityHash]
-  );
-
-  if (!guardInsert?.affectedRows) {
-    return false;
-  }
-
-  await db.query(
-    `INSERT INTO visits (entity, advert_id, visits, visits2, visited)
-     VALUES (?, ?, 1, 1, CURDATE())
-     ON DUPLICATE KEY UPDATE
-       visits = visits + 1,
-       visits2 = visits2 + 1`,
-    [entityRoute, Number(listingId)]
-  );
 
   const counterCol = colSet.has('visits')
     ? 'visits'
     : (colSet.has('views') ? 'views' : null);
 
-  if (counterCol) {
-    const counterColSql = db.escapeId(counterCol);
-    await db.query(
-      `UPDATE ${tableSql}
-          SET ${counterColSql} = COALESCE(${counterColSql}, 0) + 1
-        WHERE id = ?`,
-      [Number(listingId)]
-    );
-  }
+  await enqueueListingVisit({
+    entityRoute,
+    listingId: Number(listingId),
+    identityHash,
+    tableSql,
+    counterCol,
+    visited: new Date().toISOString().slice(0, 10)
+  });
 
   return true;
 }
@@ -148,6 +294,99 @@ function resolveImageFilename(tableName, itemId, candidate) {
   return '/assets/herando-weblogo.png';
 }
 
+/** z. B. foo.jpg → foo_largex2.jpg (nur Basisname, keine Pfade / Platzhalter) */
+function insertLargex2SuffixBeforeExtension(basename) {
+  if (!basename || typeof basename !== 'string') return null;
+  const s = basename.trim();
+  if (!s || s.startsWith('/')) return null;
+  if (/_largex2\./i.test(s)) return null;
+  const lastDot = s.lastIndexOf('.');
+  if (lastDot <= 0) return `${s}_largex2`;
+  return `${s.slice(0, lastDot)}_largex2${s.slice(lastDot)}`;
+}
+
+/** Kategorie-Desktop: _largex2-Datei nur nutzen, wenn sie im Listing-Ordner liegt */
+function categoryLargex2MainFilenameIfExists(entityRoute, itemId, resolvedBasename) {
+  const largex2Name = insertLargex2SuffixBeforeExtension(resolvedBasename);
+  if (!largex2Name) return null;
+  const dir = path.join(imagesBase, entityRoute, String(itemId));
+  const full = path.join(dir, largex2Name);
+  try {
+    if (fs.existsSync(full)) return largex2Name;
+  } catch (_) {}
+  return null;
+}
+
+/** z. B. foo.jpg → foo_large.jpg (Kategorie-Slider; nur Basisname, keine Pfade / Platzhalter) */
+function insertLargeSuffixBeforeExtension(basename) {
+  if (!basename || typeof basename !== 'string') return null;
+  const s = basename.trim();
+  if (!s || s.startsWith('/')) return null;
+  if (/_large\./i.test(s)) return null;
+  const lastDot = s.lastIndexOf('.');
+  if (lastDot <= 0) return `${s}_large`;
+  return `${s.slice(0, lastDot)}_large${s.slice(lastDot)}`;
+}
+
+/** Kategorie-Slider: _large-Datei nur nutzen, wenn sie im Listing-Ordner liegt */
+function categorySliderLargeMainFilenameIfExists(entityRoute, itemId, resolvedBasename) {
+  const largeName = insertLargeSuffixBeforeExtension(resolvedBasename);
+  if (!largeName) return null;
+  const dir = path.join(imagesBase, entityRoute, String(itemId));
+  const full = path.join(dir, largeName);
+  try {
+    if (fs.existsSync(full)) return largeName;
+  } catch (_) {}
+  return null;
+}
+
+/** z. B. foo.jpg -> foo_smallx2.jpg (Startseite; nur Basisname, keine Pfade / Platzhalter) */
+function insertSmallx2SuffixBeforeExtension(basename) {
+  if (!basename || typeof basename !== 'string') return null;
+  const s = basename.trim();
+  if (!s || s.startsWith('/')) return null;
+  if (/_smallx2\./i.test(s)) return null;
+  const lastDot = s.lastIndexOf('.');
+  if (lastDot <= 0) return `${s}_smallx2`;
+  return `${s.slice(0, lastDot)}_smallx2${s.slice(lastDot)}`;
+}
+
+
+/** Startseite: _smallx2-Datei nur nutzen, wenn sie im Listing-Ordner liegt */
+function homeSmallx2FilenameIfExists(entityRoute, itemId, resolvedBasename) {
+  const smallx2Name = insertSmallx2SuffixBeforeExtension(resolvedBasename);
+  if (!smallx2Name) return null;
+  const dir = path.join(imagesBase, entityRoute, String(itemId));
+  const full = path.join(dir, smallx2Name);
+  try {
+    if (fs.existsSync(full)) return smallx2Name;
+  } catch (_) {}
+  return null;
+}
+
+/** z. B. foo.jpg → foo_small.jpg (Detail-Thumbnail-Slider; nur Basisname, keine Pfade / Platzhalter) */
+function insertSmallSuffixBeforeExtension(basename) {
+  if (!basename || typeof basename !== 'string') return null;
+  const s = basename.trim();
+  if (!s || s.startsWith('/')) return null;
+  if (/_small\./i.test(s)) return null;
+  const lastDot = s.lastIndexOf('.');
+  if (lastDot <= 0) return `${s}_small`;
+  return `${s.slice(0, lastDot)}_small${s.slice(lastDot)}`;
+}
+
+/** Detail-Thumbnails: _small-Datei nur nutzen, wenn sie im Listing-Ordner liegt */
+function detailThumbSmallFilenameIfExists(entityRoute, itemId, basename) {
+  const smallName = insertSmallSuffixBeforeExtension(basename);
+  if (!smallName) return null;
+  const dir = path.join(imagesBase, entityRoute, String(itemId));
+  const full = path.join(dir, smallName);
+  try {
+    if (fs.existsSync(full)) return smallName;
+  } catch (_) {}
+  return null;
+}
+
 function extractImage(serialized) {
   if (!serialized) return null;
   // Wenn JSON, normal verarbeiten
@@ -161,6 +400,30 @@ function extractImage(serialized) {
       return match[1];
     }
   }
+  return null;
+}
+
+/** Detail-Thumbnails Mobile: _smallx2-Datei nur nutzen, wenn sie im Listing-Ordner liegt */
+function detailThumbSmallx2FilenameIfExists(entityRoute, itemId, basename) {
+  const smallx2Name = insertSmallx2SuffixBeforeExtension(basename);
+  if (!smallx2Name) return null;
+  const dir = path.join(imagesBase, entityRoute, String(itemId));
+  const full = path.join(dir, smallx2Name);
+  try {
+    if (fs.existsSync(full)) return smallx2Name;
+  } catch (_) {}
+  return null;
+}
+
+/** Detail-Thumbnails Mobile: _largex2-Datei nur nutzen, wenn sie im Listing-Ordner liegt */
+function detailThumbLargex2FilenameIfExists(entityRoute, itemId, basename) {
+  const largex2Name = insertLargex2SuffixBeforeExtension(basename);
+  if (!largex2Name) return null;
+  const dir = path.join(imagesBase, entityRoute, String(itemId));
+  const full = path.join(dir, largex2Name);
+  try {
+    if (fs.existsSync(full)) return largex2Name;
+  } catch (_) {}
   return null;
 }
 
@@ -409,6 +672,30 @@ function buildPublicImageUrl(entityOrTable, itemId, rawFilename) {
   if (!clean) return fallback;
 
   return `/images/${entityOrTable}/${itemId}/${encodeURIComponent(clean)}`;
+}
+
+/**
+ * Detail: „Das könnte Sie interessieren“, „Weitere … dieses Händlers“, Empfehlungen –
+ * nutzt *_large wenn die Datei im Listing-Ordner existiert (sonst wie bisher).
+ */
+function buildDetailListingImageUrl(entityRoute, itemId, rawFromExtract) {
+  if (rawFromExtract == null || rawFromExtract === '') {
+    return buildPublicImageUrl(entityRoute, itemId, rawFromExtract);
+  }
+  const s = String(rawFromExtract).trim();
+  if (/^https?:\/\//i.test(s) || s.startsWith('/assets/') || s.startsWith('/images/')) {
+    return buildPublicImageUrl(entityRoute, itemId, rawFromExtract);
+  }
+  const resolvedFilename =
+    typeof resolveImageFilename === 'function'
+      ? resolveImageFilename(entityRoute, itemId, rawFromExtract)
+      : s;
+  const largeFilename = categorySliderLargeMainFilenameIfExists(
+    entityRoute,
+    itemId,
+    resolvedFilename
+  );
+  return buildPublicImageUrl(entityRoute, itemId, largeFilename || resolvedFilename);
 }
 
 // 🔽 SORTING (muss IN der Route sein, weil req hier existiert)
@@ -826,7 +1113,7 @@ function deriveDetailPrefixFromOriginalUrl(req, entityRoute, id) {
   if (!parts.length) return [];
 
   const canonicalEntity = getCanonicalEntityRoute(parts[0]);
-  if (canonicalEntity !== String(entityRoute || '').toLowerCase()) return [];
+  if (canonicalEntity !== getCanonicalEntityRoute(entityRoute)) return [];
 
   const idStr = String(id);
   const idIndex = parts.findIndex((p, idx) => {
@@ -846,7 +1133,7 @@ function isLegacyIdSlugDetailUrl(req, entityRoute, id) {
   if (parts.length < 3) return false;
 
   const canonicalEntity = getCanonicalEntityRoute(parts[0]);
-  if (canonicalEntity !== String(entityRoute || '').toLowerCase()) return false;
+  if (canonicalEntity !== getCanonicalEntityRoute(entityRoute)) return false;
 
   const idStr = String(id);
   const idIndex = parts.findIndex((p, idx) => idx > 0 && p === idStr);
@@ -860,7 +1147,7 @@ function deriveListingPrefixFromOriginalUrl(req, entityRoute, maxSegments = 3) {
   if (!parts.length) return [];
 
   const canonicalEntity = getCanonicalEntityRoute(parts[0]);
-  if (canonicalEntity !== String(entityRoute || '').toLowerCase()) return [];
+  if (canonicalEntity !== getCanonicalEntityRoute(entityRoute)) return [];
 
   return parts
     .slice(1, 1 + Number(maxSegments || 3))
@@ -1176,8 +1463,9 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
       FROM ententies
       ORDER BY id
     `);
-    const currentEntity = entities.find(e => e.route === entityRoute);
-    console.log('[DETAIL] entities count:', entities?.length, 'currentEntity:', currentEntity);
+    const canonicalEntityRoute = getCanonicalEntityRoute(entityRoute);
+    const currentEntity = entities.find(e => e.route === canonicalEntityRoute);
+    console.log('[DETAIL] entities count:', entities?.length, 'currentEntity:', currentEntity, 'canonicalEntityRoute:', canonicalEntityRoute);
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     // 1a) Spaltenliste (reference?)
@@ -1243,7 +1531,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
     // 3) Prefix prüfen (z. B. /autos/ferrari/123/porsche-... -> 301 auf korrekten Brand-Prefix)
     if (incomingDetailPrefix.length) {
       const expectedPrefix = await buildExpectedDetailPrefix(
-        entityRoute,
+        canonicalEntityRoute,
         itemRow,
         incomingDetailPrefix.length
       );
@@ -1259,7 +1547,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
             buildLocalizedDetailPath(
               req,
               res,
-              entityRoute,
+              canonicalEntityRoute,
               id,
               correctedSlug,
               expectedPrefix
@@ -1279,7 +1567,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
           buildLocalizedDetailPath(
             req,
             res,
-            entityRoute,
+            canonicalEntityRoute,
             id,
             realSlug,
             incomingDetailPrefix
@@ -1292,7 +1580,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
     try {
       await incrementListingVisitOncePerIpPerDay({
         req,
-        entityRoute,
+        entityRoute: canonicalEntityRoute,
         listingId: Number(id),
         ownerUserId: itemRow.user_id,
         colSet,
@@ -1320,22 +1608,43 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
 
     // 5) Marke/Modell/Land/EZ
     let brandName   = '–';
+    let brandSeoname = '';
     let modelName   = '–';
     let countryName = '–';
     let stateName   = '';
+    let countryCode = '';
 
     if (itemRow.brand_id) {
-      const [[b]] = await db.query('SELECT name FROM brands WHERE id = ?', [itemRow.brand_id]);
+      const [[b]] = await db.query('SELECT name, seoname FROM brands WHERE id = ?', [itemRow.brand_id]);
       brandName = b?.name || '–';
+      brandSeoname = b?.seoname || '';
     }
     if (itemRow.model_id) {
       const [[m]] = await db.query('SELECT name FROM models WHERE id = ?', [itemRow.model_id]);
       modelName = m?.name || '–';
     }
+    const countryLangCol = ['de','en','fr','it','tr','ja','cs','ru','es','nl','pl']
+      .includes(String(activeLanguage || '').toLowerCase())
+      ? String(activeLanguage).toLowerCase()
+      : 'de';
     if (itemRow.country_id) {
       const [[c]] = await db.query(
-        `SELECT COALESCE(NULLIF(p.de, ''), c.de) AS country_name,
-                CASE WHEN c.parent_id IS NULL THEN '' ELSE COALESCE(NULLIF(c.de, ''), '') END AS state_name
+        `SELECT
+                CASE
+                  WHEN c.parent_id IS NULL
+                    THEN COALESCE(NULLIF(c.${countryLangCol}, ''), NULLIF(c.en, ''), c.de)
+                  ELSE COALESCE(NULLIF(p.${countryLangCol}, ''), NULLIF(p.en, ''), p.de, COALESCE(NULLIF(c.${countryLangCol}, ''), NULLIF(c.en, ''), c.de))
+                END AS country_name,
+                CASE
+                  WHEN c.parent_id IS NULL
+                    THEN ''
+                  ELSE COALESCE(NULLIF(c.${countryLangCol}, ''), NULLIF(c.en, ''), c.de, '')
+                END AS state_name,
+                CASE
+                  WHEN c.parent_id IS NULL
+                    THEN LOWER(COALESCE(NULLIF(c.code, ''), ''))
+                  ELSE LOWER(COALESCE(NULLIF(p.code, ''), NULLIF(c.code, ''), ''))
+                END AS country_code
            FROM countries c
            LEFT JOIN countries p ON p.id = c.parent_id
           WHERE c.id = ?
@@ -1344,6 +1653,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
       );
       countryName = c?.country_name || '–';
       stateName = c?.state_name || '';
+      countryCode = c?.country_code || '';
     }
     const firstRegistration = itemRow.firstregistration
       ? (itemRow.firstregistration_month
@@ -1372,17 +1682,64 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
     item.pictures       = pics;
     item.mainPic        = mainFilename;
     const toImageUrl = (fn) => buildPublicImageUrl(entityRoute, id, fn);
-    item.imageUrl       = toImageUrl(mainFilename);
-    item.thumbnailUrls  = thumbnailFilenames.map(fn => toImageUrl(fn));
-    if (hasRealMain && item.imageUrl && Array.isArray(item.thumbnailUrls)) {
+    const toDetailImageUrl = (fn) => {
+      const u = toImageUrl(fn);
+      return u && u.startsWith('/images/') ? `${u}?fmt=auto` : u;
+    };
+    const toThumbUrl = (fn) => {
+      const smallFn = detailThumbSmallFilenameIfExists(entityRoute, id, fn);
+      return toImageUrl(smallFn || fn);
+    };
+    item.imageUrl = toDetailImageUrl(mainFilename);
+    const mainLargex2Filename = detailThumbLargex2FilenameIfExists(entityRoute, id, mainFilename);
+    const mainSmallx2Filename = detailThumbSmallx2FilenameIfExists(entityRoute, id, mainFilename);
+    const mainSmallFilename = detailThumbSmallFilenameIfExists(entityRoute, id, mainFilename);
+    item.imageUrlMobile = mainLargex2Filename
+      ? toDetailImageUrl(mainLargex2Filename)
+      : (mainSmallx2Filename
+          ? toDetailImageUrl(mainSmallx2Filename)
+          : (mainSmallFilename ? toDetailImageUrl(mainSmallFilename) : item.imageUrl));
+
+    const thumbPairs = thumbnailFilenames.map((fn) => ({
+      disp: toThumbUrl(fn),
+      full: toImageUrl(fn)
+    }));
+    const thumbMobilePairs = thumbnailFilenames.map((fn) => {
+      const largex2Fn = detailThumbLargex2FilenameIfExists(entityRoute, id, fn);
+      const smallx2Fn = detailThumbSmallx2FilenameIfExists(entityRoute, id, fn);
+      const smallFn = detailThumbSmallFilenameIfExists(entityRoute, id, fn);
+      return smallFn
+        ? toDetailImageUrl(smallFn)
+        : (smallx2Fn ? toDetailImageUrl(smallx2Fn) : (largex2Fn ? toDetailImageUrl(largex2Fn) : toDetailImageUrl(fn)));
+    });
+
+    if (hasRealMain && item.imageUrl) {
       const main = item.imageUrl;
-      item.thumbnailUrls = [ main, ...item.thumbnailUrls.filter(u => u !== main) ];
+      if (thumbPairs.length) {
+        const rest = thumbPairs.filter((p) => p.disp !== main);
+        item.thumbnailUrls = [main, ...rest.map((p) => p.disp)];
+        item.thumbnailFullUrls = [main, ...rest.map((p) => p.full)];
+        item.thumbnailMobileUrls = [
+          item.imageUrlMobile,
+          ...thumbMobilePairs.filter((mobileUrl) => mobileUrl !== item.imageUrlMobile)
+        ];
+      } else {
+        item.thumbnailUrls = [main];
+        item.thumbnailFullUrls = [main];
+        item.thumbnailMobileUrls = [item.imageUrlMobile];
+      }
+    } else {
+      item.thumbnailUrls = thumbPairs.map((p) => p.disp);
+      item.thumbnailFullUrls = thumbPairs.map((p) => p.full);
+      item.thumbnailMobileUrls = thumbMobilePairs;
     }
 
     item.brandName      = brandName;
+    item.brand_seoname  = brandSeoname;
     item.modelName      = modelName;
     item.countryName    = countryName;
     item.stateName      = stateName;
+    item.countryCode    = countryCode;
     item.firstRegistration = firstRegistration;
 
 
@@ -1516,14 +1873,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
 
     // 9) Empfehlungen
     const selectCols = HAS_REF ? 'id, name, price, currency, pictures, reference' : 'id, name, price, currency, pictures';
-    const [recs] = await db.query(`
-      SELECT ${selectCols}
-      FROM ${table}
-      WHERE status = 3 AND visible = 1
-        AND JSON_LENGTH(pictures) > 0 AND id <> ?
-      ORDER BY RAND()
-      LIMIT 12
-    `, [id]);
+    const recs = await fetchRandomRecommendations(db, table, selectCols, id, 12);
     console.log('[DETAIL] recommendations raw:', recs.length);
 
     let recommendedItems = recs.map(r => {
@@ -1536,7 +1886,7 @@ router.get('/test/:entityRoute/:id/:slug', async (req, res, next) => {
         reference:      HAS_REF ? (r.reference ?? null) : null,
         title:          r.name,
         slug:           slugify(r.name, { lower: true, strict: true }),
-        imageUrl:       buildPublicImageUrl(entityRoute, r.id, main),
+        imageUrl:       buildDetailListingImageUrl(entityRoute, r.id, main),
         priceFormatted: num != null
           ? res.locals.convertPrice(num, res.locals.currency, r.currency || 'EUR')
           : '–'
@@ -1684,8 +2034,7 @@ rows.forEach(r => {
 const rpics = safeParsePictures(r.pictures);
 const img = extractMainImage(r.mainpicture, rpics);
 
-r.mainpicture = buildPublicImageUrl(r.entity, r.id, img);
-console.log(`➡ Neuer finaler Bildpfad (URL): ${r.mainpicture}`);
+r.mainpicture = buildDetailListingImageUrl(r.entity, r.id, img);
 
 });
   if (rows.length > 0) {
@@ -1933,7 +2282,7 @@ const categoryMap = yachtMaps.category || {
   2: "Segelboot"
 };
 
-const yachtTypeMap = yachtMaps.yachttype || {
+const yachtTypeMap = {
   1: "Motoryacht",
   2: "Sportkreuzer",
   3: "Kajütkreuzer",
@@ -1953,10 +2302,12 @@ const yachtTypeMap = yachtMaps.yachttype || {
   17: "Trawler",
   18: "Solarboot",
   19: "Wasserski-Boot",
-  20: "Sportboot"
+  20: "Sportboot",
+  255: "Sonstige",
+  ...(yachtMaps.yachttype || {})
 };
 
-const hullMap = yachtMaps.hull || {
+const hullMap = {
   1: "GFK",
   2: "Stahl",
   3: "Aluminium",
@@ -1964,14 +2315,16 @@ const hullMap = yachtMaps.hull || {
   5: "GRP",
   6: "Verbundwerkstoff",
   7: "Holz",
-  8: "Kevlar/Carbon"
+  8: "Kevlar/Carbon",
+  ...(yachtMaps.hull || {})
 };
 
-const shapeMap = yachtMaps.shape || {
+const shapeMap = {
   1: "Wie neu",
   2: "Sehr gut",
   3: "Gut",
-  4: "Charter"
+  4: "Charter",
+  ...(yachtMaps.shape || {})
 };
 
 
@@ -2061,21 +2414,12 @@ if (Array.isArray(moreItems)) {
   }
 }
 
-console.log("===== [SIMILAR] START =====");
-console.log("Entity:", currentEntity.route);
-console.log("Item ID:", item.id);
-console.log("Raw ItemRow brand/model/city/category:", {
-  brand_id: itemRow.brand_id,
-  model_id: itemRow.model_id,
-  city: itemRow.city,
-  property_type: itemRow.property_type,
-  country_id: itemRow.country_id,
-  category: itemRow.category,
-  yachttype: itemRow.yachttype,
-  user_id: itemRow.user_id
-});
 
 let similarItems = [];
+// SEO-Bots (Google/Bing) sollen indexieren können, aber wir reduzieren die teuren
+// "SIMILAR"-Abfragen + drosseln die Debug-Logs, damit der Server nicht blockiert.
+const isSeoBot = Boolean(req?.isSeoBot);
+const similarLimit = isSeoBot ? 6 : 20;
 
 try {
 
@@ -2085,7 +2429,6 @@ try {
   // ==========================
   //
   if (currentEntity.route === 'watches') {
-    console.log("Running SIMILAR query for WATCHES…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -2128,17 +2471,15 @@ try {
       strictOrder.push("ABS(price - ?) ASC");
       strictOrderParams.push(priceBase);
     }
-    strictOrder.push("RAND()");
+    strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, watchtype, brand_id, model_id
       FROM watches
       WHERE ${strictWhere.join(" AND ")}
       ORDER BY ${strictOrder.join(", ")}
-      LIMIT 20
+      LIMIT ${similarLimit}
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][WATCHES] strict rows:", strictRows.length);
 
     if (strictRows.length >= 4) {
       similarItems = strictRows;
@@ -2170,17 +2511,16 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, watchtype, brand_id, model_id
         FROM watches
         WHERE ${relaxedWhere.join(" AND ")}
         ORDER BY ${relaxedOrder.join(", ")}
-        LIMIT 20
+        LIMIT ${similarLimit}
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][WATCHES] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -2191,7 +2531,6 @@ try {
   // ==========================
   //
   else if (currentEntity.route === 'cars') {
-    console.log("Running SIMILAR query for CARS…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -2234,17 +2573,15 @@ try {
       strictOrder.push("ABS(price - ?) ASC");
       strictOrderParams.push(priceBase);
     }
-    strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, cartype, brand_id, model_id
       FROM cars
       WHERE ${strictWhere.join(" AND ")}
       ORDER BY ${strictOrder.join(", ")}
-      LIMIT 20
+      LIMIT ${similarLimit}
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][CARS] strict rows:", strictRows.length);
 
     if (strictRows.length >= 4) {
       similarItems = strictRows;
@@ -2274,17 +2611,16 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, cartype, brand_id, model_id
         FROM cars
         WHERE ${relaxedWhere.join(" AND ")}
         ORDER BY ${relaxedOrder.join(", ")}
-        LIMIT 20
+        LIMIT ${similarLimit}
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][CARS] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -2295,7 +2631,6 @@ try {
   // ==========================
   //
   else if (currentEntity.route === 'properties') {
-    console.log("Running SIMILAR query for PROPERTIES…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -2349,17 +2684,15 @@ try {
       strictOrder.push("ABS(landarea - ?) ASC");
       strictOrderParams.push(landBase);
     }
-    strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, propertytype, country_id, livingarea, landarea
       FROM properties
       WHERE ${strictWhere.join(" AND ")}
       ORDER BY ${strictOrder.join(", ")}
-      LIMIT 20
+      LIMIT ${similarLimit}
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][PROPERTIES] strict rows:", strictRows.length);
 
     // Wenn ausreichend ähnliche Immobilien vorhanden sind, nimm nur diese.
     if (strictRows.length >= 4) {
@@ -2392,17 +2725,16 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, propertytype, country_id, livingarea, landarea
         FROM properties
         WHERE ${relaxedWhere.join(" AND ")}
         ORDER BY ${relaxedOrder.join(", ")}
-        LIMIT 20
+        LIMIT ${similarLimit}
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][PROPERTIES] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -2413,7 +2745,6 @@ try {
   // ==========================
   //
   else if (currentEntity.route === 'yachts') {
-    console.log("Running SIMILAR query for YACHTS…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -2449,17 +2780,15 @@ try {
       strictOrder.push("ABS(price - ?) ASC");
       strictOrderParams.push(priceBase);
     }
-    strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, category, yachttype
       FROM yachts
       WHERE ${strictWhere.join(" AND ")}
       ORDER BY ${strictOrder.join(", ")}
-      LIMIT 20
+      LIMIT ${similarLimit}
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][YACHTS] strict rows:", strictRows.length);
 
     if (strictRows.length >= 4) {
       similarItems = strictRows;
@@ -2487,17 +2816,16 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, category, yachttype
         FROM yachts
         WHERE ${relaxedWhere.join(" AND ")}
         ORDER BY ${relaxedOrder.join(", ")}
-        LIMIT 20
+        LIMIT ${similarLimit}
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][YACHTS] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -2508,7 +2836,6 @@ try {
   // ==========================
   //
 else if (currentEntity.route === 'lifestyles') {
-  console.log("Running SIMILAR query for LIFESTYLES (simplified)…");
   const toPositive = (v) => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -2549,17 +2876,15 @@ else if (currentEntity.route === 'lifestyles') {
     strictOrder.push("ABS(price - ?) ASC");
     strictOrderParams.push(priceBase);
   }
-  strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
   const [strictRows] = await db.query(`
     SELECT id, name, price, currency, pictures, mainpicture, brand_id, model_id, user_id, category
     FROM lifestyles
     WHERE ${strictWhere.join(" AND ")}
     ORDER BY ${strictOrder.join(", ")}
-    LIMIT 20
+    LIMIT ${similarLimit}
   `, [...strictParams, ...strictOrderParams]);
-
-  console.log("[SIMILAR][LIFESTYLES] strict rows:", strictRows.length);
 
   if (strictRows.length >= 4) {
     similarItems = strictRows;
@@ -2591,17 +2916,16 @@ else if (currentEntity.route === 'lifestyles') {
       relaxedOrder.push("ABS(price - ?) ASC");
       relaxedOrderParams.push(priceBase);
     }
-    relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
     const [relaxedRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, brand_id, model_id, user_id, category
       FROM lifestyles
       WHERE ${relaxedWhere.join(" AND ")}
       ORDER BY ${relaxedOrder.join(", ")}
-      LIMIT 20
+      LIMIT ${similarLimit}
     `, [...relaxedParams, ...relaxedOrderParams]);
 
-    console.log("[SIMILAR][LIFESTYLES] relaxed rows:", relaxedRows.length);
     similarItems = relaxedRows.length ? relaxedRows : strictRows;
   }
 }
@@ -2613,15 +2937,12 @@ else if (currentEntity.route === 'lifestyles') {
   // ==========================
   //
   else {
-    console.log("[SIMILAR] No matching entity, clearing similarItems");
     similarItems = [];
   }
 
 } catch (err) {
   console.warn("[DETAIL][SIMILAR] error:", err);
 }
-
-console.log("[SIMILAR] Before map(), items:", similarItems.length);
 
 //
 // ==========================
@@ -2630,8 +2951,6 @@ console.log("[SIMILAR] Before map(), items:", similarItems.length);
 //
 
 similarItems = similarItems.map(r => {
-  console.log("[SIMILAR][MAP] Processing item:", r.id, r.name);
-
   const rpics = safeParsePictures(r.pictures);
   const img = extractMainImage(r.mainpicture, rpics);
 
@@ -2639,21 +2958,16 @@ similarItems = similarItems.map(r => {
     id: r.id,
     title: r.name,
     slug: slugify(r.name, { lower: true, strict: true }),
-    imageUrl: buildPublicImageUrl(currentEntity.route, r.id, img),
+    imageUrl: buildDetailListingImageUrl(currentEntity.route, r.id, img),
     price: r.price,
     priceFormatted: r.price ? res.locals.convertPrice(r.price, res.locals.currency, r.currency || 'EUR') : "Preis auf Anfrage"
   };
 
-  console.log("[SIMILAR][MAP] FINAL ITEM:", out.imageUrl);
   return out;
 });
 
 
-console.log("[SIMILAR] FINAL similarItems:", similarItems.length);
-console.log("===== [SIMILAR] END =====");
-
-
-
+ 
     // 13) Render
       res.render('pages/templates/test', {
         entities,
@@ -2699,6 +3013,11 @@ console.log("===== [SIMILAR] END =====");
 
 router.get('/', async (req, res, next) => {
   const user = res.locals.user;
+  const pageCacheKey = isPageCacheEligible(req, res) ? buildPageCacheKey(req, res, 'home') : null;
+  if (pageCacheKey) {
+    const cachedHtml = getCachedPageHtml(pageCacheKey);
+    if (cachedHtml) return res.send(cachedHtml);
+  }
 
   try {
     console.log('🛠️  GET / (Startseite) wurde aufgerufen - Admin ist eingeloggt');
@@ -2751,10 +3070,12 @@ router.get('/', async (req, res, next) => {
       const mainPicFilename = Array.isArray(pics) && pics.length > 0
         ? (pics[0] && pics[0].image ? pics[0].image : String(pics[0]))
         : '/assets/herando-weblogo.png';
+      const resolvedMain = resolveImageFilename('cars', car.id, mainPicFilename);
+      const homeSmallx2 = homeSmallx2FilenameIfExists('cars', car.id, resolvedMain);
       return {
         id: car.id,
         title: car.title,
-        imageUrl: buildPublicImageUrl('cars', car.id, mainPicFilename),
+        imageUrl: buildPublicImageUrl('cars', car.id, homeSmallx2 || resolvedMain),
         reference: car.title
       };
     });
@@ -2862,14 +3183,17 @@ const [magRows] = await db.query(`
     ON pt.post_id = p.id
    AND pt.language = ?
   WHERE p.category = 'magazin'
-  ORDER BY p.created DESC
+    AND p.published_at IS NOT NULL
+    AND p.published_at <= NOW()
+  ORDER BY p.published_at DESC
   LIMIT 8
 `, [currentLang]);
 
-const magazinPosts = magRows.map(p => ({
+const magazinPosts = magRows.map((p, idx) => ({
   title:   p.title,
   slug:    p.slug,
   image:   `/uploads/postings/${p.slug}/${p.cover_image || '/assets/herando-weblogo.png'}`,
+  coverImg: buildPostingCoverResponsive(p.slug, p.cover_image, idx === 0 ? 'main' : 'side'),
   author:  p.author,
   excerpt: (p.content || '')
              .replace(/<[^>]+>/g, '')   // HTML-Tags weg
@@ -2877,11 +3201,16 @@ const magazinPosts = magRows.map(p => ({
              .trim() + '…'
 }));
 
-res.render('pages/templates/index', {
+const heroSlide1PreloadHref = buildResponsiveHeroAttrs(
+  t('home_hero_slide1_image', '/assets/herando-home-slider-luxusimmobilien.webp')
+).preloadHref;
+
+const indexViewData = {
   items,
   brandChunks,
   currentEntitieId,
   entieties,
+  isHomePage: true,
   homeEntityOrder,
   footerColumns,
   magazinPosts,
@@ -2891,6 +3220,8 @@ res.render('pages/templates/index', {
   ui,
   lang,
   t,
+  heroSlide1PreloadHref,
+  buildResponsiveHeroAttrs,
 
   // 🔥 HIER FEHLTEN DIESE 2
   catLabel: (route, fallback) => {
@@ -2920,7 +3251,17 @@ res.render('pages/templates/index', {
 
     return map[route] || null;
   }
-});
+};
+
+if (pageCacheKey) {
+  return res.render('pages/templates/index', indexViewData, (err, html) => {
+    if (err) return next(err);
+    setCachedPageHtml(pageCacheKey, html);
+    return res.send(html);
+  });
+}
+
+res.render('pages/templates/index', indexViewData);
 
 
   } catch (err) {
@@ -3062,9 +3403,13 @@ router.get('/api/advert_inserat/:entitieId', async (req, res, next) => {
 
       if (!mainImg) mainImg = "herando-weblogo.png";
 
-      const imageUrl = mainImg === "herando-weblogo.png"
-        ? `/assets/herando-weblogo.png`
-        : `/images/${ent.table_name}/${row.itemId}/${encodeURIComponent(mainImg)}`;
+      const resolvedMain = resolveImageFilename(ent.table_name, row.itemId, mainImg);
+      const listingImg = buildListingImageResponsive(
+        ent.table_name,
+        row.itemId,
+        resolvedMain,
+        ent.table_name === 'watches'
+      );
 
       // 💰 Preisverarbeitung
       const price = row.price || 0;
@@ -3076,7 +3421,9 @@ router.get('/api/advert_inserat/:entitieId', async (req, res, next) => {
         id: row.adId,
         reference: row.itemId,
         title: cleanTitle,
-        imageUrl,
+        imageUrl: listingImg.src,
+        imageSrcset: listingImg.srcset,
+        imageSizes: listingImg.sizes,
         price,
         priceFormatted: price ? convertedLabel : null,
         priceConverted: convertedLabel
@@ -3207,6 +3554,12 @@ router.get('/api/catalog_ads/:entitieId', async (req, res, next) => {
 
       const mainImg = extractMainImageSimple(row.mainpicture, picsArr);
       const filename = resolveImageFilename(ent.table_name, row.advertId, mainImg);
+      const listingImg = buildListingImageResponsive(
+        ent.table_name,
+        row.advertId,
+        filename,
+        ent.table_name === 'watches'
+      );
 
       const originalPrice = row.price || 0;
       const sourceCurrency = String(row.currency || 'EUR').toUpperCase();
@@ -3224,7 +3577,9 @@ router.get('/api/catalog_ads/:entitieId', async (req, res, next) => {
         priceFormatted: originalPrice ? converted : null,
         priceConverted: converted,
 
-        imageUrl: buildPublicImageUrl(ent.table_name, row.advertId, filename)
+        imageUrl: listingImg.src,
+        imageSrcset: listingImg.srcset,
+        imageSizes: listingImg.sizes
       };
     });
 
@@ -4025,8 +4380,16 @@ res.locals.seo = seo;
   }
 });
 
-router.get('/angebote', async (req, res, next) => {
+router.get(['/angebote', '/angebot-private', '/angebot-commercial'], async (req, res, next) => {
   try {
+    const uiLangCols = ['de', 'en', 'fr', 'it', 'tr', 'ja', 'cs', 'ru', 'es', 'nl', 'pl'];
+    const rawLang = String(res.locals.lang || 'de').toLowerCase();
+    const locale = uiLangCols.includes(rawLang.split(/[-_]/)[0]) ? rawLang.split(/[-_]/)[0] : 'de';
+
+    let requestedOfferType = '';
+    if (req.path === '/angebot-private') requestedOfferType = 'private';
+    if (req.path === '/angebot-commercial') requestedOfferType = 'commercial';
+
     // 🧠 Benutzer korrekt aus Session laden
     let user = null;
 
@@ -4062,9 +4425,31 @@ router.get('/angebote', async (req, res, next) => {
 
     // 🔹 Pakete laden
     const [packages] = await db.query(`
-      SELECT id, name, description, price, registration_type, sort_order
-      FROM packages
-      ORDER BY sort_order
+      SELECT
+        p.id,
+        p.name,
+        p.description,
+        p.price,
+        p.registration_type,
+        p.sort_order,
+        tn.\`${locale}\` AS translated_name,
+        td.\`${locale}\` AS translated_description
+      FROM packages p
+      LEFT JOIN ui_translations tn
+        ON tn.key = COALESCE(
+          CASE
+            WHEN p.registration_type = 'private' THEN 'buyer.package.private_90'
+            WHEN LOWER(p.name) LIKE '%light%' THEN 'buyer.package.light'
+            WHEN LOWER(p.name) LIKE '%premium%' THEN 'buyer.package.premium'
+            WHEN LOWER(p.name) LIKE '%private_90%' OR LOWER(p.name) LIKE '%privat%' THEN 'buyer.package.private_90'
+            WHEN LOWER(p.name) LIKE '%pro%' THEN 'buyer.package.pro'
+            ELSE NULL
+          END,
+          CONCAT('package.', REPLACE(REPLACE(LOWER(TRIM(p.name)), ' ', '_'), '-', '_'))
+        )
+      LEFT JOIN ui_translations td
+        ON td.key = CONCAT('package.', REPLACE(p.id, '-', '_'))
+      ORDER BY p.sort_order
     `);
 
     const commercialPackages = packages.filter(p => p.registration_type === 'commercial');
@@ -4072,7 +4457,10 @@ router.get('/angebote', async (req, res, next) => {
 
     // 🔹 Länder & Kategorien laden
     const [countries] = await db.query(`
-      SELECT id, de AS name FROM countries WHERE visible = 1 ORDER BY de
+      SELECT id, de AS name, code, prefix
+      FROM countries
+      WHERE visible = 1
+      ORDER BY de
     `);
 
     const [categories] = await db.query(`
@@ -4153,7 +4541,7 @@ router.get('/angebote', async (req, res, next) => {
     });
 
     // 🔹 Page Render
-    res.render('pages/templates/angebote', {
+    res.render('pages/templates/test-angebot', {
       commercialPackages,
       privatePackages,
       packages,
@@ -4169,6 +4557,7 @@ router.get('/angebote', async (req, res, next) => {
       login_user: user,
       currentUrl: req.url,
       headerTitle: 'Angebote',
+      requestedOfferType
     });
 
   } catch (err) {
@@ -4642,6 +5031,15 @@ router.post('/angebote/buchen', async (req, res, next) => {
 
     // ─── 7) Country-Code in Session ───────────────────────
     req.session.pendingOrder.country_code = countryMeta.countryCode;
+
+    const [[nextOrderIdRow]] = await db.query(
+      `SELECT COALESCE(MAX(id), 0) + 1 AS next_order_id FROM orders`
+    );
+    const nextOrderId = Number(nextOrderIdRow?.next_order_id || 0);
+    if (!Number.isInteger(nextOrderId) || nextOrderId <= 0) {
+      return res.status(500).send('Order-ID konnte nicht ermittelt werden.');
+    }
+    req.session.pendingOrder.order_id = nextOrderId;
     console.log('Country-Code:', countryMeta.countryCode);
 
     // ─── 8) Netto → Brutto-Berechnung für Stripe ─────────
@@ -4665,7 +5063,12 @@ router.post('/angebote/buchen', async (req, res, next) => {
         },
         quantity: 1
       }],
-      client_reference_id: 'pending',
+      client_reference_id: String(nextOrderId),
+      metadata: {
+        order_id: String(nextOrderId),
+        package_id: String(req.body.package_id || ''),
+        email: String(req.body.email || '')
+      },
       success_url: `${req.protocol}://${req.get('host')}/zahlung/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${req.protocol}://${req.get('host')}/angebote?canceled=1`
     });
@@ -4698,6 +5101,12 @@ router.get('/zahlung/success', async (req, res, next) => {
 
     // 2) User anlegen oder finden
     const data = pending;
+    const reservedOrderId = Number(
+      pending.order_id ||
+      sessionObj?.metadata?.order_id ||
+      sessionObj?.client_reference_id ||
+      0
+    );
     let [[userRow]] = await db.query(
       `SELECT id, language FROM users WHERE email = ?`,
       [data.email]
@@ -4742,31 +5151,56 @@ router.get('/zahlung/success', async (req, res, next) => {
       [data.package_id]
     );
     const productName = pkgNameRow.name;
-    const [orderRes] = await db.query(
-      `INSERT INTO orders
-         (user_id, package_id, product, category_id, country_id,
-          firstname, lastname, company, vatid,
-          street, housenumber, postcode, city, phone, email, created_at)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`,
-      [
-        userId,
-        data.package_id,
-        productName,
-        data.category_id,
-        data.country_id,
-        data.firstname,
-        data.lastname,
-        data.company,
-        data.vatid,
-        data.street,
-        data.housenumber,
-        data.postcode,
-        data.city,
-        data.phone,
-        data.email
-      ]
-    );
-    const orderId = orderRes.insertId;
+    const canUseReservedOrderId = Number.isInteger(reservedOrderId) && reservedOrderId > 0;
+    const orderInsertSql = canUseReservedOrderId
+      ? `INSERT INTO orders
+           (id, user_id, package_id, product, category_id, country_id,
+            firstname, lastname, company, vatid,
+            street, housenumber, postcode, city, phone, email, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`
+      : `INSERT INTO orders
+           (user_id, package_id, product, category_id, country_id,
+            firstname, lastname, company, vatid,
+            street, housenumber, postcode, city, phone, email, created_at)
+         VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())`;
+    const orderInsertParams = canUseReservedOrderId
+      ? [
+          reservedOrderId,
+          userId,
+          data.package_id,
+          productName,
+          data.category_id,
+          data.country_id,
+          data.firstname,
+          data.lastname,
+          data.company,
+          data.vatid,
+          data.street,
+          data.housenumber,
+          data.postcode,
+          data.city,
+          data.phone,
+          data.email
+        ]
+      : [
+          userId,
+          data.package_id,
+          productName,
+          data.category_id,
+          data.country_id,
+          data.firstname,
+          data.lastname,
+          data.company,
+          data.vatid,
+          data.street,
+          data.housenumber,
+          data.postcode,
+          data.city,
+          data.phone,
+          data.email
+        ];
+    const [orderRes] = await db.query(orderInsertSql, orderInsertParams);
+    const orderId = Number(canUseReservedOrderId ? reservedOrderId : orderRes.insertId);
 
     // 4) selected_packages anlegen
     const [[pkg]] = await db.query(
@@ -5224,10 +5658,13 @@ router.get('/magazin', async (req, res, next) => {
 
     // Magazin-Posts (Basisdaten)
     const [rows] = await db.query(`
-      SELECT id, title, slug, cover_image, author, content
+      SELECT id, title, slug, cover_image, author, content, published_at
       FROM postings
       WHERE category = 'magazin'
-      ORDER BY created DESC
+        AND published_at IS NOT NULL
+      ORDER BY (published_at <= NOW()) DESC,
+        CASE WHEN published_at <= NOW() THEN published_at END DESC,
+        CASE WHEN published_at > NOW() THEN published_at END ASC
       LIMIT 10
     `);
     console.log("📰 Gefundene Magazin-Posts:", rows.length);
@@ -5279,7 +5716,8 @@ router.get('/magazin', async (req, res, next) => {
         author: p.author,
         excerpt: (content || '').replace(/<[^>]+>/g, '').substring(0, 200).trim() + '…',
         seo_title: seoTitle,
-        seo_description: seoDesc
+        seo_description: seoDesc,
+        published_at: p.published_at
       };
     });
 
@@ -5418,9 +5856,10 @@ router.get('/magazin/:slug', async (req, res, next) => {
 
     // Original-Posting
     const [[page]] = await db.query(`
-      SELECT id, title, slug, author, location, cover_image, additional_images, content, created
+      SELECT id, title, slug, author, location, cover_image, additional_images, content, created, published_at
       FROM postings
       WHERE slug = ?
+        AND published_at IS NOT NULL
     `, [slug]);
 
     if (!page) {
@@ -5474,10 +5913,13 @@ router.get('/magazin/:slug', async (req, res, next) => {
 
     console.log("🔧 SEO Row geladen:", seoRow ? "Ja" : "Nein");
 
+    const isUpcoming =
+      page.published_at && new Date(page.published_at) > new Date();
+
     const seo = {
       title: translation?.seo_title || seoRow?.title || page.title,
       meta_description: translation?.seo_description || seoRow?.meta_description || null,
-      robots: seoRow?.robots || 'index,follow',
+      robots: isUpcoming ? 'noindex,follow' : (seoRow?.robots || 'index,follow'),
       canonical_url: buildCanonical(req),
       og_title: translation?.seo_title || seoRow?.og_title || null,
       og_description: translation?.seo_description || seoRow?.og_description || null,
@@ -6877,18 +7319,9 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
       ORDER BY id
     `);
 
-    // 3️⃣ Aktive Entitäten
+    // 3️⃣ Aktive Entitäten werden beim Laden der Inserate ermittelt
     const activeEntities = [];
-    for (const ent of entities) {
-      const table = db.escapeId(ent.table_name);
-      const [[row]] = await db.query(`
-        SELECT COUNT(*) AS count
-        FROM ${table}
-        WHERE user_id = ? AND status = 3 AND visible = 1
-      `, [sellerId]);
-
-      if (row.count > 0) activeEntities.push(ent.route);
-    }
+    const activeEntitiesSet = new Set();
 
     // 4️⃣ Land
     const [[country]] = await db.query(
@@ -6948,13 +7381,10 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
     };
 
     for (const ent of entities) {
-      if (!activeEntities.includes(ent.route)) continue;
-
       const table = db.escapeId(ent.table_name);
       const fields = possibleFields[ent.route] || [];
 
-      const [columns] = await db.query(`SHOW COLUMNS FROM ${table}`);
-      const columnNames = columns.map(c => c.Field);
+      const columnNames = await getCachedTableColumns(table);
 
       const existingFields = fields.filter(f => columnNames.includes(f));
       const extraFields = existingFields.length ? `, ${existingFields.join(', ')}` : '';
@@ -6964,6 +7394,12 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
         FROM ${table}
         WHERE user_id = ? AND status = 3 AND visible = 1
       `, [sellerId]);
+
+      if (!rows.length) continue;
+      if (!activeEntitiesSet.has(ent.route)) {
+        activeEntitiesSet.add(ent.route);
+        activeEntities.push(ent.route);
+      }
 
       const mapped = rows.map(r => {
         let main = null;
@@ -6989,12 +7425,28 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
           }
         }
 
-        if (!main) main = 'herando-weblogo.svg';
+        let sellerImageCoverFit = false;
+        if (!main) {
+          main = '/assets/herando-weblogo.svg';
+          sellerImageCoverFit = true;
+        }
 
-        const imagePath =
-          main.startsWith('http') || main.startsWith('/')
-            ? main
-            : buildPublicImageUrl(ent.route, r.id, main);
+        let imagePath;
+        if (main.startsWith('http') || main.startsWith('/')) {
+          imagePath = main;
+        } else {
+          const resolvedFilename =
+            typeof resolveImageFilename === 'function'
+              ? resolveImageFilename(ent.route, r.id, main)
+              : String(main).trim();
+          const largeFilename = categorySliderLargeMainFilenameIfExists(
+            ent.route,
+            r.id,
+            resolvedFilename
+          );
+          const finalFilename = largeFilename || resolvedFilename;
+          imagePath = buildPublicImageUrl(ent.route, r.id, finalFilename);
+        }
 
         const priceNum = Number(r.price);
         const hasPrice = Number.isFinite(priceNum) && priceNum > 0;
@@ -7008,6 +7460,7 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
             ? res.locals.convertPrice(priceNum, res.locals.currency, r.currency || 'EUR')
             : null,
           image: imagePath,
+          sellerImageCoverFit,
           ...Object.fromEntries(existingFields.map(f => [f, r[f] ?? null]))
         };
       });
@@ -7049,22 +7502,7 @@ router.get('/seller/:sellerSlug', async (req, res, next) => {
     res.locals.seo = seo;
 
     // 8️⃣ Footer
-    const [cols] = await db.query(
-      `SELECT id,title,sort_order FROM footer_columns ORDER BY sort_order,title`
-    );
-    const [links] = await db.query(`
-      SELECT column_id,link_text,link_url,is_phone,phone_number
-      FROM footer_links
-      ORDER BY column_id,sort_order
-    `);
-
-    const footerColumns = cols.map(c => ({ id: c.id, title: c.title, phone: null, links: [] }));
-    for (const l of links) {
-      const col = footerColumns.find(c => c.id === l.column_id);
-      if (!col) continue;
-      if (l.is_phone) col.phone = l.phone_number;
-      else col.links.push({ text: l.link_text, url: l.link_url });
-    }
+    const footerColumns = await getCachedFooterColumns();
 
     // 9️⃣ Render
     res.render('pages/templates/seller-list', {
@@ -7166,12 +7604,18 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
     const categoryType = entityTypeMap[entityRoute];
 
     if (categoryType) {
+      const slugLc = String(slug || '').toLowerCase();
       const [[brand]] = await db.query(`
         SELECT id
         FROM brands
-        WHERE type = ? AND LOWER(seoname) = ?
+        WHERE type = ?
+          AND (
+            LOWER(seoname) = ?
+            OR LOWER(SUBSTRING_INDEX(seoname, '/', -1)) = ?
+            OR LOWER(name) = ?
+          )
         LIMIT 1
-      `, [categoryType, String(slug || '').toLowerCase()]);
+      `, [categoryType, slugLc, slugLc, slugLc]);
 
       if (brand?.id) {
         // Intern forward inkl. bestehender Query (limit/hp/sort etc.)
@@ -7184,10 +7628,11 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
     const parsedDetail = parseDetailSlugIdSegment(slug);
     if (parsedDetail?.id) {
       const cleanSlug = parsedDetail.slug || parsedDetail.id;
+      const canonicalRoute = getCanonicalEntityRoute(entityRoute);
       const qs = new URLSearchParams(req.query || {}).toString();
       req.url = qs
-        ? `/${entityRoute}/${parsedDetail.id}/${cleanSlug}?${qs}`
-        : `/${entityRoute}/${parsedDetail.id}/${cleanSlug}`;
+        ? `/${canonicalRoute}/${parsedDetail.id}/${cleanSlug}?${qs}`
+        : `/${canonicalRoute}/${parsedDetail.id}/${cleanSlug}`;
       return next();
     }
 
@@ -7210,9 +7655,15 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
 
   router.get('/:entityRoute', async (req, res, next) => { 
     const user = res.locals.user;
+    const pageCacheKey = isPageCacheEligible(req, res) ? buildPageCacheKey(req, res, 'category') : null;
+    if (pageCacheKey) {
+      const cachedHtml = getCachedPageHtml(pageCacheKey);
+      if (cachedHtml) return res.send(cachedHtml);
+    }
 
     try {
       const entityRoute = req.params.entityRoute;
+      const canonicalEntityRoute = getCanonicalEntityRoute(entityRoute);
       const translateFn =
         (res.locals && typeof res.locals.t === 'function' && res.locals.t) ||
         (typeof req.t === 'function' ? req.t : null);
@@ -7224,12 +7675,12 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
         FROM ententies
         ORDER BY id
       `);
-      const currentEntity = entities.find(e => e.route === entityRoute);
+      const currentEntity = entities.find(e => e.route === canonicalEntityRoute);
       if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
       const tableName = db.escapeId(currentEntity.table_name);
       const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
-      const type = categoryTypeMap[entityRoute] || null;
+      const type = categoryTypeMap[canonicalEntityRoute] || null;
 
       // 2) Pagination
       const currentPage = Math.max(1, parseInt(req.query.hp, 10) || 1);
@@ -8461,9 +8912,12 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
       const hasSort   = typeof req.query.sort === 'string' && req.query.sort !== '';
 
       // 🧠 Sortierung global definieren
-      let orderBy = 'published DESC'; // 🟢 Standard: Neueste zuerst
+      let orderBy = 't.created DESC'; // 🟢 Standard: Neueste zuerst
 
       switch (req.query.sort) {
+        case 'newest':
+          orderBy = 't.created DESC';
+          break;
         case 'price_asc':
           orderBy = `(t.price * (${userRate} / (CASE t.currency ${rateCaseSQL} ELSE 1 END))) ASC`;
           break;
@@ -8483,7 +8937,7 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
           orderBy = 'RAND()';
           break;
         default:
-          orderBy = 'published DESC';
+          orderBy = 't.created DESC';
       }
 
       console.log('🧠 Sortier-Query aktiv:', orderBy);
@@ -8552,33 +9006,36 @@ router.get('/:entityRoute/:slug', async (req, res, next) => {
           ${seoSelectCols}
         `;
 
-// ================== 🔎 ADS DEBUG ==================
-console.log('================ ADS DEBUG ================');
-console.log('Route:', currentEntity.route);
-console.log('Entity ID:', currentEntity.id);
-console.log('allowAds:', allowAds);
-console.log('baseWhere:', baseWhere);
-console.log('baseParams:', baseParams);
+const enableAdsDebug = process.env.DEBUG_ADS === '1';
+if (enableAdsDebug) {
+  // ================== 🔎 ADS DEBUG ==================
+  console.log('================ ADS DEBUG ================');
+  console.log('Route:', currentEntity.route);
+  console.log('Entity ID:', currentEntity.id);
+  console.log('allowAds:', allowAds);
+  console.log('baseWhere:', baseWhere);
+  console.log('baseParams:', baseParams);
 
-// Welche Autos sind laut DB gerade Werbung?
-const [debugAds] = await db.query(`
-  SELECT
-    ca.advert_id,
-    t.name,
-    t.published,
-    ca.start_date,
-    ca.end_date
-  FROM slider_ads ca
-  JOIN ${tableName} t ON t.id = ca.advert_id
-  WHERE ca.entitie_id = ?
-    AND CURDATE() BETWEEN ca.start_date AND ca.end_date
-`, [currentEntity.id]);
+  // Welche Autos sind laut DB gerade Werbung?
+  const [debugAds] = await db.query(`
+    SELECT
+      ca.advert_id,
+      t.name,
+      t.published,
+      ca.start_date,
+      ca.end_date
+    FROM slider_ads ca
+    JOIN ${tableName} t ON t.id = ca.advert_id
+    WHERE ca.entitie_id = ?
+      AND CURDATE() BETWEEN ca.start_date AND ca.end_date
+  `, [currentEntity.id]);
 
-console.log('🟥 slider_ads Treffer:', debugAds.length);
-debugAds.forEach(a => {
-  console.log('   AD:', a.advert_id, '|', a.name, '| published:', a.published);
-});
-console.log('===========================================\n');
+  console.log('🟥 slider_ads Treffer:', debugAds.length);
+  debugAds.forEach(a => {
+    console.log('   AD:', a.advert_id, '|', a.name, '| published:', a.published);
+  });
+  console.log('===========================================\n');
+}
 
 
 let finalRows = [];
@@ -8622,28 +9079,29 @@ finalRows.push(...normalRows);
 rows = finalRows;
 
 
-// ================= DEBUG =================
-console.log('🟩 FINAL LISTE:');
-rows.slice(0, 10).forEach(r =>
-  console.log('ROW:', r.id, '|', r.name, '| is_ad:', r.is_ad, '| published:', r.published)
-);
-
-
-// ================== 🔎 RESULT DEBUG ==================
-console.log('================ RESULT DEBUG ================');
-rows.slice(0, 10).forEach(r => {
-  console.log(
-    'ROW:',
-    r.id,
-    '|',
-    r.name,
-    '| is_ad:',
-    r.is_ad,
-    '| published:',
-    r.published
+if (enableAdsDebug) {
+  // ================= DEBUG =================
+  console.log('🟩 FINAL LISTE:');
+  rows.slice(0, 10).forEach(r =>
+    console.log('ROW:', r.id, '|', r.name, '| is_ad:', r.is_ad, '| published:', r.published)
   );
-});
-console.log('================================================\n');
+
+  // ================== 🔎 RESULT DEBUG ==================
+  console.log('================ RESULT DEBUG ================');
+  rows.slice(0, 10).forEach(r => {
+    console.log(
+      'ROW:',
+      r.id,
+      '|',
+      r.name,
+      '| is_ad:',
+      r.is_ad,
+      '| published:',
+      r.published
+    );
+  });
+  console.log('================================================\n');
+}
 
 
     } else {
@@ -8813,6 +9271,13 @@ console.log('================================================\n');
       if (!main) main = "/assets/herando-weblogo.png";
 
       const filename = fallbackResolveImageFilename(entityRoute, r.id, main);
+      const largex2Filename = categoryLargex2MainFilenameIfExists(entityRoute, r.id, filename);
+      const listingImg = buildListingImageResponsive(
+        entityRoute,
+        r.id,
+        filename,
+        entityRoute === 'watches'
+      );
       const price = r.price != null ? Number(r.price) : null;
       const detailSlug = normalizeSeoSegment(r.name) || String(r.id);
       const detailPrefix = buildDetailPrefixForRow(r);
@@ -8829,7 +9294,10 @@ console.log('================================================\n');
         mainPic: filename,
         countryCode: r.country_code || null,   // ✅ HIER
         countryName: r.country_name || r.country_code || null,
-        imageUrl: buildPublicImageUrl(entityRoute, r.id, filename),
+        imageUrl: listingImg.src,
+        imageSrcset: listingImg.srcset,
+        imageSizes: listingImg.sizes,
+        imageUrlLarge: largex2Filename ? buildPublicImageUrl(entityRoute, r.id, largex2Filename) : null,
         price,
         priceFormatted: price ? res.locals.convertPrice(price, res.locals.currency, r.currency || 'EUR') : null,
         detailPath: buildLocalizedDetailPath(req, res, currentEntity.route, r.id, detailSlug, detailPrefix),
@@ -9400,6 +9868,14 @@ if (!hasSliderFilter && sliderRows.length === 0) {
 
       if (!filename) filename = '/assets/herando-weblogo.png';
 
+      const resolvedFilename = fallbackResolveImageFilename(currentEntity.route, r.id, filename);
+      const sliderLargeFilename = categorySliderLargeMainFilenameIfExists(
+        currentEntity.route,
+        r.id,
+        resolvedFilename
+      );
+      const sliderImageFilename = sliderLargeFilename || resolvedFilename;
+
       const price = r.price != null ? Number(r.price) : null;
       const detailSlug = normalizeSeoSegment(r.title) || String(r.id);
       const detailPrefix = buildDetailPrefixForRow(r);
@@ -9407,8 +9883,8 @@ if (!hasSliderFilter && sliderRows.length === 0) {
       return {
         id: r.id,
         title: sliderTitleMap.get(r.id) || r.title,
-        mainPic: filename,
-        imageUrl: buildPublicImageUrl(currentEntity.route, r.id, filename),
+        mainPic: resolvedFilename,
+        imageUrl: buildPublicImageUrl(currentEntity.route, r.id, sliderImageFilename),
         price,
         priceFormatted: price
           ? res.locals.convertPrice(price, res.locals.currency, r.currency || 'EUR')
@@ -9491,14 +9967,69 @@ if (!hasSliderFilter && sliderRows.length === 0) {
       const selectedBrandName = resolveNameById(brands, selectedBrandId);
       const selectedModelName = resolveNameById(models, selectedModelId);
       const querySearchTitle = String(req.query.q || req.query.search || '').trim();
+      let selectedBrandSeoText = '';
+      const normalizeSeoHtmlContent = (raw) => {
+        let html = String(raw || '');
+        if (!html.trim()) return '';
+
+        // Decode common HTML entities (content may be stored as escaped HTML).
+        html = html
+          .replace(/&lt;/gi, '<')
+          .replace(/&gt;/gi, '>')
+          .replace(/&quot;/gi, '"')
+          .replace(/&#39;/gi, "'")
+          .replace(/&amp;/gi, '&')
+          .replace(/&nbsp;/gi, ' ');
+
+        // Fix invalid wrapping like <p><h2>..</h2></p> generated by editors.
+        html = html
+          .replace(/<p>\s*(<h[1-6][^>]*>)/gi, '$1')
+          .replace(/(<\/h[1-6]>)\s*<\/p>/gi, '$1')
+          .replace(/<p>\s*<\/p>/gi, '')
+          .replace(/<p>\s*<br\s*\/?>\s*<\/p>/gi, '');
+
+        return html.trim();
+      };
 
       if (querySearchTitle) pageTitle = querySearchTitle;
       else if (selectedModelName) pageTitle = selectedModelName;
       else if (selectedBrandName) pageTitle = selectedBrandName;
 
+      if (selectedBrandId) {
+        try {
+          const activeLang = String(res.locals.lang || req.session?.lang || 'de').toLowerCase();
+          const langOrder = [activeLang, 'en', 'de'].filter((v, i, a) => v && a.indexOf(v) === i);
+          const placeholders = langOrder.map(() => '?').join(',');
+          const [[brandSeoRow]] = await db.query(
+            `SELECT seo_text
+               FROM brand_seo
+              WHERE brand_id = ?
+                AND entitie_id = ?
+                AND language IN (${placeholders})
+              ORDER BY FIELD(language, ${placeholders})
+              LIMIT 1`,
+            [selectedBrandId, currentEntity.id, ...langOrder, ...langOrder]
+          );
+
+          if (brandSeoRow?.seo_text && String(brandSeoRow.seo_text).trim()) {
+            selectedBrandSeoText = normalizeSeoHtmlContent(brandSeoRow.seo_text);
+          } else {
+            const [[brandRow]] = await db.query(
+              `SELECT de FROM brands WHERE id = ? LIMIT 1`,
+              [selectedBrandId]
+            );
+            if (brandRow?.de && String(brandRow.de).trim()) {
+              selectedBrandSeoText = normalizeSeoHtmlContent(brandRow.de);
+            }
+          }
+        } catch (seoErr) {
+          console.warn('[CATEGORY] brand seo_text fallback failed:', seoErr.message);
+        }
+      }
+
 
         // 9) Render
-        res.render('pages/templates/category', {
+        const categoryViewData = {
           pageTitle, 
           entieties: entities,
           currentEntity,
@@ -9593,8 +10124,19 @@ if (!hasSliderFilter && sliderRows.length === 0) {
             query: { ...req.query, limit, hp: currentPage },
           sort: req.query.sort || 'newest' ,
           user,
-          currency: res.locals.currency, 
-        });
+          currency: res.locals.currency,
+          selectedBrandSeoText,
+        };
+
+        if (pageCacheKey) {
+          return res.render('pages/templates/category', categoryViewData, (err, html) => {
+            if (err) return next(err);
+            setCachedPageHtml(pageCacheKey, html);
+            return res.send(html);
+          });
+        }
+
+        res.render('pages/templates/category', categoryViewData);
 
       } catch (err) {
         console.error('🚨 Fehler in GET /:entityRoute:', err);
@@ -10649,6 +11191,7 @@ router.get('/:entityRoute/filters', async (req, res, next) => {
     const langCol = activeLang;
 
     const entityRoute = req.params.entityRoute;
+    const canonicalEntityRoute = getCanonicalEntityRoute(entityRoute);
     const translateFn =
       (res.locals && typeof res.locals.t === 'function' && res.locals.t) ||
       (typeof req.t === 'function' ? req.t : null);
@@ -10660,12 +11203,12 @@ router.get('/:entityRoute/filters', async (req, res, next) => {
       FROM ententies
       ORDER BY id
     `);
-    const currentEntity = entities.find(e => e.route === entityRoute);
+    const currentEntity = entities.find(e => e.route === canonicalEntityRoute);
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     const tableName = db.escapeId(currentEntity.table_name);
     const categoryTypeMap = { properties:1, watches:2, cars:3, yachts:4, lifestyles: 6 };
-    const type = categoryTypeMap[entityRoute] || null;
+    const type = categoryTypeMap[canonicalEntityRoute] || null;
 
     const baseWhere  = 'status=3 AND visible=1 AND pictures IS NOT NULL';
     const baseParams = [];
@@ -10972,11 +11515,18 @@ router.get('/:entityRoute/:brandSeo', async (req, res) => {
   const categoryType  = entityTypeMap[entityRoute];
   if (!categoryType) return res.status(404).send('Kategorie nicht gefunden');
 
+  const brandSeoLc = String(brandSeo || '').toLowerCase();
   const [[brand]] = await db.query(`
-    SELECT id FROM brands
-    WHERE type = ? AND LOWER(seoname) = ?
+    SELECT id
+    FROM brands
+    WHERE type = ?
+      AND (
+        LOWER(seoname) = ?
+        OR LOWER(SUBSTRING_INDEX(seoname, '/', -1)) = ?
+        OR LOWER(name) = ?
+      )
     LIMIT 1
-  `, [categoryType, brandSeo.toLowerCase()]);
+  `, [categoryType, brandSeoLc, brandSeoLc, brandSeoLc]);
 
   if (!brand) return res.status(404).send('Marke nicht gefunden');
 
@@ -11011,10 +11561,11 @@ function forwardSeoDetailToCanonical(req, _res, next) {
 
   if (!/^\d+$/.test(id)) return next();
   const cleanSlug = normalizeSeoSegment(slug) || id;
+  const canonicalRoute = getCanonicalEntityRoute(entityRoute);
   const qs = new URLSearchParams(req.query || {}).toString();
   req.url = qs
-    ? `/${entityRoute}/${id}/${cleanSlug}?${qs}`
-    : `/${entityRoute}/${id}/${cleanSlug}`;
+    ? `/${canonicalRoute}/${id}/${cleanSlug}?${qs}`
+    : `/${canonicalRoute}/${id}/${cleanSlug}`;
   return next();
 }
 
@@ -11108,8 +11659,9 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
       FROM ententies
       ORDER BY id
     `);
-    const currentEntity = entities.find(e => e.route === entityRoute);
-    console.log('[DETAIL] entities count:', entities?.length, 'currentEntity:', currentEntity);
+    const canonicalEntityRoute = getCanonicalEntityRoute(entityRoute);
+    const currentEntity = entities.find(e => e.route === canonicalEntityRoute);
+    console.log('[DETAIL] entities count:', entities?.length, 'currentEntity:', currentEntity, 'canonicalEntityRoute:', canonicalEntityRoute);
     if (!currentEntity) return res.status(404).send('Kategorie nicht gefunden');
 
     // 1a) Spaltenliste (reference?)
@@ -11181,7 +11733,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
           buildLocalizedDetailPath(
             req,
             res,
-            entityRoute,
+            canonicalEntityRoute,
             id,
             realSlug,
             incomingDetailPrefix
@@ -11193,7 +11745,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
     // 3a) Prefix prüfen (z. B. falsche Marke im Pfad)
     if (incomingDetailPrefix.length) {
       const expectedPrefix = await buildExpectedDetailPrefix(
-        entityRoute,
+        canonicalEntityRoute,
         itemRow,
         incomingDetailPrefix.length
       );
@@ -11208,7 +11760,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
             buildLocalizedDetailPath(
               req,
               res,
-              entityRoute,
+              canonicalEntityRoute,
               id,
               realSlug,
               expectedPrefix
@@ -11227,7 +11779,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
           buildLocalizedDetailPath(
             req,
             res,
-            entityRoute,
+            canonicalEntityRoute,
             id,
             realSlug,
             incomingDetailPrefix
@@ -11240,7 +11792,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
     try {
       await incrementListingVisitOncePerIpPerDay({
         req,
-        entityRoute,
+        entityRoute: canonicalEntityRoute,
         listingId: Number(id),
         ownerUserId: itemRow.user_id,
         colSet,
@@ -11268,22 +11820,43 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
 
     // 5) Marke/Modell/Land/EZ
     let brandName   = '–';
+    let brandSeoname = '';
     let modelName   = '–';
     let countryName = '–';
     let stateName   = '';
+    let countryCode = '';
 
     if (itemRow.brand_id) {
-      const [[b]] = await db.query('SELECT name FROM brands WHERE id = ?', [itemRow.brand_id]);
+      const [[b]] = await db.query('SELECT name, seoname FROM brands WHERE id = ?', [itemRow.brand_id]);
       brandName = b?.name || '–';
+      brandSeoname = b?.seoname || '';
     }
     if (itemRow.model_id) {
       const [[m]] = await db.query('SELECT name FROM models WHERE id = ?', [itemRow.model_id]);
       modelName = m?.name || '–';
     }
+    const countryLangCol = ['de','en','fr','it','tr','ja','cs','ru','es','nl','pl']
+      .includes(String(activeLanguage || '').toLowerCase())
+      ? String(activeLanguage).toLowerCase()
+      : 'de';
     if (itemRow.country_id) {
       const [[c]] = await db.query(
-        `SELECT COALESCE(NULLIF(p.de, ''), c.de) AS country_name,
-                CASE WHEN c.parent_id IS NULL THEN '' ELSE COALESCE(NULLIF(c.de, ''), '') END AS state_name
+        `SELECT
+                CASE
+                  WHEN c.parent_id IS NULL
+                    THEN COALESCE(NULLIF(c.${countryLangCol}, ''), NULLIF(c.en, ''), c.de)
+                  ELSE COALESCE(NULLIF(p.${countryLangCol}, ''), NULLIF(p.en, ''), p.de, COALESCE(NULLIF(c.${countryLangCol}, ''), NULLIF(c.en, ''), c.de))
+                END AS country_name,
+                CASE
+                  WHEN c.parent_id IS NULL
+                    THEN ''
+                  ELSE COALESCE(NULLIF(c.${countryLangCol}, ''), NULLIF(c.en, ''), c.de, '')
+                END AS state_name,
+                CASE
+                  WHEN c.parent_id IS NULL
+                    THEN LOWER(COALESCE(NULLIF(c.code, ''), ''))
+                  ELSE LOWER(COALESCE(NULLIF(p.code, ''), NULLIF(c.code, ''), ''))
+                END AS country_code
            FROM countries c
            LEFT JOIN countries p ON p.id = c.parent_id
           WHERE c.id = ?
@@ -11292,6 +11865,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
       );
       countryName = c?.country_name || '–';
       stateName = c?.state_name || '';
+      countryCode = c?.country_code || '';
     }
     const firstRegistration = itemRow.firstregistration
       ? (itemRow.firstregistration_month
@@ -11320,17 +11894,64 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
     item.pictures       = pics;
     item.mainPic        = mainFilename;
     const toImageUrl = (fn) => buildPublicImageUrl(entityRoute, id, fn);
-    item.imageUrl       = toImageUrl(mainFilename);
-    item.thumbnailUrls  = thumbnailFilenames.map(fn => toImageUrl(fn));
-    if (hasRealMain && item.imageUrl && Array.isArray(item.thumbnailUrls)) {
+    const toDetailImageUrl = (fn) => {
+      const u = toImageUrl(fn);
+      return u && u.startsWith('/images/') ? `${u}?fmt=auto` : u;
+    };
+    const toThumbUrl = (fn) => {
+      const smallFn = detailThumbSmallFilenameIfExists(entityRoute, id, fn);
+      return toImageUrl(smallFn || fn);
+    };
+    item.imageUrl = toDetailImageUrl(mainFilename);
+    const mainLargex2Filename = detailThumbLargex2FilenameIfExists(entityRoute, id, mainFilename);
+    const mainSmallx2Filename = detailThumbSmallx2FilenameIfExists(entityRoute, id, mainFilename);
+    const mainSmallFilename = detailThumbSmallFilenameIfExists(entityRoute, id, mainFilename);
+    item.imageUrlMobile = mainLargex2Filename
+      ? toDetailImageUrl(mainLargex2Filename)
+      : (mainSmallx2Filename
+          ? toDetailImageUrl(mainSmallx2Filename)
+          : (mainSmallFilename ? toDetailImageUrl(mainSmallFilename) : item.imageUrl));
+
+    const thumbPairs = thumbnailFilenames.map((fn) => ({
+      disp: toThumbUrl(fn),
+      full: toImageUrl(fn)
+    }));
+    const thumbMobilePairs = thumbnailFilenames.map((fn) => {
+      const largex2Fn = detailThumbLargex2FilenameIfExists(entityRoute, id, fn);
+      const smallx2Fn = detailThumbSmallx2FilenameIfExists(entityRoute, id, fn);
+      const smallFn = detailThumbSmallFilenameIfExists(entityRoute, id, fn);
+      return smallFn
+        ? toDetailImageUrl(smallFn)
+        : (smallx2Fn ? toDetailImageUrl(smallx2Fn) : (largex2Fn ? toDetailImageUrl(largex2Fn) : toDetailImageUrl(fn)));
+    });
+
+    if (hasRealMain && item.imageUrl) {
       const main = item.imageUrl;
-      item.thumbnailUrls = [ main, ...item.thumbnailUrls.filter(u => u !== main) ];
+      if (thumbPairs.length) {
+        const rest = thumbPairs.filter((p) => p.disp !== main);
+        item.thumbnailUrls = [main, ...rest.map((p) => p.disp)];
+        item.thumbnailFullUrls = [main, ...rest.map((p) => p.full)];
+        item.thumbnailMobileUrls = [
+          item.imageUrlMobile,
+          ...thumbMobilePairs.filter((mobileUrl) => mobileUrl !== item.imageUrlMobile)
+        ];
+      } else {
+        item.thumbnailUrls = [main];
+        item.thumbnailFullUrls = [main];
+        item.thumbnailMobileUrls = [item.imageUrlMobile];
+      }
+    } else {
+      item.thumbnailUrls = thumbPairs.map((p) => p.disp);
+      item.thumbnailFullUrls = thumbPairs.map((p) => p.full);
+      item.thumbnailMobileUrls = thumbMobilePairs;
     }
 
     item.brandName      = brandName;
+    item.brand_seoname  = brandSeoname;
     item.modelName      = modelName;
     item.countryName    = countryName;
     item.stateName      = stateName;
+    item.countryCode    = countryCode;
     item.firstRegistration = firstRegistration;
 
 
@@ -11464,14 +12085,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
 
     // 9) Empfehlungen
     const selectCols = HAS_REF ? 'id, name, price, currency, pictures, reference' : 'id, name, price, currency, pictures';
-    const [recs] = await db.query(`
-      SELECT ${selectCols}
-      FROM ${table}
-      WHERE status = 3 AND visible = 1
-        AND JSON_LENGTH(pictures) > 0 AND id <> ?
-      ORDER BY RAND()
-      LIMIT 12
-    `, [id]);
+    const recs = await fetchRandomRecommendations(db, table, selectCols, id, 12);
     console.log('[DETAIL] recommendations raw:', recs.length);
 
     let recommendedItems = recs.map(r => {
@@ -11484,7 +12098,7 @@ router.get('/:entityRoute/:id/:slug', async (req, res, next) => {
         reference:      HAS_REF ? (r.reference ?? null) : null,
         title:          r.name,
         slug:           slugify(r.name, { lower: true, strict: true }),
-        imageUrl:       buildPublicImageUrl(entityRoute, r.id, main),
+        imageUrl:       buildDetailListingImageUrl(entityRoute, r.id, main),
         priceFormatted: num != null
           ? res.locals.convertPrice(num, res.locals.currency, r.currency || 'EUR')
           : '–'
@@ -11632,8 +12246,7 @@ rows.forEach(r => {
 const rpics = safeParsePictures(r.pictures);
 const img = extractMainImage(r.mainpicture, rpics);
 
-r.mainpicture = buildPublicImageUrl(r.entity, r.id, img);
-console.log(`➡ Neuer finaler Bildpfad (URL): ${r.mainpicture}`);
+r.mainpicture = buildDetailListingImageUrl(r.entity, r.id, img);
 
 });
   if (rows.length > 0) {
@@ -11881,7 +12494,7 @@ const categoryMap = yachtMaps.category || {
   2: "Segelboot"
 };
 
-const yachtTypeMap = yachtMaps.yachttype || {
+const yachtTypeMap = {
   1: "Motoryacht",
   2: "Sportkreuzer",
   3: "Kajütkreuzer",
@@ -11901,10 +12514,12 @@ const yachtTypeMap = yachtMaps.yachttype || {
   17: "Trawler",
   18: "Solarboot",
   19: "Wasserski-Boot",
-  20: "Sportboot"
+  20: "Sportboot",
+  255: "Sonstige",
+  ...(yachtMaps.yachttype || {})
 };
 
-const hullMap = yachtMaps.hull || {
+const hullMap = {
   1: "GFK",
   2: "Stahl",
   3: "Aluminium",
@@ -11912,14 +12527,16 @@ const hullMap = yachtMaps.hull || {
   5: "GRP",
   6: "Verbundwerkstoff",
   7: "Holz",
-  8: "Kevlar/Carbon"
+  8: "Kevlar/Carbon",
+  ...(yachtMaps.hull || {})
 };
 
-const shapeMap = yachtMaps.shape || {
+const shapeMap = {
   1: "Wie neu",
   2: "Sehr gut",
   3: "Gut",
-  4: "Charter"
+  4: "Charter",
+  ...(yachtMaps.shape || {})
 };
 
 
@@ -12009,20 +12626,6 @@ if (Array.isArray(moreItems)) {
   }
 }
 
-console.log("===== [SIMILAR] START =====");
-console.log("Entity:", currentEntity.route);
-console.log("Item ID:", item.id);
-console.log("Raw ItemRow brand/model/city/category:", {
-  brand_id: itemRow.brand_id,
-  model_id: itemRow.model_id,
-  city: itemRow.city,
-  property_type: itemRow.property_type,
-  country_id: itemRow.country_id,
-  category: itemRow.category,
-  yachttype: itemRow.yachttype,
-  user_id: itemRow.user_id
-});
-
 let similarItems = [];
 
 try {
@@ -12033,7 +12636,6 @@ try {
   // ==========================
   //
   if (currentEntity.route === 'watches') {
-    console.log("Running SIMILAR query for WATCHES…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -12076,7 +12678,7 @@ try {
       strictOrder.push("ABS(price - ?) ASC");
       strictOrderParams.push(priceBase);
     }
-    strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, watchtype, brand_id, model_id
@@ -12085,8 +12687,6 @@ try {
       ORDER BY ${strictOrder.join(", ")}
       LIMIT 20
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][WATCHES] strict rows:", strictRows.length);
 
     if (strictRows.length >= 4) {
       similarItems = strictRows;
@@ -12118,7 +12718,7 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, watchtype, brand_id, model_id
@@ -12128,7 +12728,6 @@ try {
         LIMIT 20
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][WATCHES] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -12139,7 +12738,6 @@ try {
   // ==========================
   //
   else if (currentEntity.route === 'cars') {
-    console.log("Running SIMILAR query for CARS…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -12182,7 +12780,7 @@ try {
       strictOrder.push("ABS(price - ?) ASC");
       strictOrderParams.push(priceBase);
     }
-    strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, cartype, brand_id, model_id
@@ -12191,8 +12789,6 @@ try {
       ORDER BY ${strictOrder.join(", ")}
       LIMIT 20
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][CARS] strict rows:", strictRows.length);
 
     if (strictRows.length >= 4) {
       similarItems = strictRows;
@@ -12222,7 +12818,7 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, cartype, brand_id, model_id
@@ -12232,7 +12828,6 @@ try {
         LIMIT 20
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][CARS] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -12243,7 +12838,6 @@ try {
   // ==========================
   //
   else if (currentEntity.route === 'properties') {
-    console.log("Running SIMILAR query for PROPERTIES…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -12297,7 +12891,7 @@ try {
       strictOrder.push("ABS(landarea - ?) ASC");
       strictOrderParams.push(landBase);
     }
-    strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, propertytype, country_id, livingarea, landarea
@@ -12306,8 +12900,6 @@ try {
       ORDER BY ${strictOrder.join(", ")}
       LIMIT 20
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][PROPERTIES] strict rows:", strictRows.length);
 
     // Wenn ausreichend ähnliche Immobilien vorhanden sind, nimm nur diese.
     if (strictRows.length >= 4) {
@@ -12340,7 +12932,7 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, propertytype, country_id, livingarea, landarea
@@ -12350,7 +12942,6 @@ try {
         LIMIT 20
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][PROPERTIES] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -12361,7 +12952,6 @@ try {
   // ==========================
   //
   else if (currentEntity.route === 'yachts') {
-    console.log("Running SIMILAR query for YACHTS…");
     const toPositive = (v) => {
       const n = Number(v);
       return Number.isFinite(n) && n > 0 ? n : null;
@@ -12397,7 +12987,7 @@ try {
       strictOrder.push("ABS(price - ?) ASC");
       strictOrderParams.push(priceBase);
     }
-    strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
     const [strictRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, user_id, category, yachttype
@@ -12406,8 +12996,6 @@ try {
       ORDER BY ${strictOrder.join(", ")}
       LIMIT 20
     `, [...strictParams, ...strictOrderParams]);
-
-    console.log("[SIMILAR][YACHTS] strict rows:", strictRows.length);
 
     if (strictRows.length >= 4) {
       similarItems = strictRows;
@@ -12435,7 +13023,7 @@ try {
         relaxedOrder.push("ABS(price - ?) ASC");
         relaxedOrderParams.push(priceBase);
       }
-      relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
       const [relaxedRows] = await db.query(`
         SELECT id, name, price, currency, pictures, mainpicture, user_id, category, yachttype
@@ -12445,7 +13033,6 @@ try {
         LIMIT 20
       `, [...relaxedParams, ...relaxedOrderParams]);
 
-      console.log("[SIMILAR][YACHTS] relaxed rows:", relaxedRows.length);
       similarItems = relaxedRows.length ? relaxedRows : strictRows;
     }
   }
@@ -12456,7 +13043,6 @@ try {
   // ==========================
   //
 else if (currentEntity.route === 'lifestyles') {
-  console.log("Running SIMILAR query for LIFESTYLES (simplified)…");
   const toPositive = (v) => {
     const n = Number(v);
     return Number.isFinite(n) && n > 0 ? n : null;
@@ -12497,7 +13083,7 @@ else if (currentEntity.route === 'lifestyles') {
     strictOrder.push("ABS(price - ?) ASC");
     strictOrderParams.push(priceBase);
   }
-  strictOrder.push("RAND()");
+strictOrder.push("id DESC");
 
   const [strictRows] = await db.query(`
     SELECT id, name, price, currency, pictures, mainpicture, brand_id, model_id, user_id, category
@@ -12506,8 +13092,6 @@ else if (currentEntity.route === 'lifestyles') {
     ORDER BY ${strictOrder.join(", ")}
     LIMIT 20
   `, [...strictParams, ...strictOrderParams]);
-
-  console.log("[SIMILAR][LIFESTYLES] strict rows:", strictRows.length);
 
   if (strictRows.length >= 4) {
     similarItems = strictRows;
@@ -12539,7 +13123,7 @@ else if (currentEntity.route === 'lifestyles') {
       relaxedOrder.push("ABS(price - ?) ASC");
       relaxedOrderParams.push(priceBase);
     }
-    relaxedOrder.push("RAND()");
+relaxedOrder.push("id DESC");
 
     const [relaxedRows] = await db.query(`
       SELECT id, name, price, currency, pictures, mainpicture, brand_id, model_id, user_id, category
@@ -12549,7 +13133,6 @@ else if (currentEntity.route === 'lifestyles') {
       LIMIT 20
     `, [...relaxedParams, ...relaxedOrderParams]);
 
-    console.log("[SIMILAR][LIFESTYLES] relaxed rows:", relaxedRows.length);
     similarItems = relaxedRows.length ? relaxedRows : strictRows;
   }
 }
@@ -12561,7 +13144,6 @@ else if (currentEntity.route === 'lifestyles') {
   // ==========================
   //
   else {
-    console.log("[SIMILAR] No matching entity, clearing similarItems");
     similarItems = [];
   }
 
@@ -12569,7 +13151,6 @@ else if (currentEntity.route === 'lifestyles') {
   console.warn("[DETAIL][SIMILAR] error:", err);
 }
 
-console.log("[SIMILAR] Before map(), items:", similarItems.length);
 
 //
 // ==========================
@@ -12578,8 +13159,6 @@ console.log("[SIMILAR] Before map(), items:", similarItems.length);
 //
 
 similarItems = similarItems.map(r => {
-  console.log("[SIMILAR][MAP] Processing item:", r.id, r.name);
-
   const rpics = safeParsePictures(r.pictures);
   const img = extractMainImage(r.mainpicture, rpics);
 
@@ -12587,26 +13166,24 @@ similarItems = similarItems.map(r => {
     id: r.id,
     title: r.name,
     slug: slugify(r.name, { lower: true, strict: true }),
-    imageUrl: buildPublicImageUrl(currentEntity.route, r.id, img),
+    imageUrl: buildDetailListingImageUrl(currentEntity.route, r.id, img),
     price: r.price,
     priceFormatted: r.price ? res.locals.convertPrice(r.price, res.locals.currency, r.currency || 'EUR') : "Preis auf Anfrage"
   };
 
-  console.log("[SIMILAR][MAP] FINAL ITEM:", out.imageUrl);
   return out;
 });
 
 
-console.log("[SIMILAR] FINAL similarItems:", similarItems.length);
-console.log("===== [SIMILAR] END =====");
-
-
-
+ 
     // 13) Render
       res.render('pages/templates/detail', {
         entities,
         currentEntity,
         item,
+        optimizeDetailMobile: true,
+        detailLcpImageMobile: item.imageUrlMobile || item.imageUrl,
+        detailLcpImageDesktop: item.imageUrl,
         recommendedItems,
         seller,
         footerColumns,
@@ -12658,13 +13235,18 @@ router.get('/:entityRoute/:brandSlug/:modelSlug', async (req, res) => {
     // -------------------------
     // BRAND über seoname finden
     // -------------------------
+    const brandSlugLc = String(brandSlug || '').toLowerCase();
     const [[brand]] = await db.query(`
       SELECT id
       FROM brands
       WHERE type = ?
-        AND LOWER(seoname) = ?
+        AND (
+          LOWER(seoname) = ?
+          OR LOWER(SUBSTRING_INDEX(seoname, '/', -1)) = ?
+          OR LOWER(name) = ?
+        )
       LIMIT 1
-    `, [type, String(brandSlug).toLowerCase()]);
+    `, [type, brandSlugLc, brandSlugLc, brandSlugLc]);
 
     if (!brand) return res.status(404).send('Marke nicht gefunden');
 
@@ -12942,6 +13524,51 @@ function isRateLimited(bucket, key, maxRequests = 5, windowMs = 60 * 60 * 1000) 
 
   current.count += 1;
   return current.count > maxRequests;
+}
+
+async function fetchRandomRecommendations(dbConn, table, selectCols, excludeId, limit = 12) {
+  const [[range]] = await dbConn.query(`
+    SELECT MIN(id) AS minId, MAX(id) AS maxId
+    FROM ${table}
+    WHERE status = 3 AND visible = 1
+      AND JSON_LENGTH(pictures) > 0
+      AND id <> ?
+  `, [excludeId]);
+
+  const minId = Number(range?.minId || 0);
+  const maxId = Number(range?.maxId || 0);
+  if (!minId || !maxId || maxId < minId) return [];
+
+  const randomStart = Math.floor(Math.random() * (maxId - minId + 1)) + minId;
+  const rows = [];
+
+  const [firstRows] = await dbConn.query(`
+    SELECT ${selectCols}
+    FROM ${table}
+    WHERE status = 3 AND visible = 1
+      AND JSON_LENGTH(pictures) > 0
+      AND id <> ?
+      AND id >= ?
+    ORDER BY id ASC
+    LIMIT ?
+  `, [excludeId, randomStart, limit]);
+  rows.push(...firstRows);
+
+  if (rows.length < limit) {
+    const [secondRows] = await dbConn.query(`
+      SELECT ${selectCols}
+      FROM ${table}
+      WHERE status = 3 AND visible = 1
+        AND JSON_LENGTH(pictures) > 0
+        AND id <> ?
+        AND id < ?
+      ORDER BY id ASC
+      LIMIT ?
+    `, [excludeId, randomStart, limit - rows.length]);
+    rows.push(...secondRows);
+  }
+
+  return rows;
 }
 
 function extractListingId(url) {

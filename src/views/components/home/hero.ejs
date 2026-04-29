@@ -10,31 +10,72 @@
       </div>
 
       <div class="carousel-inner">
+        <% const _hero = typeof buildResponsiveHeroAttrs === 'function' ? buildResponsiveHeroAttrs : (u) => ({ src: u, srcset: null, sizes: '100vw' }); %>
+        <% const h1 = _hero(t('home_hero_slide1_image', '/assets/herando-home-slider-luxusimmobilien.webp')); %>
+        <% const h2 = _hero(t('home_hero_slide2_image', '/assets/herando-home-slider-luxusautos.webp')); %>
+        <% const h3 = _hero(t('home_hero_slide3_image', '/assets/herando-home-slider-luxusuhren.webp')); %>
+        <% const h4 = _hero(t('home_hero_slide4_image', '/assets/herando-home-slider-luxusyachten.webp')); %>
         <div class="carousel-item active" data-bs-interval="4000">
-          <img src="<%= t('home_hero_slide1_image', '/assets/herando-home-slider-luxusimmobilien.webp') %>" class="d-block w-100 home-hero-image" alt="<%= t('alt_carousel_real_estate','Top-Immobilien') %>">
+          <img
+            src="<%= h1.src %>"
+            <% if (h1.srcset) { %>srcset="<%= h1.srcset %>" sizes="<%= h1.sizes %>"<% } %>
+            class="d-block w-100 home-hero-image"
+            alt="<%= t('alt_carousel_real_estate','Top-Immobilien') %>"
+            width="1534"
+            height="383"
+            loading="eager"
+            fetchpriority="high"
+            decoding="async">
           <div class="carousel-caption">
             <h2><%- t('carousel_slide1_title','Top-Immobilien an den schönsten <br> Orten der Welt') %></h2>
           </div>
         </div>
 
         <div class="carousel-item hero-slide-car" data-bs-interval="4000">
-          <img src="<%= t('home_hero_slide2_image', '/assets/herando-home-slider-luxusautos.webp') %>" class="d-block w-100 home-hero-image" alt="<%= t('alt_carousel_cars','Luxusautos') %>">
+          <img
+            src="<%= h2.src %>"
+            <% if (h2.srcset) { %>srcset="<%= h2.srcset %>" sizes="<%= h2.sizes %>"<% } %>
+            class="d-block w-100 home-hero-image"
+            alt="<%= t('alt_carousel_cars','Luxusautos') %>"
+            width="1534"
+            height="383"
+            loading="lazy"
+            fetchpriority="low"
+            decoding="async">
           <div class="carousel-caption">
             <h2><%- t('carousel_slide2_title','Tausende erlesene und exklusive <br> Autos und Oldtimer') %></h2>
           </div>
         </div>
 
         <div class="carousel-item hero-slide-watch" data-bs-interval="4000">
-          <img src="<%= t('home_hero_slide3_image', '/assets/herando-home-slider-luxusuhren.webp') %>" class="d-block w-100 home-hero-image" alt="<%= t('alt_carousel_watches','Luxusuhren') %>">
+          <img
+            src="<%= h3.src %>"
+            <% if (h3.srcset) { %>srcset="<%= h3.srcset %>" sizes="<%= h3.sizes %>"<% } %>
+            class="d-block w-100 home-hero-image"
+            alt="<%= t('alt_carousel_watches','Luxusuhren') %>"
+            width="1534"
+            height="383"
+            loading="lazy"
+            fetchpriority="low"
+            decoding="async">
           <div class="carousel-caption">
             <h2><%- t('carousel_slide3_title','Luxusuhren aus aller Welt<br>Finden Sie Ihr Wunschmodell') %></h2>
           </div>
         </div>
 
         <div class="carousel-item" data-bs-interval="4000">
-          <img src="<%= t('home_hero_slide4_image', '/assets/herando-home-slider-luxusyachten.webp') %>" class="d-block w-100 home-hero-image" alt="<%= t('alt_carousel_yachts','Luxusyachten') %>">
+          <img
+            src="<%= h4.src %>"
+            <% if (h4.srcset) { %>srcset="<%= h4.srcset %>" sizes="<%= h4.sizes %>"<% } %>
+            class="d-block w-100 home-hero-image"
+            alt="<%= t('alt_carousel_yachts','Luxusyachten') %>"
+            width="1534"
+            height="383"
+            loading="lazy"
+            fetchpriority="low"
+            decoding="async">
           <div class="carousel-caption">
-            <h2><%- t('carousel_slide4_title','Unser Angebot: stilvolle Yachten, <br>Katamarane & Boote') %></h2>
+            <h2><%- t('carousel_slide4_title','Unser Angebot: stilvolle Yachten, <br>Katamarane &amp; Boote') %></h2>
           </div>
         </div>
       </div>

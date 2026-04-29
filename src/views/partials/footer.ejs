@@ -204,11 +204,11 @@
 
       </div>
       <div>
+        <h6><%= t('footer.col.support.title') %></h6>
         <ul class="hf-list">
-          <h6><%= t('footer.col.support.title') %></h6>
-            <li><a href="tel:+420 228 884 177" style="font-size: 24px;"><i class="bi bi-telephone"></i>+420 228 884 177</a></li>
-            <li><a href="/faq"><i class="bi bi-question-circle"></i> <%= t('footer.col.support.faq') %></a></li>
-            <li><a href="/contact"><i class="bi bi-chat-dots"></i> <%= t('footer.col.support.contact') %></a></li>
+          <li><a href="tel:+420 228 884 177" style="font-size: 24px;"><i class="bi bi-telephone"></i>+420 228 884 177</a></li>
+          <li><a href="/faq"><i class="bi bi-question-circle"></i> <%= t('footer.col.support.faq') %></a></li>
+          <li><a href="/contact"><i class="bi bi-chat-dots"></i> <%= t('footer.col.support.contact') %></a></li>
         </ul>
       </div>
     </div>
@@ -218,24 +218,56 @@
   <div class="hf-social">
     <h6>Social Media</h6>
     <div class="herando-social-icons">
-      <a href="https://www.instagram.com/herando_luxury/" target="_blank"><i class="bi bi-instagram"></i></a>
-      <a href="https://www.facebook.com/herandoluxury/" target="_blank"><i class="bi bi-facebook"></i></a>
-      <a href="https://x.com/herando_luxury" target="_blank"><i class="bi bi-twitter-x"></i></a>
-      <a href="https://www.youtube.com/channel/UCK7dURHttvCfyJ6ciXY_6YA" target="_blank"><i class="bi bi-youtube"></i></a>
+      <a href="https://www.instagram.com/herando_luxury/" target="_blank" rel="noopener noreferrer" aria-label="Herando auf Instagram"><i class="bi bi-instagram"></i></a>
+      <a href="https://www.facebook.com/herandoluxury/" target="_blank" rel="noopener noreferrer" aria-label="Herando auf Facebook"><i class="bi bi-facebook"></i></a>
+      <a href="https://x.com/herando_luxury" target="_blank" rel="noopener noreferrer" aria-label="Herando auf X"><i class="bi bi-twitter-x"></i></a>
+      <a href="https://www.youtube.com/@herandoaktiengesellschaft8220" target="_blank" rel="noopener noreferrer" aria-label="Herando auf YouTube"><i class="bi bi-youtube"></i></a>
     </div>
   </div>
 
   <div class="hf-payments">
     <h6><%= t('footer.payments.title') %></h6>
     <div class="hf-payments-logos">
-      <img src="/assets/herando-zahlungsarten-visa.png" alt="Visa">
-      <img src="/assets/herando-zahlungsarten-mastercard.png" alt="Mastercard">
-      <img src="/assets/herando-zahlungsarten-amex.png" alt="Amex">
-      <img src="/assets/herando-zahlungsarten-sepa.png" alt="SEPA">
+      <img src="/assets/herando-zahlungsarten-visa.png" alt="Visa" width="48" height="32" loading="lazy" decoding="async" style="border-radius: 5px !important;">
+      <img src="/assets/herando-zahlungsarten-mastercard.png" alt="Mastercard" width="auto" height="32" loading="lazy" decoding="async" style="border-radius: 5px !important;">
+      <img src="/assets/herando-zahlungsarten-amex.png" alt="Amex" width="48" height="35" loading="lazy" decoding="async" style="border-radius: 5px !important;">
+      <img class="sepa-mobile-break" src="/assets/herando-zahlungsarten-sepa.png" alt="SEPA" width="48" height="32" loading="lazy" decoding="async" style="border-radius: 5px !important;">
     </div>
   </div>
 
 </div>
+
+<style>
+@media (max-width: 576px) {
+  .hf-row.links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    gap: 10px 14px;
+  }
+
+  .hf-row.links > div {
+    flex: 0 0 calc(50% - 7px);
+    min-width: 0;
+  }
+
+  .hf-payments-logos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: center;
+  }
+
+  .hf-payments-logos .sepa-mobile-break {
+    margin-top: 4px;
+  }
+
+  .hf-countries .flags li a span:last-child {
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+}
+</style>
 
 
 
@@ -267,23 +299,63 @@
     { code:'fr', label:'France',        flag:'fr' },
     { code:'en', label:'UAE',           flag:'ae' },
     { code:'ja', label:'中国',           flag:'cn' },
+    { code:'en', label:'South Africa',  flag:'za' },
+    { code:'en', label:'New Zealand',   flag:'nz' },
+    { code:'es', label:'México',        flag:'mx' },
     { code:'es', label:'Costa Rica',    flag:'cr' },
     { code:'es', label:'Panama',        flag:'pa' },
     { code:'es', label:'Cuba',          flag:'cu' },
     { code:'es', label:'Argentina',     flag:'ar' },
     { code:'it', label:'Italia',        flag:'it' },
-    { code:'es', label:'Dominicana',    flag:'do' }
+    { code:'es', label:'Rep. Dominicana', flag:'do' }
   ];
 
-  const chunkArray = (arr, size) => {
-    const result = [];
-    for (let i = 0; i < arr.length; i += size) {
-      result.push(arr.slice(i, i + size));
+  const splitIntoColumns = (arr, columnCount) => {
+    const result = Array.from({ length: columnCount }, () => []);
+    const baseSize = Math.floor(arr.length / columnCount);
+    const remainder = arr.length % columnCount;
+
+    // Restplätze nicht nur links auffüllen, sondern links/rechts abwechseln,
+    // damit das Raster optisch gleichmäßiger wirkt.
+    const sizes = Array.from({ length: columnCount }, () => baseSize);
+    for (let i = 0; i < remainder; i += 1) {
+      const targetIndex = i % 2 === 0 ? Math.floor(i / 2) : (columnCount - 1 - Math.floor(i / 2));
+      sizes[targetIndex] += 1;
     }
-    return result;
+
+    let index = 0;
+    for (let i = 0; i < columnCount; i += 1) {
+      result[i] = arr.slice(index, index + sizes[i]);
+      index += sizes[i];
+    }
+
+    return result.filter(col => col.length > 0);
   };
 
-  const LANGS_CHUNKS = chunkArray(LANGS, 5);
+  const FLAG_DOMAIN_MAP = {
+    at: 'www.herando.at',
+    de: 'www.herando.de',
+    es: 'www.herando.es',
+    cz: 'www.herando.cz',
+    ch: 'www.herando.ch',
+    fr: 'www.herando.fr',
+    it: 'www.herando.it',
+    nl: 'www.herando.nl',
+    pl: 'www.herando.pl',
+    tr: 'www.herando.tr',
+    jp: 'www.herando.jp',
+    ru: 'www.herando.ru',
+    gb: 'www.herando.co.uk',
+    in: 'www.herando.in',
+    lu: 'www.herando.lu'
+  };
+
+  const getLangDomainHref = (entry) => {
+    const host = FLAG_DOMAIN_MAP[entry.flag] || 'www.herando.com';
+    return `https://${host}/`;
+  };
+
+  const LANGS_CHUNKS = splitIntoColumns(LANGS, 6);
 %>
 
 <div class="hf-countries">
@@ -293,7 +365,7 @@
         <ul class="flags list-unstyled">
           <% chunk.forEach(l => { %>
             <li>
-              <a href="/lang/<%= l.code %>" hreflang="<%= l.code %>" class="d-flex align-items-center gap-2">
+              <a href="<%= getLangDomainHref(l) %>" hreflang="<%= l.code %>" class="d-flex align-items-center gap-2">
                 <span class="flag-icon flag-icon-<%= l.flag %>" alt="<%= l.flag %>"></span>
                 <span><%= l.label %></span>
               </a>
@@ -319,10 +391,14 @@
 
 <script> 
 document.addEventListener('DOMContentLoaded', () => {
-  const ccToEmoji = cc => String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt()));
+  const FLAGS_BASE_PATH = '/direct/flags/4x3';
+  const ccToEmoji = cc => {
+    if (!/^[a-z]{2}$/i.test(cc)) return cc.toUpperCase();
+    return String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt()));
+  };
 
   document.querySelectorAll('#flags .flag-icon').forEach(el => {
-    const fromClass = (el.className.match(/flag-icon-([a-z]{2})/i) || [,''])[1];
+    const fromClass = (el.className.match(/flag-icon-([a-z-]{2,7})/i) || [,''])[1];
     const fromAlt   = (el.getAttribute('alt') || '').trim();
     const cc = (fromAlt || fromClass || '').toLowerCase();
     if (!cc) return;
@@ -330,8 +406,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const img = new Image();
     img.className = 'flag';
     img.alt = cc.toUpperCase();
-    img.src    = `https://flagcdn.com/24x18/${cc}.png`;
-    img.srcset = `https://flagcdn.com/24x18/${cc}.png 1x, https://flagcdn.com/48x36/${cc}.png 2x`;
+    img.width = 45;
+    img.height = 30;
+    img.src = `${FLAGS_BASE_PATH}/${encodeURIComponent(cc)}.svg`;
+    img.style.setProperty('border-radius', '4px', 'important');
 
     img.onerror = () => {
       const span = document.createElement('span');

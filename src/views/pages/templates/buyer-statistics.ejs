@@ -25,17 +25,6 @@
   <% const visitorGraph = visitorChartData || { labels: [], visits: [], listings: [] }; %>
   <% const _langTag = (typeof lang === 'string' && lang.trim()) ? lang : 'de-DE'; %>
   <% const _entityLabel = (item) => t('global.category.' + String(item?.entityRoute || ''), item?.entityName || ''); %>
-  <% const _stateLabel = (item) => {
-    const s = Number(item?.status);
-    const v = Number(item?.visible);
-    if (s === 3 && v === 1) return t('buyer.statistics.state.online', item?.stateLabel || 'Online');
-    if (s === 0 && v === 0) return t('buyer.statistics.state.draft', item?.stateLabel || 'Entwurf');
-    if (s === 4 && v === 0) return t('buyer.statistics.state.paused', item?.stateLabel || 'Pausiert');
-    if (s === 3 && v === 0) return t('buyer.statistics.state.review', item?.stateLabel || 'In Prüfung');
-    if (s === 9 && v === 0) return t('buyer.statistics.state.deleted', item?.stateLabel || 'Gelöscht');
-    if (v === 0) return t('buyer.statistics.state.offline', item?.stateLabel || 'Offline');
-    return t('buyer.statistics.state.other', item?.stateLabel || 'Sonstige');
-  }; %>
 
   <div class="account-shell d-flex gap-3">
     <%- include('../../partials/asside') %>
@@ -128,15 +117,17 @@
 
       <div class="card mt-4 border rounded-3">
         <div class="card-body">
-          <h5 class="mb-3"><i class="bi bi-bar-chart-line me-2"></i><%= t('buyer.statistics.chart.title', 'Besucher pro Monat (letzte 12 Monate)') %></h5>
-          <canvas id="monthlyVisitorsChart" height="110"></canvas>
+          <h5 class="mb-3"><i class="bi bi-bar-chart-line me-2"></i><%= t('buyer.statistics.chart.title_14d', 'Besucher pro Tag (letzte 14 Tage)') %></h5>
+          <div style="position:relative;height:340px;">
+            <canvas id="monthlyVisitorsChart"></canvas>
+          </div>
         </div>
       </div>
 
       <div class="card mt-4 border rounded-3">
         <div class="card-body">
           <div class="d-flex align-items-center justify-content-between mb-3">
-            <h5 class="m-0"><i class="bi bi-list-ul me-2"></i><%= t('buyer.statistics.list.title', 'Alle Inserate') %></h5>
+            <h5 class="m-0"><i class="bi bi-list-ul me-2"></i><%= t('buyer.statistics.list.title_online', 'Online Inserate') %></h5>
             <span class="text-muted small"><%= t('buyer.statistics.list.total_prefix', 'Gesamt') %>: <%= listings.length %></span>
           </div>
 
@@ -150,7 +141,7 @@
                     <th><%= t('buyer.statistics.table.image', 'Bild') %></th>
                     <th><%= t('buyer.statistics.table.title', 'Titel') %></th>
                     <th><%= t('buyer.statistics.table.entity', 'Entität') %></th>
-                    <th><%= t('buyer.statistics.table.status', 'Status') %></th>
+                    <th><%= t('buyer.statistics.table.article_number', 'Artikelnummer') %></th>
                     <th><%= t('buyer.statistics.table.visitors', 'Besucher') %></th>
                     <th><%= t('buyer.statistics.table.created', 'Erstellt') %></th>
                     <th><%= t('buyer.statistics.table.actions', 'Aktionen') %></th>
@@ -168,13 +159,13 @@
                       </td>
                       <td><%= item.title %></td>
                       <td><%= _entityLabel(item) %></td>
-                      <td><%= _stateLabel(item) %></td>
+                      <td><%= item.id %></td>
                       <td><%= item.visits || 0 %></td>
                       <td><%= item.createdAt ? new Date(item.createdAt).toLocaleDateString(_langTag) : t('buyer.statistics.table.not_available', '–') %></td>
                       <td>
                         <div class="d-flex gap-2">
                           <a
-                            class="btn btn-sm btn-outline-primary"
+                            class="btn btn-sm btn-primary"
                             href="/<%= item.entityRoute %>/<%= item.id %>/<%= encodeURIComponent(item.title || '') %>"
                             target="_blank"
                             rel="noopener"
@@ -206,13 +197,16 @@
     const el = document.getElementById('monthlyVisitorsChart');
     if (!el) return;
     const TXT_DATASET_VISITORS = <%- JSON.stringify(t('buyer.statistics.chart.dataset.visitors', 'Besucher')) %>;
-    const TXT_TOTAL_12M = <%- JSON.stringify(t('buyer.statistics.chart.total_12m', 'Gesamt Besucher (12 Monate)')) %>;
+    const TXT_TOTAL_VISITORS_ALL = <%- JSON.stringify(t('buyer.statistics.chart.total_visitors_all', 'Gesamtanzahl gesamte Zeit')) %>;
     const TXT_TOOLTIP_VISITORS = <%- JSON.stringify(t('buyer.statistics.chart.tooltip.visitors', 'Besucher')) %>;
-    const TXT_AXIS_MONTHS = <%- JSON.stringify(t('buyer.statistics.chart.axis.months', 'Monate')) %>;
+    const TXT_AXIS_DAYS = <%- JSON.stringify(t('buyer.statistics.chart.axis.days', 'Tage')) %>;
     const TXT_AXIS_VISITORS = <%- JSON.stringify(t('buyer.statistics.chart.axis.visitors', 'Besucher')) %>;
 
     const labels = <%- JSON.stringify(visitorGraph.labels || []) %>;
     const visits = <%- JSON.stringify(visitorGraph.visits || []) %>;
+    const chartLabels = [...labels, '', ''];
+    const chartVisits = [...visits, null, null];
+    const totalVisitorsAll = Number(<%- JSON.stringify(stats.total_visits || 0) %>) || 0;
     if (!labels.length) return;
     const totalVisits = visits.reduce((sum, n) => sum + (Number(n) || 0), 0);
 
@@ -231,6 +225,7 @@
 
         datasetMeta.data.forEach((point, index) => {
           const value = Number(visits[index] || 0);
+          if (!Number.isFinite(value) || chartVisits[index] == null) return;
           ctx.fillText(String(value), point.x, point.y - 8);
         });
 
@@ -243,29 +238,38 @@
       type: 'line',
       plugins: [valueLabelPlugin],
       data: {
-        labels,
+        labels: chartLabels,
         datasets: [{
           label: TXT_DATASET_VISITORS,
-          data: visits,
+          data: chartVisits,
           borderColor: '#0d6efd',
           backgroundColor: 'rgba(13,110,253,0.2)',
           fill: true,
           tension: 0.28,
-          pointRadius: 3,
-          pointHoverRadius: 5
+          pointRadius: 4,
+          pointHoverRadius: 10,
+          pointHitRadius: 28
         }]
       },
       options: {
         responsive: true,
+        maintainAspectRatio: false,
+        layout: {
+          padding: { left: 12, right: 64, top: 6, bottom: 10 }
+        },
+        elements: {
+          line: { borderWidth: 3 }
+        },
         interaction: {
-          mode: 'index',
-          intersect: false
+          mode: 'nearest',
+          intersect: false,
+          axis: 'x'
         },
         plugins: {
           legend: { position: 'bottom' },
           title: {
             display: true,
-            text: `${TXT_TOTAL_12M}: ${totalVisits}`
+            text: `${TXT_TOTAL_VISITORS_ALL}: ${totalVisitorsAll}`
           },
           tooltip: {
             callbacks: {
@@ -278,7 +282,8 @@
         },
         scales: {
           x: {
-            title: { display: true, text: TXT_AXIS_MONTHS }
+            offset: true,
+            title: { display: true, text: TXT_AXIS_DAYS }
           },
           y: {
             beginAtZero: true,
@@ -292,3 +297,6 @@
 </script>
 
 <%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

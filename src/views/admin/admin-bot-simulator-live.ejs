@@ -1,0 +1,76 @@
+<%- include('../partials/header-admin') %>
+
+<script>
+  document.body.classList.add('admin-page');
+</script>
+
+<div class="container-fluid py-3">
+  <div class="d-flex justify-content-between align-items-center mb-3">
+    <h5 class="mb-0"><i class="bi bi-activity me-2"></i>Bot Runner Live Monitor</h5>
+    <div class="d-flex gap-2">
+      <button id="btnRefresh" class="btn btn-sm btn-outline-primary">Jetzt aktualisieren</button>
+      <button id="btnClose" class="btn btn-sm btn-outline-secondary">Fenster schließen</button>
+    </div>
+  </div>
+
+  <div id="liveError" class="alert alert-danger d-none py-2 mb-3"></div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-2"><div class="border rounded p-2"><small class="text-muted">Runner</small><div class="fw-bold" id="liveRunning">-</div></div></div>
+    <div class="col-md-2"><div class="border rounded p-2"><small class="text-muted">Sessions</small><div class="fw-bold" id="liveSessions">0/0</div></div></div>
+    <div class="col-md-2"><div class="border rounded p-2"><small class="text-muted">Aktive Worker</small><div class="fw-bold" id="liveWorkers">0</div></div></div>
+    <div class="col-md-2"><div class="border rounded p-2"><small class="text-muted">Requests</small><div class="fw-bold" id="liveRequests">0</div></div></div>
+    <div class="col-md-2"><div class="border rounded p-2"><small class="text-muted">Fehler</small><div class="fw-bold" id="liveErrors">0</div></div></div>
+    <div class="col-md-2"><div class="border rounded p-2"><small class="text-muted">Stop Requested</small><div class="fw-bold" id="liveStop">false</div></div></div>
+  </div>
+
+  <div class="card shadow-sm">
+    <div class="card-header">Runner Logs</div>
+    <div class="card-body">
+      <pre id="liveLog" class="p-2 border rounded bg-light" style="height:60vh;overflow:auto;font-size:12px;">Lade Live-Daten...</pre>
+    </div>
+  </div>
+</div>
+
+<script>
+  const errEl = document.getElementById('liveError');
+  const logEl = document.getElementById('liveLog');
+  const setText = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = String(value);
+  };
+
+  function showError(msg) {
+    errEl.textContent = msg || 'Fehler beim Laden.';
+    errEl.classList.remove('d-none');
+  }
+  function clearError() {
+    errEl.textContent = '';
+    errEl.classList.add('d-none');
+  }
+
+  async function refresh() {
+    try {
+      clearError();
+      const r = await fetch('/admin/bot-simulator/runner/status.json');
+      if (!r.ok) throw new Error(await r.text());
+      const s = await r.json();
+      setText('liveRunning', s.running ? 'laeuft' : 'gestoppt');
+      setText('liveSessions', `${Number(s.finishedSessions || 0)}/${Number(s.totalSessions || 0)}`);
+      setText('liveWorkers', Number(s.activeWorkers || 0));
+      setText('liveRequests', Number(s.totalRequests || 0));
+      setText('liveErrors', Number(s.failedRequests || 0));
+      setText('liveStop', Boolean(s.stopRequested));
+      logEl.textContent = Array.isArray(s.logs) && s.logs.length ? s.logs.join('\n') : 'Noch keine Logs.';
+      logEl.scrollTop = logEl.scrollHeight;
+    } catch (err) {
+      showError(err.message || 'Fehler beim Laden des Runner-Status.');
+    }
+  }
+
+  document.getElementById('btnRefresh')?.addEventListener('click', refresh);
+  document.getElementById('btnClose')?.addEventListener('click', () => window.close());
+
+  refresh();
+  setInterval(refresh, 2500);
+</script>

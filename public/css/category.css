@@ -77,6 +77,12 @@
     background-color: #c98d4a; 
   }
 
+/* Nur Fallback-Bild im Category-Listing */
+.category-grid .lux-card-img img[src*="herando-weblogo.png"],
+.category-grid .lux-card-img img.is-placeholder {
+  object-fit: contain;
+}
+
   .selfDef{
     position: relative; 
     top: 120px; 

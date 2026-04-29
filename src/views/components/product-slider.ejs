@@ -289,7 +289,7 @@
       <div class="slider-source-card" data-item-id="<%= item.id %>">
         <a href="<%= detailHref %>" class="product-link" style="text-decoration:none; color:inherit;">
           <div class="product-item prItem" style="height:100%;">
-            <img src="<%= item.imageUrl %>" alt="<%= item.title %>">
+            <img src="<%= item.imageUrl %>" alt="<%= item.title %>" width="580" height="440" loading="lazy" decoding="async">
               <h3 title="<%= item.title %>" style="font-size: 14pt; margin-top: 12px">
                 <b><%= (item.title && item.title.length > 20) ? item.title.substring(0, 20) + "..." : item.title %></b>
               </h3>
@@ -533,16 +533,29 @@ document.addEventListener("DOMContentLoaded", () => {
   let current = 0;
   let currentGroupSize = 0;
   let isDesktopMode = window.innerWidth >= 1100;
+  /** Avoid layout thrash: step width only changes after rebuild/resize */
+  let stepWidthCache = null;
+
+  function invalidateStepWidth() {
+    stepWidthCache = null;
+  }
 
   function getStepWidth() {
+    if (stepWidthCache != null && stepWidthCache > 0) return stepWidthCache;
+    let w;
     if (isDesktopMode) {
-      return carousel.clientWidth || 0;
+      w = carousel.clientWidth || 0;
+    } else {
+      const first = slides.querySelector(".my-carousel-slide");
+      if (!first) w = carousel.clientWidth || 0;
+      else {
+        const styles = window.getComputedStyle(slides);
+        const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
+        w = first.getBoundingClientRect().width + gap;
+      }
     }
-    const first = slides.querySelector(".my-carousel-slide");
-    if (!first) return carousel.clientWidth || 0;
-    const styles = window.getComputedStyle(slides);
-    const gap = parseFloat(styles.columnGap || styles.gap || "0") || 0;
-    return first.getBoundingClientRect().width + gap;
+    stepWidthCache = w;
+    return w;
   }
 
   function goTo(index, behavior = "smooth") {
@@ -569,9 +582,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
   function rebuildSlides(force = false) {
     const groupSize = getGroupSize();
-    if (!force && groupSize === currentGroupSize) return;
+    if (!force && groupSize === currentGroupSize) {
+      invalidateStepWidth();
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => goTo(current, "auto"));
+      });
+      return;
+    }
     currentGroupSize = groupSize;
 
+    invalidateStepWidth();
     slides.innerHTML = "";
     dotsWrap.innerHTML = "";
 
@@ -605,11 +625,14 @@ document.addEventListener("DOMContentLoaded", () => {
     current = Math.min(current, Math.max(0, total - 1));
     if (isDesktopMode) {
       slides.scrollLeft = 0;
-      goTo(current, "auto");
     } else {
       slides.style.transform = "translateX(0px)";
-      goTo(current, "auto");
     }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        goTo(current, "auto");
+      });
+    });
   }
 
   dotsWrap.addEventListener("click", (e) => {
@@ -634,7 +657,10 @@ document.addEventListener("DOMContentLoaded", () => {
   let resizeTimer = null;
   window.addEventListener("resize", () => {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(() => rebuildSlides(), 120);
+    resizeTimer = setTimeout(() => {
+      invalidateStepWidth();
+      rebuildSlides();
+    }, 120);
   });
 
   rebuildSlides(true);

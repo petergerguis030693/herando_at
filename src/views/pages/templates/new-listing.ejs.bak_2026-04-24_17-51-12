@@ -1,0 +1,2875 @@
+<%- include('../../partials/header') %>
+<link rel="stylesheet" href="/css/buyer.css">
+<%
+  const _roleNum = Number(
+    (typeof role !== 'undefined' ? role : (typeof user !== 'undefined' && user ? user.role : 0)) || 0
+  );
+  const _brandModelRequiredAttr = [7, 8, 9].includes(_roleNum) ? '' : 'required';
+%>
+          <style>
+                /* ========== NEW LISTING: STYLES ========== */
+.listing-box {
+  border: 1px solid #dedede !important;
+  padding: 30px !important;
+}
+
+.listing-legend {
+  font-size: 1.2rem;
+  padding: 0 8px;
+}
+
+.listing-label {
+  font-size: 0.95rem;
+}
+
+.listing-row {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
+.note-hint {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.nav-link{
+  color: #111;
+}
+
+.nav-link:hover{
+  color: #111;
+}
+
+.bi-house-door-fill,
+.bi-gem  {
+  color: #c39052 !important;
+}
+
+/* Responsive (Mobile optimization) */
+@media (max-width: 768px) {
+
+  .listing-label {
+    text-align: left !important;
+    margin-bottom: 5px;
+  }
+
+  fieldset.listing-box {
+    padding: 20px !important;
+  }
+
+  .note-hint {
+    margin-left: 0 !important;
+  }
+
+  .listing-price-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .listing-price-input-wrap,
+  .listing-currency-wrap,
+  .listing-month-select {
+    width: 100% !important;
+    flex: 1 1 auto;
+  }
+
+  .listing-split-select {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .listing-split-select .me-2 {
+    margin-right: 0 !important;
+  }
+
+  .listing-alert {
+    min-width: 0 !important;
+    width: min(92vw, 520px);
+  }
+}
+
+.form-control:focus {
+    color: var(--bs-body-color);
+    border-color: #c99b5d;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+}
+
+.form-check-input:checked {
+    background-color: #c99b5d;
+    border-color: #c99b5d;
+}
+
+.form-check-input:focus {
+    border-color: #c99b5d;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+}
+
+.form-select:focus {
+    border-color: #c99b5d;
+    outline: 0;
+    box-shadow: 0 0 0 .25rem rgba(238, 237, 237, 0.25);
+}
+
+.form-check-label{
+  margin-left: 5px;
+}
+
+.listing-price-controls {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.listing-price-input-wrap {
+  width: 220px;
+  max-width: 100%;
+  flex: 0 0 220px;
+}
+
+.listing-currency-wrap {
+  width: 120px;
+  max-width: 100%;
+  flex: 0 0 120px;
+}
+
+.listing-month-select {
+  width: 150px;
+}
+
+/* Yacht speed fields: always one row, fixed alignment */
+.yacht-speed-wrap {
+  overflow-x: auto;
+}
+
+.yacht-speed-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(165px, 1fr));
+  gap: 0.5rem;
+  min-width: 700px;
+}
+
+.yacht-speed-label {
+  min-height: 3.25rem;
+  margin-bottom: 0.35rem;
+  display: flex;
+  align-items: flex-end;
+}
+
+@media (max-width: 1100px) {
+  .yacht-speed-wrap {
+    overflow-x: visible;
+  }
+
+  .yacht-speed-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    min-width: 0;
+  }
+}
+
+@media (min-width: 768px) {
+    .col-md-3 {
+        flex: 0 0 auto;
+        width: 12% !important;
+    }
+}
+
+               </style>
+<body>
+
+
+  <!-- Flash-Messages -->
+  <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+    <div class="alert alert-danger alert-dismissible fade show position-fixed top-50 start-50 translate-middle listing-alert"
+         role="alert" style="z-index:1050;min-width:300px;">
+      <%= errorMessage %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<%= t('global.close', 'Schließen') %>"></button>
+    </div>
+  <% } %>
+  <% if (typeof successMessage !== 'undefined' && successMessage) { %>
+    <div class="alert alert-success alert-dismissible fade show position-fixed top-50 start-50 translate-middle listing-alert"
+         role="alert" style="z-index:1050;min-width:300px;">
+      <%= successMessage %>
+      <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="<%= t('global.close', 'Schließen') %>"></button>
+    </div>
+  <% } %>
+
+  <!-- Shell mit Sidebar -->
+  <div class="account-shell d-flex gap-3">
+     <%- include('../../partials/asside') %>
+
+
+    <!-- MAIN -->
+    <main class="main">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h4 class="m-0">
+          <%= t('buyer.listing.new') %>: <%= t('global.category.' + ent.route) %>
+        </h4>
+      </div>
+
+
+<% if (entities && entities.length > 1) { %>
+  <ul class="nav nav-tabs mb-3">
+
+    <% 
+      // 🔹 Kategorie-Icons definieren
+      const iconMap = {
+        cars: '<i class="bi bi-car-front-fill me-1 text-primary"></i>',
+        properties: '<i class="bi bi-house-door-fill me-1 text-success"></i>',
+        yachts: '<i class="bi bi-tsunami me-1 text-info"></i>',
+        watches: '<i class="bi bi-watch me-1 text-warning"></i>',
+        lifestyles: '<i class="bi bi-gem me-1 text-danger"></i>'
+      };
+    %>
+
+    <% entities.forEach(e => { %>
+      <li class="nav-item">
+        <a
+          class="nav-link <%= e.id === activeTabId ? 'active' : '' %>"
+          href="/buyer/new-listing?tab=<%= e.id %>">
+          <%- iconMap[e.route] || '<i class="bi bi-folder2-open me-1"></i>' %>
+          <%= t('global.category.' + e.route) %>
+        </a>
+      </li>
+    <% }) %>
+
+  </ul>
+<% } %>
+
+
+
+      <!-- === Formular ===================================================== -->
+      <form action="/buyer/new-listing" method="POST" enctype="multipart/form-data">
+        <input type="hidden" name="ent_id" value="<%= ent.id %>">
+
+<fieldset class="mb-4 p-4 border bg-white rounded shadow-sm listing-box">
+  <legend class="fw-semibold px-2 listing-legend"><%= t('buyer.listing.general.title') %></legend>
+
+  <!-- Titel -->
+  <div class="row mb-4">
+    <div class="col-md-7">
+      <label for="name" class="form-label fw-semibold">
+        <%= t('buyer.listing.general.title_input') %> *
+      </label>
+      <input id="name" name="name" type="text" class="form-control" required>
+    </div>
+  </div>
+
+  <!-- Kaufpreis -->
+  <div class="row mb-4 align-items-center">
+    <label for="priceFormatted" class="col-md-3 col-form-label fw-semibold listing-label">
+      * <%= t('buyer.listing.general.price') %>
+    </label>
+
+    <div class="col-md-7 listing-price-controls">
+      <!-- Preisfeld -->
+      <div class="listing-price-input-wrap">
+        <input
+          id="priceFormatted"
+          type="text"
+          class="form-control"
+          inputmode="numeric"
+          placeholder="">
+
+        <input
+          type="hidden"
+          id="price"
+          name="price"
+          value="">
+      </div>
+
+      <!-- Toggle -->
+      <div class="form-check form-switch m-0 d-flex align-items-center">
+        <input
+          class="form-check-input"
+          type="checkbox"
+          id="priceOnRequest"
+          onchange="togglePriceState()">
+        <label class="form-check-label fw-semibold ms-2" for="priceOnRequest">
+          <%= t('buyer.listing.general.price_on_request') %>
+        </label>
+      </div>
+
+      <!-- Währung -->
+      <div class="listing-currency-wrap">
+        <select id="currency" name="currency" class="form-select">
+          <% currencies.forEach(cur => { %>
+            <option value="<%= cur %>" <%= cur === 'EUR' ? 'selected' : '' %>>
+              <%= cur %>
+            </option>
+          <% }) %>
+        </select>
+      </div>
+
+      <% if (user.registration_type === 'commercial') { %>
+        <!-- MwSt -->
+        <div class="form-check d-flex align-items-center gap-2 m-0">
+          <input type="hidden" name="vat" value="0">
+          <input
+            id="vat"
+            name="vat"
+            type="checkbox"
+            class="form-check-input"
+            value="1">
+          <label for="vat" class="form-check-label fw-semibold mb-0">
+            <%= t('buyer.listing.general.vat_display') %>
+          </label>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="col-md-7">
+      <p class="form-text">
+        <%= t('buyer.listing.general.price_hint') %>
+      </p>
+    </div>
+  </div>
+</fieldset>
+
+
+      <script>
+        let lastPriceValue = '';
+
+        function togglePriceState() {
+          const checkbox = document.getElementById('priceOnRequest');
+          const priceInput = document.getElementById('priceFormatted');
+          const hidden = document.getElementById('price');
+
+          if (checkbox.checked) {
+            lastPriceValue = hidden.value;
+            priceInput.value = '';
+            priceInput.disabled = true;
+            hidden.value = 0;
+          } else {
+            priceInput.disabled = false;
+            if (lastPriceValue) {
+              hidden.value = lastPriceValue;
+              priceInput.value = new Intl.NumberFormat('de-DE')
+                .format(lastPriceValue);
+            }
+          }
+        }
+      </script>
+      <script>
+        const formattedInput = document.getElementById('priceFormatted');
+        const hiddenInput = document.getElementById('price');
+
+        function formatNumberDE(value) {
+          const num = value.replace(/\D/g, '');
+          return num.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+        }
+
+        formattedInput.addEventListener('input', function () {
+          const cursorPos = this.selectionStart;
+          const raw = this.value.replace(/\D/g, '');
+          this.value = formatNumberDE(raw);
+          hiddenInput.value = raw;
+          this.setSelectionRange(cursorPos, cursorPos);
+        });
+      </script>
+
+
+
+
+
+
+        <!-- ========== ENTITÄT-SPEZIFISCHE FELDER ========== -->
+        <% /* ---------- IMMOBILIEN ---------- */ %>
+<% if (ent.route === 'properties') { %>
+<fieldset class="border rounded p-4 mb-4 listing-box">
+  <legend class="fs-5 mb-3 listing-legend"><%= t('buyer.listing.property.title') %></legend>
+
+  <!-- Baujahr, Bauphase, Zustand -->
+  <div class="row g-3 mb-3">
+
+    <!-- Baujahr -->
+    <div class="col-md-4">
+      <label for="year" class="form-label listing-label"><%= t('buyer.listing.property.year') %></label>
+      <input
+        id="year"
+        name="year"
+        type="number"
+        class="form-control"
+        min="1800"
+        max="<%= new Date().getFullYear() %>"
+      >
+    </div>
+
+    <!-- Bauphase -->
+    <% if (extras.stage) { %>
+    <div class="col-md-4">
+      <label for="stage" class="form-label listing-label"><%= t('buyer.listing.property.stage') %></label>
+      <select id="stage" name="stage" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.stage.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.properties.stage.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+
+    <!-- Zustand -->
+    <% if (extras.quality) { %>
+    <div class="col-md-4">
+      <label for="quality" class="form-label listing-label"><%= t('buyer.listing.property.quality') %></label>
+      <select id="quality" name="quality" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.quality.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.properties.quality.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+  </div>
+
+  <!-- Immobilienart, Rendite, Denkmalschutz -->
+  <div class="row g-3 mb-3 align-items-end">
+
+    <% if (extras.propertytype) { %>
+    <div class="col-md-4">
+      <label for="propertytype" class="form-label listing-label"><%= t('buyer.listing.property.type') %></label>
+      <select id="propertytype" name="propertytype" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.propertytype.forEach(o => { %>
+          <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+          <% if (rawLabel !== 'grundstück/fläche') { %>
+            <option value="<%= o.value %>"><%= t('attribute.properties.propertytype.' + o.value) %></option>
+          <% } %>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+
+    <% if (extras.investmenttype) { %>
+    <div class="col-md-4">
+      <label for="investmenttype" class="form-label listing-label"><%= t('buyer.listing.property.investment') %></label>
+      <select id="investmenttype" name="investmenttype" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.investmenttype.forEach(o => { %>
+          <% const rawLabel = String(o.label || o.name || '').trim().toLowerCase(); %>
+          <% if (rawLabel !== 'grundstück/fläche') { %>
+            <option value="<%= o.value %>"><%= t('attribute.properties.investmenttype.' + o.value) %></option>
+          <% } %>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+
+    <div class="col-md-4">
+      <div class="form-check mt-2">
+        <input type="hidden" name="monument_protection" value="0">
+        <input id="monument" name="monument_protection" type="checkbox" class="form-check-input" value="1">
+        <label for="monument" class="form-check-label"><%= t('buyer.listing.property.monument') %></label>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- JS (nicht verändern, nur behalten) -->
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const propertyType = document.querySelector("#propertytype");
+    const investmentType = document.querySelector("#investmenttype");
+
+    if (!propertyType || !investmentType) return;
+
+    investmentType.addEventListener("change", () => {
+      if (investmentType.value) {
+        propertyType.value = "";
+        propertyType.disabled = true;
+        propertyType.classList.add("disabled");
+      } else {
+        propertyType.disabled = false;
+        propertyType.classList.remove("disabled");
+      }
+    });
+  });
+  </script>
+
+  <!-- Heizung, Energie -->
+  <div class="row g-3 mb-3">
+
+    <% if (extras.heating) { %>
+    <div class="col-md-4">
+      <label for="heating" class="form-label listing-label"><%= t('buyer.listing.property.heating') %></label>
+      <select id="heating" name="heating" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.heating.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.properties.heating.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+
+    <% if (extras.energysource) { %>
+    <div class="col-md-4">
+      <label for="energysource" class="form-label listing-label"><%= t('buyer.listing.property.energy_source') %></label>
+      <select id="energysource" name="energysource" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.energysource.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.properties.energysource.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+
+    <% if (extras.energypass) { %>
+    <div class="col-md-4">
+      <label for="energypass" class="form-label listing-label"><%= t('buyer.listing.property.energy_pass') %></label>
+      <select id="energypass" name="energypass" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.energypass.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.properties.energypass.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+
+  </div>
+
+  <!-- Energieausweis Typ & Kennwert -->
+  <div class="row g-3">
+    <% if (extras.energypass_type) { %>
+    <div class="col-md-4">
+      <label for="energypass_type" class="form-label listing-label"><%= t('buyer.listing.property.energy_pass_type') %></label>
+      <select id="energypass_type" name="energypass_type" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.energypass_type.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.properties.energypass_type.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <% } %>
+
+    <div class="col-md-4">
+      <label for="energypass_value" class="form-label listing-label"><%= t('edit_listing.properties.energypass_value') %></label>
+      <input id="energypass_value" name="energypass_value" type="number" class="form-control">
+    </div>
+
+  </div>
+</fieldset>
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('buyer.listing.property.details.title') %></legend>
+
+  <div class="row g-3">
+
+    <!-- Grundstücksfläche -->
+    <div class="col-md-4">
+      <label for="plot_area" class="form-label">
+        <%= t('buyer.listing.property.details.plot_area') %> (m²)
+      </label>
+      <input id="plot_area"
+             name="landarea"
+             type="number"
+             class="form-control">
+    </div>
+
+    <!-- Wohnfläche -->
+    <div class="col-md-4">
+      <label for="living_area" class="form-label">
+        <%= t('buyer.listing.property.details.living_area') %> (m²)
+      </label>
+      <input id="living_area"
+             name="livingarea"
+             type="number"
+             class="form-control">
+    </div>
+
+    <!-- Etagen -->
+    <div class="col-md-4">
+      <label for="floors" class="form-label">
+        <%= t('buyer.listing.property.details.floors') %>
+      </label>
+      <input id="floors"
+             name="floors"
+             type="number"
+             class="form-control">
+    </div>
+
+    <!-- Zimmer -->
+    <div class="col-md-4">
+      <label for="rooms" class="form-label">
+        <%= t('buyer.listing.property.details.rooms') %>
+      </label>
+      <input id="rooms"
+             name="bedrooms"
+             type="number"
+             class="form-control">
+    </div>
+
+    <!-- Badezimmer -->
+    <div class="col-md-4">
+      <label for="bathrooms" class="form-label">
+        <%= t('buyer.listing.property.details.bathrooms') %>
+      </label>
+      <input id="bathrooms"
+             name="bathrooms"
+             type="number"
+             class="form-control">
+    </div>
+
+    <!-- Ausstattung -->
+    <% if (extras.furnishing) { %>
+      <div class="col-md-4">
+        <label for="furnishing" class="form-label">
+          <%= t('buyer.listing.property.details.furnishing') %>
+        </label>
+        <select id="furnishing"
+                name="furnishing"
+                class="form-select">
+          <option value="" selected><%= t('global.select_placeholder') %></option>
+          <% extras.furnishing.forEach(o => { %>
+            <option value="<%= o.value %>"><%= o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+    <% } %>
+
+  </div>
+</fieldset>
+
+<% } %>
+
+ <% if (ent.route === 'cars') { %>
+
+<%
+  // Deutsche Labels für Checkbox-Felder (bereinigt & optimiert)
+  const featureLabels = {
+
+    // 🛡️ SICHERHEIT
+    abs: t('buyer.car.feature.abs'),
+    esp: t('buyer.car.feature.esp'),
+    asr: t('buyer.car.feature.asr'),
+    isofix: t('buyer.car.feature.isofix'),
+
+    // 💡 LICHT & SICHT
+    xenon: t('buyer.car.feature.xenon_headlights', 'Xenon-Scheinwerfer'),
+    bixenon: t('buyer.car.feature.bixenon_headlights', 'Bi-Xenon-Scheinwerfer'),
+    led: t('buyer.car.feature.led_headlights', 'LED-Scheinwerfer'),
+    laser: t('buyer.car.feature.laser_light', 'Laserlicht'),
+    foglamp: t('buyer.car.feature.fog_lights', 'Nebelscheinwerfer'),
+    daytime_lights: t('buyer.car.feature.daytime_running_lights', 'Tagfahrlicht'),
+    adaptive_lights: t('buyer.car.feature.curve_light', 'Kurvenlicht'),
+    glare_free: t('buyer.car.feature.glare_free_high_beam', 'Blendfreies Fernlicht'),
+    highbeam_assistant: t('buyer.car.feature.high_beam_assist', 'Fernlichtassistent'),
+    headlight_washer: t('buyer.car.feature.headlight_cleaning', 'Scheinwerferreinigungsanlage'),
+    light_sensor: t('buyer.car.feature.light_sensor', 'Lichtsensor'),
+    rain_sensor: t('buyer.car.feature.rain_sensor', 'Regensensor'),
+    head_up_display: t('buyer.car.feature.head_up_display', 'Head-Up-Display'),
+
+    // 🔐 DIEBSTAHL- & EINBRUCHSCHUTZ
+    immobilizer: t('buyer.car.feature.immobilizer'),
+    alarm_system: t('buyer.car.feature.alarm_system'),
+    wheel_lock: t('buyer.car.feature.wheel_lock'),
+    central_locking: t('buyer.car.feature.central_locking'),
+    keyless_central_locking: t('buyer.car.feature.keyless_entry'),
+
+
+    // 🛋️ KOMFORT
+    aux_heating: t('buyer.car.feature.stand_heating'),
+    electric_heated_seats: t('buyer.car.feature.seat_heating'),
+    ventilated_seats: t('buyer.car.feature.seat_ventilation'),
+    electric_windows: t('buyer.car.feature.electric_windows'),
+    electric_adjusted_seats: t('buyer.car.feature.electric_seat_adjustment'),
+    electric_mirrors: t('buyer.car.feature.electric_side_mirrors'),
+    electric_tailgate: t('buyer.car.feature.electric_tailgate'),
+    assisted_steering: t('buyer.car.feature.power_steering'),
+    cruise_control: t('buyer.car.feature.cruise_control'),
+    adaptive_cruise_control: t('buyer.car.feature.adaptive_cruise_control', 'Abstandsregeltempomat'),
+    collision_avoidance: t('buyer.car.feature.emergency_brake_assist', 'Notbremsassistent'),
+    blind_spot_monitor: t('buyer.car.feature.blind_spot_assist', 'Toter-Winkel-Assistent'),
+    lane_departure_warning: t('buyer.car.feature.lane_keep_assist', 'Spurhalteassistent'),
+    traffic_signs: t('buyer.car.feature.traffic_signs', 'Verkehrszeichenerkennung'),
+    fatigue: t('buyer.car.feature.fatigue', 'Müdigkeitserkennung'),
+    nightvision: t('buyer.car.feature.nightvision', 'Nachtsicht'),
+    emergency_call: t('buyer.car.feature.emergency_call', 'Notrufsystem'),
+    speed_limiter: t('buyer.car.feature.speed_limiter', 'Geschwindigkeitsbegrenzer'),
+    distance_warning: t('buyer.car.feature.distance_warning', 'Abstandswarner'),
+    start_stop_system: t('buyer.car.feature.start_stop_system', 'Start-Stopp-System'),
+    heated_windshield: t('buyer.car.feature.heated_windscreen', 'Beheizbare Frontscheibe'),
+    heated_steering_wheel: t('buyer.car.feature.heated_steering', 'Beheizbares Lenkrad'),
+    dimming_mirror: t('buyer.car.feature.dimming_mirror', 'Abblendbarer Innenspiegel'),
+    arm_rest: t('buyer.car.feature.armrest'),
+    lumbar_support: t('buyer.car.feature.lumbar_support'),
+    massage_seats: t('buyer.car.feature.massage_seats'),
+    fold_flat_passenger_seat: t('buyer.car.feature.folding_passenger_seat'),
+    ambient_lighting: t('buyer.car.feature.ambient_lighting'),
+    leather_steering_wheel: t('buyer.car.feature.leather_steering_wheel'),
+    climatisation: t('buyer.car.feature.climatisation'),
+
+    // 🅿️ EINPARKHILFE
+    parking_sensors_rear: t('buyer.car.feature.parking_sensors_rear', 'Parken hinten'),
+    parking_sensors_front: t('buyer.car.feature.parking_sensors_front', 'Parken vorne'),
+    rear_camera: t('buyer.car.feature.rear_camera', 'Rückfahrkamera'),
+    self_parking: t('buyer.car.feature.self_parking', 'Selbstparkend'),
+    parking_rear: t('buyer.car.feature.parking_sensors_rear', 'Parken hinten'),
+    parking_front: t('buyer.car.feature.parking_sensors_front', 'Parken vorne'),
+    parking_camera: t('buyer.car.feature.rear_camera', 'Rückfahrkamera'),
+    parking_self: t('buyer.car.feature.self_parking', 'Selbstparkend'),
+
+    // 🎵 Infotainment
+    radio: t('buyer.car.feature.radio'),
+    radio_dab: t('buyer.car.feature.dab_radio'),
+    cdplayer: t('buyer.car.feature.cd_player'),
+    soundsystem: t('buyer.car.feature.sound_system'),
+    music_streaming: t('buyer.car.feature.streaming'),
+
+    bluetooth: t('buyer.car.feature.bluetooth'),
+    apple_car_play: t('buyer.car.feature.apple_carplay'),
+    android_auto: t('buyer.car.feature.android_auto'),
+    wifi_hotspot: t('buyer.car.feature.wifi_hotspot'),
+    mp3interface: t('buyer.car.feature.mp3_interface'),
+
+    navigation: t('buyer.car.feature.navigation_system'),
+    tv: t('buyer.car.feature.tv'),
+    touchscreen: t('buyer.car.feature.touchscreen'),
+    voice_control: t('buyer.car.feature.voice_control'),
+
+
+
+    // 🚗 FAHRZEUG & EXTRAS
+      sports_package: t('buyer.car.feature.sports_package'),
+      sports_suspension: t('buyer.car.feature.sports_suspension'),
+      sports_seats: t('buyer.car.feature.sports_seats'),
+      alloy_wheels: t('buyer.car.feature.alloy_wheels'),
+      trailer_coupling: t('buyer.car.feature.trailer_coupling'),
+      roof_rack: t('buyer.car.feature.roof_rack'),
+      skibag: t('buyer.car.feature.skibag'),
+      sunroof: t('buyer.car.feature.sunroof'),
+      panoramic_roof: t('buyer.car.feature.panoramic_roof'),
+      tinted_windows: t('buyer.car.feature.tinted_windows'),
+      summer_tires: t('buyer.car.feature.summer_tires'),
+      winter_tires: t('buyer.car.feature.winter_tires'),
+      all_season_tires: t('buyer.car.feature.all_season_tires'),
+      tire_pressure_monitoring: t('buyer.car.feature.tire_pressure_monitoring'),
+      winter_package: t('buyer.car.feature.winter_package'),
+      smokers_package: t('buyer.car.feature.smokers_package'),
+      air_suspension: t('buyer.car.feature.air_suspension'),
+
+  };
+
+  // 🧩 Fallback – falls ein Label fehlt, automatisch formatieren
+  function germanFallbackLabel(key) {
+    return key.replace(/_/g, ' ')
+              .replace(/\b\w/g, m => m.toUpperCase());
+  }
+
+  function labelOf(key) {
+    return featureLabels[key] || germanFallbackLabel(key);
+  }
+%>
+<%
+  const months = [
+    t('global.month.january'),
+    t('global.month.february'),
+    t('global.month.march'),
+    t('global.month.april'),
+    t('global.month.may'),
+    t('global.month.june'),
+    t('global.month.july'),
+    t('global.month.august'),
+    t('global.month.september'),
+    t('global.month.october'),
+    t('global.month.november'),
+    t('global.month.december')
+  ];
+%>
+
+
+
+
+  <fieldset class="mb-4 p-3 border">
+  <legend><%= t('buyer.listing.model.title') %></legend>
+
+<div class="row g-3 align-items-center mb-3">
+    <div class="col-md-4">
+      <label class="form-label">* <%= t('buyer.listing.model.brand') %></label>
+      <select id="brandSelect" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
+        <option value="" disabled selected><%= t('global.form.choose') %></option>
+        <% (filters.brands || []).filter(b => String(b.name || '').trim().toLowerCase() !== 'autos').forEach(b => { %>
+          <option value="<%= b.id %>"><%= b.name %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label class="form-label">* <%= t('buyer.listing.model.model') %></label>
+      <select id="modelSelect" name="model_id" class="form-select" <%= _brandModelRequiredAttr %> disabled>
+        <option value=""><%= t('buyer.listing.model.choose_brand_first') %></option>
+      </select>
+    </div>
+
+  <div class="col-md-4 d-none d-md-block"></div>
+</div>
+<script>
+document.getElementById('brandSelect').addEventListener('change', async function () {
+  const brandId = this.value;
+  const modelSelect = document.getElementById('modelSelect');
+
+  modelSelect.disabled = true;
+  modelSelect.innerHTML = `<option><%= t('global.loading_models', 'Lade Modelle…') %></option>`;
+
+  const res = await fetch(`/buyer/api/models/${brandId}`);
+  const data = await res.json();
+
+  if (!data.success) {
+    modelSelect.innerHTML = `<option><%= t('global.no_models_found', 'Keine Modelle gefunden') %></option>`;
+    return;
+  }
+
+  modelSelect.disabled = false;
+  modelSelect.innerHTML = `<option selected disabled><%= t('global.choose', 'Bitte wählen…') %></option>`;
+
+  data.models.forEach(m => {
+    modelSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+  });
+});
+</script>
+
+
+</fieldset>
+<fieldset>
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('buyer.listing.car.title') %></legend>
+
+  <div class="row g-3 mb-3">
+
+    <!-- 🏗️ Baujahr -->
+    <div class="col-md-2">
+      <label class="form-label"><%= t('buyer.listing.car.year') %></label>
+      <select name="year" class="form-select">
+        <option value="" selected>---</option>
+        <% for (let y = new Date().getFullYear(); y >= 1900; y--) { %>
+          <option value="<%= y %>"><%= y %></option>
+        <% } %>
+      </select>
+    </div>
+
+    <!-- 🚗 Erstzulassung -->
+    <div class="col-md-4">
+      <label class="form-label d-block"><%= t('buyer.listing.car.firstreg') %></label>
+      <div class="d-flex listing-split-select">
+
+        <select name="firstregistration_month" class="form-select me-2 listing-month-select">
+          <option value="" selected><%= t('global.form.month') %></option>
+          <% months.forEach((m, i) => { %>
+            <option value="<%= i + 1 %>"><%= m %></option>
+          <% }) %>
+        </select>
+
+        <select name="firstregistration" class="form-select flex-grow-1">
+          <option value="" selected><%= t('global.form.year') %></option>
+          <% for (let y = new Date().getFullYear(); y >= 1900; y--) { %>
+            <option value="<%= y %>"><%= y %></option>
+          <% } %>
+        </select>
+
+      </div>
+    </div>
+
+    <!-- 🔧 Nächste HU -->
+    <div class="col-md-4">
+      <label class="form-label d-block"><%= t('buyer.listing.car.maininspection') %></label>
+      <div class="d-flex listing-split-select">
+
+        <select name="maininspection_month" class="form-select me-2 listing-month-select">
+          <option value="" selected><%= t('global.form.month') %></option>
+          <% months.forEach((m, i) => { %>
+            <option value="<%= i + 1 %>"><%= m %></option>
+          <% }) %>
+        </select>
+
+        <select name="maininspection" class="form-select flex-grow-1">
+          <option value="" selected><%= t('global.form.year') %></option>
+          <% for (let y = new Date().getFullYear() + 5; y >= 1900; y--) { %>
+            <option value="<%= y %>"><%= y %></option>
+          <% } %>
+        </select>
+
+      </div>
+    </div>
+
+    <!-- ⚙️ Zustand -->
+    <div class="col-md-2">
+      <label for="quality" class="form-label"><%= t('buyer.listing.car.shape') %></label>
+      <select id="quality" name="quality" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.shape.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('filters.cars.shape.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+  </div>
+
+
+  <!-- Karosserieform / Farbe / Metallic -->
+  <div class="row g-3 mb-3 align-items-center">
+    <div class="col-md-4">
+      <label for="cartype" class="form-label"><%= t('buyer.listing.car.cartype') %></label>
+      <select id="cartype" name="cartype" class="form-select" required>
+        <option value="" selected>---</option>
+        <% extras.cartype.forEach(o => { %>
+        <option value="<%= o.value %>">
+            <%= t('attribute.cars.cartype.' + o.value, o.label) %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+
+<div class="col-md-4">
+  <label for="color" class="form-label"><%= t('buyer.listing.car.color') %></label>
+  <select id="color" name="color" class="form-select">
+    <option value="" disabled selected><%= t('global.form.choose') %></option>
+
+    <option value="9"><%= t('attribute.cars.color.9') %></option>
+    <option value="10"><%= t('attribute.cars.color.10') %></option>
+    <option value="14"><%= t('attribute.cars.color.14') %></option>
+    <option value="18"><%= t('attribute.cars.color.18') %></option>
+    <option value="23"><%= t('attribute.cars.color.23') %></option>
+    <option value="17"><%= t('attribute.cars.color.17') %></option>
+    <option value="11"><%= t('attribute.cars.color.11') %></option>
+    <option value="24"><%= t('attribute.cars.color.24') %></option>
+    <option value="12"><%= t('attribute.cars.color.12') %></option>
+    <option value="8"><%= t('attribute.cars.color.8') %></option>
+    <option value="4"><%= t('attribute.cars.color.4') %></option>
+    <option value="5"><%= t('attribute.cars.color.5') %></option>
+    <option value="3"><%= t('attribute.cars.color.3') %></option>
+    <option value="13"><%= t('attribute.cars.color.13') %></option>
+    <option value="7"><%= t('attribute.cars.color.7') %></option>
+    <option value="1"><%= t('attribute.cars.color.1') %></option>
+    <option value="6"><%= t('attribute.cars.color.6') %></option>
+    <option value="2"><%= t('attribute.cars.color.2') %></option>
+    <option value="16"><%= t('attribute.cars.color.16') %></option>
+    <option value="15"><%= t('attribute.cars.color.15') %></option>
+    <option value="19"><%= t('attribute.cars.color.19') %></option>
+    <option value="20"><%= t('attribute.cars.color.20') %></option>
+    <option value="21"><%= t('attribute.cars.color.21') %></option>
+    <option value="22"><%= t('attribute.cars.color.22') %></option>
+    <option value="255"><%= t('attribute.cars.color.255') %></option>
+  </select>
+</div>
+
+
+    <div class="col-md-4">
+      <div class="form-check" style="margin-top: 3.5rem;">
+        <input 
+          id="metallic" 
+          name="metallic" 
+          type="checkbox" 
+          class="form-check-input me-2" 
+          value="1"
+          style="width: 18px; height: 18px;">
+        <label for="metallic" class="form-check-label mb-0"><%= t('buyer.listing.car.metallic') %></label>
+      </div>
+    </div>
+
+  </div>
+
+
+  <!-- Innenausstattung / Innenfarbe / Langzeitmiete -->
+  <div class="row g-3 mb-3 align-items-center">
+    <div class="col-md-4">
+      <label for="interior" class="form-label"><%= t('buyer.listing.car.interior') %></label>
+      <select id="interior" name="interior" class="form-select">
+        <option value="" selected><%= t('global.form.choose') %></option>
+        <% extras.interior.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.cars.interior.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+
+
+    <div class="col-md-4">
+      <label for="interior_color" class="form-label"><%= t('buyer.listing.car.interior_color') %></label>
+      <select id="interior_color" name="interior_color" class="form-select">
+        <option value="" disabled selected><%= t('global.form.choose') %></option>
+        <!-- Original Farboptionen bleiben -->
+        <option value="0">---</option>
+          <option value="9"><%= t('attribute.cars.color.9') %></option>
+          <option value="10"><%= t('attribute.cars.color.10') %></option>
+          <option value="14"><%= t('attribute.cars.color.14') %></option>
+          <option value="18"><%= t('attribute.cars.color.18') %></option>
+          <option value="23"><%= t('attribute.cars.color.23') %></option>
+          <option value="17"><%= t('attribute.cars.color.17') %></option>
+          <option value="11"><%= t('attribute.cars.color.11') %></option>
+          <option value="24"><%= t('attribute.cars.color.24') %></option>
+          <option value="12"><%= t('attribute.cars.color.12') %></option>
+          <option value="8"><%= t('attribute.cars.color.8') %></option>
+          <option value="4"><%= t('attribute.cars.color.4') %></option>
+          <option value="5"><%= t('attribute.cars.color.5') %></option>
+          <option value="3"><%= t('attribute.cars.color.3') %></option>
+          <option value="13"><%= t('attribute.cars.color.13') %></option>
+          <option value="7"><%= t('attribute.cars.color.7') %></option>
+          <option value="1"><%= t('attribute.cars.color.1') %></option>
+          <option value="6"><%= t('attribute.cars.color.6') %></option>
+          <option value="2"><%= t('attribute.cars.color.2') %></option>
+          <option value="16"><%= t('attribute.cars.color.16') %></option>
+          <option value="15"><%= t('attribute.cars.color.15') %></option>
+          <option value="19"><%= t('attribute.cars.color.19') %></option>
+          <option value="20"><%= t('attribute.cars.color.20') %></option>
+          <option value="21"><%= t('attribute.cars.color.21') %></option>
+          <option value="22"><%= t('attribute.cars.color.22') %></option>
+          <option value="255"><%= t('attribute.cars.color.255') %></option>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <% if (user.registration_type === 'commercial') { %>
+        <div class="bg-danger bg-opacity-10 p-3 rounded mt-4 d-flex align-items-center">
+          <input 
+            id="longterm_rental" 
+            name="longterm_rental" 
+            type="checkbox" 
+            class="form-check-input me-2" 
+            value="1"
+            style="width:18px; height:18px;">
+          <label for="longterm_rental" class="form-check-label mb-0">
+            <%= t('buyer.listing.car.longterm_rental') %>
+          </label>
+        </div>
+      <% } %>
+    </div>
+  </div>
+
+
+  <!-- Kraftstoff / Getriebe / Antrieb -->
+  <div class="row g-3 mb-3 align-items-center">
+    <div class="col-md-4">
+      <label for="fuel" class="form-label"><%= t('buyer.listing.car.fuel') %></label>
+      <select id="fuel" name="fuel" class="form-select" required>
+        <option value="" disabled selected><%= t('global.form.choose') %></option>
+        <% extras.fuel.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.cars.fuel.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="gearbox" class="form-label"><%= t('buyer.listing.car.gearbox') %></label>
+      <select id="gearbox" name="gearbox" class="form-select" required>
+        <option value="" disabled selected><%= t('global.form.choose') %></option>
+        <% extras.gearbox.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.cars.gearbox.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="drivetrain" class="form-label"><%= t('buyer.listing.car.drivetrain') %></label>
+      <select id="drivetrain" name="drivetrain" class="form-select" required>
+        <option value="" disabled selected><%= t('global.form.choose') %></option>
+          <% extras.drivetrain.forEach(o => { %>
+            <option value="<%= o.value %>"><%= t('attribute.cars.drivetrain.' + o.value) %></option>
+          <% }) %>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+
+    <!-- Farbe -->
+<% if (extras.color && extras.color.length) { %>
+  <div class="row mb-3">
+    <label for="color" class="col-sm-3 col-form-label text-end"><%= t('buyer.listing.car.color') %></label>
+    <div class="col-sm-4">
+      <select id="color" name="color" class="form-select">
+        <option value="" disabled selected><%= t('global.choose', 'Bitte wählen…') %></option>
+        <% extras.color.forEach(o => { %>
+          <option value="<%= o.value %>"><%= o.label %></option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+<% } %>
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('buyer.listing.car.tech_data') %></legend>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label for="engine" class="form-label"><%= t('buyer.listing.car.engine') %></label>
+      <select id="engine" name="engine" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.engine.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.cars.engine.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="mileage" class="form-label"><%= t('buyer.listing.car.mileage') %></label>
+      <input id="mileage" name="mileage" type="number" class="form-control">
+    </div>
+
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label for="displacement" class="form-label"><%= t('buyer.listing.car.displacement') %></label>
+      <input id="displacement" name="capacity" type="number" class="form-control">
+    </div>
+    <div class="col-md-4">
+      <label for="power_kw" class="form-label"><%= t('buyer.listing.car.power_kw') %></label>
+      <input id="power_kw" name="power" type="number" class="form-control">
+    </div>
+    <div class="col-md-4">
+      <label for="power_ps" class="form-label"><%= t('buyer.listing.car.power_ps') %></label>
+      <input id="power_ps" name="horsepower" type="number" class="form-control">
+    </div>
+  </div>
+
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <label for="driving_side" class="form-label"><%= t('buyer.listing.car.driving_side') %></label>
+      <select id="driving_side" name="driving_side" class="form-select">
+        <option value="LHD"><%= t('buyer.listing.car.left_hand_drive') %></option>
+        <option value="RHD"><%= t('buyer.listing.car.right_hand_drive') %></option>
+      </select>
+    </div>
+  </div>
+</fieldset>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const kwInput = document.getElementById('power_kw');
+  const psInput = document.getElementById('power_ps');
+  if (!kwInput || !psInput) return;
+
+  const KW_TO_PS = 1.36;
+  let lock = false;
+
+  const toNum = (v) => {
+    if (v === '' || v === null || v === undefined) return NaN;
+    const n = parseFloat(String(v).replace(',', '.'));
+    return Number.isFinite(n) ? n : NaN;
+  };
+
+  kwInput.addEventListener('input', () => {
+    if (lock) return;
+    lock = true;
+    const kw = toNum(kwInput.value);
+    psInput.value = isNaN(kw) ? '' : Math.round(kw * KW_TO_PS);
+    lock = false;
+  });
+
+  psInput.addEventListener('input', () => {
+    if (lock) return;
+    lock = true;
+    const ps = toNum(psInput.value);
+    kwInput.value = isNaN(ps) ? '' : Math.round(ps / KW_TO_PS);
+    lock = false;
+  });
+});
+</script>
+
+
+<!-- ─── Verbrauch ─── -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('buyer.listing.car.consumption.title') %></legend>
+
+  <!-- Treibstoff & CO₂ -->
+  <div class="row g-3 align-items-center mb-3">
+    <div class="col-md-4">
+      <label for="co2" class="form-label"><%= t('buyer.listing.car.consumption.co2') %></label>
+      <input id="co2" name="co2" type="number" class="form-control">
+    </div>
+
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+  <!-- Klimaanlage -->
+
+  <!-- Verbrauch innerorts / außerorts / kombiniert -->
+  <div class="row g-3 align-items-center mb-3">
+    <div class="col-md-4">
+      <label for="consumption_city" class="form-label"><%= t('buyer.listing.car.consumption.city') %></label>
+      <input id="consumption_city" name="consumption_city" type="number" step="0.1" class="form-control">
+    </div>
+    <div class="col-md-4">
+      <label for="consumption_country" class="form-label"><%= t('buyer.listing.car.consumption.country') %></label>
+      <input id="consumption_country" name="consumption_country" type="number" step="0.1" class="form-control">
+    </div>
+    <div class="col-md-4">
+      <label for="consumption_combined" class="form-label"><%= t('buyer.listing.car.consumption.combined') %></label>
+      <input id="consumption_combined" name="consumption_combined" type="number" step="0.1" class="form-control">
+    </div>
+  </div>
+
+  <!-- Schadstoffklasse, Umweltplakette, Energieeffizienz -->
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label for="emission_class" class="form-label"><%= t('buyer.listing.car.consumption.emission_class') %></label>
+      <select id="emission_class" name="emission_class" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.emission_class.forEach(o => { %>
+          <option value="<%= o.value %>"><%= o.label %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="environmental_badge" class="form-label"><%= t('buyer.listing.car.consumption.environmental_badge') %></label>
+      <select id="environmental_badge" name="environmental_badge" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.environmental_badge.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('filters.cars.environmental_badge.' + o.value, o.label) %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function () {
+      const select = document.getElementById("environmental_badge");
+      if (!select) return;
+      const firstOption = select.querySelector('option[value=""]');
+      const options = Array.from(select.options).filter(o => o.value !== "");
+      options.sort((a, b) => a.value.localeCompare(b.value, 'de', { numeric: true }));
+      select.innerHTML = "";
+      select.appendChild(firstOption);
+      options.forEach(o => select.appendChild(o));
+      select.value = "";
+    });
+    </script>
+
+    <div class="col-md-4">
+      <label for="pollution_class" class="form-label"><%= t('buyer.listing.car.consumption.pollution_class') %></label>
+      <select id="pollution_class" name="pollution_class" class="form-select">
+        <option value="" <%= (typeof item !== 'undefined' && !item.pollution_class) ? 'selected' : '' %> >---</option>
+        <% extras.pollution_class.forEach(o => { %>
+          <option value="<%= o.value %>" <%= (typeof item !== 'undefined' && item.pollution_class == o.value) ? 'selected' : '' %>>
+            <%= o.label %>
+          </option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('buyer.listing.car.safety.title') %></legend>
+
+  <!-- Airbags -->
+  <div class="row g-3 align-items-center mb-3">
+    <div class="col-md-4">
+      <label for="airbags" class="form-label"><%= t('buyer.listing.car.safety.airbags') %></label>
+      <select id="airbags" name="airbags" class="form-select">
+        <option value="" selected>---</option>
+        <% extras.airbags.forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('attribute.cars.airbags.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <div class="col-md-4 d-none d-md-block"><!-- fill --> </div>
+    <div class="col-md-4 d-none d-md-block"><!-- fill --> </div>
+  </div>
+
+  <!-- Assistenzsysteme -->
+  <div class="row g-3 mb-3">
+    <div class="col-md-4">
+      <input type="hidden" name="isofix" value="0">
+      <div class="form-check">
+        <input class="form-check-input"
+               type="checkbox"
+               id="isofix"
+               name="isofix"
+               value="1">
+        <label class="form-check-label" for="isofix">
+          <%= t('buyer.listing.car.safety.isofix') %>
+        </label>
+      </div>
+    </div>
+    <% checkboxGroups.Assistenzsysteme.filter(field => field !== 'isofix').forEach(field => { %>
+      <div class="col-md-4">
+        <input type="hidden" name="<%= field %>" value="0">
+        <div class="form-check">
+          <input class="form-check-input"
+                 type="checkbox"
+                 id="<%= field %>"
+                 name="<%= field %>"
+                 value="1">
+              <label class="form-check-label" for="<%= field %>">
+               <%= labelOf(field) %>
+              </label>
+
+        </div>
+      </div>
+    <% }) %>
+  </div>
+
+  <!-- Basis-Sicherheit -->
+  <div class="row g-3 mb-1">
+    <% (checkboxGroups.Sicherheit || []).forEach(field => { %>
+      <div class="col-md-4">
+        <input type="hidden" name="<%= field %>" value="0">
+        <div class="form-check">
+          <input class="form-check-input"
+                 type="checkbox"
+                 id="<%= field %>"
+                 name="<%= field %>"
+                 value="1">
+          <label class="form-check-label" for="<%= field %>">
+            <%= labelOf(field) %>
+          </label>
+        </div>
+      </div>
+    <% }) %>
+  </div>
+</fieldset>
+
+<% Object.entries(checkboxGroups).forEach(([legend, keys]) => { %>
+  <% if (legend === 'Assistenzsysteme' || legend === 'Sicherheit') return; %>
+  <fieldset class="border rounded p-4 mb-4">
+    <legend class="fs-5 mb-3"><%= t('buyer.listing.car.features.' + legend) %></legend>
+
+    <% if (legend === 'Infotainment') { %>
+        <div class="row g-4">
+
+          <!-- Audio / Radio -->
+          <div class="col-md-4 px-4">
+            <% ["radio","mp3interface","soundsystem","radio_dab","cdplayer"].forEach(field => { %>
+              <div class="form-check mb-3">
+                <input type="hidden" name="<%= field %>" value="0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="<%= field %>"
+                  name="<%= field %>"
+                  value="1">
+                <label class="form-check-label" for="<%= field %>">
+                  <%= labelOf(field) %>
+                </label>
+              </div>
+            <% }) %>
+          </div>
+
+          <!-- Connectivity -->
+          <div class="col-md-4 px-4">
+            <% ["bluetooth","apple_car_play","android_auto","wifi_hotspot","music_streaming"].forEach(field => { %>
+              <div class="form-check mb-3">
+                <input type="hidden" name="<%= field %>" value="0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="<%= field %>"
+                  name="<%= field %>"
+                  value="1">
+                <label class="form-check-label" for="<%= field %>">
+                  <%= labelOf(field) %>
+                </label>
+              </div>
+            <% }) %>
+          </div>
+
+          <!-- Navigation / Display -->
+          <div class="col-md-4 px-4">
+            <% ["navigation","tv","touchscreen","voice_control"].forEach(field => { %>
+              <div class="form-check mb-3">
+                <input type="hidden" name="<%= field %>" value="0">
+                <input
+                  class="form-check-input"
+                  type="checkbox"
+                  id="<%= field %>"
+                  name="<%= field %>"
+                  value="1">
+                <label class="form-check-label" for="<%= field %>">
+                  <%= labelOf(field) %>
+                </label>
+              </div>
+            <% }) %>
+          </div>
+
+        </div>
+
+
+    <% } else { %>
+      <div class="row g-3">
+        <% if (legend === 'Komfort') { %>
+          <div class="col-12">
+            <label for="climatisation" class="form-label"><%= t('buyer.listing.car.consumption.climatisation') %></label>
+            <select id="climatisation" name="climatisation" class="form-select" style="max-width: 420px;">
+              <option value="" selected>---</option>
+              <% if (extras.climatisation && extras.climatisation.length > 0) { %>
+                <% extras.climatisation
+                  .sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
+                  .forEach(o => { %>
+                    <option value="<%= o.value %>"><%= t('attribute.cars.climatisation.' + o.value) %></option>
+                <% }) %>
+              <% } %>
+            </select>
+          </div>
+        <% } %>
+
+        <% keys.forEach(field => { %>
+          <div class="col-md-4">
+            <input type="hidden" name="<%= field %>" value="0">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="<%= field %>" name="<%= field %>" value="1">
+              <label class="form-check-label" for="<%= field %>"><%= labelOf(field) %></label>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } %>
+  </fieldset>
+<% }) %>
+
+
+
+
+
+
+
+  </fieldset>
+<% } %> 
+
+        <% /* ---------- UHREN ---------- */ %>
+
+<% if (ent.route === 'watches') { %>
+
+  <!-- ─── Allgemeine  ─── -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('buyer.listing.general_info') %></legend>
+  <div class="row g-3 align-items-center mb-3">
+
+    <!-- Marke -->
+    <div class="col-md-4">
+      <label for="brand_id" class="form-label">* <%= t('buyer.listing.brand') %></label>
+      <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
+        <option value="" disabled selected><%= t('global.select_placeholder') %></option>
+        <% filters.brands.forEach(b => { %>
+          <option value="<%= b.id %>"><%= b.name %></option>
+        <% }) %>
+      </select>
+    </div>
+
+    <!-- Modell -->
+    <div class="col-md-4">
+      <label for="model_id" class="form-label">* <%= t('buyer.listing.model') %></label>
+      <select id="model_id" name="model_id" class="form-select" <%= _brandModelRequiredAttr %> disabled>
+        <option value=""><%= t('buyer.listing.model_select_brand_first') %></option>
+      </select>
+    </div>
+
+    <!-- Referenznummer (neu) -->
+    <div class="col-md-4">
+      <label for="reference" class="form-label"><%= t('buyer.listing.reference_number') %></label>
+      <input id="reference" name="reference" type="text" class="form-control">
+    </div>
+
+
+  </div>
+</fieldset>
+
+<script>
+document.getElementById('brand_id').addEventListener('change', async function () {
+  const brandId = this.value;
+  const modelSelect = document.getElementById('model_id');
+
+  modelSelect.disabled = true;
+  modelSelect.innerHTML = `<option><%= t('global.loading_models', 'Lade Modelle…') %></option>`;
+
+  const res = await fetch(`/buyer/api/models/${brandId}`);
+  const data = await res.json();
+
+  if (!data.success || !data.models.length) {
+    modelSelect.innerHTML = `<option><%= t('global.no_models_available', 'Keine Modelle verfügbar') %></option>`;
+    return;
+  }
+
+  modelSelect.disabled = false;
+  modelSelect.innerHTML = `<option disabled selected><%= t('global.choose', 'Bitte wählen…') %></option>`;
+  data.models.forEach(m => {
+    modelSelect.innerHTML += `<option value="${m.id}">${m.name}</option>`;
+  });
+});
+</script>
+
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('buyer.listing.details') %></legend>
+  <div class="row g-3 align-items-center">
+
+    <!-- Uhrentyp -->
+    <div class="col-md-4">
+      <label for="watchtype" class="form-label">* <%= t('buyer.listing.watchtype') %></label>
+      <select name="watchtype" id="watchtype" class="form-select" required>
+        <option value="" disabled selected><%= t('global.select_placeholder') %></option>
+        <option value="1"><%= t('attribute.watch.watchtype.1') %></option>
+        <option value="2"><%= t('attribute.watch.watchtype.2') %></option>
+        <option value="3"><%= t('attribute.watch.watchtype.3') %></option>
+        <option value="4"><%= t('category.watches.antique','Antike Uhr') %></option>
+        <option value="5"><%= t('category.watches.standuhr','Standuhr') %></option>
+        <option value="6"><%= t('category.watches.wanduhr', 'Wanduhr') %></option>
+        <option value="255"><%= t('attribute.watch.watchtype.255') %></option>
+      </select>
+    </div>
+
+
+    <!-- Uhrenglas -->
+    <div class="col-md-4">
+    <label for="crystal" class="form-label"><%= t('buyer.listing.crystal') %></label>
+      <select id="crystal" name="crystal" class="form-select">
+        <option value="" selected>---</option>
+          <% (extras.crystal || []).forEach(o => { %>
+            <option value="<%= o.value %>"><%= t('attribute.watch.crystal.' + o.value) %></option>
+          <% }) %>
+      </select>
+    </div>
+
+    <!-- Durchmesser -->
+    <div class="col-md-4">
+      <label for="diameter" class="form-label"><%= t('buyer.listing.diameter_mm') %></label>
+      <input id="diameter" name="diameter" type="number" class="form-control">
+    </div>
+
+    <!-- Höhe -->
+    <div class="col-md-4">
+      <label for="height" class="form-label"><%= t('buyer.listing.height_mm') %></label>
+      <input id="height" name="height" type="number" class="form-control">
+    </div>
+
+    <!-- Geschlecht -->
+    <div class="col-md-4">
+      <label for="gender" class="form-label"><%= t('buyer.listing.gender') %></label>
+      <select id="gender" name="gender" class="form-select">
+        <option value="" selected>---</option>
+        <option value="2"><%= t('watch.gender.men', 'Herren/Unisex') %></option>
+        <option value="3"><%= t('watch.gender.women', 'Damen') %></option>
+      </select>
+    </div>
+
+    <!-- Wasserdicht -->
+    <div class="col-md-4">
+      <label for="water_resistance" class="form-label"><%= t('buyer.listing.water_resistance') %></label>
+      <select id="water_resistance" name="water_resistance" class="form-select">
+        <option value="0" selected>---</option>
+        <option value="1"><%= t('attribute.watch.water_resistance.1') %></option>
+        <option value="2"><%= t('attribute.watch.water_resistance.2') %></option>
+        <option value="3"><%= t('attribute.watch.water_resistance.3') %></option>
+        <option value="4"><%= t('attribute.watch.water_resistance.4') %></option>
+        <option value="5"><%= t('attribute.watch.water_resistance.5') %></option>
+        <option value="6"><%= t('attribute.watch.water_resistance.6') %></option>
+        <option value="7"><%= t('attribute.watch.water_resistance.7') %></option>
+      </select>
+    </div>
+
+    <div class="col-md-4">
+      <label for="year" class="form-label"><%= t('buyer.listing.year') %></label>
+      <select id="year" name="year" class="form-select">
+        <option value="" selected>---</option>
+        <% 
+          const currentYear = new Date().getFullYear();
+          for (let y = currentYear; y >= 1900; y--) { 
+        %>
+          <option value="<%= y %>"><%= y %></option>
+        <% } %>
+      </select>
+    </div>
+
+<div class="col-md-4">
+  <label for="used" class="form-label">
+   * <%= t('buyer.listing.condition') %>
+  </label>
+  <select id="used" name="used" class="form-select" required>
+    <option value="">---</option>
+    <option value="0"><%= t('attribute.common.condition.0') || 'Ungetragen' %></option>
+    <option value="1"><%= t('attribute.common.condition.1') || 'Sehr Gut' %></option>
+    <option value="2"><%= t('attribute.common.condition.2') || 'Gut' %></option>
+    <option value="3"><%= t('attribute.common.condition.3') || 'Gebraucht' %></option>
+    <option value="4"><%= t('attribute.common.condition.4') || 'Mangelhaft' %></option>
+  </select>
+</div>
+
+
+
+
+
+    <!-- Layout Platzhalter für schöne 3-Spalten-Optik -->
+    <div class="col-md-4 d-none d-md-block"></div>
+
+  </div>
+</fieldset>
+
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('watches.section.material_color') %></legend>
+  <div class="row g-3 align-items-center">
+    <!-- Gehäusematerial -->
+    <div class="col-md-4">
+      <label for="case_material" class="form-label"><%= t('watch.case_material') %></label>
+      <select id="case_material" name="case_material" class="form-select">
+        <option value="" selected>---</option>
+        <% (extras.case_material || []).forEach(o => { %>
+          <option value="<%= o.value %>"><%= t(`watches.case_material.${o.value}`) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <!-- Material des Armbandes -->
+    <div class="col-md-4">
+      <label for="strap_material" class="form-label">    <%= t('watches.attribute.strap_material') %></label>
+      <select id="strap_material" name="strap_material" class="form-select">
+        <option value="" selected>---</option>
+        <% (extras.strap_material || []).forEach(o => { %>
+          <option value="<%= o.value %>"><%= t('watches.option.strap_material.' + o.value) %></option>
+        <% }) %>
+      </select>
+    </div>
+    <!-- Farbe des Armbandes -->
+<div class="col-md-4">
+  <label for="strap_color" class="form-label">
+    <%= t('watches.attribute.strap_color') %>
+  </label>
+  <select id="strap_color" name="strap_color" class="form-select">
+    <option value="">---</option>
+
+    <option value="24"><%= t('watches.option.strap_color.24') %></option>
+    <option value="9"><%= t('watches.option.strap_color.9') %></option>
+    <option value="5"><%= t('watches.option.strap_color.5') %></option>
+    <option value="17"><%= t('watches.option.strap_color.17') %></option>
+    <option value="10"><%= t('watches.option.strap_color.10') %></option>
+    <option value="14"><%= t('watches.option.strap_color.14') %></option>
+    <option value="18"><%= t('watches.option.strap_color.18') %></option>
+    <option value="23"><%= t('watches.option.strap_color.23') %></option>
+    <option value="11"><%= t('watches.option.strap_color.11') %></option>
+    <option value="12"><%= t('watches.option.strap_color.12') %></option>
+    <option value="4"><%= t('watches.option.strap_color.4') %></option>
+    <option value="8"><%= t('watches.option.strap_color.8') %></option>
+    <option value="7"><%= t('watches.option.strap_color.7') %></option>
+    <option value="22"><%= t('watches.option.strap_color.22') %></option>
+    <option value="15"><%= t('watches.option.strap_color.15') %></option>
+    <option value="19"><%= t('watches.option.strap_color.19') %></option>
+    <option value="20"><%= t('watches.option.strap_color.20') %></option>
+    <option value="3"><%= t('watches.option.strap_color.3') %></option>
+    <option value="1"><%= t('watches.option.strap_color.1') %></option>
+    <option value="6"><%= t('watches.option.strap_color.6') %></option>
+    <option value="255"><%= t('watches.option.strap_color.255') %></option>
+    <option value="21"><%= t('watches.option.strap_color.21') %></option>
+    <option value="16"><%= t('watches.option.strap_color.16') %></option>
+    <option value="13"><%= t('watches.option.strap_color.13') %></option>
+    <option value="2"><%= t('watches.option.strap_color.2') %></option>
+  </select>
+</div>
+
+
+
+        <!-- Material Schließe -->
+    <div class="col-md-4">
+      <label for="clasp_material" class="form-label">
+        <%= t('watches.attribute.buckle_material') %>
+      </label>
+      <select id="clasp_material" name="clasp_material" class="form-select">
+        <option value="">---</option>
+
+        <option value="12"><%= t('watches.option.buckle_material.12') %></option>
+        <option value="15"><%= t('watches.option.buckle_material.15') %></option>
+        <option value="16"><%= t('watches.option.buckle_material.16') %></option>
+        <option value="4"><%= t('watches.option.buckle_material.4') %></option>
+        <option value="8"><%= t('watches.option.buckle_material.8') %></option>
+        <option value="9"><%= t('watches.option.buckle_material.9') %></option>
+        <option value="14"><%= t('watches.option.buckle_material.14') %></option>
+        <option value="13"><%= t('watches.option.buckle_material.13') %></option>
+        <option value="10"><%= t('watches.option.buckle_material.10') %></option>
+        <option value="5"><%= t('watches.option.buckle_material.5') %></option>
+        <option value="1"><%= t('watches.option.buckle_material.1') %></option>
+        <option value="6"><%= t('watches.option.buckle_material.6') %></option>
+        <option value="11"><%= t('watches.option.buckle_material.11') %></option>
+        <option value="2"><%= t('watches.option.buckle_material.2') %></option>
+        <option value="17"><%= t('watches.option.buckle_material.17') %></option>
+        <option value="7"><%= t('watches.option.buckle_material.7') %></option>
+        <option value="3"><%= t('watches.option.buckle_material.3') %></option>
+        <option value="18"><%= t('watches.option.buckle_material.18') %></option>
+        <option value="255"><%= t('watches.option.buckle_material.255') %></option>
+      </select>
+    </div>
+
+
+    <!-- Schließe -->
+<div class="col-md-4">
+  <label for="clasp_type" class="form-label">
+    <%= t('watches.attribute.clasp_type') %>
+  </label>
+  <select id="clasp_type" name="clasp_type" class="form-select">
+    <option value="">---</option>
+    <% (extras.clasp_type || []).forEach(o => { %>
+      <option value="<%= o.value %>"><%= o.label %></option>
+    <% }) %>
+  </select>
+</div>
+
+    <!-- Material Lünette -->
+    <div class="col-md-4">
+      <label for="bezel_material" class="form-label"><%= t('watches.attribute.bezel_material') %></label>
+        <select id="bezel_material" name="bezel_material" class="form-select">
+          <option value="0"><%= t('global.select_placeholder') %></option>
+          <option value="12"><%= t('watches.material.aluminium') %></option>
+          <option value="15"><%= t('watches.material.bronze') %></option>
+          <option value="16"><%= t('watches.material.carbon') %></option>
+          <option value="4"><%= t('watches.material.yellow_gold') %></option>
+          <option value="8"><%= t('watches.material.gold_steel') %></option>
+          <option value="9"><%= t('watches.material.ceramic') %></option>
+          <option value="14"><%= t('watches.material.plastic') %></option>
+          <option value="13"><%= t('watches.material.pvd') %></option>
+          <option value="10"><%= t('watches.material.palladium') %></option>
+          <option value="5"><%= t('watches.material.platinum') %></option>
+          <option value="1"><%= t('watches.material.rose_gold') %></option>
+          <option value="6"><%= t('watches.material.red_gold') %></option>
+          <option value="11"><%= t('watches.material.silver') %></option>
+          <option value="2"><%= t('watches.material.steel') %></option>
+          <option value="17"><%= t('watches.material.tantalum') %></option>
+          <option value="7"><%= t('watches.material.titanium') %></option>
+          <option value="3"><%= t('watches.material.white_gold') %></option>
+          <option value="18"><%= t('watches.material.tungsten') %></option>
+          <option value="255"><%= t('global.other') %></option>
+        </select>
+    </div>
+
+
+    <!-- Zifferblattfarbe -->
+<div class="col-md-4">
+  <label for="dial_color" class="form-label"><%= t('watches.attribute.dial_color') %></label>
+  <select id="dial_color" name="dial_color" class="form-select">
+    <option value="0">---</option>
+    <option value="24"><%= t('watches.dial_color.24') %></option>
+    <option value="9"><%= t('watches.dial_color.9') %></option>
+    <option value="5"><%= t('watches.dial_color.5') %></option>
+    <option value="17"><%= t('watches.dial_color.17') %></option>
+    <option value="10"><%= t('watches.dial_color.10') %></option>
+    <option value="14"><%= t('watches.dial_color.14') %></option>
+    <option value="18"><%= t('watches.dial_color.18') %></option>
+    <option value="23"><%= t('watches.dial_color.23') %></option>
+    <option value="11"><%= t('watches.dial_color.11') %></option>
+    <option value="12"><%= t('watches.dial_color.12') %></option>
+    <option value="4"><%= t('watches.dial_color.4') %></option>
+    <option value="8"><%= t('watches.dial_color.8') %></option>
+    <option value="7"><%= t('watches.dial_color.7') %></option>
+    <option value="22"><%= t('watches.dial_color.22') %></option>
+    <option value="15"><%= t('watches.dial_color.15') %></option>
+    <option value="19"><%= t('watches.dial_color.19') %></option>
+    <option value="20"><%= t('watches.dial_color.20') %></option>
+    <option value="3"><%= t('watches.dial_color.3') %></option>
+    <option value="1"><%= t('watches.dial_color.1') %></option>
+    <option value="6"><%= t('watches.dial_color.6') %></option>
+    <option value="255"><%= t('global.other') %></option>
+    <option value="21"><%= t('watches.dial_color.21') %></option>
+    <option value="16"><%= t('watches.dial_color.16') %></option>
+    <option value="13"><%= t('watches.dial_color.13') %></option>
+    <option value="2"><%= t('watches.dial_color.2') %></option>
+    <option value="25"><%= t('watches.dial_color.25', 'Skelettiert') %></option>
+  </select>
+</div>
+
+
+    <!-- Form des Zifferblattes -->
+  <div class="col-md-4">
+    <label for="dial_shape" class="form-label"><%= t('watches.attribute.dial_shape') %></label>
+    <select id="dial_shape" name="dial_shape" class="form-select">
+      <option value="" selected>---</option>
+      <% (extras.dial_shape || []).forEach(o => { %>
+        <option value="<%= o.value %>"><%= t('watches.dial_shape.' + o.value) %></option>
+      <% }) %>
+    </select>
+  </div>
+
+    <!-- Zahlen Zifferblatt -->
+<div class="col-md-4">
+  <label for="dial_numbers" class="form-label"><%= t('watches.attribute.dial_numbers') %></label>
+  <select id="dial_numbers" name="dial_numbers" class="form-select">
+    <option value="" selected>---</option>
+    <% (extras.dial_numbers || []).forEach(o => { %>
+      <option value="<%= o.value %>"><%= t('watches.dial_numbers.' + o.value) %></option>
+    <% }) %>
+  </select>
+</div>
+
+
+  </div>
+</fieldset>
+
+
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('watches.attribute.caliber') %></legend>
+
+  <div class="row g-3">
+    <div class="col-md-4">
+      <label for="movement" class="form-label">
+        <%= t('watches.attribute.winding') %>
+      </label>
+      <select id="movement" name="movement" class="form-select">
+        <option value="">---</option>
+        <option value="1"><%= t('watches.winding.automatic') %></option>
+        <option value="2"><%= t('watches.winding.manual') %></option>
+        <option value="3"><%= t('watches.winding.quartz') %></option>
+      </select>
+    </div>
+
+
+    <div class="col-md-4">
+      <label for="power_reserve" class="form-label"><%= t('watches.attribute.power_reserve') %></label>
+      <input id="power_reserve" name="power_reserve" type="number" class="form-control" min="0">
+    </div>
+
+    <div class="col-md-4">
+      <label for="jewels_number" class="form-label"><%= t('watches.attribute.jewels') %></label>
+      <input id="jewels_number" name="jewels_number" type="number" class="form-control" min="0">
+    </div>
+
+    <div class="col-md-4">
+      <label for="frequency" class="form-label"><%= t('watches.attribute.frequency') %></label>
+      <input id="frequency" name="frequency" type="number" class="form-control" min="0">
+    </div>
+
+    <div class="col-md-4 d-none d-md-block"></div>
+  </div>
+
+  <div class="row g-3 align-items-center mt-3">
+    <div class="col-md-6">
+      <label for="caliber" class="form-label"><%= t('watches.attribute.caliber_input') %></label>
+      <input id="caliber" name="caliber" type="text" class="form-control">
+    </div>
+
+    <div class="col-md-6">
+      <label for="movement_caliber" class="form-label"><%= t('watches.attribute.base_caliber') %></label>
+      <input id="movement_caliber" name="movement_caliber" type="text" class="form-control">
+    </div>
+  </div>
+</fieldset>
+
+
+<!-- ─── Lieferumfang ─── -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('watches.attribute.delivery') %></legend>
+  <div class="row g-3">
+
+    <!-- Papiere -->
+    <div class="col-md-4">
+      <div class="form-check">
+        <input type="hidden" name="authenticity_papers" value="0">
+        <input class="form-check-input"
+               type="checkbox"
+               id="authenticity_papers"
+               name="authenticity_papers"
+               value="1">
+        <label class="form-check-label" for="authenticity_papers">
+          <%= t('watches.delivery.auth_certificate') %>
+        </label>
+      </div>
+    </div>
+
+    <!-- Box -->
+    <div class="col-md-4">
+      <div class="form-check">
+        <input type="hidden" name="authenticity_box" value="0">
+        <input class="form-check-input"
+               type="checkbox"
+               id="authenticity_box"
+               name="authenticity_box"
+               value="1">
+        <label class="form-check-label" for="authenticity_box">
+          <%= t('watches.delivery.box') %>
+        </label>
+      </div>
+    </div>
+
+    <!-- Garantie -->
+    <div class="col-md-4">
+      <div class="form-check">
+        <input type="hidden" name="authenticity_warranty" value="0">
+        <input class="form-check-input"
+               type="checkbox"
+               id="authenticity_warranty"
+               name="authenticity_warranty"
+               value="1">
+        <label class="form-check-label" for="authenticity_warranty">
+          <%= t('watches.delivery.auth_guarantee') %>
+        </label>
+      </div>
+    </div>
+
+  </div>
+</fieldset>
+
+
+
+
+<!-- ─── Funktionen ─── -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('watches.attribute.functions') %></legend>
+
+  <div class="row g-3">
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_alarm" value="0">
+      <input class="form-check-input" type="checkbox" id="function_alarm" name="function_alarm" value="1">
+      <label class="form-check-label" for="function_alarm"><%= t('watches.function.alarm') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_chronograph" value="0">
+      <input class="form-check-input" type="checkbox" id="function_chronograph" name="function_chronograph" value="1">
+      <label class="form-check-label" for="function_chronograph"><%= t('watches.function.chronograph') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_date" value="0">
+      <input class="form-check-input" type="checkbox" id="function_date" name="function_date" value="1">
+      <label class="form-check-label" for="function_date"><%= t('watches.function.date') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_day" value="0">
+      <input class="form-check-input" type="checkbox" id="function_day" name="function_day" value="1">
+      <label class="form-check-label" for="function_day"><%= t('watches.function.weekday_display') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_month" value="0">
+      <input class="form-check-input" type="checkbox" id="function_month" name="function_month" value="1">
+      <label class="form-check-label" for="function_month"><%= t('watches.function.month_display') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_4year" value="0">
+      <input class="form-check-input" type="checkbox" id="function_4year" name="function_4year" value="1">
+      <label class="form-check-label" for="function_4year"><%= t('watches.function.four_year_calendar') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_gmt" value="0">
+      <input class="form-check-input" type="checkbox" id="function_gmt" name="function_gmt" value="1">
+      <label class="form-check-label" for="function_gmt"><%= t('watches.function.gmt') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_timeequation" value="0">
+      <input class="form-check-input" type="checkbox" id="function_timeequation" name="function_timeequation" value="1">
+      <label class="form-check-label" for="function_timeequation"><%= t('watches.function.equation_of_time') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_minuterepeater" value="0">
+      <input class="form-check-input" type="checkbox" id="function_minuterepeater" name="function_minuterepeater" value="1">
+      <label class="form-check-label" for="function_minuterepeater"><%= t('watches.function.minute_repeater') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_repetition" value="0">
+      <input class="form-check-input" type="checkbox" id="function_repetition" name="function_repetition" value="1">
+      <label class="form-check-label" for="function_repetition"><%= t('watches.function.repetition') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_jumping_hour" value="0">
+      <input class="form-check-input" type="checkbox" id="function_jumping_hour" name="function_jumping_hour" value="1">
+      <label class="form-check-label" for="function_jumping_hour"><%= t('watches.function.jumping_hour') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_double_chronograph" value="0">
+      <input class="form-check-input" type="checkbox" id="function_double_chronograph" name="function_double_chronograph" value="1">
+      <label class="form-check-label" for="function_double_chronograph"><%= t('watches.function.split_chrono') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_panorama" value="0">
+      <input class="form-check-input" type="checkbox" id="function_panorama" name="function_panorama" value="1">
+      <label class="form-check-label" for="function_panorama"><%= t('watches.function.panorama_date') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_moonphase" value="0">
+      <input class="form-check-input" type="checkbox" id="function_moonphase" name="function_moonphase" value="1">
+      <label class="form-check-label" for="function_moonphase"><%= t('watches.function.moon_phase') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_calendar" value="0">
+      <input class="form-check-input" type="checkbox" id="function_calendar" name="function_calendar" value="1">
+      <label class="form-check-label" for="function_calendar"><%= t('watches.function.calendar') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_smallseconds" value="0">
+      <input class="form-check-input" type="checkbox" id="function_smallseconds" name="function_smallseconds" value="1">
+      <label class="form-check-label" for="function_smallseconds"><%= t('watches.function.small_seconds') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_centralseconds" value="0">
+      <input class="form-check-input" type="checkbox" id="function_centralseconds" name="function_centralseconds" value="1">
+      <label class="form-check-label" for="function_centralseconds"><%= t('watches.function.central_seconds') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_tachymeter" value="0">
+      <input class="form-check-input" type="checkbox" id="function_tachymeter" name="function_tachymeter" value="1">
+      <label class="form-check-label" for="function_tachymeter"><%= t('watches.function.tachymeter') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_flyback" value="0">
+      <input class="form-check-input" type="checkbox" id="function_flyback" name="function_flyback" value="1">
+      <label class="form-check-label" for="function_flyback"><%= t('watches.function.flyback') %></label>
+    </div></div>
+
+    <div class="col-md-4"><div class="form-check">
+      <input type="hidden" name="function_striking_mechanism" value="0">
+      <input class="form-check-input" type="checkbox" id="function_striking_mechanism" name="function_striking_mechanism" value="1">
+      <label class="form-check-label" for="function_striking_mechanism"><%= t('watches.function.striking_mechanism') %></label>
+    </div></div>
+
+  </div>
+</fieldset>
+
+
+
+
+<!-- ─── Sonstiges ─── -->
+<fieldset class="border rounded p-4 mb-4">
+  <legend class="fs-5 mb-3"><%= t('watches.attribute.misc') %></legend>
+  <div class="row g-3">
+
+<!-- ─── Features ─── -->
+  <div class="row g-3">
+
+    <!-- Helper: immer gleiches Schema -->
+    <% const F = (name, label) => { %>
+      <div class="col-md-4"><div class="form-check">
+        <input type="hidden" name="<%= name %>" value="0">
+        <input class="form-check-input" type="checkbox" id="<%= name %>" name="<%= name %>" value="1">
+        <label class="form-check-label" for="<%= name %>"><%= label %></label>
+      </div></div>
+    <% } %>
+
+    <%= F('feature_chronometer', t('watches.misc.chronometer')) %>
+    <%= F('feature_master_chronometer', t('watches.misc.master_chronometer')) %>
+    <%= F('feature_tourbillon', t('watches.misc.tourbillon')) %>
+    <%= F('feature_heliumvalve', t('watches.misc.helium_valve')) %>
+    <%= F('feature_powerreserve', t('watches.misc.power_reserve_indicator')) %>
+    <%= F('feature_rotatingbezel', t('watches.misc.rotating_bezel')) %>
+    <%= F('feature_diamondsbezel', t('watches.misc.diamond_bezel')) %>
+    <%= F('feature_luminescenthands', t('watches.misc.luminous_hands')) %>
+    <%= F('feature_luminous_indexes', t('watches.misc.luminous_indices')) %>
+    
+    <%= F('feature_heliumvalve', t('watches.features.helium_valve')) %>
+    <%= F('feature_tourbillon', t('watches.features.tourbillon')) %>
+    <%= F('feature_diamondsbezel', t('watches.features.diamond_bezel')) %>
+    <%= F('feature_chronometer', t('watches.features.chronometer')) %>
+    <%= F('feature_master_chronometer', t('watches.features.master_chronometer')) %>
+    <%= F('feature_rotatingbezel', t('watches.features.rotating_bezel')) %>
+    <%= F('feature_powerreserve', t('watches.features.power_reserve')) %>
+    <%= F('feature_luminescenthands', t('watches.features.luminous_hands')) %>
+    <%= F('feature_luminescentnumerals', t('watches.features.luminous_numerals')) %>
+    <%= F('feature_luminous_indexes', t('watches.features.luminous_indexes')) %>
+    <%= F('feature_waterresistant', t('watches.features.water_resistant')) %>
+    <%= F('feature_screwedcrone', t('watches.features.screw_down_crown')) %>
+    <%= F('feature_screwed_pushers', t('watches.features.screw_down_pushers')) %>
+    <%= F('feature_crown_left', t('watches.features.crown_left')) %>
+    <%= F('feature_skeletonized', t('watches.features.skeletonized')) %>
+    <%= F('feature_guilloched', t('watches.features.guilloched')) %>
+    <%= F('feature_hand_guilloched', t('watches.features.hand_guilloched')) %>
+    <%= F('feature_gemsetting', t('watches.features.gem_setting')) %>
+    <%= F('feature_geneva_seal', t('watches.features.geneva_seal')) %>
+    <%= F('feature_limited_edition', t('watches.features.limited_edition')) %>
+    <%= F('feature_quickset_mechanism', t('watches.features.quickset')) %>
+    <%= F('feature_original', t('watches.features.original')) %>
+    <%= F('feature_pvd', t('watches.features.pvd')) %>
+    <%= F('feature_solar', t('watches.features.solar')) %>
+    <%= F('feature_display_back', t('watches.features.display_back')) %>
+    <%= F('feature_bluedsteel_hands', t('watches.features.blued_steel_hands')) %>
+    <%= F('feature_worldtime_clock', t('watches.features.worldtime')) %>
+    <%= F('feature_smartwatch', t('watches.features.smartwatch')) %>
+    <%= F('feature_onehand_watch', t('watches.features.onehand_watch')) %>
+
+  </div>
+</fieldset>
+
+
+
+        <% } else if (ent.route === 'yachts') { %>
+  <!-- Allgemeine Angaben -->
+  <fieldset class="border rounded p-4 mb-4">
+    <legend class="fs-5 mb-3"><%= t('buyer.listing.yacht.general.title') %></legend>
+
+    <div class="row g-3 align-items-center">
+
+      <!-- Marke -->
+      <div class="col-md-4">
+        <label for="brand_id" class="form-label">* <%= t('buyer.listing.yacht.general.brand') %></label>
+        <select id="brand_id" name="brand_id" class="form-select" <%= _brandModelRequiredAttr %>>
+          <option value="" disabled selected><%= t('global.select_placeholder') %></option>
+          <% (filters.brands || []).forEach(b => { %>
+            <option value="<%= b.id %>"><%= b.name %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Modell -->
+      <div class="col-md-4">
+        <label for="model" class="form-label"><%= t('buyer.listing.yacht.general.model') %></label>
+        <input id="model" name="model" type="text" class="form-control">
+      </div>
+
+      <!-- Steuersatz 
+      <div class="col-md-4">
+        <label for="taxrate" class="form-label"><%= t('buyer.listing.general.taxrate') %></label>
+        <input id="taxrate" name="taxrate" type="number" step="0.1" class="form-control">
+      </div>-->
+
+      <!-- Baujahr -->
+      <div class="col-md-4">
+        <label for="year" class="form-label"><%= t('buyer.listing.yacht.general.year') %></label>
+        <select id="year" name="year" class="form-select">
+          <option value="">---</option>
+          <% launchYears.forEach(y => { %>
+            <option value="<%= y %>"><%= y %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Erstwasserung -->
+      <div class="col-md-4">
+        <label for="splashdown" class="form-label"><%= t('buyer.listing.yacht.general.splashdown') %></label>
+        <select id="splashdown" name="splashdown" class="form-select">
+          <option value="">---</option>
+          <% launchYears.forEach(y => { %>
+            <option value="<%= y %>"><%= y %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Zustand -->
+<div class="col-md-4"> 
+  <label for="used" class="form-label">
+    <%= t('buyer.listing.yacht.general.condition') %></label> 
+    <select id="used" name="used" class="form-select"> 
+      <option value="" selected>---</option>
+       <% (extras.condition || []).forEach(o => { %> 
+        <option value="<%= o.value %>">
+          <%= t('attribute.yachts.condition.' + o.value) || o.label %></option> 
+          <% }) %> 
+      </select> 
+</div>
+
+
+      <!-- Bootstyp -->
+      <div class="col-md-4">
+        <label for="yachttype" class="form-label">* <%= t('buyer.listing.yacht.general.type') %></label>
+        <select id="yachttype" name="yachttype" class="form-select" required>
+          <option value="" disabled selected>---</option>
+          <% (extras.yachttype || []).forEach(o => { %>
+            <option value="<%= o.value %>"><%= t('attribute.yachts.yachttype.' + o.value) ||  o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Schiffsrumpf -->
+      <div class="col-md-4">
+        <label for="hull" class="form-label"><%= t('buyer.listing.yacht.general.hull') %></label>
+        <select id="hull" name="hull" class="form-select">
+          <option value="" selected>---</option>
+          <% (extras.hull || []).forEach(o => { %>
+            <option value="<%= o.value %>"><%= t('attribute.yachts.hull.' + o.value) || o.label %></option>
+          <% }) %>
+        </select>
+      </div>
+
+    </div>
+  </fieldset>
+
+    <!-- Abmessungen -->
+  <fieldset class="border rounded p-4 mb-4">
+    <legend class="fs-5 mb-3"><%= t('buyer.listing.yacht.dimensions.title') %></legend>
+
+    <div class="row g-3 align-items-center">
+
+      <!-- Länge -->
+      <div class="col-md-4">
+        <label for="length" class="form-label"><%= t('buyer.listing.yacht.dimensions.length') %></label>
+        <input id="length" name="length" type="number" step="0.01" class="form-control">
+      </div>
+
+      <!-- Breite -->
+      <div class="col-md-4">
+        <label for="beam" class="form-label"><%= t('buyer.listing.yacht.dimensions.beam') %></label>
+        <input id="beam" name="beam" type="number" step="0.01" class="form-control">
+      </div>
+
+      <!-- Tiefgang -->
+      <div class="col-md-4">
+        <label for="draft" class="form-label"><%= t('buyer.listing.yacht.dimensions.draft') %></label>
+        <input id="draft" name="draft" type="number" step="0.01" class="form-control">
+      </div>
+
+      <!-- Verdrängung -->
+      <div class="col-md-4">
+        <label for="displacement" class="form-label"><%= t('buyer.listing.yacht.dimensions.displacement') %></label>
+        <input id="displacement" name="displacement" type="number" step="0.001" class="form-control">
+      </div>
+
+    </div>
+  </fieldset>
+
+    <!-- Sonstiges -->
+  <fieldset class="border rounded p-4 mb-4">
+    <legend class="fs-5 mb-3"><%= t('buyer.listing.yacht.misc.title') %></legend>
+
+    <div class="row g-3 align-items-center">
+
+      <!-- Anzahl Kabinen -->
+      <div class="col-md-4">
+        <label for="crew" class="form-label"><%= t('buyer.listing.yacht.misc.cabins') %></label>
+        <input id="crew" name="crew" type="number" class="form-control">
+      </div>
+
+      <!-- Anzahl Betten -->
+      <div class="col-md-4">
+        <label for="berths" class="form-label"><%= t('buyer.listing.yacht.misc.berths') %></label>
+        <input id="berths" name="berths" type="number" class="form-control">
+      </div>
+
+      <!-- Schiffsnummer -->
+      <div class="col-md-4">
+        <label for="external" class="form-label"><%= t('buyer.listing.yacht.misc.hull_number') %></label>
+        <input id="external" name="external" type="text" class="form-control">
+      </div>
+
+      <!-- Schiffsingenieur -->
+      <div class="col-md-4">
+        <label for="naval_architect" class="form-label"><%= t('buyer.listing.yacht.misc.naval_architect') %></label>
+        <input id="naval_architect" name="naval_architect" type="text" class="form-control">
+      </div>
+
+      <!-- Innenarchitekt -->
+      <div class="col-md-4">
+        <label for="interior_designer" class="form-label"><%= t('buyer.listing.yacht.misc.interior_designer') %></label>
+        <input id="interior_designer" name="interior_designer" type="text" class="form-control">
+      </div>
+
+    </div>
+  </fieldset>
+
+  <!-- Technische Daten -->
+  <fieldset class="border rounded p-4 mb-4">
+    <legend class="fs-5 mb-3"><%= t('buyer.listing.yacht.tech.title') %></legend>
+
+    <div class="row g-3 align-items-center">
+
+      <!-- Kategorie -->
+      <div class="col-md-4">
+        <label for="category" class="form-label"><%= t('buyer.listing.yacht.tech.category') %>*</label>
+        <select id="category" name="category" class="form-select" required>
+          <option value="" selected>---</option>
+          <% (extras.category || []).forEach(o => { %>
+            <option value="<%= o.value %>"><%= t('attribute.yachts.category.' + o.value) %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Anzahl Motoren -->
+      <div class="col-md-4">
+        <label for="engines" class="form-label"><%= t('buyer.listing.yacht.tech.engines') %></label>
+        <input id="engines" name="engines" type="number" class="form-control">
+      </div>
+
+      <!-- Betriebsstunden -->
+      <div class="col-md-4">
+        <label for="engine_hours" class="form-label"><%= t('buyer.listing.yacht.tech.engine_hours') %></label>
+        <input id="engine_hours" name="engine_hours" type="number" class="form-control">
+      </div>
+
+      <!-- kW -->
+      <div class="col-md-4">
+        <label for="power" class="form-label"><%= t('buyer.listing.yacht.tech.power_kw') %></label>
+        <input id="power" name="power" type="number" step="0.1" class="form-control">
+      </div>
+
+      <!-- PS -->
+      <div class="col-md-4">
+        <label for="horsepower" class="form-label"><%= t('buyer.listing.yacht.tech.power_hp') %></label>
+        <input id="horsepower" name="horsepower" type="number" class="form-control">
+      </div>
+
+      <!-- Treibstoff -->
+      <div class="col-md-4">
+        <label for="fuel" class="form-label"><%= t('buyer.listing.yacht.tech.fuel') %></label>
+        <select id="fuel" name="fuel" class="form-select">
+          <option value="" selected>---</option>
+          <% (extras.fuel || []).forEach(o => { %>
+            <option value="<%= o.value %>"><%= t('attribute.yachts.fuel.' + o.value) %></option>
+          <% }) %>
+        </select>
+      </div>
+
+      <!-- Tankvolumen -->
+      <div class="col-md-4">
+        <label for="fuel_tankage" class="form-label"><%= t('buyer.listing.yacht.tech.fuel_tank') %></label>
+        <input id="fuel_tankage" name="fuel_tankage" type="number" class="form-control">
+      </div>
+
+      <!-- Wassertank -->
+      <div class="col-md-4">
+        <label for="water_tankage" class="form-label"><%= t('buyer.listing.yacht.tech.water_tank') %></label>
+        <input id="water_tankage" name="water_tankage" type="number" class="form-control">
+      </div>
+
+      <!-- Geschwindigkeiten -->
+      <div class="col-12 yacht-speed-wrap">
+        <div class="yacht-speed-grid">
+
+          <div>
+            <label for="cruising_speed_kn" class="form-label yacht-speed-label"><%= t('buyer.listing.yacht.tech.cruise_kn') %></label>
+            <input id="cruising_speed_kn" name="cruising_speed_kn" type="number" step="0.1" class="form-control">
+          </div>
+
+          <div>
+            <label for="cruising_speed" class="form-label yacht-speed-label"><%= t('buyer.listing.yacht.tech.cruise_kmh') %></label>
+            <input id="cruising_speed" name="cruising_speed" type="number" step="1" class="form-control">
+          </div>
+
+          <div>
+            <label for="max_speed_kn" class="form-label yacht-speed-label"><%= t('buyer.listing.yacht.tech.max_kn') %></label>
+            <input id="max_speed_kn" name="max_speed_kn" type="number" step="0.1" class="form-control">
+          </div>
+
+          <div>
+            <label for="max_speed" class="form-label yacht-speed-label"><%= t('buyer.listing.yacht.tech.max_kmh') %></label>
+            <input id="max_speed" name="max_speed" type="number" step="1" class="form-control">
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </fieldset>
+
+
+<% } %>
+
+        <% /* ---------- LIFESTYLES ---------- */ %>
+      <%  if (ent.route === 'lifestyles') { %>
+        
+<fieldset class="mb-4 p-3 border bg-white rounded">
+  <legend class="fw-semibold px-2"><%= t('buyer.listing.lifestyle.title') %></legend>
+
+  <!-- Kategorie -->
+  <div class="row mb-3">
+    <label for="brand_id" class="col-sm-3 col-form-label text-end">
+      <%= t('buyer.listing.lifestyle.category') %>
+    </label>
+    <div class="col-sm-4">
+      <select id="brand_id" name="brand_id" class="form-select" required>
+        <option value="" disabled selected><%= t('global.choose') %></option>
+        <% filters.lifestyleTypes.forEach(c => { %>
+          <option value="<%= c.id %>"><%= c.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+
+  <!-- Unterkategorie -->
+  <div class="row mb-3 d-none" id="subcategory-row">
+    <label for="model_id" class="col-sm-3 col-form-label text-end">
+      <%= t('buyer.listing.lifestyle.subcategory') %>
+    </label>
+    <div class="col-sm-4">
+      <select id="model_id" name="model_id" class="form-select" disabled>
+        <option value="" disabled selected><%= t('global.choose') %></option>
+        <% filters.lifestyleSubcategories.forEach(sc => { %>
+          <option value="<%= sc.id %>" data-parent="<%= sc.parentId %>"><%= sc.name %></option>
+        <% }) %>
+      </select>
+    </div>
+  </div>
+</fieldset>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+  const cat = document.getElementById("brand_id");
+  const subRow = document.getElementById("subcategory-row");
+  const sub = document.getElementById("model_id");
+
+  // Reset
+  subRow.classList.add("d-none");
+  sub.disabled = true;
+  sub.value = "";
+
+  cat.addEventListener("change", () => {
+    const pid = cat.value;
+    if (!pid) {
+      subRow.classList.add("d-none");
+      sub.disabled = true;
+      sub.value = "";
+      return;
+    }
+
+    // Show + enable
+    sub.disabled = false;
+    subRow.classList.remove("d-none");
+
+    // Filter options
+    Array.from(sub.options).forEach(o => {
+      const parent = o.dataset.parent;
+      if (!parent) return; // Skip first placeholder
+      o.hidden = parent !== pid;
+    });
+
+    sub.value = "";
+  });
+});
+</script>
+
+
+      <% } %>
+
+        <!-- Beschreibung & Media -->
+<fieldset class="mb-4 p-3 border bg-white rounded">
+  <legend><%= t('buyer.listing.media.title') %></legend>
+
+  <!-- Beschreibung -->
+  <div class="mb-3">
+    <textarea id="description"
+              name="description"
+              rows="6"
+              class="form-control"
+              placeholder="<%= t('buyer.listing.media.description_placeholder') %>"></textarea>
+  </div>
+
+  <!-- Video -->
+  <div class="mb-3">
+    <label for="video" class="form-label">
+      <%= t('buyer.listing.media.video') %>
+    </label>
+    <input id="video"
+          name="video"
+          type="text"
+          class="form-control"
+          placeholder="https://">
+  </div>
+
+    <!-- MAINPICTURE -->
+<div class="mb-3">
+  <label for="mainpicture" class="form-label"><%= t('buyer.listing.media.select_main_image', 'Hauptbild auswählen') %></label>
+
+  <input id="mainpicture"
+         name="mainpicture"
+         type="file"
+         class="form-control"
+         accept="image/*" >
+
+  <div id="mainpicture-preview"
+       class="d-flex flex-wrap gap-2 mt-2"></div>
+</div>
+
+  <!-- Bilder Upload -->
+  <div class="mb-3">
+    <label for="pictures" class="form-label">
+      <%= t('buyer.listing.media.images') %>
+    </label>
+    <input id="pictures"
+           name="pictures"
+           type="file"
+           class="form-control"
+           multiple
+           accept="image/*"
+           onchange="handleFiles(event)">
+  </div>
+
+  <div id="picture-preview"
+       class="d-flex flex-wrap gap-3 mb-2"></div>
+
+  <small class="text-muted">
+    <%= t('buyer.listing.media.images_hint') %>
+  </small>
+
+
+
+
+</fieldset>
+
+
+<fieldset class="mb-4 p-3 border bg-white rounded">
+  <legend><%= t('buyer.listing.location.title') %></legend>
+<%
+  const countryRows = Array.isArray(filters.countries) ? filters.countries : [];
+  const countryName = (row) => t(
+    'country.' + row.id,
+    row.name || row.de || row.en || row.code || String(row.id)
+  );
+  const parentCountries = countryRows
+    .filter((c) => c.parent_id == null)
+    .sort((a, b) => countryName(a).localeCompare(countryName(b), 'de', { sensitivity: 'base' }));
+  const countryTreeData = countryRows.map((c) => ({
+    id: Number(c.id),
+    parentId: c.parent_id == null ? null : Number(c.parent_id),
+    label: countryName(c)
+  }));
+%>
+
+<div class="row mb-3">
+  <label for="country_parent_id" class="col-sm-3 col-form-label text-end">
+    <%= t('buyer.listing.location.country') %>
+  </label>
+  <div class="col-sm-4">
+    <select id="country_parent_id" class="form-select" required>
+      <option value="" disabled selected><%= t('global.select_placeholder') %></option>
+      <% parentCountries.forEach((c) => { %>
+        <option value="<%= c.id %>"><%= countryName(c) %></option>
+      <% }) %>
+    </select>
+  </div>
+</div>
+
+<div class="row mb-3" id="region_row" style="display:none;">
+  <label for="region_id" class="col-sm-3 col-form-label text-end">
+    <%= t('filter.region', 'Bundesland / Region') %>
+  </label>
+  <div class="col-sm-4">
+    <select
+      id="region_id"
+      class="form-select"
+      data-any-label="<%= t('global.select_placeholder') %>"
+      data-choose-country-label="<%= t('buyer.listing.location.select_country_first', 'Bitte zuerst Land wählen') %>"
+      disabled>
+      <option value=""><%= t('global.select_placeholder') %></option>
+    </select>
+  </div>
+</div>
+<input type="hidden" id="country_id" name="country_id">
+<script type="application/json" id="country_tree_data_new_listing"><%- JSON.stringify(countryTreeData) %></script>
+
+  <div class="row mb-3">
+    <label for="city" class="col-sm-3 col-form-label text-end">
+      <%= t('buyer.listing.location.city') %>
+    </label>
+    <div class="col-sm-4">
+      <input id="city" name="city" type="text" class="form-control" required>
+    </div>
+  </div>
+</fieldset> 
+
+
+        <div class="text-center">
+          <button type="submit" class="btn btn-primary px-5">
+            <i class="bi bi-save me-2"></i><%= t('global.save_and_continue') %>
+          </button>
+        </div>
+      </form>
+    </main>
+  </div>
+
+<script>
+  (function () {
+    const countrySelect = document.getElementById('country_parent_id');
+    const regionRow = document.getElementById('region_row');
+    const regionSelect = document.getElementById('region_id');
+    const hiddenCountry = document.getElementById('country_id');
+    const treeNode = document.getElementById('country_tree_data_new_listing');
+    if (!countrySelect || !regionRow || !regionSelect || !hiddenCountry || !treeNode) return;
+
+    let countryTree = [];
+    try {
+      countryTree = JSON.parse(treeNode.textContent || '[]');
+    } catch (_) {
+      countryTree = [];
+    }
+
+    const asId = (value) => {
+      const parsed = Number.parseInt(String(value || ''), 10);
+      return Number.isInteger(parsed) && parsed > 0 ? String(parsed) : '';
+    };
+
+    const byId = new Map();
+    const byParentId = new Map();
+    countryTree.forEach((entry) => {
+      const id = asId(entry?.id);
+      if (!id) return;
+      const parentId = entry?.parentId == null ? '' : asId(entry.parentId);
+      const label = String(entry?.label || id);
+      const row = { id, parentId, label };
+      byId.set(id, row);
+      if (!parentId) return;
+      if (!byParentId.has(parentId)) byParentId.set(parentId, []);
+      byParentId.get(parentId).push(row);
+    });
+
+    const anyLabel = String(regionSelect.dataset.anyLabel || '');
+    const chooseCountryLabel = String(regionSelect.dataset.chooseCountryLabel || anyLabel);
+
+    function renderRegions(parentId, selectedRegionId) {
+      const regions = parentId
+        ? (byParentId.get(parentId) || [])
+            .slice()
+            .sort((a, b) => a.label.localeCompare(b.label, 'de', { sensitivity: 'base' }))
+        : [];
+
+      if (!regions.length) {
+        regionRow.style.display = 'none';
+        regionSelect.innerHTML = '';
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = chooseCountryLabel;
+        regionSelect.appendChild(placeholder);
+        regionSelect.disabled = true;
+        regionSelect.value = '';
+        return;
+      }
+
+      regionRow.style.display = '';
+      regionSelect.innerHTML = '';
+      const placeholder = document.createElement('option');
+      placeholder.value = '';
+      placeholder.textContent = anyLabel;
+      regionSelect.appendChild(placeholder);
+
+      regions.forEach((region) => {
+        const option = document.createElement('option');
+        option.value = region.id;
+        option.textContent = region.label;
+        regionSelect.appendChild(option);
+      });
+
+      regionSelect.disabled = false;
+      if (selectedRegionId && regions.some((region) => region.id === selectedRegionId)) {
+        regionSelect.value = selectedRegionId;
+      } else {
+        regionSelect.value = '';
+      }
+    }
+
+    function syncHiddenCountry() {
+      const selectedRegion = asId(regionSelect.value);
+      const selectedCountry = asId(countrySelect.value);
+      hiddenCountry.value = selectedRegion || selectedCountry || '';
+    }
+
+    function initializeCountryRegionSelection() {
+      const selectedCountry = asId(hiddenCountry.value);
+      const selectedRow = selectedCountry ? byId.get(selectedCountry) : null;
+      const parentId = selectedRow && selectedRow.parentId ? selectedRow.parentId : selectedCountry;
+
+      if (parentId) {
+        countrySelect.value = parentId;
+      } else {
+        countrySelect.value = '';
+      }
+
+      const selectedRegionId = selectedRow && selectedRow.parentId ? selectedCountry : '';
+      renderRegions(asId(countrySelect.value), selectedRegionId);
+      syncHiddenCountry();
+    }
+
+    countrySelect.addEventListener('change', () => {
+      renderRegions(asId(countrySelect.value), '');
+      syncHiddenCountry();
+    });
+    regionSelect.addEventListener('change', syncHiddenCountry);
+
+    initializeCountryRegionSelection();
+  })();
+</script>
+
+<script>
+  const mainInput = document.getElementById('mainpicture');
+  const mainPrev  = document.getElementById('mainpicture-preview');
+
+  mainInput.addEventListener('change', () => {
+    const file = mainInput.files[0];
+    mainPrev.innerHTML = '';
+
+    if (!file || !file.type.startsWith('image/')) return;
+
+    const reader = new FileReader();
+    reader.onload = e => {
+      const wrap = document.createElement('div');
+      wrap.style.position = 'relative';
+
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      img.className = 'img-thumbnail';
+      img.style.width = '300px';
+      wrap.appendChild(img);
+
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.innerHTML = '&times;';
+      btn.style.position = 'absolute';
+      btn.style.top = '5px';
+      btn.style.right = '5px';
+      btn.style.background = 'rgba(0,0,0,0.55)';
+      btn.style.color = '#fff';
+      btn.style.border = 'none';
+      btn.style.borderRadius = '50%';
+      btn.style.width = '24px';
+      btn.style.height = '24px';
+      btn.style.cursor = 'pointer';
+
+      btn.onclick = () => {
+        mainInput.value = '';
+        mainPrev.innerHTML = '';
+      };
+
+      wrap.appendChild(btn);
+      mainPrev.appendChild(wrap);
+    };
+
+    reader.readAsDataURL(file);
+  });
+</script>
+
+
+
+  <!-- Bootstrap JS -->
+  <!-- CKEditor (CDN) -->
+  <script src="https://cdn.ckeditor.com/ckeditor5/41.4.2/classic/ckeditor.js"></script>
+
+  <!-- Bild-Preview / FileList-Management -->
+  <script>
+    // Persistente FileList via DataTransfer
+    const dt = new DataTransfer();
+
+    function handleFiles(event) {
+      const incoming = Array.from(event.target.files);
+      const existingKeys = new Set(
+        Array.from(dt.files).map(f => `${f.name}:${f.size}:${f.lastModified}`)
+      );
+
+      incoming.forEach(file => {
+        const key = `${file.name}:${file.size}:${file.lastModified}`;
+        if (!existingKeys.has(key)) {
+          dt.items.add(file);
+          existingKeys.add(key);
+        }
+      });
+
+      try {
+        event.target.files = dt.files;
+      } catch (e) {
+        // some browsers treat FileList as read-only
+      }
+      renderPreviews();
+    }
+
+    function renderPreviews() {
+      const preview = document.getElementById('picture-preview');
+      preview.innerHTML = '';
+      Array.from(dt.files).forEach((file) => {
+        if (!file.type.startsWith('image/')) return;
+        const fileKey = `${file.name}:${file.size}:${file.lastModified}`;
+        const reader = new FileReader();
+        reader.onload = e => {
+          const wrap = document.createElement('div');
+          wrap.style.position = 'relative';
+          wrap.className = 'border rounded overflow-hidden';
+          wrap.dataset.fileKey = fileKey;
+
+          const img = document.createElement('img');
+          img.src = e.target.result;
+          img.className = 'img-thumbnail';
+          img.style.width = '300px';
+          img.style.height = 'auto';
+          wrap.appendChild(img);
+
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.innerHTML = '&times;';
+          btn.ariaLabel = "<%= t('global.remove_image','Remove image') %>";
+          btn.style.position = 'absolute';
+          btn.style.top = '5px';
+          btn.style.right = '5px';
+          btn.style.background = 'rgba(0,0,0,0.55)';
+          btn.style.color = '#fff';
+          btn.style.border = 'none';
+          btn.style.borderRadius = '50%';
+          btn.style.width = '24px';
+          btn.style.height = '24px';
+          btn.style.lineHeight = '22px';
+          btn.style.cursor = 'pointer';
+          btn.onclick = () => removeFileByKey(fileKey);
+          wrap.appendChild(btn);
+
+          preview.appendChild(wrap);
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function removeFileByKey(fileKey) {
+      const next = new DataTransfer();
+      Array.from(dt.files).forEach((file) => {
+        const key = `${file.name}:${file.size}:${file.lastModified}`;
+        if (key !== fileKey) next.items.add(file);
+      });
+      dt.items.clear();
+      Array.from(next.files).forEach(file => dt.items.add(file));
+      try {
+        document.getElementById('pictures').files = dt.files;
+      } catch (e) {
+        // ignore if FileList is read-only
+      }
+      renderPreviews();
+    }
+
+    // CKEditor initialisieren
+    document.addEventListener('DOMContentLoaded', () => {
+      const el = document.querySelector('#description');
+      if (el && window.ClassicEditor) {
+        ClassicEditor.create(el, {
+          toolbar: ['heading','|','bold','italic','bulletedList','numberedList']
+        }).catch(console.error);
+      }
+    });
+  </script>
+
+
+
+
+  
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+  const select = document.getElementById("engine");
+  if (!select) return;
+
+  // 🔹 Die "---"-Option sichern
+  const firstOption = select.querySelector('option[value=""]');
+  const options = Array.from(select.options).filter(o => o.value !== "");
+
+  // 🔹 Werte mit "Zylinder" → führende Null im Sortierschlüssel
+  options.forEach(o => {
+    const match = o.text.trim().match(/^(\d+)\s*-?\s*Zylinder$/i);
+    if (match) {
+      const num = match[1].padStart(2, "0"); // z. B. "4" → "04"
+      o.dataset.sortKey = num;
+    } else {
+      o.dataset.sortKey = o.text.trim(); // z. B. "Elektro"
+    }
+  });
+
+  // 🔹 Nach sortKey alphabetisch & numerisch sortieren
+  options.sort((a, b) => 
+    a.dataset.sortKey.localeCompare(b.dataset.sortKey, "de", { numeric: true })
+  );
+
+  // 🔹 Neu aufbauen – "---" bleibt oben
+  select.innerHTML = "";
+  select.appendChild(firstOption);
+  options.forEach(o => select.appendChild(o));
+
+  // 🔹 Sicherstellen, dass "---" wieder aktiv ist
+  select.value = "";
+});
+</script>
+
+
+<%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

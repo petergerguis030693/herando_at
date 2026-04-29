@@ -10,10 +10,10 @@
             <%= t('order.success.title').replace('{{id}}', orderId) %>
           </h1>
           <p class="lead mb-2">
-            <%= t('order.success.luxury_confirm', 'Ihre Zahlung war erfolgreich. Willkommen in der Welt der exklusiven Inserate bei Herando.') %>
+            <%= t('order.success.luxury_confirm', 'Ihre Zahlung war erfolgreich.') %>
           </p>
           <p class="text-muted mb-4">
-            <%= t('order.success.redirect_note', 'Sie werden in wenigen Sekunden zur Inserat-Erstellung weitergeleitet.') %>
+            <%= t('order.success.redirect_note_manual', 'Sie können nun Ihre Rechnung herunterladen und anschließend zur Inserat-Erstellung wechseln.') %>
           </p>
             <% if (invoiceUrl) { %>
               <a href="<%= invoiceUrl %>" class="btn btn-primary btn-lg my-3" download>
@@ -30,6 +30,9 @@
             <a href="/buyer" class="btn btn-outline-secondary">
               <%= t('buyer.order.back_to_profile') %>
             </a>
+            <button type="button" id="continueNowBtn" class="btn btn-primary">
+              Weiter
+            </button>
           </div>
 
         </div>
@@ -42,9 +45,22 @@
 
 <script> 
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(() => {
+  const continueBtn = document.getElementById('continueNowBtn');
+
+  function goToNewListing() {
     window.location.href = '/buyer/new-listing';
-  }, 6000);
+  }
+
+  continueBtn?.addEventListener('click', goToNewListing);
+
+  const invoiceBtn = document.querySelector('a[download]');
+  if (invoiceBtn) {
+    invoiceBtn.addEventListener('click', () => {
+      window.setTimeout(() => {
+        goToNewListing();
+      }, 1200);
+    });
+  }
 
   const ccToEmoji = cc => String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt()));
 
@@ -57,6 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const img = new Image();
     img.className = 'flag';
     img.alt = cc.toUpperCase();
+    img.width = 48;
+    img.height = 36;
     img.src    = `https://flagcdn.com/24x18/${cc}.png`;
     img.srcset = `https://flagcdn.com/24x18/${cc}.png 1x, https://flagcdn.com/48x36/${cc}.png 2x`;
 

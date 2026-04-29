@@ -1,11 +1,17 @@
 <div class="dropdown position-relative user-switcher">
-  <div class="user-icon" id="userDropdownMobile" data-bs-toggle="dropdown" aria-expanded="false">
+  <button
+    type="button"
+    class="user-icon"
+    id="userDropdownMobile"
+    data-bs-toggle="dropdown"
+    aria-expanded="false"
+    aria-label="<%= t('user.menu.open', 'Benutzermenü öffnen') %>">
     <% if (user && (user.firstname || user.name)) { %>
-      <span><%= (user.firstname ? user.firstname[0] : user.name[0]).toUpperCase() %></span>
+      <i class="bi bi-person-circle fs-5 text-dark"></i>
     <% } else { %>
       <i class="bi bi-person fs-5 text-dark"></i>
     <% } %>
-  </div>
+  </button>
 
   <ul class="dropdown-menu dropdown-menu-end shadow-sm border-0 mt-2 rounded-3"
       aria-labelledby="userDropdownMobile"
@@ -38,3 +44,12 @@
 
   </ul>
 </div>
+
+<style>
+  @media (max-width: 991.98px) {
+    .user-switcher .user-icon {
+      background: transparent;
+      border-color: transparent;
+    }
+  }
+</style>

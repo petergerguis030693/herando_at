@@ -137,6 +137,19 @@
   width: auto;
 }
 
+/* Seller-Route: Herando-Platzhalter (kein Listing-Bild) — Rahmen ausfüllen */
+.seller-card-img.seller-card-img--placeholder-cover {
+  object-fit: cover;
+  object-position: center;
+}
+
+.seller-card--watches .seller-card-img.seller-card-img--placeholder-cover {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
 /* BODY */
 .seller-card-body {
   flex: 1;

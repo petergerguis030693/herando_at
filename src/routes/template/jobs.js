@@ -569,11 +569,6 @@ router.get('/:slug', async (req, res, next) => {
     const { entieties, footerColumns } = await loadLayoutData();
     const flash = consumeFlash(req);
     const countries = await loadJobCountries(req, res);
-    const selectedCountryId = Number.parseInt(String(flash?.formData?.country_id || ''), 10) || null;
-    const selectedCountry = selectedCountryId
-      ? countries.find((country) => Number(country.id) === Number(selectedCountryId))
-      : null;
-    const selectedCountryPrefix = selectedCountry?.prefix || String(flash?.formData?.phone_prefix || '');
     const seoTitleTpl = jt('jobs.seo.detail.title_tpl', '{{title}} - Jobs bei Herando');
     const seoDescTpl = jt('jobs.seo.detail.description_tpl', 'Jetzt auf die Stelle {{title}} bei Herando bewerben.');
     const seoTitle = fillTpl(seoTitleTpl, { title: job.title });
@@ -600,7 +595,6 @@ router.get('/:slug', async (req, res, next) => {
       jt,
       job,
       countries,
-      selectedCountryPrefix,
       formData: flash?.formData || {},
       formError: flash?.error || null,
       formSuccess: flash?.success || null,
@@ -645,7 +639,7 @@ router.post('/:slug/apply', handleApplicationUpload, async (req, res, next) => {
     const email = normalizeEmail(req.body?.email);
     const countryId = Number.parseInt(String(req.body?.country_id || ''), 10);
     const country = await loadCountryById(req, res, countryId);
-    const phonePrefix = normalizePhonePrefix(country?.prefix || req.body?.phone_prefix);
+    const phonePrefix = normalizePhonePrefix(req.body?.phone_prefix);
     const phone = normalizeText(req.body?.phone, 80);
     const phoneWithPrefix = buildPhoneWithPrefix(phonePrefix, phone);
     const message = normalizeText(req.body?.message, 3000);
@@ -849,13 +843,13 @@ router.post('/:slug/apply', handleApplicationUpload, async (req, res, next) => {
     try {
       await Promise.all([
         transporter.sendMail({
-          from: `"Herando Jobs" <${process.env.SMTP_USER}>`,
+          from: `"Herando Jobs" <info@herando.com>`,
           to: email,
           subject: fillTpl(jt('jobs.mail.customer.subject_tpl', 'Ihre Bewerbung bei Herando - {{title}}'), { title: job.title }),
           html: customerHtml
         }),
         transporter.sendMail({
-          from: `"Herando Jobs" <${process.env.SMTP_USER}>`,
+          from: `"Herando Jobs" <info@herando.com>`,
           to: adminTo,
           cc: adminCc || undefined,
           subject: fillTpl(

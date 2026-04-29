@@ -69,32 +69,4 @@
   padding-right: 10px !important;
 }
 
-.herando-section{
-  display: block;
-}
-
-.herando-section .row{
-  flex-direction: column;
-}
-
-.herando-section .row > .col-lg-6:first-child{
-  order: 2;
-}
-
-.herando-section .row > .col-lg-6:last-child{
-  order: 1;
-}
-
-.herando-section .row > .col-lg-6{
-  width: 100%;
-}
-
-.herando-section .row > .col-lg-6.p-0{
-  height: auto !important;
-}
-
-.herando-section img{
-  height: auto !important;
-}
-
 }

@@ -2220,7 +2220,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     <!-- Bootstyp -->
     <div class="md-col-4">
-      <label class="md-label" for="fYachtType"><%= t('filters.yacht.type','Bootstyp') %></label>
+      <label class="md-label" for="fYachtType"><%= t('yachts.type', 'Yachttyp') %></label>
       <div class="md-select">
         <select name="yachttype" id="fYachtType">
           <option value=""><%= t('common.any','Beliebig') %></option>
@@ -3273,3 +3273,6 @@ function initCountryRegionFilters() {
 
 
 <%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

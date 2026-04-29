@@ -1,31 +1,127 @@
 <link rel="shortcut icon" href="/assets/herando-weblogo.svg" type="image/x-icon">
+<style>
+  html {
+    overflow-y: auto !important;
+  }
 
-<!-- 🔥 Bootstrap CSS -->
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  body {
+    overflow-y: auto !important;
+  }
 
-<!-- 🔥 STABILE Bootstrap Icons – FIXED VERSION (funktioniert immer) -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+  /* When overlays/modals are open: lock page scroll completely */
+  body.cookie-open,
+  body.modal-open {
+    overflow-y: hidden !important;
+  }
 
-<!-- Flag Icons -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flag-icon-css@3.5.6/css/flag-icon.min.css">
+  /* Cookie modal: single scroll container inside modal */
+  #cookie-overlay.open {
+    overflow: hidden !important;
+  }
 
-<!-- Select2 -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css">
+  #cookie-overlay .cookie-modal {
+    max-height: calc(100vh - 40px) !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
 
-<!-- Fonts -->
+  #cookie-overlay #cookie-settings-body {
+    min-height: 0 !important;
+  }
+
+  #cookie-overlay .cookie-content {
+    overflow-y: auto !important;
+    min-height: 0 !important;
+  }
+
+  @media (max-width: 768px) {
+    body.cookie-open,
+    body.modal-open {
+      overflow-y: hidden !important;
+    }
+  }
+</style>
+
+<% if (typeof isHomePage === 'undefined' || !isHomePage) { %>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Prata&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+<% } %>
 
-<!-- Eigene Styles -->
-<link rel="stylesheet" href="/css/style.css">
-<link rel="stylesheet" href="/css/magazin.css">
-<link rel="stylesheet" href="/css/footer.css">
-<link rel="stylesheet" href="/css/products.css">
+<% if (typeof isHomePage !== 'undefined' && isHomePage) { %>
+<link rel="preload" href="/css/home-mobile-combined.min.css" as="style">
+<link rel="preload" href="/fonts/bootstrap-icons.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/fonts/prata-v22-latin.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:'Prata';font-style:normal;font-weight:400;font-display:swap;src:url('/fonts/prata-v22-latin.woff2') format('woff2');unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+</style>
+<link rel="stylesheet" href="/css/home-mobile-combined.min.css">
+<% } else { %>
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<% if (typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile) { %>
+<link rel="preload" href="/fonts/bootstrap-icons-detail-subset.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/css/bootstrap-icons-detail-subset.css">
+<% } else { %>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+<% } %>
+<% } %>
+
+<!-- Non-critical vendor CSS: non-blocking -->
+<% if (typeof isHomePage === 'undefined' || !isHomePage) { %>
+<% if (!(typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile)) { %>
+<link rel="preload" as="style" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="/css/select2.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/flag-icon-css/3.5.0/css/flag-icon.min.css"></noscript>
+<noscript><link rel="stylesheet" href="/css/select2.min.css"></noscript>
+<% } %>
+<% } %>
+
+<!-- Fonts (Startseite: Prata lokal inkl. @font-face oben; andere Seiten: Google Fonts) -->
+<% if (typeof isHomePage === 'undefined' || !isHomePage) { %>
+<% if (!(typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile)) { %>
+<link href="https://fonts.googleapis.com/css2?family=Prata&display=swap" rel="stylesheet">
+<% } %>
+<% } %>
+
+<% if (typeof isHomePage !== 'undefined' && isHomePage) { %>
+<link
+  rel="preload"
+  as="image"
+  href="<%= typeof heroSlide1PreloadHref !== 'undefined' ? heroSlide1PreloadHref : t('home_hero_slide1_image', '/assets/herando-home-slider-luxusimmobilien.webp') %>"
+  fetchpriority="high">
+<% } %>
+<% if (typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile) { %>
+<link rel="preload" as="image" href="<%= detailLcpImageMobile %>" media="(max-width: 767.98px)" fetchpriority="high">
+<link rel="preload" as="image" href="<%= detailLcpImageDesktop %>" media="(min-width: 768px)" fetchpriority="high">
+<% } %>
+
+<!-- Eigene Styles (minified; run npm run build:min after CSS edits) -->
+<% if (typeof isHomePage === 'undefined' || !isHomePage) { %>
+<link rel="stylesheet" href="/css/style.min.css">
 <link rel="stylesheet" href="/css/header.css">
-<link rel="stylesheet" href="/css/product-single.css">
-<link rel="stylesheet" href="/css/search.css">
-<link rel="stylesheet" href="/css/language-modal.css">
-<link rel="stylesheet" href="/css/navbar-clean.css">
-<link rel="stylesheet" href="/css/ui-components.css">
-<link rel="stylesheet" href="/css/mobile.css">
+<link rel="stylesheet" href="/css/navbar-clean.min.css">
+<link rel="stylesheet" href="/css/ui-components.min.css">
+<link rel="stylesheet" href="/css/mobile.min.css">
+<% if (typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile) { %>
+<link rel="preload" as="style" href="/css/products.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/css/products.min.css"></noscript>
+<% } else { %>
+<link rel="stylesheet" href="/css/magazin.min.css">
+<link rel="stylesheet" href="/css/products.min.css">
+<% } %>
+<% if (typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile) { %>
+<link rel="stylesheet" href="/css/product-single.min.css">
+<% } else { %>
+<link rel="preload" as="style" href="/css/product-single.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/css/product-single.min.css"></noscript>
+<% } %>
+<link rel="preload" as="style" href="/css/footer.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/css/footer.min.css"></noscript>
+<% if (!(typeof optimizeDetailMobile !== 'undefined' && optimizeDetailMobile)) { %>
+<link rel="preload" as="style" href="/css/search.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<link rel="preload" as="style" href="/css/language-modal.min.css" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="/css/search.min.css"></noscript>
+<noscript><link rel="stylesheet" href="/css/language-modal.min.css"></noscript>
+<% } %>
+<% } %>

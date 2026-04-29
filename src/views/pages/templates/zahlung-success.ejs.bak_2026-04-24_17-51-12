@@ -1,0 +1,80 @@
+<%- include('../../partials/header') %>
+
+<body>
+    <div class="container mt-5">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <div class="card shadow-sm">
+        <div class="card-body text-center">         
+          <h1 class="card-title mb-4">
+            <%= t('order.success.title').replace('{{id}}', orderId) %>
+          </h1>
+          <p class="lead mb-2">
+            <%= t('order.success.luxury_confirm', 'Ihre Zahlung war erfolgreich. Willkommen in der Welt der exklusiven Inserate bei Herando.') %>
+          </p>
+          <p class="text-muted mb-4">
+            <%= t('order.success.redirect_note', 'Sie werden in wenigen Sekunden zur Inserat-Erstellung weitergeleitet.') %>
+          </p>
+            <% if (invoiceUrl) { %>
+              <a href="<%= invoiceUrl %>" class="btn btn-primary btn-lg my-3" download>
+                <%= t('order.success.invoice.download') %>
+              </a>
+            <% } else { %>
+              <p class="text-warning"><%= t('order.success.invoice.pending') %></p>
+            <% } %>
+          
+          <div class="mt-3 d-flex justify-content-center gap-2 flex-wrap">
+            <a href="/buyer/new-listing" class="btn btn-dark">
+              <%= t('buyer.new.cta', 'Jetzt inserieren') %>
+            </a>
+            <a href="/buyer" class="btn btn-outline-secondary">
+              <%= t('buyer.order.back_to_profile') %>
+            </a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</div><br><br><br>
+<%- include('../../partials/footer') %>
+
+
+<script> 
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(() => {
+    window.location.href = '/buyer/new-listing';
+  }, 6000);
+
+  const ccToEmoji = cc => String.fromCodePoint(...cc.toUpperCase().split('').map(c => 127397 + c.charCodeAt()));
+
+  document.querySelectorAll('#flags .flag-icon').forEach(el => {
+    const fromClass = (el.className.match(/flag-icon-([a-z]{2})/i) || [,''])[1];
+    const fromAlt   = (el.getAttribute('alt') || '').trim();
+    const cc = (fromAlt || fromClass || '').toLowerCase();
+    if (!cc) return;
+
+    const img = new Image();
+    img.className = 'flag';
+    img.alt = cc.toUpperCase();
+    img.width = 48;
+    img.height = 36;
+    img.src    = `https://flagcdn.com/24x18/${cc}.png`;
+    img.srcset = `https://flagcdn.com/24x18/${cc}.png 1x, https://flagcdn.com/48x36/${cc}.png 2x`;
+
+    img.onerror = () => {
+      const span = document.createElement('span');
+      span.textContent = ccToEmoji(cc);
+      span.style.marginRight = '6px';
+      span.style.fontSize = '1rem';
+      el.replaceWith(span);
+    };
+
+    el.replaceWith(img);
+  });
+});
+</script>
+
+</body>
+</html>
+ 

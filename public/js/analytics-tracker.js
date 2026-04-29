@@ -1,6 +1,17 @@
 (function () {
   'use strict';
 
+  try {
+    var cfgEl = document.getElementById('herando-track-cfg');
+    if (cfgEl && cfgEl.textContent) {
+      var c = JSON.parse(cfgEl.textContent);
+      if (typeof c.force === 'boolean') window.__herandoForceTracking = c.force;
+      if (Object.prototype.hasOwnProperty.call(c, 'role')) {
+        window.__herandoActorRole = c.role;
+      }
+    }
+  } catch (e) {}
+
   if (window.__herandoAnalyticsTrackerInit) return;
   window.__herandoAnalyticsTrackerInit = true;
 

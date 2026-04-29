@@ -19,6 +19,34 @@ async function generateInvoice(order, callback) {
   };
 
   try {
+    const resolveEntityKey = (rawKey) => {
+      const key = String(rawKey || '').trim();
+      const idMatch = key.match(/^entity\.(\d+)$/);
+      if (!idMatch) return key;
+
+      const entityIdMap = {
+        '1': 'properties',
+        '2': 'watches',
+        '3': 'yachts',
+        '4': 'cars',
+        '6': 'lifestyles'
+      };
+      const mapped = entityIdMap[idMatch[1]];
+      return mapped ? `entity.${mapped}` : key;
+    };
+
+    const translateEntityName = async (rawKey) => {
+      const primaryKey = String(rawKey || '').trim();
+      if (!primaryKey) return '';
+
+      const primary = await tPdf(primaryKey);
+      if (primary !== primaryKey) return primary;
+
+      const fallbackKey = resolveEntityKey(primaryKey);
+      if (!fallbackKey || fallbackKey === primaryKey) return primary;
+      return tPdf(fallbackKey);
+    };
+
     // Hilfsfunktionen
     const asText = v => v == null ? '' : String(v);
     const asEuro = n => {
@@ -143,7 +171,7 @@ async function generateInvoice(order, callback) {
 
     // ================== POSITION / RABATT (FIX) ==================
     const packageName = await tPdf(order.package_key);
-    const entityName  = await tPdf(order.entity_key);
+    const entityName  = await translateEntityName(order.entity_key);
 
     const packageLine = (await tPdf(order.ad_key))
       .replace('{{package}}', packageName)

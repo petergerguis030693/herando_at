@@ -7,6 +7,8 @@ const path         = require('path');
 const express      = require('express');
 const cookieParser = require('cookie-parser');
 const session      = require('express-session');
+const { RedisStore } = require('connect-redis');
+const { createClient } = require('redis');
 const fetch = require('node-fetch');
 const xml2js = require("xml2js");
 const MySQLStore   = require('express-mysql-session')(session);
@@ -23,6 +25,7 @@ const {
 const {
   localizeEntityPath
 } = require('./src/service/entity-route-slugs');
+const RuntimeMonitor = require('./src/lib/runtime-monitor');
 
 const trackRouter    = require('./src/routes/track');
 const adminRouter    = require('./src/routes/admin');
@@ -32,6 +35,12 @@ require('./src/cron/commercialPackageReminder');
   
 const app = express(); 
 app.disable('x-powered-by');
+const runtimeMonitor = new RuntimeMonitor({
+  maxRecentRequests: 700,
+  maxTimelinePoints: 300,
+  slowRequestThresholdMs: Number(process.env.MONITOR_SLOW_REQUEST_MS || 1200)
+});
+app.locals.runtimeMonitor = runtimeMonitor;
 
 ensureActivityLogTable().catch((err) => {
   console.error('❌ activity_log table init failed:', err?.message || err);
@@ -81,6 +90,18 @@ const TRUSTED_APP_HOSTS = new Set([
   'www.herando.nl',
   'herando.pl',
   'www.herando.pl',
+  'herando.be',
+  'www.herando.be',
+  'herando.cc',
+  'www.herando.cc',
+  'herando.co.uk',
+  'www.herando.co.uk',
+  'herando.in',
+  'www.herando.in',
+  'herando.li',
+  'www.herando.li',
+  'herando.lu',
+  'www.herando.lu',
   'herando.uk',
   'www.herando.uk',
   'herando.com',
@@ -89,6 +110,7 @@ const TRUSTED_APP_HOSTS = new Set([
 
 const DOMAIN_PROFILES = {
   default: { lang: 'de', country: 'AT', currency: 'EUR', siteCode: 'default' },
+  com: { lang: 'en', country: 'US', currency: 'USD', siteCode: 'com' },
   es: { lang: 'es', country: 'ES', currency: 'EUR', siteCode: 'es' },
   cz: { lang: 'cs', country: 'CZ', currency: 'CZK', siteCode: 'cz' },
   ch: { lang: 'de', country: 'CH', currency: 'CHF', siteCode: 'ch' },
@@ -100,14 +122,19 @@ const DOMAIN_PROFILES = {
   it: { lang: 'it', country: 'IT', currency: 'EUR', siteCode: 'it' },
   nl: { lang: 'nl', country: 'NL', currency: 'EUR', siteCode: 'nl' },
   pl: { lang: 'pl', country: 'PL', currency: 'PLN', siteCode: 'pl' },
-  uk: { lang: 'en', country: 'GB', currency: 'GBP', siteCode: 'uk' }
+  uk: { lang: 'en', country: 'GB', currency: 'GBP', siteCode: 'uk' },
+  be: { lang: 'fr', country: 'BE', currency: 'EUR', siteCode: 'be' },
+  cc: { lang: 'en', country: 'GB', currency: 'EUR', siteCode: 'cc' },
+  in: { lang: 'en', country: 'IN', currency: 'INR', siteCode: 'in' },
+  li: { lang: 'de', country: 'LI', currency: 'CHF', siteCode: 'li' },
+  lu: { lang: 'fr', country: 'LU', currency: 'EUR', siteCode: 'lu' }
 };
 
 const DOMAIN_DEFAULTS = new Map([
   ['herando.at', DOMAIN_PROFILES.default],
   ['www.herando.at', DOMAIN_PROFILES.default],
-  ['herando.com', DOMAIN_PROFILES.default],
-  ['www.herando.com', DOMAIN_PROFILES.default],
+  ['herando.com', DOMAIN_PROFILES.com],
+  ['www.herando.com', DOMAIN_PROFILES.com],
   ['herando.es', DOMAIN_PROFILES.es],
   ['www.herando.es', DOMAIN_PROFILES.es],
   ['herando.cz', DOMAIN_PROFILES.cz],
@@ -130,6 +157,18 @@ const DOMAIN_DEFAULTS = new Map([
   ['www.herando.nl', DOMAIN_PROFILES.nl],
   ['herando.pl', DOMAIN_PROFILES.pl],
   ['www.herando.pl', DOMAIN_PROFILES.pl],
+  ['herando.be', DOMAIN_PROFILES.be],
+  ['www.herando.be', DOMAIN_PROFILES.be],
+  ['herando.cc', DOMAIN_PROFILES.cc],
+  ['www.herando.cc', DOMAIN_PROFILES.cc],
+  ['herando.co.uk', DOMAIN_PROFILES.uk],
+  ['www.herando.co.uk', DOMAIN_PROFILES.uk],
+  ['herando.in', DOMAIN_PROFILES.in],
+  ['www.herando.in', DOMAIN_PROFILES.in],
+  ['herando.li', DOMAIN_PROFILES.li],
+  ['www.herando.li', DOMAIN_PROFILES.li],
+  ['herando.lu', DOMAIN_PROFILES.lu],
+  ['www.herando.lu', DOMAIN_PROFILES.lu],
   ['herando.uk', DOMAIN_PROFILES.uk],
   ['www.herando.uk', DOMAIN_PROFILES.uk]
 ]);
@@ -200,11 +239,70 @@ function resolveDomainProfile(req) {
     return { host, ...DOMAIN_PROFILES.pl };
   }
 
+  if (host.endsWith('.be')) {
+    return { host, ...DOMAIN_PROFILES.be };
+  }
+
+  if (host.endsWith('.cc')) {
+    return { host, ...DOMAIN_PROFILES.cc };
+  }
+
+  if (host.endsWith('.in')) {
+    return { host, ...DOMAIN_PROFILES.in };
+  }
+
+  if (host.endsWith('.li')) {
+    return { host, ...DOMAIN_PROFILES.li };
+  }
+
+  if (host.endsWith('.lu')) {
+    return { host, ...DOMAIN_PROFILES.lu };
+  }
+
   if (host.endsWith('.uk')) {
     return { host, ...DOMAIN_PROFILES.uk };
   }
 
   return { host, ...DOMAIN_PROFILES.default };
+}
+
+function isComDomainHost(host) {
+  const normalized = normalizeHost(host);
+  return normalized === 'herando.com' || normalized === 'www.herando.com';
+}
+
+function inferCountryFromAcceptLanguage(req) {
+  const raw = String(req.headers['accept-language'] || '').trim();
+  if (!raw) return '';
+
+  const primary = raw
+    .split(',')
+    .map((part) => String(part).trim().split(';')[0].trim())
+    .filter(Boolean);
+
+  for (const tag of primary) {
+    const parts = tag.split('-').map((p) => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const region = parts[1].toUpperCase();
+      if (/^[A-Z]{2}$/.test(region)) return region;
+    }
+  }
+
+  const language = primary[0]?.split('-')[0]?.toLowerCase() || '';
+  const fallbackByLang = {
+    de: 'DE',
+    en: 'GB',
+    fr: 'FR',
+    it: 'IT',
+    tr: 'TR',
+    ja: 'JP',
+    cs: 'CZ',
+    ru: 'RU',
+    es: 'ES',
+    nl: 'NL',
+    pl: 'PL'
+  };
+  return fallbackByLang[language] || '';
 }
 
 function getCookieDomainForHost(host) {
@@ -219,6 +317,10 @@ function getCookieDomainForHost(host) {
 }
 
 function buildLangCookieOptions(req) {
+  return buildLangCookieOptionsForHost(req, null);
+}
+
+function buildLangCookieOptionsForHost(req, hostOverride) {
   const options = {
     maxAge: 180 * 24 * 60 * 60 * 1000, // 180 Tage
     httpOnly: false,
@@ -227,7 +329,7 @@ function buildLangCookieOptions(req) {
     path: '/'
   };
 
-  const cookieDomain = getCookieDomainForHost(getRequestHost(req));
+  const cookieDomain = getCookieDomainForHost(hostOverride || getRequestHost(req));
   if (cookieDomain) {
     options.domain = cookieDomain;
   }
@@ -242,6 +344,85 @@ function getRequestProto(req) {
     .toLowerCase();
   if (forwardedProto === 'https' || forwardedProto === 'http') return forwardedProto;
   return req.secure ? 'https' : 'http';
+}
+
+const PREFIX_REDIRECT_RULES = Object.freeze({
+  de: { host: 'www.herando.de', langCookie: 'de' },
+  en: { host: 'www.herando.co.uk', langCookie: 'en' },
+  fr: { host: 'www.herando.fr', langCookie: 'fr' },
+  it: { host: 'www.herando.it', langCookie: 'it' },
+  tr: { host: 'www.herando.tr', langCookie: 'tr' },
+  ja: { host: 'www.herando.jp', langCookie: 'ja' },
+  cs: { host: 'www.herando.cz', langCookie: 'cs' },
+  ru: { host: 'www.herando.ru', langCookie: 'ru' },
+  es: { host: 'www.herando.es', langCookie: 'es' },
+  nl: { host: 'www.herando.nl', langCookie: 'nl' },
+  pl: { host: 'www.herando.pl', langCookie: 'pl' },
+  be: { host: 'www.herando.be', langCookie: 'fr' },
+  in: { host: 'www.herando.in', langCookie: 'en' },
+  li: { host: 'www.herando.li', langCookie: 'de' },
+  lu: { host: 'www.herando.lu', langCookie: 'fr' },
+  uk: { host: 'www.herando.co.uk', langCookie: 'en' },
+  at: { host: 'www.herando.at', langCookie: null },
+  ch: { host: 'www.herando.ch', langCookie: null }
+});
+
+function getCanonicalWwwHost(host) {
+  const normalized = normalizeHost(host);
+  if (!TRUSTED_APP_HOSTS.has(normalized)) return null;
+  if (normalized.startsWith('www.')) return normalized;
+  return `www.${normalized}`;
+}
+
+function splitPathAndQuery(url) {
+  const raw = String(url || '/');
+  const qIndex = raw.indexOf('?');
+  if (qIndex === -1) return { pathname: raw || '/', query: '' };
+  return {
+    pathname: raw.slice(0, qIndex) || '/',
+    query: raw.slice(qIndex)
+  };
+}
+
+function shouldSkipAutoLocaleRedirect(pathname) {
+  const path = String(pathname || '/').toLowerCase();
+  if (path === '/favicon.ico' || path === '/robots.txt' || path === '/google31333f15e55e9dd8.html') {
+    return true;
+  }
+
+  const blockedPrefixes = [
+    '/admin',
+    '/api',
+    '/track',
+    '/uploads',
+    '/images',
+    '/brand-images',
+    '/assets',
+    '/css',
+    '/js',
+    '/fonts',
+    '/sitemap'
+  ];
+
+  return blockedPrefixes.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
+
+function getCanonicalHostForLang(lang) {
+  const normalizedLang = normalizeToSupportedLang(lang || 'de');
+  const map = {
+    de: 'www.herando.de',
+    en: 'www.herando.co.uk',
+    fr: 'www.herando.fr',
+    it: 'www.herando.it',
+    tr: 'www.herando.tr',
+    ja: 'www.herando.jp',
+    cs: 'www.herando.cz',
+    ru: 'www.herando.ru',
+    es: 'www.herando.es',
+    nl: 'www.herando.nl',
+    pl: 'www.herando.pl'
+  };
+  return map[normalizedLang] || map.de;
 }
 
 function stripLangPrefixFromPath(pathname) {
@@ -284,6 +465,59 @@ function getSafeBackPath(req, fallback = '/') {
  * ──────────────────────────────────────────────────────────────────────────── */
 
 app.set('trust proxy', true);
+
+// Google Search Console file verification must bypass bot/security filters.
+app.get('/google31333f15e55e9dd8.html', (req, res) => {
+  res.type('text/html; charset=utf-8');
+  return res.sendFile(path.join(__dirname, 'google31333f15e55e9dd8.html'));
+});
+
+// Legacy Sprach-Prefixe (/es, /pl, ...) auf kanonische Sprach-Domain umleiten.
+// Gleichzeitig Host/HTTPS auf das kanonische Ziel normalisieren.
+app.use((req, res, next) => {
+  if (req.method !== 'GET' && req.method !== 'HEAD') return next();
+
+  const originalUrl = String(req.originalUrl || req.url || '/');
+  const { pathname, query } = splitPathAndQuery(originalUrl);
+  const langPrefixMatch = pathname.match(/^\/([a-z]{2})(?=\/|$)/i);
+  const pathLang = langPrefixMatch ? String(langPrefixMatch[1]).toLowerCase() : '';
+  const host = getRequestHost(req);
+  const proto = getRequestProto(req);
+  const isComHost = isComDomainHost(host);
+  // Keep herando.com stable: only explicit language prefixes (/de, /fr, ...)
+  // may trigger a country-domain redirect. Do not auto-redirect by lang cookie.
+  const allowComAutoLocale = false;
+  const cookieLang = normalizeToSupportedLang(req.cookies?.lang || 'de');
+
+  const prefixRule = pathLang ? PREFIX_REDIRECT_RULES[pathLang] : null;
+  const canonicalByPrefix = prefixRule?.host || null;
+  const canonicalByCookie = allowComAutoLocale ? getCanonicalHostForLang(cookieLang) : null;
+  const canonicalByHost = getCanonicalWwwHost(host);
+  const targetHost = canonicalByPrefix || canonicalByCookie || canonicalByHost;
+
+  if (!targetHost) return next();
+
+  let targetPath = pathname || '/';
+  if (canonicalByPrefix) {
+    targetPath = stripLangPrefixFromPath(targetPath);
+    if (prefixRule?.langCookie) {
+      res.cookie('lang', prefixRule.langCookie, buildLangCookieOptionsForHost(req, targetHost));
+    }
+  } else if (canonicalByCookie) {
+    targetPath = localizeEntityPath(targetPath, cookieLang);
+    res.cookie('lang', cookieLang, buildLangCookieOptionsForHost(req, targetHost));
+  }
+
+  const mustRedirect =
+    canonicalByPrefix ||
+    canonicalByCookie ||
+    proto !== 'https' ||
+    normalizeHost(host) !== normalizeHost(targetHost);
+
+  if (!mustRedirect) return next();
+
+  return res.redirect(301, `https://${targetHost}${targetPath}${query}`);
+});
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -349,12 +583,55 @@ app.use((req, res, next) => {
   next();
 });
 
+// Blockiere Bots/Crawler/Link-Preview Agenten serverseitig (Crawler)
+app.use((req, res, next) => {
+  const ua = String(req.get('user-agent') || '').toLowerCase();
+
+  const isSeoBot =
+    /googlebot|googleother|bingbot|yandexbot|duckduckbot|applebot/i.test(ua) ||
+    /google-inspectiontool|google-site-verification|adsbot-google|mediapartners-google|apis-google|feedfetcher-google|storebot-google|google-read-aloud|google-extended/i.test(ua);
+
+  if (isSeoBot) {
+    // Flag für tiefere Optimierungen in den Routen (z.B. SIMILAR Abfragen drosseln).
+    console.log('✅ GOOGLE BOT ALLOWED:', req.ip, '|', req.method, '|', req.originalUrl, '| UA:', req.get('user-agent') || '');
+    req.isSeoBot = true;
+    return next();
+  }
+
+  const BOT_RULES = [
+    { re: /baiduspider|sogou|exabot|ezooms|sprint|sogousearch/i, label: 'other-search' },
+    { re: /ahrefsbot|semrushbot|mj12bot|rogerbot|dotbot|spbot|seobility|seodetectbot|screaming frog/i, label: 'seo-scraper' },
+    { re: /serpapi|serper|serply|serpv|zenno|distilbot|crawlme|urlbox|apify/i, label: 'scraper-api' },
+    { re: /crawler|spider|slurp|crawl/i, label: 'crawler/spider' },
+    { re: /headlesschrome|puppeteer|playwright|selenium|phantomjs/i, label: 'automation' }
+  ];
+
+  let matchedLabel = null;
+  for (const rule of BOT_RULES) {
+    if (rule.re.test(ua)) {
+      matchedLabel = rule.label;
+      break;
+    }
+  }
+
+  if (matchedLabel) {
+    console.log(`🛑 BOT BLOCKED (${matchedLabel}):`, req.ip, '|', req.method, '|', req.originalUrl);
+    return res.sendStatus(403);
+  }
+
+  next();
+});
+
 app.set('views', path.join(__dirname, 'src', 'views'));
 app.set('view engine', 'ejs');
 
 /* Static & Assets */
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 app.use(express.static(path.join(__dirname, 'public')));
+app.use(
+  '/direct',
+  express.static(path.join(__dirname, '..', 'herando', 'katalog', 'current', 'direct'))
+);
 
 // robots auf herando.at blocken
 app.use((req, res, next) => {
@@ -370,7 +647,43 @@ const imagesPath = path.resolve('/', 'media', 'herando', 'images');
 console.log('📂 Versuche, Images von diesem Pfad zu serven:', imagesPath);
 console.log('✅ Existiert Verzeichnis?', fs.existsSync(imagesPath));
 
+const brandsLogoDir = path.join(imagesPath, 'cms', 'brands');
+// Markenlogos: DB-Seoname oft "cars/Audi" → Datei "Audi.jpg"; außerdem case-sensitive FS.
+app.use('/images/cms/brands', (req, res, next) => {
+  try {
+    const rel = path.posix.normalize(req.path.split('?')[0] || '');
+    if (rel.includes('\0') || rel.includes('..')) return next();
+    const parts = rel.split('/').filter(Boolean);
+    if (!parts.length) return next();
+    const requestedFile = parts[parts.length - 1];
+    if (!/\.(jpe?g|png|webp)$/i.test(requestedFile)) return next();
+
+    fs.readdir(brandsLogoDir, (err, files) => {
+      if (err) return next(err);
+      const wantedLower = requestedFile.toLowerCase();
+      let match = files.find((f) => f.toLowerCase() === wantedLower);
+      if (!match) {
+        const base = path.basename(requestedFile, path.extname(requestedFile));
+        const exts = ['.jpg', '.jpeg', '.png', '.webp'];
+        for (const ext of exts) {
+          const cand = (base + ext).toLowerCase();
+          match = files.find((f) => f.toLowerCase() === cand);
+          if (match) break;
+        }
+      }
+      if (!match) return next();
+      const abs = path.join(brandsLogoDir, match);
+      if (!abs.startsWith(brandsLogoDir)) return next();
+      res.type(path.extname(match));
+      return res.sendFile(abs, { maxAge: 14400000 });
+    });
+  } catch (e) {
+    next(e);
+  }
+});
+
 app.use('/images', express.static(imagesPath));
+app.use('/brand-images', express.static(imagesPath));
 app.use(
   '/images/news',
   express.static(
@@ -384,31 +697,98 @@ app.use(cookieParser());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  let done = false;
+  const path = String(req.originalUrl || req.url || '/');
+
+  // Static assets and health-like requests should not pollute app performance metrics.
+  const skip = (
+    path.startsWith('/assets/') ||
+    path.startsWith('/uploads/') ||
+    path.startsWith('/images/') ||
+    path.startsWith('/brand-images/') ||
+    path.startsWith('/public/') ||
+    path.startsWith('/css/') ||
+    path.startsWith('/js/') ||
+    path.startsWith('/fonts/') ||
+    path === '/favicon.ico' ||
+    path === '/robots.txt'
+  );
+  if (skip) return next();
+
+  const flush = () => {
+    if (done) return;
+    done = true;
+    runtimeMonitor.recordRequest({
+      method: req.method,
+      path,
+      statusCode: res.statusCode || 0,
+      durationMs: Date.now() - startedAt
+    });
+  };
+
+  res.on('finish', flush);
+  res.on('close', flush);
+  next();
+});
+// Mount tracking routes before session middleware to avoid DB-backed
+// session writes on high-volume analytics hits.
+app.use(trackRouter);
+
 /* ────────────────────────────────────────────────────────────────────────────
  * Session / Flash
  * ──────────────────────────────────────────────────────────────────────────── */
-const sessionStore = new MySQLStore(
-  {
-    expiration: 24 * 60 * 60 * 1000,
-    createDatabaseTable: true
-  },
-  db
-);
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000;
+const redisSessionEnabled = String(process.env.REDIS_SESSION_ENABLED || '').toLowerCase() === 'true';
+
+function createSessionStore() {
+  if (redisSessionEnabled) {
+    const redisUrl = process.env.REDIS_URL || 'redis://127.0.0.1:6379';
+    const redisClient = createClient({ url: redisUrl });
+    redisClient.on('error', (err) => {
+      console.error('Redis session client error:', err?.message || err);
+    });
+    redisClient.connect().catch((err) => {
+      console.error('Redis session client connect failed:', err?.message || err);
+    });
+    console.log(`🧠 Session store: Redis (${redisUrl})`);
+    return new RedisStore({
+      client: redisClient,
+      prefix: process.env.REDIS_SESSION_PREFIX || 'sess:',
+      ttl: Math.floor(SESSION_TTL_MS / 1000)
+    });
+  }
+
+  console.log('🗄️ Session store: MySQL (fallback/default)');
+  return new MySQLStore(
+    {
+      expiration: SESSION_TTL_MS,
+      createDatabaseTable: true,
+      clearExpired: true,
+      checkExpirationInterval: 15 * 60 * 1000,
+      disableTouch: true
+    },
+    db
+  );
+}
+
+const sessionStore = createSessionStore();
 
 app.use(
   session({
-    key: 'herando_session_id',
+    key: '__Host-herando_session_id',
     secret: process.env.SESSION_SECRET,
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
-      maxAge: 24 * 60 * 60 * 1000,
+      maxAge: SESSION_TTL_MS,
       secure: true,
       httpOnly: true,
       sameSite: 'lax'
     },
-    name: 'herando_session_id'
+    name: '__Host-herando_session_id'
   })
 );
 
@@ -546,8 +926,12 @@ app.use(enrichUserPackage);
 
 const COUNTRY_TO_LANG = {
   AT: 'de',
+  BE: 'fr',
   DE: 'de',
   CH: 'de',
+  IN: 'en',
+  LI: 'de',
+  LU: 'fr',
   US: 'en',
   GB: 'en',
   FR: 'fr',
@@ -564,15 +948,31 @@ const COUNTRY_TO_LANG = {
 app.use((req, res, next) => {
   const domainProfile = resolveDomainProfile(req);
   req.domainProfile = domainProfile;
+  const isComDomain = isComDomainHost(domainProfile.host);
+  const browserCountry = isComDomain ? inferCountryFromAcceptLanguage(req) : '';
 
   if (req.session) {
     if (!req.session.lang) req.session.lang = domainProfile.lang;
-    if (!req.session.country) req.session.country = domainProfile.country;
+    if (isComDomain) {
+      const sessionLang = String(req.session.lang || '').toLowerCase();
+      // Keep .com default English unless user explicitly switched away.
+      if (!sessionLang || sessionLang === 'de') req.session.lang = 'en';
+    }
+    if (!req.session.country) {
+      req.session.country = isComDomain
+        ? (browserCountry || '')
+        : domainProfile.country;
+    }
     if (!req.session.currency) req.session.currency = domainProfile.currency;
+    if (isComDomain) {
+      const sessionCurrency = String(req.session.currency || '').toUpperCase();
+      // Migrate legacy EUR sessions on .com to USD by default.
+      if (!sessionCurrency || sessionCurrency === 'EUR') req.session.currency = 'USD';
+    }
   }
 
   const activeLang = req.session?.lang || domainProfile.lang;
-  const activeCountry = req.session?.country || domainProfile.country;
+  const activeCountry = req.session?.country || (isComDomain ? (browserCountry || '') : domainProfile.country);
   const activeCurrency = req.session?.currency || domainProfile.currency;
 
   res.locals.domainHost = domainProfile.host;
@@ -804,7 +1204,7 @@ app.use((req, res, next) => {
   const profile = req.domainProfile || DOMAIN_PROFILES.default;
   res.locals.lang = req.session?.lang || profile.lang || 'de';
   res.locals.currency = req.session?.currency || profile.currency || 'EUR';
-  res.locals.country = req.session?.country || profile.country || 'AT';
+  res.locals.country = req.session?.country || profile.country || '';
   next();
 });
 
@@ -867,14 +1267,28 @@ app.use(async (req, res, next) => {
 
     // Live-Fetch je Request; bei API-Fehler fallback auf letzten erfolgreichen Stand im RAM.
     const now = Date.now();
+
+    // Cache-Logik: Die Frankfurter-API sollte nicht bei jedem Request erneut aufgerufen werden.
+    // Ergebnis: massiv weniger Latenz/Last bei Bots und normalen Besuchern.
+    const ttlMsRaw = process.env.FRANKFURTER_RATES_TTL_MS;
+    const ttlMs = Number.isFinite(Number(ttlMsRaw)) && Number(ttlMsRaw) > 0
+      ? Number(ttlMsRaw)
+      : (5 * 60 * 1000); // default: 5 Minuten
+
     try {
-      const liveRates = await loadFrankfurterRatesCoalesced();
-      global.exchangeRates = {
-        rates: liveRates,
-        currencies: Object.keys(liveRates).concat("EUR"),
-        timestamp: now
-      };
-      console.log(`💱 Frankfurter Live-Kurse geladen – ${Object.keys(liveRates).length} Währungen`);
+      const shouldRefresh =
+        !global.exchangeRates?.timestamp ||
+        (now - global.exchangeRates.timestamp) >= ttlMs;
+
+      if (shouldRefresh) {
+        const liveRates = await loadFrankfurterRatesCoalesced();
+        global.exchangeRates = {
+          rates: liveRates,
+          currencies: Object.keys(liveRates).concat("EUR"),
+          timestamp: now
+        };
+        console.log(`💱 Frankfurter Live-Kurse geladen – ${Object.keys(liveRates).length} Währungen`);
+      }
     } catch (err) {
       console.error("❌ Frankfurter API Fehler:", err.message);
       if (global.exchangeRates?.rates && Object.keys(global.exchangeRates.rates).length) {
@@ -1345,7 +1759,6 @@ app.use((req, res, next) => {
 /* ────────────────────────────────────────────────────────────────────────────
  * Router
  * ──────────────────────────────────────────────────────────────────────────── */
-app.use(trackRouter);
 app.use('/admin', adminRouter);
 
 app.use('/', templateRouter);
@@ -1376,8 +1789,8 @@ app.use((err, req, res, next) => {
  * HTTPS / SNI
  * ──────────────────────────────────────────────────────────────────────────── */
 const options = {
-  key:  fs.readFileSync('/etc/ssl/private/herando_com.key',    'utf8'),
-  cert: fs.readFileSync('/etc/ssl/certs/herando_com.chain.crt','utf8'),
+  key:  fs.readFileSync('/etc/ssl/private/herando.com.key',    'utf8'),
+  cert: fs.readFileSync('/etc/ssl/certs/herando.com.chain.crt','utf8'),
   SNICallback: (servername, cb) => {
     const ctx = tls.createSecureContext(
       servername && servername.toLowerCase() === 'herando.at'
@@ -1386,8 +1799,8 @@ const options = {
             cert: fs.readFileSync('/etc/ssl/certs/herando_at.chain.crt', 'utf8'),
           }
         : {
-            key:  fs.readFileSync('/etc/ssl/private/herando_com.key',    'utf8'),
-            cert: fs.readFileSync('/etc/ssl/certs/herando_com.chain.crt','utf8'),
+            key:  fs.readFileSync('/etc/ssl/private/herando.com.key',    'utf8'),
+            cert: fs.readFileSync('/etc/ssl/certs/herando.com.chain.crt','utf8'),
           }
     );
     cb(null, ctx);
@@ -1397,7 +1810,7 @@ const options = {
 /* ────────────────────────────────────────────────────────────────────────────
  * Server Start
  * ──────────────────────────────────────────────────────────────────────────── */
-const port = process.env.PORT || 3004;
-https.createServer(options, app).listen(port, '0.0.0.0', () => {
-  console.log(`✅ HTTPS-Server läuft auf https://0.0.0.0:${port}`);
+const port = process.env.PORT || 3020;
+https.createServer(options, app).listen(port, '127.0.0.1', () => {
+  console.log(`✅ HTTPS-Server läuft auf https://127.0.0.1:${port}`);
 });

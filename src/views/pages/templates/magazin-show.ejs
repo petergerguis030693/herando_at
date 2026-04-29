@@ -18,27 +18,37 @@
     </ol>
   </nav>
 
+  <% if (page.published_at && new Date(page.published_at) > new Date()) { %>
+    <div class="alert alert-info mb-3" role="status">
+      <%= t('magazin.upcoming_banner', 'Geplanter Veröffentlichungsbeginn (bis dahin noindex für Suchmaschinen):') %>
+      <strong><%= new Date(page.published_at).toLocaleString('de-DE', { dateStyle: 'full', timeStyle: 'short' }) %></strong>
+    </div>
+  <% } %>
+
   <!-- Titel & Meta -->
-  <h1 class="fw-bold mb-2" style="font-family:Georgia, serif; color:#111;">
+  <h1 class="fw-bold mb-2">
     <%= page.title %>
   </h1>
   <div class="text-muted mb-4" style="font-size:0.9rem;">
     <%= t('magazin.by', 'Von') %> <strong><%= page.author %></strong> &bull;
-    <%= new Date(page.created).toLocaleDateString('de-DE', {
+    <%= new Date(page.published_at || page.created).toLocaleDateString('de-DE', {
           day:'2-digit', month:'long', year:'numeric'
        }) %>
   </div>
 
   <!-- Cover Image -->
   <% if (page.cover_image) { %>
-    <img 
+    <img
       src="/uploads/postings/<%= page.slug %>/<%= page.cover_image %>"
       alt="<%= page.title %>"
-      class="img-fluid rounded mb-4 shadow-sm">
+      width="1200"
+      height="675"
+      class="img-fluid rounded mb-4 shadow-sm"
+      decoding="async">
   <% } %>
 
   <!-- Content -->
-  <div style="font-family:Georgia, serif; color:#333; line-height:1.7; font-size:1rem;">
+  <div style="line-height:1.7; font-size:1rem;">
     <%- page.content %>
   </div>
 
@@ -51,3 +61,6 @@
 </div>
 
 <%- include('../../partials/footer', { footerColumns }) %>
+
+</body>
+</html>

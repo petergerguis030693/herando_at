@@ -22,7 +22,6 @@
               <option value="">– Bitte wählen –</option>
               <option value="2" <%= data.gender=='2'?'selected':'' %>>Herr</option>
               <option value="3" <%= data.gender=='3'?'selected':'' %>>Frau</option>
-              <option value="1" <%= data.gender=='1'?'selected':'' %>>Herr (Legacy)</option>
             </select>
           </div>
           <div class="col-md-5">
@@ -133,6 +132,38 @@
                    value="<%= data.website||'' %>">
           </div>
         </div>
+      </fieldset>
+
+      <!-- Passwort (optional manuell, sonst Auto-Generierung) -->
+      <fieldset class="border rounded p-3 mb-4">
+        <legend class="w-auto px-2">Passwort</legend>
+        <div class="row g-3">
+          <div class="col-md-6">
+            <label for="new_password" class="form-label">Passwort manuell setzen</label>
+            <input
+              type="password"
+              id="new_password"
+              name="new_password"
+              class="form-control form-control-sm"
+              autocomplete="new-password"
+              placeholder="mind. 8 Zeichen"
+              value="<%= data.new_password || '' %>">
+          </div>
+          <div class="col-md-6">
+            <label for="new_password_repeat" class="form-label">Passwort wiederholen</label>
+            <input
+              type="password"
+              id="new_password_repeat"
+              name="new_password_repeat"
+              class="form-control form-control-sm"
+              autocomplete="new-password"
+              placeholder="Passwort wiederholen"
+              value="<%= data.new_password_repeat || '' %>">
+          </div>
+        </div>
+        <small class="text-muted d-block mt-2">
+          Wenn beide Felder leer sind, wird automatisch ein Passwort generiert.
+        </small>
       </fieldset>
 
       <!-- Im Inserat anzeigen -->

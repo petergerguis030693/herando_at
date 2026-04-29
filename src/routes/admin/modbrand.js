@@ -57,6 +57,73 @@ function makeSlug(str) {
   });
 }
 
+const BRAND_TYPE_TO_ROUTE = {
+  1: 'properties', // Immobilien
+  2: 'watches',    // Uhren
+  3: 'cars',       // Autos
+  4: 'yachts',     // Yachten
+  6: 'lifestyles'  // Luxury Lifestyle
+};
+
+function normalizeBrandType(rawType) {
+  const t = Number(rawType);
+  return Number.isInteger(t) && BRAND_TYPE_TO_ROUTE[t] ? t : null;
+}
+
+async function detectEffectiveBrandTypeFromListings(brandId) {
+  const id = Number(brandId);
+  if (!id) return null;
+
+  const [rows] = await db.query(`
+    SELECT entitie_id, SUM(cnt) AS cnt
+    FROM (
+      SELECT 3 AS entitie_id, COUNT(*) AS cnt
+      FROM cars
+      WHERE brand_id = ? AND COALESCE(status, 0) <> 9
+      UNION ALL
+      SELECT 3 AS entitie_id, COUNT(*) AS cnt
+      FROM cars c
+      JOIN models m ON m.id = c.model_id
+      WHERE c.brand_id IS NULL
+        AND m.brand_id = ?
+        AND COALESCE(c.status, 0) <> 9
+      UNION ALL
+      SELECT 2 AS entitie_id, COUNT(*) AS cnt
+      FROM watches
+      WHERE brand_id = ? AND COALESCE(status, 0) <> 9
+      UNION ALL
+      SELECT 2 AS entitie_id, COUNT(*) AS cnt
+      FROM watches w
+      JOIN models m ON m.id = w.model_id
+      WHERE w.brand_id IS NULL
+        AND m.brand_id = ?
+        AND COALESCE(w.status, 0) <> 9
+      UNION ALL
+      SELECT 4 AS entitie_id, COUNT(*) AS cnt
+      FROM yachts
+      WHERE brand_id = ? AND COALESCE(status, 0) <> 9
+      UNION ALL
+      SELECT 6 AS entitie_id, COUNT(*) AS cnt
+      FROM lifestyles
+      WHERE brand_id = ? AND COALESCE(status, 0) <> 9
+      UNION ALL
+      SELECT 6 AS entitie_id, COUNT(*) AS cnt
+      FROM lifestyles l
+      JOIN models m ON m.id = l.model_id
+      WHERE l.brand_id IS NULL
+        AND m.brand_id = ?
+        AND COALESCE(l.status, 0) <> 9
+    ) x
+    GROUP BY entitie_id
+  `, [id, id, id, id, id, id, id]);
+
+  if (!rows.length) return null;
+  rows.sort((a, b) => Number(b.cnt || 0) - Number(a.cnt || 0));
+  const winner = rows[0];
+  if (!winner || Number(winner.cnt || 0) <= 0) return null;
+  return Number(winner.entitie_id || 0) || null;
+}
+
 /* =========================================================
    GET ADMIN VIEW
 ========================================================= */
@@ -100,6 +167,79 @@ router.get('/', async (req, res, next) => {
       ORDER BY b.name, m.name
     `);
 
+    // DB ist historisch teils inkonsistent (brands.type falsch gepflegt).
+    // Wir leiten daher einen "effektiven" Typ aus realer Nutzung in den Entitätstabellen ab.
+    const [brandTypeUsageRows] = await db.query(`
+      SELECT brand_id, entitie_id, cnt
+      FROM (
+        SELECT brand_id, 3 AS entitie_id, COUNT(*) AS cnt
+        FROM cars
+        WHERE brand_id IS NOT NULL AND COALESCE(status, 0) <> 9
+        GROUP BY brand_id
+        UNION ALL
+        SELECT m.brand_id AS brand_id, 3 AS entitie_id, COUNT(*) AS cnt
+        FROM cars c
+        JOIN models m ON m.id = c.model_id
+        WHERE c.brand_id IS NULL AND COALESCE(c.status, 0) <> 9
+        GROUP BY m.brand_id
+        UNION ALL
+        SELECT brand_id, 2 AS entitie_id, COUNT(*) AS cnt
+        FROM watches
+        WHERE brand_id IS NOT NULL AND COALESCE(status, 0) <> 9
+        GROUP BY brand_id
+        UNION ALL
+        SELECT m.brand_id AS brand_id, 2 AS entitie_id, COUNT(*) AS cnt
+        FROM watches w
+        JOIN models m ON m.id = w.model_id
+        WHERE w.brand_id IS NULL AND COALESCE(w.status, 0) <> 9
+        GROUP BY m.brand_id
+        UNION ALL
+        SELECT brand_id, 4 AS entitie_id, COUNT(*) AS cnt
+        FROM yachts
+        WHERE brand_id IS NOT NULL AND COALESCE(status, 0) <> 9
+        GROUP BY brand_id
+        UNION ALL
+        SELECT brand_id, 6 AS entitie_id, COUNT(*) AS cnt
+        FROM lifestyles
+        WHERE brand_id IS NOT NULL AND COALESCE(status, 0) <> 9
+        GROUP BY brand_id
+        UNION ALL
+        SELECT m.brand_id AS brand_id, 6 AS entitie_id, COUNT(*) AS cnt
+        FROM lifestyles l
+        JOIN models m ON m.id = l.model_id
+        WHERE l.brand_id IS NULL AND COALESCE(l.status, 0) <> 9
+        GROUP BY m.brand_id
+      ) usage_rows
+    `);
+
+    const usageByBrand = new Map();
+    for (const row of brandTypeUsageRows) {
+      const brandId = Number(row.brand_id);
+      const entitieId = Number(row.entitie_id);
+      const cnt = Number(row.cnt || 0);
+      if (!brandId || !entitieId || !cnt) continue;
+      if (!usageByBrand.has(brandId)) usageByBrand.set(brandId, new Map());
+      usageByBrand.get(brandId).set(entitieId, cnt);
+    }
+
+    const resolveEffectiveType = (brandId, fallbackType) => {
+      const usage = usageByBrand.get(Number(brandId));
+      if (!usage || usage.size === 0) return Number(fallbackType);
+      let winnerType = Number(fallbackType);
+      let winnerCount = -1;
+      for (const [typeId, count] of usage.entries()) {
+        if (count > winnerCount) {
+          winnerType = typeId;
+          winnerCount = count;
+        }
+      }
+      return winnerType;
+    };
+
+    for (const b of brands) {
+      b.display_type = resolveEffectiveType(b.id, b.type);
+    }
+
     const brandWhere = [];
     const brandParams = [];
     if (brandSearchTerm) {
@@ -123,6 +263,10 @@ router.get('/', async (req, res, next) => {
       ORDER BY name
       LIMIT ? OFFSET ?
     `, [...brandParams, perPage, brandOffset]);
+
+    for (const b of brandRows) {
+      b.display_type = resolveEffectiveType(b.id, b.type);
+    }
 
     const modelWhere = [];
     const modelParams = [];
@@ -153,6 +297,10 @@ router.get('/', async (req, res, next) => {
       ORDER BY b.name, m.name
       LIMIT ? OFFSET ?
     `, [...modelParams, perPage, modelOffset]);
+
+    for (const m of modelRows) {
+      m.entitie_display_id = resolveEffectiveType(m.brand_id, m.entitie_id);
+    }
 
     const [brandSeo] = await db.query(`
       SELECT bs.*, b.name AS brand_name, e.name AS entitie_name
@@ -210,13 +358,15 @@ router.post('/brands/new',
 
     try {
       const { name, entitieId, description } = req.body;
-      const ent = res.locals.ententies.find(e => e.id == entitieId);
-      const seoname = `${ent.route}/${makeSlug(name)}`;
+      const finalEntitieId = normalizeBrandType(entitieId);
+      if (!finalEntitieId) return res.redirect('/admin/modbrand');
+      const route = BRAND_TYPE_TO_ROUTE[finalEntitieId];
+      const seoname = `${route}/${makeSlug(name)}`;
 
       await db.query(`
         INSERT INTO brands (name, type, seoname, de, created, modified)
         VALUES (?, ?, ?, ?, NOW(), NOW())
-      `, [name, entitieId, seoname, description || null]);
+      `, [name, finalEntitieId, seoname, description || null]);
 
       res.redirect('/admin/modbrand');
     } catch (err) {
@@ -237,14 +387,16 @@ router.post('/brands/:id/edit',
     try {
       const { id } = req.params;
       const { name, entitieId, description } = req.body;
-      const ent = res.locals.ententies.find(e => e.id == entitieId);
-      const seoname = `${ent.route}/${makeSlug(name)}`;
+      const finalEntitieId = normalizeBrandType(entitieId);
+      if (!finalEntitieId) return res.redirect('/admin/modbrand');
+      const route = BRAND_TYPE_TO_ROUTE[finalEntitieId];
+      const seoname = `${route}/${makeSlug(name)}`;
 
       await db.query(`
         UPDATE brands
         SET name = ?, type = ?, seoname = ?, de = ?, modified = NOW()
         WHERE id = ?
-      `, [name, entitieId, seoname, description || null, id]);
+      `, [name, finalEntitieId, seoname, description || null, id]);
 
       res.redirect('/admin/modbrand');
     } catch (err) {

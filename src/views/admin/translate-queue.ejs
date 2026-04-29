@@ -1,0 +1,112 @@
+<%- include('../partials/header-admin') %>
+
+<div class="d-flex">
+  <aside class="sidebar bg-light p-3" style="width: 250px;">
+    <%- include('./sidebar', { active: active, role: role }) %>
+  </aside>
+
+  <main class="main-content flex-fill p-4">
+    <header class="bg-herando text-white p-3 mb-4 rounded">
+      <h1 class="h4 mb-0">Übersetzungs-Warteschlange (KI)</h1>
+      <p class="small mb-0 mt-2 opacity-90">
+        Live-Status der Inserat-Übersetzungen auf diesem Server-Prozess. Leer = keine Aufträge.
+      </p>
+    </header>
+
+    <div class="alert alert-secondary small mb-3">
+      <strong>Hinweis:</strong> Bei mehreren PM2-Instanzen gibt es pro Instanz eine eigene Warteschlange.
+      Aktualisierung alle 2 Sekunden.
+    </div>
+
+    <div id="tq-meta" class="text-muted small mb-3">—</div>
+
+    <div class="card mb-4">
+      <div class="card-header fw-semibold">Gerade aktiv</div>
+      <div class="card-body">
+        <pre id="tq-current" class="mb-0 small bg-light p-3 rounded">—</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header fw-semibold">Noch in der Warteschlange (<span id="tq-backlog">0</span>)</div>
+      <div class="card-body p-0">
+        <div class="table-responsive">
+          <table class="table table-sm mb-0">
+            <thead class="table-light">
+              <tr>
+                <th>Inserat-ID</th>
+                <th>Route / Kategorie</th>
+                <th>Quelle</th>
+              </tr>
+            </thead>
+            <tbody id="tq-waiting-rows">
+              <tr><td colspan="3" class="text-muted px-3 py-3">Lade…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+(function () {
+  const apiUrl = '/admin/listings/translate-queue/api';
+
+  function esc(s) {
+    if (s == null) return '';
+    return String(s)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function render(data) {
+    const meta = document.getElementById('tq-meta');
+    const cur = document.getElementById('tq-current');
+    const backlog = document.getElementById('tq-backlog');
+    const tbody = document.getElementById('tq-waiting-rows');
+
+    if (meta) meta.textContent = 'Stand: ' + (data.updatedAt || '—') + ' · ' + (data.line || '');
+
+    if (cur) {
+      cur.textContent = data.current
+        ? JSON.stringify(data.current, null, 2)
+        : '(kein Inserat wird gerade übersetzt)';
+    }
+
+    if (backlog) backlog.textContent = String(data.backlog ?? (data.waiting && data.waiting.length) ?? 0);
+
+    if (!tbody) return;
+    const rows = data.waiting || [];
+    if (!rows.length) {
+      tbody.innerHTML = '<tr><td colspan="3" class="text-muted px-3 py-3">Keine wartenden Aufträge.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = rows.map(function (j) {
+      return '<tr><td>' + esc(j.id) + '</td><td>' + esc(j.route) + '</td><td>' + esc(j.source) + '</td></tr>';
+    }).join('');
+  }
+
+  async function tick() {
+    try {
+      const r = await fetch(apiUrl, { credentials: 'same-origin' });
+      if (r.status === 403) {
+        render({ waiting: [], current: null, backlog: 0, line: 'Kein Zugriff', updatedAt: new Date().toISOString() });
+        return;
+      }
+      const data = await r.json();
+      if (data.ok) render(data);
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
+  var initialData = <%- JSON.stringify(typeof initialQueue !== 'undefined' ? initialQueue : {}) %>;
+  try { render(initialData); } catch (e) { console.error(e); }
+
+  tick();
+  setInterval(tick, 2000);
+})();
+</script>

@@ -42,12 +42,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const brandTile = (brand, label) => {
     if (!brand) return "";
-    const slug = brand.toLowerCase().replace(/\s+/g, "-");
-    const logo = `https://herando.com/images/cms/brands/${slug}.jpg`;
+    const seo = (ITEM.brand_seoname || "").toString().trim();
+    const slug = seo
+      ? seo.split("/").filter(Boolean).pop()
+      : brand.toLowerCase().replace(/\s+/g, "-");
+    const logo = slug ? `/images/cms/brands/${encodeURIComponent(slug)}.jpg` : "";
     return `
       <div class="col">
         <div class="d-flex align-items-center">
-          <img src="${logo}" alt="${brand}" onerror="this.style.display='none'"
+          <img src="${logo}" alt="${brand}" width="38" height="38" onerror="this.style.display='none'"
                style="height:38px;width:auto;margin-right:.6rem;">
           <div>
             <div class="small text-muted">${label}</div>
